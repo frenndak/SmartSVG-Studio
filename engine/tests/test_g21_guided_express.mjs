@@ -178,6 +178,36 @@ test('blocked output on sheet with missing subject count remains blocked',async(
   assert.equal(result.dataset.state,'BLOCKED');
   assert.equal(elements(result).some(x=>String(x.textContent).includes('incohérent')),true);
 });
+test('manual size, IA and source changes invalidate old QA permanently until rerun',async()=>{
+  const extension=await loadExtension(),n=node();
+  n.widgets[0].value=starter.getProfile('sheet12').project;
+  const originalDraw=function(){return 'legacy-draw-ok';};
+  n.onDrawForeground=originalDraw;
+  n.addDOMWidget=function(a,b,c,d){this.widget={root:c,options:d};return this.widget;};
+  extension.nodeCreated(n);
+  const res=elements(n.widget.root).find(x=>x.attrs['aria-label']==='Contrôle du dernier traitement SmartSVG');
+  n.onExecuted(output('REVIEW_REQUIRED',12));
+  assert.equal(res.dataset.state,'REVIEW');
+  n.widgets[1].value=42;
+  assert.equal(n.onDrawForeground(),'legacy-draw-ok');
+  assert.equal(res.dataset.state,'STALE');
+  n.widgets[1].value=40; // undo must not resurrect an old review
+  n.onDrawForeground();
+  assert.equal(res.dataset.state,'STALE');
+  n.onExecuted(output('REVIEW_REQUIRED',12));
+  assert.equal(res.dataset.state,'REVIEW');
+  n.widgets[2].value='Obligatoire';n.onDrawForeground();
+  assert.equal(res.dataset.state,'STALE');
+  n.onExecuted(output('REVIEW_REQUIRED',12));
+  n.inputs[0].link=1001;n.onDrawForeground();
+  assert.equal(res.dataset.state,'STALE');
+});
+test('signature includes all fabrication-relevant widgets without containing image data',()=>{
+  const n=node(),original=guide.configurationSignature(n);
+  assert.equal(typeof original,'string');
+  n.widgets[3].value='C:/Different';assert.notEqual(guide.configurationSignature(n),original);
+  assert.ok(guide.configurationSignature(n).length<2048);
+});
 test('legacy dashboard no longer stacks on V21.15.2',()=>{
   const old=fs.readFileSync(path.join(root,'../web/js/smartsvg_ui_v2151.js'),'utf8');
   assert.match(old,/new Set\(\["SmartSVGExpressV2151"\]\)/);
