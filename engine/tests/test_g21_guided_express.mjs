@@ -151,7 +151,7 @@ test('unified ComfyUI panel renders real review then clears on stale settings an
   assert.ok(root.attrs.role==='region');
   assert.ok(root.children.length<14);
   const source=output('REVIEW_REQUIRED',12);
-  n.widgets[0].value=options[3]; // choose 12-sheet BEFORE run
+  n.widgets[0].value=starter.getProfile('sheet12').project; // choose 12-sheet BEFORE run
   n.onExecuted(source);
   assert.equal(callbacks,1);
   assert.equal(result.dataset.state,'REVIEW');
