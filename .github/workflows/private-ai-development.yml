@@ -58,7 +58,10 @@ jobs:
           assert r.get("archive_sha256")=="9369656f0216cebb6dccce0d0155bffa16d8c384da6a984bf848cdd8aa003c54"
           PY
           open_prs="$(gh pr list --repo frenndak/SmartSVG-Studio --state open --limit 100 --json headRefName,isDraft)"
-          count="$(jq 'length' <<< "$open_prs")"
+          # A human/bootstrap PR must not starve autonomous engineering.
+          # Enforce WIP=1 among agent branches only; never repair human branches.
+          auto_prs="$(jq '[.[] | select(.headRefName | startswith("smartsvg/auto-"))]' <<< "$open_prs")"
+          count="$(jq 'length' <<< "$auto_prs")"
           if [[ "$count" == "0" && "$phase" == "develop" ]]; then
             branch="smartsvg/auto-${GITHUB_RUN_ID}"
             git switch -c "$branch"
@@ -66,11 +69,11 @@ jobs:
             echo "mode=new" >> "$GITHUB_OUTPUT"
             echo "branch=$branch" >> "$GITHUB_OUTPUT"
           elif [[ "$count" == "1" && "$phase" == "repair" ]]; then
-            branch="$(jq -r '.[0].headRefName' <<< "$open_prs")"
+            branch="$(jq -r '.[0].headRefName' <<< "$auto_prs")"
+            # Fail closed unless this is exactly the sole autonomous branch.
             if [[ "$branch" != smartsvg/auto-* ]]; then
-              echo "Only a separately created draft PR exists; refusing agent repair."
-              echo "proceed=false" >> "$GITHUB_OUTPUT"
-              exit 0
+              echo "::error::Invalid autonomous branch"
+              exit 1
             fi
             git fetch origin "${branch}:refs/remotes/origin/${branch}"
             git switch -c "$branch" "origin/$branch"
@@ -78,7 +81,7 @@ jobs:
             echo "mode=repair" >> "$GITHUB_OUTPUT"
             echo "branch=$branch" >> "$GITHUB_OUTPUT"
           else
-            echo "Nothing actionable for this phase (open PR count: $count)."
+            echo "Nothing actionable for this phase (autonomous PR count: $count)."
             echo "proceed=false" >> "$GITHUB_OUTPUT"
           fi
 
