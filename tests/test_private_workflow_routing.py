@@ -70,6 +70,24 @@ class PrivateAgentRoutingTests(unittest.TestCase):
         self.assertEqual(self.source.count('--ref "$BRANCH"'), 2)
         self.assertIn('git diff --quiet HEAD^ HEAD -- engine/', self.source)
 
+    def test_manual_default_is_preflight_only(self):
+        self.assertIn('execute:', self.source)
+        self.assertIn('default: false', self.source)
+        self.assertIn("inputs.execute == true", self.source)
+        self.assertIn("needs: preflight", self.source)
+        self.assertIn("github.event_name == 'repository_dispatch'", self.source)
+        self.assertIn("inputs.execute == true", self.source)
+        self.assertIn("python tools/verify_source_integrity.py --repo . --archive-only", self.source)
+
+    def test_one_shot_repair_requires_reviewer_label(self):
+        self.assertIn('repair_requested="$(jq', self.source)
+        self.assertIn('"smartsvg:repair" or .name == "bug"', self.source)
+        self.assertIn('[[ "$repair_requested" != "true" ]]', self.source)
+        self.assertIn('Claim reviewer repair request before any API cost', self.source)
+        self.assertIn('gh pr edit "$PR_NUMBER"', self.source)
+        self.assertIn('--remove-label "$REPAIR_LABEL"', self.source)
+        self.assertIn('Require the private OpenAI API secret', self.source)
+
     @classmethod
     def _filter(cls, prs):
         completed = subprocess.run(
