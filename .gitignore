@@ -1,0 +1,28 @@
+# Generated and local files (do not commit private inputs or release binaries)
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+.env
+.env.*
+*.log
+*.bak
+*.tmp
+*.zip
+*.7z
+*.safetensors
+*.ckpt
+*.pth
+output/
+input/
+user/
+models/
+.artifacts/
+.smartsvg-admission-*/
+**/temp/
+**/cache/
+# Synthetic sample outputs can be regenerated from tools/make_synthetic_pngs.py
+examples/generated/

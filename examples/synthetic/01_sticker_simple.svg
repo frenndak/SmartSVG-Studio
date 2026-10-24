@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="80mm" height="80mm" viewBox="0 0 800 800">
+  <title>Original round flower sticker</title>
+  <circle cx="400" cy="400" r="344" fill="#fef0c6" stroke="#2a5263" stroke-width="24"/>
+  <g fill="#ef8d95" stroke="#a84467" stroke-width="8">
+    <ellipse cx="400" cy="266" rx="78" ry="128"/><ellipse cx="400" cy="534" rx="78" ry="128"/>
+    <ellipse cx="266" cy="400" rx="128" ry="78"/><ellipse cx="534" cy="400" rx="128" ry="78"/>
+  </g>
+  <circle cx="400" cy="400" r="94" fill="#ffd35e" stroke="#945d1a" stroke-width="10"/>
+</svg>
