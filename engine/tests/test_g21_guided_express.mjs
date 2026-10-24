@@ -124,8 +124,8 @@ async function loadExtension() {
     .replace('import { api } from "../../scripts/api.js";','const api=globalThis.__ssApi;')
     .replace(/import \{ EXPRESS_CLASS, PROFILES, getProfile, chosenProfile,\s*applyProfile, explainFailure \} from "\.\/smartsvg_express_start_model_g15\.mjs";/,
       'const {EXPRESS_CLASS,PROFILES,getProfile,chosenProfile,applyProfile,explainFailure}=globalThis.__ssModel;')
-    .replace('import { evaluateOutput, emptyState, statusForDisplay, STATES } from "./smartsvg_guide_model_g21.mjs";',
-      'const {evaluateOutput,emptyState,statusForDisplay,STATES}=globalThis.__ssGuide;')
+    .replace('import { evaluateOutput, emptyState, statusForDisplay, STATES, configurationSignature } from "./smartsvg_guide_model_g21.mjs";',
+      'const {evaluateOutput,emptyState,statusForDisplay,STATES,configurationSignature}=globalThis.__ssGuide;')
     .replace('import { previewUrl } from "./smartsvg_ui_model_v2151.mjs";',
       'const previewUrl=globalThis.__ssPreviewUrl;');
   await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64')+'#'+(++sequence));
