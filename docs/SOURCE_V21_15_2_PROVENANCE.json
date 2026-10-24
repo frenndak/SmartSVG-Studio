@@ -3,7 +3,7 @@
   "release": "V21.15.2",
   "source": "User-supplied installation ZIP, 24 October 2026",
   "original_filename": "ComfyUI_SmartSVG_Studio_V21_15_2_Installation(1).zip",
-  "release_asset_filename": "ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip",
+  "release_asset_filename": "source-releases/ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip",
   "archive_bytes": 2020938,
   "archive_sha256": "9369656f0216cebb6dccce0d0155bffa16d8c384da6a984bf848cdd8aa003c54",
   "archive_entries": 652,
@@ -23,18 +23,29 @@
     },
     "javascript_selected": {
       "passed": 10
-    }
+    },
+    "python_full_suite": {
+      "passed": 876,
+      "failed": 0,
+      "python_version": "3.13.5",
+      "duration_seconds": 59.661
+    },
+    "javascript_all_scripts": {
+      "scripts_passed": 12,
+      "failed": 0,
+      "node_version": "22.16.0"
+    },
+    "source_git_tree_matches_original": true
   },
   "not_verified": [
-    "complete application test suite (local run timed out)",
     "ComfyUI interactive frontend on target PC",
     "RTX 3070 model inference",
     "Cricut Design Space import",
     "physical Cricut Explore 5 cutting"
   ],
-  "repository_import_status": "awaiting private release asset upload + private bootstrap workflow",
+  "repository_import_status": "imported into private main via PR #6, commit bcd9c40483800a139cb8c3019725c3b3429a46a5",
   "baseline_v21141_preserved": true,
-  "automatic_readiness_authorized": false,
+  "automatic_readiness_authorized": "Source admission marker created for development draft PRs; external API credentials and enable variable still controlled separately",
   "generated_on": "2026-10-24",
-  "documentation_note": "This is a provenance record of tested ZIP bytes, not proof the ZIP is stored in GitHub Releases."
+  "documentation_note": "Original binary and extracted 652 files verified against local original; full Python and JS suites passed locally. Does not certify physical/Cricut/GPU."
 }
