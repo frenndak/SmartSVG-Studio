@@ -11,6 +11,8 @@ on:
       - "tests/test_v21152_manifest.py"
       - "tests/test_svg_contracts.py"
       - "tests/test_synthetic_pngs.py"
+      - "tests/test_private_workflow_routing.py"
+      - ".github/workflows/private-ai-development.yml"
       - "tools/make_synthetic_pngs.py"
       - "tools/inspect_svg_contracts.py"
       - "examples/synthetic/**"
