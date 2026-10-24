@@ -10,6 +10,10 @@ on:
         description: develop or repair
         options: [develop, repair]
         default: develop
+      execute:
+        type: boolean
+        description: "Explicitly run paid Codex (unchecked runs free preflight only)"
+        default: false
 
 permissions:
   contents: write
@@ -47,7 +51,7 @@ jobs:
           echo "Manual preflight passed. No Codex or paid API call was invoked."
 
   engineer:
-    if: vars.SMARTSVG_AUTOMATION_ENABLED == 'true'
+    if: vars.SMARTSVG_AUTOMATION_ENABLED == 'true' && (github.event_name == 'repository_dispatch' || inputs.execute == true)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -104,6 +108,7 @@ jobs:
             fi
             branch="$(jq -r '.[0].headRefName' <<< "$auto_prs")"
             echo "pr_number=$(jq -r '.[0].number' <<< "$auto_prs")" >> "$GITHUB_OUTPUT"
+            echo "repair_label=$(jq -r '[.[0].labels[].name | select(. == "smartsvg:repair" or . == "bug")] | first' <<< "$auto_prs")" >> "$GITHUB_OUTPUT"
             # Fail closed unless this is exactly the sole autonomous branch.
             if [[ "$branch" != smartsvg/auto-* ]]; then
               echo "::error::Invalid autonomous branch"
@@ -117,6 +122,31 @@ jobs:
           else
             echo "Nothing actionable for this phase (autonomous PR count: $count)."
             echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Claim reviewer repair request before any API cost
+        if: steps.gate.outputs.proceed == 'true' && steps.gate.outputs.mode == 'repair'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.gate.outputs.pr_number }}
+          REPAIR_LABEL: ${{ steps.gate.outputs.repair_label }}
+        run: |
+          set -euo pipefail
+          test -n "$PR_NUMBER"
+          test -n "$REPAIR_LABEL"
+          gh pr edit "$PR_NUMBER" --repo frenndak/SmartSVG-Studio --remove-label "$REPAIR_LABEL" >/dev/null
+          echo "Claimed one review request before invoking paid Codex."
+
+      - name: Require the private OpenAI API secret
+        if: steps.gate.outputs.proceed == 'true'
+        shell: bash
+        env:
+          CODEX_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [[ -z "$CODEX_KEY" ]]; then
+            echo "::error::OPENAI_API_KEY is not configured in PRIVATE Actions secrets."
+            exit 1
           fi
 
       - name: Set up Python
@@ -199,9 +229,7 @@ jobs:
           else
             echo "Existing private PR updated for independent review."
             pr_number="${{ steps.gate.outputs.pr_number }}"
-            # Consume the request exactly once; no infinite paid repair loop.
-            gh pr edit "$pr_number" --repo frenndak/SmartSVG-Studio --remove-label smartsvg:repair >/dev/null 2>&1 || true
-            gh pr edit "$pr_number" --repo frenndak/SmartSVG-Studio --remove-label bug >/dev/null 2>&1 || true
+            # Repair request already consumed in the pre-Codex claim step.
           fi
           # GITHUB_TOKEN-origin PR events can wait for a separate approval;
           # workflow_dispatch is an explicit documented GitHub exception.
