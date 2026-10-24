@@ -1,0 +1,9 @@
+SMARTSVG G0 SOURCE-ADMISSION READY — DEVELOPMENT PRs ONLY
+Date: 2026-10-24
+Source: engine/ imported exactly from source-releases/ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip
+SHA-256: 9369656f0216cebb6dccce0d0155bffa16d8c384da6a984bf848cdd8aa003c54
+Verified: 651 internal manifest SHA-256, 652 extracted files identical, 876 Python unittest passed, 12 JavaScript test scripts passed, GitHub G0 CI passed.
+Evidence: docs/IMPORT_V21_15_2.json and GitHub workflow run 40121242046.
+Authorization: an automated development agent may PROPOSE draft PRs only; never merge, publish, modify frozen roadmap or mark G2-G9 gates passed. Human/independent review is mandatory.
+Limitations: no actual RTX 3070 model inference, ComfyUI GUI integration, Design Space import, or Cricut Explore 5 physical print-and-cut have been observed.
+This marker does not enable GitHub workflow billing or configure API secrets. External automation remains subject to separately controlled GitHub variables and credentials.
