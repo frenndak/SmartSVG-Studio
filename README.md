@@ -1,31 +1,42 @@
-# SmartSVG Studio
+# SmartSVG Studio — source privée
 
-Private source repository for SmartSVG Studio (ComfyUI / Cricut preparation).
+## Statut : V21.15.2 importée et vérifiée
 
-## Source of truth
+- Archive binaire authentique : `source-releases/ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip`.
+- Moteur extrait : `engine/` (**652 fichiers**, vérifiés octet pour octet contre le ZIP).
+- SHA-256 de l'archive : `9369656f0216cebb6dccce0d0155bffa16d8c384da6a984bf848cdd8aa003c54`.
+- Manifeste : `INSTALLATION_MANIFEST_V21_15_2.json`, 651 empreintes internes conformes.
+- GitHub : PR #6 fusionnée dans `main`, vérification G0 CI réussie.
+- Régressions exécutées localement : **876 tests Python** (Python 3.13.5), **12 scripts de tests JavaScript** (Node 22.16.0), tous passés dans l'environnement contrôlé.
+- Référence produit : `docs/ROADMAP_MASTER_v3_2.md`, figée avec SHA-256.
+- Preuves et limites : `docs/IMPORT_V21_15_2.json` et `docs/SOURCE_V21_15_2_PROVENANCE.json`.
 
-- Planned roadmap: SmartSVG Studio MASTER ROADMAP v3.2 (frozen consolidated copy, to be imported).
-- Latest candidate archive in the project library: `ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip` (to be imported and verified).
-- Keep historic frozen baseline V21.14.1 separate, unchanged.
-- Never publish private source, user images, test fixtures, prompts, logs or exports in the public orchestration repo.
+Ces tests ne prouvent pas une exécution des modèles IA sur RTX 3070, ni une ouverture réelle dans ComfyUI/Design Space, ni une découpe physique Cricut Explore 5.
 
-## Bootstrap safety
+## Développement contrôlé
 
-The automated development runner MUST NOT modify this repository until the actual source tree and authoritative roadmap are imported and a maintainer creates `.automation/READY` after verifying them. Changes must be proposed through draft pull requests, never pushed to `main` by automation.
+Le marqueur `.automation/READY` atteste uniquement l'admission du code pour **proposer des pull requests de développement**. L'agent ne doit pas fusionner de PR ni déclarer des jalons de fabrication validés.
 
-See: `frenndak/SmartSVG-Automation` for the public orchestration skeleton.
+L'orchestration publique est dans `frenndak/SmartSVG-Automation` ; elle ne récupère plus les sources et ne fait que déclencher un événement. Le travail Codex se fait **dans ce dépôt privé** au moyen de `.github/workflows/private-ai-development.yml`.
 
-## Bootstrap V21.15.2 - Private source import
+Pour que l'automatisation effectue effectivement des changements, il faut encore, dans GitHub Settings :
+1. Déposer `OPENAI_API_KEY` comme secret Actions **sur ce dépôt privé uniquement** (utilisation API facturée séparément).
+2. Configurer la variable Actions privée `SMARTSVG_AUTOMATION_ENABLED=true`.
+3. Configurer sur le dépôt public son jeton **SMARTSVG_DISPATCH_TOKEN** limité au dépôt privé et sa propre variable d'activation.
+4. Lancer un cycle manuel de contrôle et relire les PRs privées générées avant de maintenir les déclenchements réguliers.
 
-The canonical V3.2 roadmap is in docs/ROADMAP_MASTER_v3_2.md.
-No substitute, partial reconstruction, or fake source tree is acceptable.
+Tant que ces paramètres ne sont pas renseignés, les tâches GitHub de développement IA ne sont pas effectives. La revue GPT horaire est indépendante de l'exécution API de GitHub.
 
-1. Review and merge the existing G0 branch/PR #1, including its archive verifier and isolated importer.
-2. Upload the original ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip to a PRIVATE release named smartsvg-v21.15.2-source (exact asset filename).
-3. Actions > SmartSVG - Import private source release > Run workflow.
-4. The bootstrap extracts into engine/ on a new PRIVATE branch and proposes a draft PR.
-5. Independently validate the internal package manifest, node compatibility, existing tests, PNG Print Then Cut, editable SVG, cut SVG and ComfyUI.
-6. Only once independently validated, set up an operator-created .automation/READY marker; use the public orchestrator only with explicit accepted runner visibility and properly scoped secrets.
+## Vérifications reproductibles
 
-Do not claim GPU inference, Design Space import, or real Cricut cutting was tested until actually observed.
-Current state: code archive is absent from the repository; the G0 bootstrap tool is in PR #1.
+```bash
+python tools/verify_source_integrity.py --repo .
+python -m unittest discover -s tests -p 'test_*.py' -q
+cd engine
+python -m unittest discover -s tests -p 'test_*.py' -q
+for f in tests/*.mjs; do node "$f"; done
+```
+
+Les tests applicatifs historiques peuvent nécessiter du temps et des dépendances variables suivant la machine ; conserver les journaux, versions et limites.
+
+**Ne pas supprimer l'archive originale ni la roadmap figée.**
