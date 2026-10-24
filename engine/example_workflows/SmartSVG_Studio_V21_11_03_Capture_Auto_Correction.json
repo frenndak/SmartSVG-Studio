@@ -1,0 +1,429 @@
+{
+  "id": "SmartSVG_Studio_V21_9_01",
+  "revision": 0,
+  "last_node_id": 5,
+  "last_link_id": 6,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        40,
+        120
+      ],
+      "size": [
+        350,
+        320
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "choisir_image.png",
+        "image"
+      ],
+      "title": "1 - Importer dessin PNG"
+    },
+    {
+      "id": 2,
+      "type": "SmartSVGExpressV218",
+      "pos": [
+        2020,
+        150
+      ],
+      "size": [
+        490,
+        500
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 2,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 3
+        },
+        {
+          "name": "dossier_sortie",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "dossier_sortie"
+          }
+        },
+        {
+          "name": "projet",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "projet"
+          }
+        },
+        {
+          "name": "largeur_mm",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "largeur_mm"
+          }
+        },
+        {
+          "name": "qualite_ppp",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "qualite_ppp"
+          }
+        },
+        {
+          "name": "ia_locale",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "ia_locale"
+          }
+        },
+        {
+          "name": "masques_objets",
+          "type": "MASK",
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "apercu",
+          "type": "IMAGE",
+          "links": null,
+          "slot_index": 0
+        },
+        {
+          "name": "resume_lisible",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 1
+        },
+        {
+          "name": "rapport_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGExpressV2151"
+      },
+      "widgets_values": [
+        "",
+        "Sticker - contour du sujet",
+        40.0,
+        "300",
+        "Desactivee"
+      ],
+      "title": "SmartSVG EXPRESS V21.8 — Import Cricut direct"
+    },
+    {
+      "id": 3,
+      "type": "SmartSVGUnifiedEditorV2110",
+      "pos": [
+        1280,
+        150
+      ],
+      "size": [
+        420,
+        290
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 2
+        },
+        {
+          "name": "retouches_json",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "retouches_json"
+          }
+        },
+        {
+          "name": "masque_base",
+          "type": "MASK",
+          "link": 6
+        }
+      ],
+      "outputs": [
+        {
+          "name": "masques_corriges",
+          "type": "MASK",
+          "links": [
+            4
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "image_source",
+          "type": "IMAGE",
+          "links": [
+            3
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "diagnostic_retouches",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGMaskEditorV216"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "title": "SmartSVG V21.10 · Inspecter + corriger natif"
+    },
+    {
+      "id": 4,
+      "type": "SmartSVGPrepareV217",
+      "pos": [
+        450,
+        150
+      ],
+      "size": [
+        400,
+        300
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "mode",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "mode"
+          }
+        },
+        {
+          "name": "gauche_pct",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "gauche_pct"
+          }
+        },
+        {
+          "name": "droite_pct",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "droite_pct"
+          }
+        },
+        {
+          "name": "haut_pct",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "haut_pct"
+          }
+        },
+        {
+          "name": "bas_pct",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "bas_pct"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image_preparee",
+          "type": "IMAGE",
+          "links": [
+            2,
+            5
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "rapport_recadrage",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGPrepareV217"
+      },
+      "widgets_values": [
+        "Retirer bandes noires (prudent)",
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": 5,
+      "type": "SmartSVGAutoMasksV2111",
+      "pos": [
+        850,
+        150
+      ],
+      "size": [
+        420,
+        240
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 5
+        },
+        {
+          "name": "ia_locale",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "ia_locale"
+          }
+        },
+        {
+          "name": "alpha_loadimage",
+          "type": "MASK",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "masques_a_verifier",
+          "type": "MASK",
+          "links": [
+            6
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "image_source",
+          "type": "IMAGE",
+          "links": null,
+          "slot_index": 1
+        },
+        {
+          "name": "rapport_detourage_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGAutoMasksV2111"
+      },
+      "widgets_values": [
+        "Si disponible"
+      ],
+      "title": "V21.11 — Masques automatiques"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      4,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      4,
+      0,
+      3,
+      0,
+      "IMAGE"
+    ],
+    [
+      3,
+      3,
+      1,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      4,
+      3,
+      0,
+      2,
+      6,
+      "MASK"
+    ],
+    [
+      5,
+      4,
+      0,
+      5,
+      0,
+      "IMAGE"
+    ],
+    [
+      6,
+      5,
+      0,
+      3,
+      2,
+      "MASK"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "smartsvg_release": "21.7.1",
+    "guide": "Image opaque ou capture: recadrer avant masque; dessiner et sauvegarder, puis reactiver EXPRESS.",
+    "warning": "Enregistrer les traits puis relancer pour obtenir les exports Cricut",
+    "first_run": "EXPRESS desactive initialement; dessiner/enregistrer le masque puis mettre EXPRESS en mode Always (0).",
+    "hd_automatique": "PNG complementaires a 600 ppp dans 06_HD_AUTOMATIQUE_V21_7_1; fichiers Cricut de fabrication conserves",
+    "note_hd": "Aucun parametre supplementaire; HD refusee si risque de memoire, de geometrie ou de renforcement excessif.",
+    "smartsvg": {
+      "note": "Le recadrage ne crée pas de masque. Exécuter l’éditeur, dessiner, enregistrer puis réactiver Express."
+    }
+  },
+  "version": 0.4
+}

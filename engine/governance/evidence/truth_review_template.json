@@ -1,0 +1,139 @@
+{
+  "schema_version": "g0-truth-review-1",
+  "protocol": {
+    "mask_positive": "sujet blanc 255; fond noir 0",
+    "alpha": "pas de masque plein écran accepté sans justification",
+    "raters_required": 2,
+    "procedure": "noter inclusion accessoires, trous, composants, artefacts, silhouette, incertitude; conserver masques PNG distincts",
+    "agreement_rule": "si écart, arbitrage humain documenté; aucun score automatique ne vaut certification",
+    "critical_rejections": [
+      "rectangular_background_as_subject",
+      "unwanted_multiple_cut_paths",
+      "cut_width_mismatch",
+      "missing_source"
+    ]
+  },
+  "reviews": [
+    {
+      "id": "T-01",
+      "annotation_status": "PENDING",
+      "mask_file": null,
+      "mask_sha256": null,
+      "rater_1": null,
+      "rater_2": null,
+      "resolution": null,
+      "expected_subject_count": 1,
+      "accessory_notes": "",
+      "source_sha256": "a408c4b908b06782b1e8c29ede6804bf5fcb32d5b65d30852252c71780c6c7b3"
+    },
+    {
+      "id": "T-02",
+      "annotation_status": "PENDING",
+      "mask_file": null,
+      "mask_sha256": null,
+      "rater_1": null,
+      "rater_2": null,
+      "resolution": null,
+      "expected_subject_count": 12,
+      "accessory_notes": "",
+      "source_sha256": "cbaf4df5ca662217978bff5f64e3a6a6917e835fba33305552269df56546b0af"
+    },
+    {
+      "id": "T-03",
+      "annotation_status": "PENDING",
+      "mask_file": null,
+      "mask_sha256": null,
+      "rater_1": null,
+      "rater_2": null,
+      "resolution": null,
+      "expected_subject_count": 1,
+      "accessory_notes": "",
+      "source_sha256": "456429e0c4797dc25058d2c595726feda704c1870c82ff9e65e53c4a258fc851"
+    },
+    {
+      "id": "T-04",
+      "annotation_status": "PENDING",
+      "mask_file": null,
+      "mask_sha256": null,
+      "rater_1": null,
+      "rater_2": null,
+      "resolution": null,
+      "expected_subject_count": 1,
+      "accessory_notes": "",
+      "source_sha256": "6e7699553a3eea4e1d43e80023f8b5baa7f02e6592670fe9ba9aa07e6733a0d8"
+    },
+    {
+      "id": "T-05",
+      "annotation_status": "PENDING",
+      "mask_file": null,
+      "mask_sha256": null,
+      "rater_1": null,
+      "rater_2": null,
+      "resolution": null,
+      "expected_subject_count": 1,
+      "accessory_notes": "",
+      "source_sha256": "e4b51eb04a6d49d15e1f8987fe78f87c82d63bd7651717eba2928f9c22855b82"
+    },
+    {
+      "id": "T-06",
+      "annotation_status": "PENDING",
+      "mask_file": null,
+      "mask_sha256": null,
+      "rater_1": null,
+      "rater_2": null,
+      "resolution": null,
+      "expected_subject_count": 1,
+      "accessory_notes": "",
+      "source_sha256": "f1c05b6fc7852a97cd75adee204913055e73fb053cf8d8d375df27a1f0d8a634"
+    },
+    {
+      "id": "T-07",
+      "annotation_status": "PENDING",
+      "mask_file": null,
+      "mask_sha256": null,
+      "rater_1": null,
+      "rater_2": null,
+      "resolution": null,
+      "expected_subject_count": 1,
+      "accessory_notes": "",
+      "source_sha256": "a9c6d6c807d4fc8f118e850fd6b2d74db5ac0e5f91be2a8febd0f76741c028a0"
+    },
+    {
+      "id": "T-08",
+      "annotation_status": "PENDING",
+      "mask_file": null,
+      "mask_sha256": null,
+      "rater_1": null,
+      "rater_2": null,
+      "resolution": null,
+      "expected_subject_count": 1,
+      "accessory_notes": "",
+      "source_sha256": "6716f32eea01287f8c9c13bcb879eeffa5dd2c863e4bb860b3fa4f905ce2c9cf"
+    },
+    {
+      "id": "T-09",
+      "annotation_status": "PENDING",
+      "mask_file": null,
+      "mask_sha256": null,
+      "rater_1": null,
+      "rater_2": null,
+      "resolution": null,
+      "expected_subject_count": 24,
+      "accessory_notes": "",
+      "source_sha256": "f3376a7936955d794d856495cb1eb251d684ea5920e94d0be04d549df0ebb9e6"
+    }
+  ],
+  "validated_synthetic": [
+    {
+      "id": "R-01",
+      "mask_sha256": "71afe8b4a1e1d1c54aa76dc315585ddb13cfa0545d6957f594ca3fae408ed677",
+      "decision": "ACCEPT_ALPHA_MASK"
+    },
+    {
+      "id": "R-02",
+      "mask_sha256": "3b1f64a0bde1b92a43339ab49b520c970867229064fef04447eafc351786a30e",
+      "decision": "REJECT_AUTO_SILHOUETTE"
+    }
+  ],
+  "interpretation": "masques T humains manquants : gate G0.3 NON VALIDÉ"
+}

@@ -1,0 +1,68 @@
+{
+  "schema_version": "g0-risks-1",
+  "validation_environment": "CAAS Linux local - NOT TARGET WINDOWS / RTX 3070",
+  "risk_status": "INITIAL_ASSESSMENT_NOT_USER_HARDWARE_TEST",
+  "risks": [
+    {
+      "code": "P0-01",
+      "risk": "alpha inversé ou masque rectangle exporté comme sujet",
+      "mitigation": "fixture R-02 + refus explicite avant coupe",
+      "verification": "fixture_negative_only"
+    },
+    {
+      "code": "P0-02",
+      "risk": "déplacement ou échelle mm erronée",
+      "mitigation": "contrat mm/pixel indépendant, coupon physique",
+      "verification": "physical_test_pending"
+    },
+    {
+      "code": "P0-03",
+      "risk": "SVG couleur pris pour chemin de coupe",
+      "mitigation": "séparer ART, CUT, PRINT_THEN_CUT et alerte",
+      "verification": "UI_and_Design_Space_pending"
+    },
+    {
+      "code": "P0-04",
+      "risk": "regression de noeud historique",
+      "mitigation": "inventaire, hash source, tests existants, rollback V21.14.1",
+      "verification": "static_and_local_tests_only"
+    },
+    {
+      "code": "P0-05",
+      "risk": "sauvegarde ou édition destructive",
+      "mitigation": "sources conservées, G1.3 checkpoint et hash",
+      "verification": "G1.3_pending"
+    },
+    {
+      "code": "P1-06",
+      "risk": "OOM GPU modèle IA",
+      "mitigation": "diagnostic RTX 3070 8Go, mode sans IA",
+      "verification": "GPU_pending"
+    },
+    {
+      "code": "P1-07",
+      "risk": "image non redistribuable dans logiciel public",
+      "mitigation": "corpus sources externe, manifest interne avec hash",
+      "verification": "public_bundle_without_user_media"
+    },
+    {
+      "code": "P1-08",
+      "risk": "JS/ComfyUI ne fonctionne pas sous Windows",
+      "mitigation": "versions/QA navigateur cibles, G8",
+      "verification": "Windows_pending"
+    },
+    {
+      "code": "P1-09",
+      "risk": "sur-découpe petits chemins",
+      "mitigation": "inspecter trajectoires, essais matière",
+      "verification": "physical_test_pending"
+    }
+  ],
+  "evidence_levels": {
+    "static": "executed_on_copy",
+    "software_target": "not_executed",
+    "design_space": "not_executed",
+    "physical": "not_executed",
+    "gpu_ai": "not_executed"
+  }
+}

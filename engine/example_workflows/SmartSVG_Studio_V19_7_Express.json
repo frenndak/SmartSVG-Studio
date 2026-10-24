@@ -1,0 +1,235 @@
+{
+  "id": "SmartSVG_Studio_V19_7_Express",
+  "revision": 0,
+  "last_node_id": 2,
+  "last_link_id": 2,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        80,
+        180
+      ],
+      "size": [
+        340,
+        314
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            2
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "selectionner_une_image_ou_planche.png",
+        "image"
+      ],
+      "title": "1 - Choisir PNG / JPG / planche"
+    },
+    {
+      "id": 2,
+      "type": "SmartSVGStudioV197Express",
+      "pos": [
+        510,
+        180
+      ],
+      "size": [
+        520,
+        330
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "dossier_sortie",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "dossier_sortie"
+          }
+        },
+        {
+          "name": "largeur_planche_mm",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "largeur_planche_mm"
+          }
+        },
+        {
+          "name": "type_fichier",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "type_fichier"
+          }
+        },
+        {
+          "name": "segmentation_objets",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "segmentation_objets"
+          }
+        },
+        {
+          "name": "analyse_florence",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "analyse_florence"
+          }
+        },
+        {
+          "name": "profil_segmentation",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "profil_segmentation"
+          }
+        },
+        {
+          "name": "raffinement_contours",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "raffinement_contours"
+          }
+        },
+        {
+          "name": "contacts_objets",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "contacts_objets"
+          }
+        },
+        {
+          "name": "comparaison_masques",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "comparaison_masques"
+          }
+        },
+        {
+          "name": "profil_performances",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "profil_performances"
+          }
+        },
+        {
+          "name": "masque_png",
+          "type": "MASK",
+          "link": 2
+        },
+        {
+          "name": "masques_objets",
+          "type": "MASK",
+          "link": null
+        },
+        {
+          "name": "masque_alternative_B",
+          "type": "MASK",
+          "link": null
+        },
+        {
+          "name": "masque_alternative_C",
+          "type": "MASK",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "APERÇU",
+          "type": "IMAGE",
+          "links": null,
+          "slot_index": 0
+        },
+        {
+          "name": "RAPPORT",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGStudioV191Express"
+      },
+      "widgets_values": [
+        "C:\\Users\\Public\\Documents\\Cricut_SVG",
+        180,
+        "auto",
+        "auto",
+        "auto",
+        "auto",
+        "conservateur",
+        "conservateur",
+        "diagnostic",
+        "activer"
+      ],
+      "title": "V19.7 Express — performances reelles",
+      "color": "#1d5d53",
+      "bgcolor": "#18433b"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      1,
+      1,
+      2,
+      11,
+      "MASK"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1,
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "description": "V19.6 : ancien moteur photo intact, masques alternatifs facultatifs; diagnostic/selection prudente, jamais sans masque reference."
+  },
+  "version": 0.4
+}

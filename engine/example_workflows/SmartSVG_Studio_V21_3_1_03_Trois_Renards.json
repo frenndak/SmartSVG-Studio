@@ -1,0 +1,263 @@
+{
+  "id": "SmartSVG_Studio_V21_3_03_Trois_Renards",
+  "revision": 0,
+  "last_node_id": 3,
+  "last_link_id": 3,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        80,
+        180
+      ],
+      "size": [
+        350,
+        320
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1,
+            2
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "choisir_image.png",
+        "image"
+      ],
+      "title": "1 - Importer image"
+    },
+    {
+      "id": 3,
+      "type": "SmartSVGInstancesV2131",
+      "pos": [
+        510,
+        140
+      ],
+      "size": [
+        540,
+        430
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 2
+        },
+        {
+          "name": "profil",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "profil"
+          }
+        },
+        {
+          "name": "source_boites",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "source_boites"
+          }
+        },
+        {
+          "name": "boites_json",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "boites_json"
+          }
+        },
+        {
+          "name": "max_objets",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "max_objets"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "masques_individuels",
+          "type": "MASK",
+          "links": [
+            3
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "apercu_guidage",
+          "type": "IMAGE",
+          "links": null,
+          "slot_index": 1
+        },
+        {
+          "name": "diagnostic_instances",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGInstancesV213"
+      },
+      "widgets_values": [
+        "Trois renards",
+        "Florence-2",
+        "[]",
+        6
+      ],
+      "title": "2 - Detecter instances (Florence) et segmenter (SAM2) - VERIFIER"
+    },
+    {
+      "id": 2,
+      "type": "SmartSVGExpressV2131",
+      "pos": [
+        1090,
+        170
+      ],
+      "size": [
+        660,
+        450
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "dossier_sortie",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "dossier_sortie"
+          }
+        },
+        {
+          "name": "projet",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "projet"
+          }
+        },
+        {
+          "name": "largeur_mm",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "largeur_mm"
+          }
+        },
+        {
+          "name": "qualite_ppp",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "qualite_ppp"
+          }
+        },
+        {
+          "name": "ia_locale",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "ia_locale"
+          }
+        },
+        {
+          "name": "masques_objets",
+          "type": "MASK",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "apercu",
+          "type": "IMAGE",
+          "links": null,
+          "slot_index": 0
+        },
+        {
+          "name": "resume_lisible",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 1
+        },
+        {
+          "name": "rapport_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGExpressV213"
+      },
+      "widgets_values": [
+        "",
+        "Sticker - contour du sujet",
+        45,
+        "300",
+        "Desactivee"
+      ],
+      "title": "3 - EXPRESS - exporter contours PNG + SVG + controle"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      1,
+      0,
+      3,
+      0,
+      "IMAGE"
+    ],
+    [
+      3,
+      3,
+      0,
+      2,
+      6,
+      "MASK"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

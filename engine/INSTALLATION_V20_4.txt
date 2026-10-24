@@ -1,0 +1,18 @@
+SmartSVG Studio V20.4 — ajout non destructif de controles de contours
+
+1. Fermer ComfyUI et sauvegarder V20.3 en dehors de custom_nodes.
+2. Extraire ComfyUI-SmartSVG-Studio-V20.4 sous custom_nodes.
+3. Redemarrer ComfyUI.
+4. Charger example_workflows/SmartSVG_Studio_V20_4_LineArt_Protection.json
+   et ouvrir une IMAGE avec LoadImage.
+5. Conserver controle_contours=activer. Un rapport apparait dans QA_QUALITE_V20_4
+   seulement si un masque IA a reellement ete obtenu.
+6. Pour auditer un MASK deja fourni par un autre modele, utiliser
+   SmartSVG_Studio_V20_4_Controle_Masques_IA.json.
+7. Les PNG/SVG proposes pour Cricut demandent toujours une verification
+   visuelle; le nouvel audit n'approuve aucune decoupe automatiquement.
+
+Pour verifier hors ComfyUI, depuis le dossier extrait :
+  python verify_package_v204.py
+
+L'environnement de test ne dispose pas d'une RTX 3070 CUDA ni de Cricut physique.

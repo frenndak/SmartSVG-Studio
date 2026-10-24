@@ -1,0 +1,4 @@
+# ComfyUI usually includes these; no heavyweight new AI runtime is installed.
+numpy>=1.24
+Pillow>=10
+opencv-python>=4.7

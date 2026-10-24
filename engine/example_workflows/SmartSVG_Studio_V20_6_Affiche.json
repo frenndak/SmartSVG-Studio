@@ -1,0 +1,158 @@
+{
+  "id": "SmartSVG_Studio_V20_6_Affiche",
+  "revision": 0,
+  "last_node_id": 2,
+  "last_link_id": 1,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        80,
+        180
+      ],
+      "size": [
+        350,
+        320
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "choisir_image.png",
+        "image"
+      ],
+      "title": "1 - Importer image"
+    },
+    {
+      "id": 2,
+      "type": "SmartSVGSimpleV206",
+      "pos": [
+        520,
+        170
+      ],
+      "size": [
+        610,
+        405
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "dossier_sortie",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "dossier_sortie"
+          }
+        },
+        {
+          "name": "profil",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "profil"
+          }
+        },
+        {
+          "name": "operation",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "operation"
+          }
+        },
+        {
+          "name": "largeur_mm",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "largeur_mm"
+          }
+        },
+        {
+          "name": "qualite_ppp",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "qualite_ppp"
+          }
+        },
+        {
+          "name": "grille_multi",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "grille_multi"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "apercu",
+          "type": "IMAGE",
+          "links": null,
+          "slot_index": 0
+        },
+        {
+          "name": "rapport",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGSimpleV206"
+      },
+      "widgets_values": [
+        "C:\\Users\\Public\\Documents\\Cricut_SVG",
+        "affiche",
+        "carte_rectangle",
+        100,
+        "300",
+        "6x4"
+      ],
+      "title": "2 - Export Cricut HD Affiche"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

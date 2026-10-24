@@ -1,0 +1,182 @@
+{
+  "id": "SmartSVG_Studio_V21_11_2_01_Express_Auto_Deux_Etapes",
+  "revision": 0,
+  "last_node_id": 2,
+  "last_link_id": 2,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        40,
+        120
+      ],
+      "size": [
+        350,
+        320
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            2
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "choisir_image.png",
+        "image"
+      ],
+      "title": "1 · Choisir mon image PNG ou JPG"
+    },
+    {
+      "id": 2,
+      "type": "SmartSVGAutoExpressV21112",
+      "pos": [
+        710,
+        150
+      ],
+      "size": [
+        490,
+        500
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "dossier_sortie",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "dossier_sortie"
+          }
+        },
+        {
+          "name": "projet",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "projet"
+          }
+        },
+        {
+          "name": "largeur_mm",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "largeur_mm"
+          }
+        },
+        {
+          "name": "qualite_ppp",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "qualite_ppp"
+          }
+        },
+        {
+          "name": "ia_locale",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "ia_locale"
+          }
+        },
+        {
+          "name": "masques_objets",
+          "type": "MASK",
+          "link": null
+        },
+        {
+          "name": "alpha_loadimage",
+          "type": "MASK",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "apercu",
+          "type": "IMAGE",
+          "links": null,
+          "slot_index": 0
+        },
+        {
+          "name": "resume_lisible",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 1
+        },
+        {
+          "name": "rapport_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGAutoExpressV2111"
+      },
+      "widgets_values": [
+        "",
+        "Sticker - contour du sujet",
+        40.0,
+        "300",
+        "Si disponible"
+      ],
+      "title": "2 · Créer automatiquement les PNG Print Then Cut (précontrôle local)"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      1,
+      1,
+      2,
+      7,
+      "MASK"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "smartsvg_release": "21.7.1",
+    "guide": "PNG transparent: inverser MASK de LoadImage, corriger le masque si besoin, puis exporter.",
+    "warning": "Enregistrer les traits puis relancer pour obtenir les exports Cricut",
+    "first_run": "Exporter Express est muet (mode 2) pour permettre de peindre un masque vide. Après retouche et sauvegarde, passer Express en mode Always (0) puis relancer.",
+    "hd_automatique": "PNG complementaires a 600 ppp dans 06_HD_AUTOMATIQUE_V21_7_1; fichiers Cricut de fabrication conserves",
+    "note_hd": "Aucun parametre supplementaire; HD refusee si risque de memoire, de geometrie ou de renforcement excessif."
+  },
+  "version": 0.4
+}

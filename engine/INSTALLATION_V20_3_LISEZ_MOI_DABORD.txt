@@ -1,0 +1,20 @@
+SmartSVG Studio V20.3 — Lire d'abord
+
+1. Sauvegarder la version precedente hors de ComfyUI/custom_nodes.
+2. Extraire tout le dossier ComfyUI-SmartSVG-Studio-V20.3 dans custom_nodes.
+3. Redemarrer ComfyUI.
+4. Charger example_workflows/SmartSVG_Studio_V20_3_Diagnostic_GPU.json.
+5. Charger example_workflows/SmartSVG_Studio_V20_3_LineArt_Protection_GPU.json.
+
+Mode protege: si CUDA indisponible / memoire inconnue ou libre insuffisante,
+les exports Cricut continuent, mais SAM2/Florence-2 ne sont pas appeles par
+SmartSVG. Aucune fausse silhouette IA n'est creee.
+
+Le mode de decoupe de chaque trait reste distinct de la silhouette d'un sticker.
+Les nouveaux rapports GPU sont dans QA_GPU_V20_3, et ne prouvent pas la
+consommation d'un modele isolé ni la precision d'un detourage.
+
+Tests sur RTX 3070 / fabrication Cricut: encore a effectuer.
+
+Documentation: README_V20_3.md
+Verification: python verify_package_v203.py

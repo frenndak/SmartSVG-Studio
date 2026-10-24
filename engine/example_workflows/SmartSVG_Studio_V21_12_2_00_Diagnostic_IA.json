@@ -1,0 +1,53 @@
+{
+  "id": "SmartSVG_Studio_V21_11_2_00_Diagnostic",
+  "revision": 0,
+  "last_node_id": 1,
+  "last_link_id": 0,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "SmartSVGReadinessV2112",
+      "pos": [
+        120,
+        160
+      ],
+      "size": [
+        530,
+        170
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "action",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "action"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "rapport_diagnostic_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGReadinessV21112"
+      },
+      "widgets_values": [
+        "Vérifier mon installation"
+      ],
+      "title": "00 · Vérifier les dépendances et la compatibilité SAM2 (pas un test GPU)"
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

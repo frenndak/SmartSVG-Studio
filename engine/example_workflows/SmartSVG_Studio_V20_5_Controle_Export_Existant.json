@@ -1,0 +1,88 @@
+{
+  "id": "SmartSVG_Studio_V20_5_Controle_Export_Existant",
+  "revision": 0,
+  "last_node_id": 1,
+  "last_link_id": 0,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "SmartSVGCricutPreflightV205",
+      "pos": [
+        100,
+        100
+      ],
+      "size": [
+        600,
+        380
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "dossier_projet",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "dossier_projet"
+          }
+        },
+        {
+          "name": "operation_cricut",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "operation_cricut"
+          }
+        },
+        {
+          "name": "largeur_dessin_mm",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "largeur_dessin_mm"
+          }
+        },
+        {
+          "name": "format_papier",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "format_papier"
+          }
+        },
+        {
+          "name": "source_contour",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "source_contour"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "rapport_prevol_cricut",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGCricutPreflightV205"
+      },
+      "widgets_values": [
+        "C:\\Users\\Public\\Documents\\Cricut_SVG\\LineArt_V20_1_exemple",
+        "imprimer_decouper_contour",
+        90.0,
+        "A4",
+        "historique"
+      ]
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

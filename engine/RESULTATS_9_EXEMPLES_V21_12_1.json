@@ -1,0 +1,172 @@
+{
+  "version": "21.12.1",
+  "mode_evalue": "SANS_IA",
+  "inference_gpu_effectuee": false,
+  "validation_design_space": false,
+  "images": [
+    {
+      "nom": "Fille manga photographiee",
+      "fichier": "1000077568.jpg",
+      "dimensions_px": [
+        1152,
+        1536
+      ],
+      "routage": "SCENE_OPAQUE_COMPLEXE",
+      "strategie": "IA_OU_CORRECTION",
+      "ia_reelle_executee": false,
+      "certification_cricut": false,
+      "masques_sans_ia": 0,
+      "methode": null,
+      "statut_qa": "IA_OU_CORRECTION_REQUISE",
+      "raison": "Aucun masque sans IA accepté",
+      "pret_physiquement": false,
+      "temps_detection_sans_ia_s": 0.16
+    },
+    {
+      "nom": "Planche 12 escargots",
+      "fichier": "1000077534.jpg",
+      "dimensions_px": [
+        1536,
+        1024
+      ],
+      "routage": "FOND_BLANC_UNIFORME",
+      "strategie": "DETECTION_SIMPLE_OU_IA",
+      "ia_reelle_executee": false,
+      "certification_cricut": false,
+      "masques_sans_ia": 12,
+      "methode": "ILLUSTRATION_FOND_BLANC",
+      "statut_qa": "PRECONTROLE_GEOMETRIQUE_SEULEMENT",
+      "alertes_qa": [],
+      "pret_physiquement": false,
+      "temps_detection_sans_ia_s": 0.471
+    },
+    {
+      "nom": "Carte cadeau avec texte",
+      "fichier": "1000077454.png",
+      "dimensions_px": [
+        1122,
+        1111
+      ],
+      "routage": "SCENE_OPAQUE_COMPLEXE",
+      "strategie": "IA_OU_CORRECTION",
+      "ia_reelle_executee": false,
+      "certification_cricut": false,
+      "masques_sans_ia": 0,
+      "methode": null,
+      "statut_qa": "IA_OU_CORRECTION_REQUISE",
+      "raison": "Aucun masque sans IA accepté",
+      "pret_physiquement": false,
+      "temps_detection_sans_ia_s": 0.014
+    },
+    {
+      "nom": "Leprechaun photographie",
+      "fichier": "1000077462.png",
+      "dimensions_px": [
+        1152,
+        1536
+      ],
+      "routage": "SCENE_OPAQUE_COMPLEXE",
+      "strategie": "IA_OU_CORRECTION",
+      "ia_reelle_executee": false,
+      "certification_cricut": false,
+      "masques_sans_ia": 0,
+      "methode": null,
+      "statut_qa": "IA_OU_CORRECTION_REQUISE",
+      "raison": "Aucun masque sans IA accepté",
+      "pret_physiquement": false,
+      "temps_detection_sans_ia_s": 0.04
+    },
+    {
+      "nom": "Affiche fantasy A",
+      "fichier": "1000077435.png",
+      "dimensions_px": [
+        1087,
+        1536
+      ],
+      "routage": "SCENE_OPAQUE_COMPLEXE",
+      "strategie": "IA_OU_CORRECTION",
+      "ia_reelle_executee": false,
+      "certification_cricut": false,
+      "masques_sans_ia": 0,
+      "methode": null,
+      "statut_qa": "IA_OU_CORRECTION_REQUISE",
+      "raison": "Aucun masque sans IA accepté",
+      "pret_physiquement": false,
+      "temps_detection_sans_ia_s": 0.021
+    },
+    {
+      "nom": "Affiche fantasy B",
+      "fichier": "1000077436.png",
+      "dimensions_px": [
+        1024,
+        1536
+      ],
+      "routage": "SCENE_OPAQUE_COMPLEXE",
+      "strategie": "IA_OU_CORRECTION",
+      "ia_reelle_executee": false,
+      "certification_cricut": false,
+      "masques_sans_ia": 0,
+      "methode": null,
+      "statut_qa": "IA_OU_CORRECTION_REQUISE",
+      "raison": "Aucun masque sans IA accepté",
+      "pret_physiquement": false,
+      "temps_detection_sans_ia_s": 0.021
+    },
+    {
+      "nom": "Homme atelier electronique",
+      "fichier": "1000077420.png",
+      "dimensions_px": [
+        1229,
+        1536
+      ],
+      "routage": "SCENE_OPAQUE_COMPLEXE",
+      "strategie": "IA_OU_CORRECTION",
+      "ia_reelle_executee": false,
+      "certification_cricut": false,
+      "masques_sans_ia": 0,
+      "methode": null,
+      "statut_qa": "IA_OU_CORRECTION_REQUISE",
+      "raison": "Aucun masque sans IA accepté",
+      "pret_physiquement": false,
+      "temps_detection_sans_ia_s": 0.046
+    },
+    {
+      "nom": "Couverture manga coreenne",
+      "fichier": "1000077347.webp",
+      "dimensions_px": [
+        1074,
+        1536
+      ],
+      "routage": "SCENE_OPAQUE_COMPLEXE",
+      "strategie": "IA_OU_CORRECTION",
+      "ia_reelle_executee": false,
+      "certification_cricut": false,
+      "masques_sans_ia": 0,
+      "methode": null,
+      "statut_qa": "IA_OU_CORRECTION_REQUISE",
+      "raison": "Aucun masque sans IA accepté",
+      "pret_physiquement": false,
+      "temps_detection_sans_ia_s": 0.021
+    },
+    {
+      "nom": "Planche 24 Pokemon fond noir",
+      "fichier": "1000077309.png",
+      "dimensions_px": [
+        1536,
+        1097
+      ],
+      "routage": "FOND_NOIR_UNIFORME",
+      "strategie": "PLANCHE_SOMBRE_OU_IA",
+      "ia_reelle_executee": false,
+      "certification_cricut": false,
+      "masques_sans_ia": 24,
+      "methode": "PLANCHE_FOND_NOIR",
+      "statut_qa": "REVISION_VISUELLE_PRIORITAIRE",
+      "alertes_qa": [
+        "DETAILS_DETACHES_POTENTIELLEMENT_MANQUANTS"
+      ],
+      "pret_physiquement": false,
+      "temps_detection_sans_ia_s": 0.842
+    }
+  ]
+}
