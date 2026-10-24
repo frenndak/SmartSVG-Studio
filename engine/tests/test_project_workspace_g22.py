@@ -1,21 +1,27 @@
 """G2.2 real managed-project integration against synthetic PNG data."""
 from dataclasses import replace
 from hashlib import sha256
-from io import BytesIO
+import struct
+import zlib
 from pathlib import Path
 import tempfile
 import unittest
 
-from PIL import Image
 from smartsvg_core.project_archive import load_project
 from smartsvg_core.project_workspace_g22 import ManagedWorkspace, WorkspaceError
 from smartsvg_core.project_recovery import save_with_recovery
 
 
 def png(w=12,h=9,mode='RGBA'):
-    buffer=BytesIO()
-    Image.new(mode,(w,h),(220,130,90,255) if mode=='RGBA' else 100).save(buffer,format='PNG')
-    return buffer.getvalue()
+    color, bpp = {'RGBA':(6,4), 'RGB':(2,3), 'L':(0,1)}[mode]
+    row = b'\x00' + bytes([95])* (w*bpp)
+    def chunk(tag, payload):
+        return (struct.pack('>I', len(payload)) + tag + payload +
+                struct.pack('>I', zlib.crc32(tag+payload)&0xffffffff))
+    return (b'\x89PNG\r\n\x1a\n' +
+            chunk(b'IHDR', struct.pack('>IIBBBBB', w,h,8,color,0,0,0)) +
+            chunk(b'IDAT', zlib.compress(row*h)) +
+            chunk(b'IEND',b''))
 
 
 class G22ManagedWorkspaceTests(unittest.TestCase):
@@ -70,9 +76,8 @@ class G22ManagedWorkspaceTests(unittest.TestCase):
             with self.subTest(length=len(source)),self.assertRaises(WorkspaceError):
                 self.create('bad',source=source)
             self.assertFalse((self.workspace.root/'bad.smartsvg').exists())
-        jpeg=BytesIO();Image.new('RGB',(12,9)).save(jpeg,format='JPEG')
         with self.assertRaisesRegex(WorkspaceError,'INVALID_IMAGE_MODE|INVALID_PNG'):
-            self.create('jpeg',source=jpeg.getvalue())
+            self.create('jpeg',source=b'\xff\xd8'+b'x'*90)
 
     def test_image_size_and_profile_limits(self):
         with self.assertRaisesRegex(WorkspaceError,'INVALID_PROFILE'):
