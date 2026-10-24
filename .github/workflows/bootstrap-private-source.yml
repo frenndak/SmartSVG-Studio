@@ -1,0 +1,67 @@
+name: SmartSVG - Import private source release
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Private release tag containing V21.15.2 ZIP
+        required: true
+        default: smartsvg-v21.15.2-source
+      expected_sha256:
+        description: Optional known 64-hex SHA256
+        required: false
+permissions:
+  contents: write
+  pull-requests: write
+concurrency:
+  group: smartsvg-private-source-bootstrap
+  cancel-in-progress: false
+jobs:
+  source-import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify prerequisites
+        run: |
+          set -euo pipefail
+          test -f tools/validate_release_archive.py
+          test -f tools/import_release_archive.py
+          test ! -e engine
+          echo '0e503a55fa622d7acea44d8e742205fb6a71119262c309a0b5a2bd48f0ab28a3  docs/ROADMAP_MASTER_v3_2.md' | sha256sum --check
+      - name: Download private asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/smartsvg-release"
+          gh release download "$RELEASE_TAG" --repo frenndak/SmartSVG-Studio --pattern 'ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip' --dir "$RUNNER_TEMP/smartsvg-release"
+      - name: Structural admission into isolated engine directory
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha256 }}
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/smartsvg-release/ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip"
+          if [[ -n "$EXPECTED_SHA" ]]; then
+            python tools/import_release_archive.py "$archive" --destination engine --expected-sha256 "$EXPECTED_SHA"
+          else
+            python tools/import_release_archive.py "$archive" --destination engine
+          fi
+          test -f engine/smartsvg_ai/__init__.py
+          test ! -e .automation/READY
+      - name: Create private bootstrap branch and draft PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          branch="bootstrap/v21-15-2-$GITHUB_RUN_ID"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$branch"
+          git add -A -- engine docs/IMPORT_V21_15_2.json
+          git commit -m 'bootstrap: import V21.15.2 as unapproved candidate'
+          git push --set-upstream origin "$branch"
+          if gh pr create --repo frenndak/SmartSVG-Studio --base main --head "$branch" --draft --title 'Bootstrap: import V21.15.2 - audit required' --body 'Private source candidate; zip structure checked. Embedded manifest, regression tests, ComfyUI and Cricut are NOT verified. Readiness remains disabled.' >/dev/null; then
+            echo 'Draft PR created privately.'
+          else
+            echo '::warning::Branch pushed. GitHub refused automated PR creation; please open the candidate branch privately.'
+          fi
