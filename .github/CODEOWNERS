@@ -1,0 +1,5 @@
+# Owners review changes to sensitive files.
+* @frenndak
+/.automation/ @frenndak
+/.github/workflows/ @frenndak
+/docs/ROADMAP_MASTER_v3_2.md @frenndak
