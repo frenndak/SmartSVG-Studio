@@ -1,0 +1,48 @@
+{
+  "artifact": "SmartSVG V21.15.2 source admission",
+  "admission_date_utc": "2026-10-24",
+  "archive_repository_path": "source-releases/ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip",
+  "source_repository_root": "engine/",
+  "archive_sha256": "9369656f0216cebb6dccce0d0155bffa16d8c384da6a984bf848cdd8aa003c54",
+  "archive_git_blob_sha1": "2d09a33facaba536aa9876a496ab3dc19a725f7e",
+  "archive_bytes": 2020938,
+  "archive_crc_checked": true,
+  "archive_entries": 652,
+  "manifest_version": "21.15.2",
+  "verified_manifest_files": 651,
+  "internal_manifest_hashes_verified": true,
+  "source_files_extracted": 652,
+  "source_tree_matches_zip": true,
+  "source_git_tree_check": {
+    "count": 653,
+    "matches": 653,
+    "mismatches": 0,
+    "unexpected": 0
+  },
+  "ci_verification": {
+    "workflow": "SmartSVG G0 - Admission Tests",
+    "run_url": "https://github.com/frenndak/SmartSVG-Studio/actions/runs/40121242046",
+    "result": "success"
+  },
+  "local_test_evidence": {
+    "python": {
+      "version": "3.13.5",
+      "command": "python -m unittest discover -s tests -p 'test_*.py' -q",
+      "tests_passed": 876,
+      "tests_failed": 0,
+      "duration_seconds": 59.661
+    },
+    "javascript": {
+      "node_version": "22.16.0",
+      "command": "for f in tests/*.mjs; do node \"$f\"; done",
+      "test_scripts_passed": 12,
+      "test_scripts_failed": 0
+    }
+  },
+  "complete_regression_suite_verified": "Python unittest discovery and all JS .mjs scripts passed in local container; not a universal environment guarantee",
+  "comfyui_frontend_verified": false,
+  "actual_ai_inference_verified": false,
+  "cricut_design_space_verified": false,
+  "physical_cut_verified": false,
+  "scope": "Source admission G0 only; agent MAY propose PRs under reviews once separately enabled. No product release certification."
+}
