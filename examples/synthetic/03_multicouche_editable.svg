@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="110mm" height="80mm" viewBox="0 0 1100 800">
+  <title>Original layered landscape sample</title>
+  <rect x="10" y="10" width="1080" height="780" rx="55" fill="#def2ff"/>
+  <circle cx="875" cy="175" r="90" fill="#ffcc59"/>
+  <path d="M 40 670 L 320 240 L 520 505 L 695 180 L 1060 670 Z" fill="#4e87a7"/>
+  <path d="M 40 680 Q 330 530 550 660 T 1060 665 L1060 790 L40 790 Z" fill="#5eaf83"/>
+  <path d="M 20 725 Q 300 630 580 748 T 1080 720 L1080 790 L20 790 Z" fill="#3d865b"/>
+</svg>
