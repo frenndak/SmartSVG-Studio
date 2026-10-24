@@ -90,15 +90,15 @@ async function extension(){
   globalThis.__ssApp={registerExtension(x){ext=x;}};
   globalThis.__ssModel={EXPRESS_CLASS,PROFILES,getProfile,chosenProfile,applyProfile,explainFailure};
   globalThis.__ssApi={apiURL:route=>'/comfy'+route};
-  globalThis.__ssGuide={evaluateOutput:()=>({state:'EMPTY'}),emptyState:()=>({state:'EMPTY',report:null,previews:[],action:'',explanation:''}),statusForDisplay:()=>'',STATES:{}};
+  globalThis.__ssGuide={evaluateOutput:()=>({state:'EMPTY'}),emptyState:()=>({state:'EMPTY',report:null,previews:[],action:'',explanation:''}),statusForDisplay:()=>'',STATES:{},configurationSignature:()=>'{compat}'};
   globalThis.__ssPreviewUrl=()=>null;
   const head=new Element('head');
   globalThis.document={head,getElementById:()=>null,createElement:t=>new Element(t)};
   let code=fs.readFileSync(path.join(root,'../web/js/smartsvg_express_start_g15.js'),'utf8');
   code=code.replace('import { app } from "../../scripts/app.js";','const app=globalThis.__ssApp;');
   code=code.replace('import { api } from "../../scripts/api.js";','const api=globalThis.__ssApi;');
-  code=code.replace('import { evaluateOutput, emptyState, statusForDisplay, STATES } from "./smartsvg_guide_model_g21.mjs";',
-                    'const {evaluateOutput,emptyState,statusForDisplay,STATES}=globalThis.__ssGuide;');
+  code=code.replace('import { evaluateOutput, emptyState, statusForDisplay, STATES, configurationSignature } from "./smartsvg_guide_model_g21.mjs";',
+                    'const {evaluateOutput,emptyState,statusForDisplay,STATES,configurationSignature}=globalThis.__ssGuide;');
   code=code.replace('import { previewUrl } from "./smartsvg_ui_model_v2151.mjs";',
                     'const previewUrl=globalThis.__ssPreviewUrl;');
   code=code.replace(/import \{ EXPRESS_CLASS, PROFILES, getProfile, chosenProfile,\s*applyProfile, explainFailure \} from "\.\/smartsvg_express_start_model_g15\.mjs";/,
