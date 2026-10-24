@@ -14,7 +14,9 @@ def load_tests(loader, standard_tests, pattern):
     spec = spec_from_file_location('smartsvg_g23_subject_tests', file)
     module = module_from_spec(spec)
     spec.loader.exec_module(module)
-    return loader.loadTestsFromModule(module)
+    suite = loader.loadTestsFromModule(module)
+    suite.addTests(loader.loadTestsFromTestCase(IntegrationGuardTests))
+    return suite
 
 class IntegrationGuardTests(unittest.TestCase):
     def test_new_mask_endpoints_are_same_opt_in_workspace(self):
