@@ -72,10 +72,12 @@ test('rejected widget callbacks restore original choice',()=>{
 class Element {
   constructor(tag){
     this.tagName=tag;this.children=[];this.value='';this.dataset={};this.events={};
-    this.textContent='';this.options={};this.attributes={};this.style={};this.disabled=false;
+    this.textContent='';this.options={};this.attributes={};this.style={};this.disabled=false;this.hidden=false;this.src='';
   }
   append(...parts){this.children.push(...parts);if(this.tagName==='select' && !this.value && this.children.length)this.value=this.children[0].value;}
   appendChild(part){this.append(part);return part;}
+  replaceChildren(...parts){this.children=[...parts];}
+  removeAttribute(name){delete this.attributes[name];if(name==='src')this.src='';}
   setAttribute(name,value){this.attributes[name]=value;}
   addEventListener(name,handler){this.events[name]=handler;}
   query() {return this.children;}
@@ -87,10 +89,18 @@ async function extension(){
   let ext=null;
   globalThis.__ssApp={registerExtension(x){ext=x;}};
   globalThis.__ssModel={EXPRESS_CLASS,PROFILES,getProfile,chosenProfile,applyProfile,explainFailure};
+  globalThis.__ssApi={apiURL:route=>'/comfy'+route};
+  globalThis.__ssGuide={evaluateOutput:()=>({state:'EMPTY'}),emptyState:()=>({state:'EMPTY',report:null,previews:[],action:'',explanation:''}),statusForDisplay:()=>'',STATES:{}};
+  globalThis.__ssPreviewUrl=()=>null;
   const head=new Element('head');
   globalThis.document={head,getElementById:()=>null,createElement:t=>new Element(t)};
   let code=fs.readFileSync(path.join(root,'../web/js/smartsvg_express_start_g15.js'),'utf8');
   code=code.replace('import { app } from "../../scripts/app.js";','const app=globalThis.__ssApp;');
+  code=code.replace('import { api } from "../../scripts/api.js";','const api=globalThis.__ssApi;');
+  code=code.replace('import { evaluateOutput, emptyState, statusForDisplay, STATES } from "./smartsvg_guide_model_g21.mjs";',
+                    'const {evaluateOutput,emptyState,statusForDisplay,STATES}=globalThis.__ssGuide;');
+  code=code.replace('import { previewUrl } from "./smartsvg_ui_model_v2151.mjs";',
+                    'const previewUrl=globalThis.__ssPreviewUrl;');
   code=code.replace(/import \{ EXPRESS_CLASS, PROFILES, getProfile, chosenProfile,\s*applyProfile, explainFailure \} from "\.\/smartsvg_express_start_model_g15\.mjs";/,
                     'const {EXPRESS_CLASS,PROFILES,getProfile,chosenProfile,applyProfile,explainFailure}=globalThis.__ssModel;');
   await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64')+'#'+(++serial));
