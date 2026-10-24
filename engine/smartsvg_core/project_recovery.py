@@ -208,7 +208,7 @@ def _atomic_copy(source: Path, destination: Path) -> None:
             tmp.unlink(missing_ok=True)
 
 
-def save_with_recovery(path, project: LoadedProject) -> dict:
+def save_with_recovery(path, project: LoadedProject, *, expected_sha256=None) -> dict:
     """Preserve last valid primary before overwrite; no destructive fallback.
 
     Calling G1.3 save_project (rather than silently overwriting backup files)
@@ -219,6 +219,9 @@ def save_with_recovery(path, project: LoadedProject) -> dict:
         primary, current = _diagnose(target)
         if primary == 'invalid':
             raise RecoveryError('NO_VALID_RECOVERY_SNAPSHOT')
+        if expected_sha256 is not None:
+            if primary != 'valid' or _file_sha(target) != expected_sha256:
+                raise RecoveryError('PROJECT_CHANGED_DURING_SAVE')
         if primary == 'valid':
             if current.project_id != project.project_id:
                 raise RecoveryError('PROJECT_CHANGED_DURING_SAVE')
