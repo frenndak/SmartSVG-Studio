@@ -24,25 +24,25 @@ def _browser_origin_ok(request):
     return True
 
 
-async def _multipart_fields(request, *, image=False):
+async def _multipart_fields(request, *, image=False, mask=False):
     if request.content_length is not None and request.content_length > MAX_IMAGE_BYTES + 65536:
         raise WorkspaceError('REQUEST_TOO_LARGE')
     reader = await request.multipart()
     fields = {}
     allowed = {'name','profile','width_mm','dpi','notes','expected_sha256',
-               'expected_recovery_sha256','confirmed'}
+               'expected_recovery_sha256','confirmed','subject_id'}
     total = 0
     for _ in range(12):
         part = await reader.next()
         if part is None:
             break
         key = part.name
-        if key not in allowed and key != 'image':
+        if key not in allowed and key not in ('image', 'mask'):
             raise WorkspaceError('UNKNOWN_FIELD')
         if key in fields:
             raise WorkspaceError('DUPLICATE_FIELD')
-        limit = MAX_IMAGE_BYTES if key == 'image' and image else 2000
-        if key == 'image' and not image:
+        limit = MAX_IMAGE_BYTES if ((key == 'image' and image) or (key == 'mask' and mask)) else 2000
+        if (key == 'image' and not image) or (key == 'mask' and not mask):
             raise WorkspaceError('UNEXPECTED_IMAGE')
         chunks = []
         length = 0
@@ -56,7 +56,7 @@ async def _multipart_fields(request, *, image=False):
                 raise WorkspaceError('REQUEST_TOO_LARGE')
             chunks.append(block)
         data = b''.join(chunks)
-        if key != 'image':
+        if key not in ('image', 'mask'):
             try:
                 fields[key] = data.decode('utf-8')
             except UnicodeDecodeError as exc:
@@ -143,5 +143,30 @@ def register_project_routes(routes, trusted_output_root):
             return web.json_response({'ok':True,'result':result,'certified':False})
         except (WorkspaceError, ValueError) as exc:
             return json_error(getattr(exc,'code','INVALID_REQUEST'))
+
+    @routes.get(prefix+'/mask')
+    async def mask(request):
+        try:
+            data = workspace.subject_mask_png(request.query.get('name'),
+                                              request.query.get('subject_id'))
+            return web.Response(body=data, content_type='image/png',
+                 headers={'Cache-Control':'no-store', 'X-Content-Type-Options':'nosniff'})
+        except (WorkspaceError, ValueError, OSError, KeyError) as exc:
+            return json_error(getattr(exc, 'code', 'MASK_UNAVAILABLE'), 404)
+
+    @routes.post(prefix+'/mask')
+    async def save_mask(request):
+        if not _browser_origin_ok(request):
+            return json_error('ORIGIN_REJECTED',403)
+        try:
+            fields = await _multipart_fields(request, mask=True)
+            result = workspace.put_subject_mask(
+                fields.get('name'), subject_id=fields.get('subject_id'),
+                mask_png=fields.get('mask'),
+                expected_sha256=fields.get('expected_sha256'))
+            return web.json_response({'ok': True, 'result': result,
+                                      'certified': False})
+        except (WorkspaceError, ValueError, TypeError) as exc:
+            return json_error(getattr(exc, 'code', 'INVALID_MASK_REQUEST'))
 
     return workspace
