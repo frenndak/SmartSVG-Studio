@@ -79,6 +79,32 @@ class G22ManagedWorkspaceTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkspaceError,'INVALID_IMAGE_MODE|INVALID_PNG'):
             self.create('jpeg',source=b'\xff\xd8'+b'x'*90)
 
+    def test_corrupted_png_chunk_crc_rejected(self):
+        source=bytearray(self.png)
+        source[-5] ^= 0x10
+        with self.assertRaisesRegex(WorkspaceError, 'PNG_CRC_FAILED'):
+            self.create('badcrc',source=bytes(source))
+        self.assertFalse((self.workspace.root/'badcrc.smartsvg').exists())
+
+    def test_png_invalid_row_filter_rejected_with_fresh_crc(self):
+        def chunk(kind, payload):
+            return (struct.pack('>I',len(payload))+kind+payload+
+                    struct.pack('>I',zlib.crc32(kind+payload)&0xffffffff))
+        source=(self.png[:33]+
+                chunk(b'IDAT',zlib.compress((b'\x09'+b'\x7f'*48)*9))+
+                chunk(b'IEND',b''))
+        with self.assertRaisesRegex(WorkspaceError,'INVALID_PNG_FILTER'):
+            self.create('badfilter',source=source)
+
+    def test_png_overinflation_rejected_even_with_valid_crc(self):
+        def chunk(kind,payload):
+            return (struct.pack('>I',len(payload))+kind+payload+
+                    struct.pack('>I',zlib.crc32(kind+payload)&0xffffffff))
+        source=(self.png[:33]+chunk(b'IDAT',zlib.compress(b'\x00'*10000))+
+                chunk(b'IEND',b''))
+        with self.assertRaisesRegex(WorkspaceError,'INVALID_PNG_PIXELS'):
+            self.create('zipbomb',source=source)
+
     def test_image_size_and_profile_limits(self):
         with self.assertRaisesRegex(WorkspaceError,'INVALID_PROFILE'):
             self.workspace.create('bad',self.png,profile='print cut now')
