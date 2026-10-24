@@ -44,7 +44,7 @@ export function evaluateOutput(output,{projectAtRun=null,currentProject=null,exp
   // A profile change after a result invalidates the previous review.
   if(projectAtRun!==null && currentProject!==null && projectAtRun!==currentProject){
     return {state:STATES.STALE,headline:'Résultat obsolète après modification des paramètres',
-      explanation:'Le projet, les dimensions, le mode IA ou les connexions ont changé depuis le dernier résultat.'
+      explanation:'Le projet, les dimensions, le mode IA ou les connexions ont changé depuis le dernier résultat.',
       action:'Relancer le workflow et vérifier les nouvelles sorties.',
       report:null,previews:[],filePath:null,mayCopy:false,verifiedPhysicalCut:false};
   }
