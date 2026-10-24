@@ -74,7 +74,9 @@ class PrivateAgentRoutingTests(unittest.TestCase):
         self.assertIn('execute:', self.source)
         self.assertIn('default: false', self.source)
         self.assertIn("inputs.execute == true", self.source)
-        self.assertIn("github.event_name == 'workflow_dispatch'", self.source)
+        self.assertIn("needs: preflight", self.source)
+        self.assertIn("github.event_name == 'repository_dispatch'", self.source)
+        self.assertIn("inputs.execute == true", self.source)
         self.assertIn("python tools/verify_source_integrity.py --repo . --archive-only", self.source)
 
     def test_one_shot_repair_requires_reviewer_label(self):
