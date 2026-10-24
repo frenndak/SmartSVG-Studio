@@ -7,11 +7,10 @@ from __future__ import annotations
 
 from dataclasses import replace
 from hashlib import sha256
-from io import BytesIO
+import struct
+import zlib
 from pathlib import Path
 import re
-
-from PIL import Image, UnidentifiedImageError
 
 from .project_archive import LoadedProject, ProjectArchiveError, load_project
 from .project_contracts import SourceAsset
@@ -71,25 +70,80 @@ def _notes(value):
 
 
 def _verify_png(data):
+    """Decode a bounded, non-interlaced L/RGB/RGBA 8-bit PNG, including CRC.
+
+    Only the source bytes are preserved. No unsafe image metadata or Python
+    objects are deserialized. Incompatible variants fail explicitly.
+    """
     if not isinstance(data, bytes) or not 40 <= len(data) <= MAX_IMAGE_BYTES:
         raise WorkspaceError('INVALID_IMAGE_BYTES')
-    try:
-        with Image.open(BytesIO(data)) as im:
-            if im.format != 'PNG' or im.mode not in ('L', 'RGB', 'RGBA'):
-                raise WorkspaceError('INVALID_IMAGE_MODE')
-            w, h = im.size
-            if w <= 0 or h <= 0 or w*h > MAX_PIXELS:
+    if not data.startswith(b'\x89PNG\r\n\x1a\n'):
+        raise WorkspaceError('INVALID_PNG')
+    pos, width, height, channels, mode = 8, 0, 0, None, None
+    seen_header, seen_data, seen_end, data_ended = False, False, False, False
+    fragments = []
+    while pos < len(data):
+        if pos + 12 > len(data):
+            raise WorkspaceError('INVALID_PNG')
+        count = struct.unpack('>I', data[pos:pos + 4])[0]
+        if count > MAX_IMAGE_BYTES or pos + 12 + count > len(data):
+            raise WorkspaceError('INVALID_PNG')
+        kind = data[pos + 4:pos + 8]
+        payload = data[pos + 8:pos + 8 + count]
+        expected_crc = struct.unpack('>I', data[pos + 8 + count:pos + 12 + count])[0]
+        if zlib.crc32(kind + payload) & 0xffffffff != expected_crc:
+            raise WorkspaceError('PNG_CRC_FAILED')
+        pos += 12 + count
+        if not seen_header and kind != b'IHDR':
+            raise WorkspaceError('INVALID_PNG')
+        if kind == b'IHDR':
+            if seen_header or count != 13:
+                raise WorkspaceError('INVALID_PNG')
+            width, height, depth, color, compression, filtering, interlace = struct.unpack(
+                '>IIBBBBB', payload)
+            if width < 1 or height < 1 or width * height > MAX_PIXELS:
                 raise WorkspaceError('IMAGE_TOO_LARGE')
-            mode = im.mode
-            im.verify()
-        # Decode for completeness rather than trusting a valid-looking IHDR.
-        with Image.open(BytesIO(data)) as im:
-            im.load()
-    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as exc:
-        if isinstance(exc, WorkspaceError):
-            raise
-        raise WorkspaceError('INVALID_PNG') from exc
-    return w, h, mode
+            if (depth, compression, filtering, interlace) != (8, 0, 0, 0):
+                raise WorkspaceError('UNSUPPORTED_PNG_VARIANT')
+            values = {0:(1, 'L'), 2:(3, 'RGB'), 6:(4, 'RGBA')}
+            if color not in values:
+                raise WorkspaceError('INVALID_IMAGE_MODE')
+            channels, mode = values[color]
+            seen_header = True
+        elif kind == b'IDAT':
+            if data_ended:
+                raise WorkspaceError('INVALID_PNG')
+            seen_data = True
+            fragments.append(payload)
+        elif kind == b'IEND':
+            if not seen_data or count != 0 or pos != len(data):
+                raise WorkspaceError('INVALID_PNG')
+            seen_end = True
+            break
+        else:
+            if seen_data:
+                data_ended = True
+            if not kind or (65 <= kind[0] <= 90):
+                # Unknown critical chunks cannot be safely decoded.
+                if kind != b'PLTE':
+                    raise WorkspaceError('UNSUPPORTED_PNG_CHUNK')
+    if not seen_end or not seen_data:
+        raise WorkspaceError('INVALID_PNG')
+    expected = height * (1 + width * channels)
+    if expected > 90_000_000:
+        raise WorkspaceError('IMAGE_TOO_LARGE')
+    try:
+        decoder = zlib.decompressobj()
+        pixels = decoder.decompress(b''.join(fragments), expected + 1)
+        if (len(pixels) != expected or not decoder.eof or
+                decoder.unused_data or decoder.unconsumed_tail):
+            raise WorkspaceError('INVALID_PNG_PIXELS')
+    except zlib.error as exc:
+        raise WorkspaceError('INVALID_PNG_PIXELS') from exc
+    row = 1 + width * channels
+    if any(pixels[offset] > 4 for offset in range(0, expected, row)):
+        raise WorkspaceError('INVALID_PNG_FILTER')
+    return width, height, mode
 
 
 class ManagedWorkspace:
