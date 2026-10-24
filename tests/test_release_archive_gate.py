@@ -61,6 +61,18 @@ class ArchiveGateTests(unittest.TestCase):
         self.mkzip([("..\\escape.py", "bad")])
         self.assert_rejected("UNSAFE_MEMBER_NAME")
 
+    def test_windows_device_name(self):
+        self.mkzip([("folder/CON.txt", "bad")])
+        self.assert_rejected("WINDOWS_UNSAFE_MEMBER_NAME")
+
+    def test_windows_ads_name(self):
+        self.mkzip([("folder/file.txt:stream", "bad")])
+        self.assert_rejected("WINDOWS_UNSAFE_MEMBER_NAME")
+
+    def test_trailing_dot_name(self):
+        self.mkzip([("folder/name.", "bad")])
+        self.assert_rejected("WINDOWS_UNSAFE_MEMBER_NAME")
+
     def test_case_insensitive_collision(self):
         self.mkzip([("A.py", "one"), ("a.PY", "two")])
         self.assert_rejected("CASE_INSENSITIVE_DUPLICATE")
