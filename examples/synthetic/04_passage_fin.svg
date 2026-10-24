@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="45mm" height="45mm" viewBox="0 0 450 450">
+  <title>Synthetic cut geometry challenge with narrow bridge</title>
+  <circle cx="110" cy="225" r="85" fill="#111111"/>
+  <rect x="190" y="218" width="70" height="14" fill="#111111"/>
+  <circle cx="340" cy="225" r="85" fill="#111111"/>
+</svg>
