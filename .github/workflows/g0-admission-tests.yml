@@ -1,0 +1,45 @@
+name: SmartSVG G0 - Admission Tests
+
+on:
+  pull_request:
+    paths:
+      - "tools/validate_release_archive.py"
+      - "tools/import_release_archive.py"
+      - "tests/test_release_archive_gate.py"
+      - "tests/test_release_import.py"
+      - ".github/workflows/g0-admission-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "tools/validate_release_archive.py"
+      - "tools/import_release_archive.py"
+      - "tests/test_release_archive_gate.py"
+      - "tests/test_release_import.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  admission:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify and test admission gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m compileall -q tools tests
+          python -m unittest discover -s tests -p 'test_release_*.py' -v
+      - name: Confirm no readiness marker was added
+        shell: bash
+        run: |
+          if [[ -e .automation/READY ]]; then
+            echo "::error::Manual readiness marker must not be created by G0 admission tests."
+            exit 1
+          fi
