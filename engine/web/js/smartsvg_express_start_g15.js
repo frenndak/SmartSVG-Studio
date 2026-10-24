@@ -73,7 +73,8 @@ function starter(node){
   const intro=e('div','details'),help=e('p','fine compact'),output=e('p','fine compact'),
         next=e('p','fine compact');
   intro.append(help,output,next);
-  const apply=button('Appliquer au workflow',()=>{});
+  const apply=e('button','','Appliquer au workflow');
+  apply.type='button';
   const state=e('div');
   state.setAttribute('role','status');state.setAttribute('aria-live','polite');
   const notice=e('p','fine compact',
@@ -115,7 +116,7 @@ function starter(node){
   function paint(){
     // The old output loses validity when the underlying ComfyUI project choice changes.
     const visible=hasRun
-      ? evaluateOutput(latest,{projectAtRun,currentProject:projectValue()})
+      ? evaluateOutput(latest,{projectAtRun,currentProject:projectValue(),expectedObjects:chosenProfile(node)?.expected??null})
       : emptyState();
     result.dataset.state=visible.state;
     verdict.textContent=statusForDisplay(visible.state);
