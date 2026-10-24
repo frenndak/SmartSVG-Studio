@@ -14,6 +14,9 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  # A PR created with GITHUB_TOKEN may have CI waiting for approval.
+  # Dispatch exact candidate-branch checks explicitly, avoiding that gap.
+  actions: write
 
 concurrency:
   group: smartsvg-private-engineer
@@ -162,3 +165,13 @@ jobs:
           else
             echo "Existing private PR updated for independent review."
           fi
+          # GITHUB_TOKEN-origin PR events can wait for a separate approval;
+          # workflow_dispatch is an explicit documented GitHub exception.
+          # Always test the exact candidate branch, never default main.
+          gh workflow run g0-admission-tests.yml --repo frenndak/SmartSVG-Studio --ref "$BRANCH"
+          if git diff --quiet HEAD^ HEAD -- engine/; then
+            echo "No engine delta in this commit; CPU smoke dispatch skipped."
+          else
+            gh workflow run engine-cpu-smoke.yml --repo frenndak/SmartSVG-Studio --ref "$BRANCH"
+          fi
+          echo "Dispatched candidate-branch checks; outcomes must be read back."
