@@ -21,6 +21,15 @@ export function projectError(code){
     NOT_RECOVERABLE:'Aucune sauvegarde valide ne peut être restaurée.',
     RECOVERY_SNAPSHOT_CHANGED:'La sauvegarde précédente a changé : recommencer l’inspection.',
     SAVE_FAILED:'Écriture refusée : contrôler le dossier ou les permissions.',
+    INVALID_SUBJECT_ID:'Identifiant de sujet invalide : lettres, chiffres, tirets ou soulignements.',
+    MASK_NOT_L8:'Masque attendu : PNG en niveaux de gris, 8 bits, sans palette ni entrelacement.',
+    MASK_DIMENSIONS_MISMATCH:'Le masque doit avoir exactement les dimensions du PNG source.',
+    MASK_EMPTY:'Masque vide : le sujet doit être en blanc sur un fond noir.',
+    MASK_FULL_FRAME:'Masque entièrement blanc : il sélectionnerait toute la feuille.',
+    INVALID_MASK_PNG:'Masque PNG illisible ou non pris en charge.',
+    MASK_UNCHANGED:'Ce masque est déjà enregistré à l’identique.',
+    TOO_MANY_SUBJECTS:'Limite de 32 sujets atteinte.',
+    PROJECT_EDIT_NOT_SUPPORTED:'Ce projet possède des exports ou un format d’édition incompatible avec ce mode.',
     ORIGIN_REJECTED:'Requête refusée : utiliser cette interface depuis ComfyUI.',
   };
   return map[code]||'Opération indisponible. Vérifier que le module de projets G2.2 est activé dans ComfyUI.';
@@ -45,6 +54,15 @@ export function createProjectPanel(api, currentSettings){
   const file=el('input');file.type='file';file.accept='image/png';
   const noteLabel=el('label','Notes du projet (facultatif)');
   const notes=el('textarea');notes.maxLength=1500;notes.rows=2;
+  const subjectLabel=el('label','Identifiant du sujet à détourer');
+  const subject=el('input');subject.type='text';subject.maxLength=48;
+  subject.id='smartsvg-g23-subject';subject.value='sujet_01';
+  subjectLabel.setAttribute('for',subject.id);
+  const maskLabel=el('label','Masque PNG L8 : sujet blanc, fond noir');
+  const mask=el('input');mask.type='file';mask.accept='image/png';
+  const knownSubjects=el('p');knownSubjects.className='fine';
+  const maskPreview=el('img');maskPreview.className='preview';maskPreview.hidden=true;
+  maskPreview.alt='Masque existant, non certifié pour la découpe';
   const actions=el('div');actions.className='toolbar';
   const status=el('p');status.setAttribute('role','status');
   status.setAttribute('aria-live','polite');
@@ -96,6 +114,20 @@ export function createProjectPanel(api, currentSettings){
     }
     restore.disabled=!loaded.recoverable;
     saveNotes.disabled=!loaded.sha256;
+    saveMask.disabled=!loaded.sha256;
+    const items=Array.isArray(loaded.subjects)?loaded.subjects:[];
+    knownSubjects.textContent=items.length ?
+      'Masques conservés : '+items.map(item=>String(item.subject_id)+' ['+
+        (Array.isArray(item.bbox_px)?item.bbox_px.join(', '):'?')+']').join(' · '):
+      'Aucun masque associé à ce projet.';
+    maskPreview.hidden=true;maskPreview.removeAttribute('src');
+    if(items.length && loaded.status==='PROJECT_HEALTHY'){
+      const pick=items.find(x=>x.subject_id===subject.value)||items[0];
+      maskPreview.src=api.apiURL(ROOT+'/mask?name='+encodeURIComponent(n)+
+        '&subject_id='+encodeURIComponent(pick.subject_id))+'#'+encodeURIComponent(loaded.sha256||'');
+      maskPreview.hidden=false;
+      maskPreview.onerror=()=>{maskPreview.hidden=true;maskPreview.removeAttribute('src');};
+    }
     return loaded;
   };
   const save=action('Créer projet depuis PNG',async()=>{
@@ -114,6 +146,7 @@ export function createProjectPanel(api, currentSettings){
   const open=action('Ouvrir et inspecter',async()=>{
     try{await inspect();show('Projet inspecté. La source et les notes sont consultables ici.');}
     catch(err){loaded=null;restore.disabled=true;saveNotes.disabled=true;
+      saveMask.disabled=true;maskPreview.hidden=true;maskPreview.removeAttribute('src');
       source.hidden=true;source.removeAttribute('src');show(projectError(err.message));}
   });
   const saveNotes=action('Enregistrer les notes',async()=>{
@@ -133,12 +166,28 @@ export function createProjectPanel(api, currentSettings){
       await inspect();show('Version précédente restaurée après confirmation.');
     }catch(err){show(projectError(err.message));}
   });
-  saveNotes.disabled=true;restore.disabled=true;
+  const saveMask=action('Enregistrer / corriger ce masque',async()=>{
+    try{
+      if(!loaded?.sha256)throw Error('PROJECT_CHANGED');
+      const id=subject.value?.trim()||'';
+      if(!validProjectName(id))throw Error('INVALID_SUBJECT_ID');
+      const chosen=mask.files?.[0];
+      if(!chosen||chosen.size<50||chosen.size>BYTES_LIMIT||
+         !/\.png$/i.test(chosen.name))throw Error('INVALID_MASK_PNG');
+      await post('/mask',{name:nameValue(),subject_id:id,mask:chosen,
+        expected_sha256:loaded.sha256});
+      await inspect();show('Masque conservé avec son sujet et sa boîte de contour. Découpe non certifiée.');
+    }catch(err){show(projectError(err.message));}
+  });
+  saveNotes.disabled=true;restore.disabled=true;saveMask.disabled=true;
   name.addEventListener('input',()=>{
-    loaded=null;saveNotes.disabled=true;restore.disabled=true;
-    source.hidden=true;source.removeAttribute('src');details.textContent='';
+    loaded=null;saveNotes.disabled=true;restore.disabled=true;saveMask.disabled=true;
+    source.hidden=true;source.removeAttribute('src');
+    maskPreview.hidden=true;maskPreview.removeAttribute('src');
+    knownSubjects.textContent='';details.textContent='';
   });
   root.append(title,label,name,fileLabel,file,noteLabel,notes,
-    actions,status,details,source,hint);
+    actions,status,details,source,
+    subjectLabel,subject,maskLabel,mask,knownSubjects,maskPreview,hint);
   return root;
 }
