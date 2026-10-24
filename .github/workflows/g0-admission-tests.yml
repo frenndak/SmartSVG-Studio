@@ -7,6 +7,9 @@ on:
       - "tools/import_release_archive.py"
       - "tests/test_release_archive_gate.py"
       - "tests/test_release_import.py"
+      - "tests/test_svg_contracts.py"
+      - "tools/inspect_svg_contracts.py"
+      - "examples/synthetic/**"
       - ".github/workflows/g0-admission-tests.yml"
   push:
     branches: [main]
@@ -35,7 +38,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m compileall -q tools tests
-          python -m unittest discover -s tests -p 'test_release_*.py' -v
+          python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Confirm no readiness marker was added
         shell: bash
         run: |
