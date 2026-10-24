@@ -7,8 +7,9 @@ on:
         required: true
         default: smartsvg-v21.15.2-source
       expected_sha256:
-        description: Optional known 64-hex SHA256
-        required: false
+        description: Verified source ZIP SHA256 (must match provided V21.15.2 archive)
+        required: true
+        default: 9369656f0216cebb6dccce0d0155bffa16d8c384da6a984bf848cdd8aa003c54
 permissions:
   contents: write
   pull-requests: write
@@ -41,11 +42,15 @@ jobs:
         run: |
           set -euo pipefail
           archive="$RUNNER_TEMP/smartsvg-release/ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip"
-          if [[ -n "$EXPECTED_SHA" ]]; then
-            python tools/import_release_archive.py "$archive" --destination engine --expected-sha256 "$EXPECTED_SHA"
-          else
-            python tools/import_release_archive.py "$archive" --destination engine
-          fi
+          test "$EXPECTED_SHA" = '9369656f0216cebb6dccce0d0155bffa16d8c384da6a984bf848cdd8aa003c54'
+          python tools/import_release_archive.py "$archive" --destination engine --expected-sha256 "$EXPECTED_SHA"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report=json.loads(Path('docs/IMPORT_V21_15_2.json').read_text())
+          assert report.get('internal_manifest_hashes_verified') is True
+          assert report.get('verified_manifest_files') == 651
+          PY
           test -f engine/smartsvg_ai/__init__.py
           test ! -e .automation/READY
       - name: Create private bootstrap branch and draft PR
