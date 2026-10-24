@@ -1,5 +1,5 @@
 name: SmartSVG - Régression / problème
-about: Décrire une anomalie mesurable avec ses preuves sans publier de données sensibles
+description: Décrire une anomalie mesurable avec ses preuves sans publier de données sensibles
 labels: []
 body:
   - type: input
