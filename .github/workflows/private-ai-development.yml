@@ -194,7 +194,7 @@ jobs:
           fi
           while IFS= read -r -d '' path; do
             case "$path" in
-              .github/*|.automation/*|AGENTS.md|.gitmodules|docs/ROADMAP_MASTER_v3_2.md|docs/ROADMAP_FREEZE_v3_2.json|docs/IMPORT_V21_15_2.json|engine/INSTALLATION_MANIFEST_*.json|*.env|*.pem|*.key)
+              .github/*|.automation/*|AGENTS.md|.gitmodules|docs/ROADMAP_MASTER_v3_2.md|docs/ROADMAP_FREEZE_v3_2.json|docs/IMPORT_V21_15_2.json|docs/SOURCE_V21_15_2_PROVENANCE.json|source-releases/*|source-releases/**|engine/INSTALLATION_MANIFEST_*.json|*.env|*.pem|*.key)
                 echo "::error::Protected path edited: $path"; exit 1 ;;
             esac
           done < <(git diff --cached --name-only -z)
