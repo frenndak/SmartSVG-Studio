@@ -51,13 +51,21 @@ jobs:
           set -euo pipefail
           python -m compileall -q tools tests
           python -m unittest discover -s tests -p 'test_*.py' -v
-      - name: Verify bundled source against original ZIP (when present)
+      - name: Verify immutable V21.15.2 source archive
         shell: bash
         run: |
+          set -euo pipefail
           if [[ -f source-releases/ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip ]]; then
-            python tools/verify_source_integrity.py --repo .
+            # The admission report already verified engine/ against the ZIP.
+            # Future engine/ edits must be tested, not rejected as deviations
+            # from the original V21.15.2 release.
+            python tools/verify_source_integrity.py --repo . --archive-only
           else
-            echo "Source ZIP not yet committed to this ref; archive verification deferred."
+            if [[ -e .automation/READY ]]; then
+              echo "::error::Admitted source archive disappeared"
+              exit 1
+            fi
+            echo "Pre-admission ref: archive absent."
           fi
       - name: Check previously approved admission marker
         shell: bash
