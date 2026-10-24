@@ -142,12 +142,21 @@ class ManagedWorkspace:
 
     def list_projects(self):
         results=[]
-        for entry in sorted(self.root.glob('*.smartsvg')):
-            if entry.is_symlink() or entry.stem.endswith('.previous') or not NAME.fullmatch(entry.stem):
+        names=set()
+        for entry in self.root.glob('*.smartsvg'):
+            if entry.is_symlink():
                 continue
-            results.append(self.inspect(entry.stem))
-            if len(results)>=100:
-                break
+            name=entry.name
+            if name.endswith('.previous.smartsvg'):
+                name=name[:-len('.previous.smartsvg')]
+            elif name.endswith('.smartsvg'):
+                name=name[:-len('.smartsvg')]
+            else:
+                continue
+            if NAME.fullmatch(name) and not name.endswith('_previous'):
+                names.add(name)
+        for name in sorted(names)[:100]:
+            results.append(self.inspect(name))
         return results
 
     def inspect(self, name):
@@ -191,7 +200,7 @@ class ManagedWorkspace:
         updated=replace(current,document=modified,
                         operations=[*current.operations,{'kind':'update_notes','notes':note}])
         try:
-            result=save_with_recovery(path,updated)
+            result=save_with_recovery(path,updated,expected_sha256=before)
         except RecoveryError as exc:
             raise WorkspaceError(exc.code) from exc
         return {'name':name,'status':'updated','sha256':result['sha256'],
