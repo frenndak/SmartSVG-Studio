@@ -1,5 +1,6 @@
 """Synthetic import tests only; these do NOT validate SmartSVG V21.15.2."""
 import hashlib
+import json
 import sys
 import tempfile
 import unittest
@@ -20,6 +21,15 @@ class ImportReleaseTests(unittest.TestCase):
         self.zipfile = self.root / "test.zip"
 
     def archive(self, members, prefix="ComfyUI-SmartSVG-Studio-V21.15.2/"):
+        members = dict(members)
+        if "INSTALLATION_MANIFEST_V21_15_2.json" not in members:
+            members["INSTALLATION_MANIFEST_V21_15_2.json"] = json.dumps({
+                "version": "21.15.2",
+                "full_files_sha256_excluding_self": {
+                    name: hashlib.sha256(data.encode() if isinstance(data, str) else data).hexdigest()
+                    for name, data in members.items()
+                },
+            })
         with zipfile.ZipFile(self.zipfile, "w", zipfile.ZIP_DEFLATED) as zf:
             for path, data in members.items():
                 zf.writestr(prefix + path, data)
@@ -29,7 +39,6 @@ class ImportReleaseTests(unittest.TestCase):
         return self.archive({
             "__init__.py": "# comfy entrypoint",
             "smartsvg_ai/__init__.py": "# engine",
-            "INSTALLATION_MANIFEST_V21_15_2.json": "{}",
             "README.md": "example",
         })
 
@@ -44,8 +53,9 @@ class ImportReleaseTests(unittest.TestCase):
         report = import_release(self.zipfile, self.root / "engine", digest)
         self.assertEqual(report["archive_sha256"], digest)
         self.assertEqual(report["entries_imported"], 4)
+        self.assertEqual(report["verified_manifest_files"], 3)
         self.assertFalse(report["operator_ready_marker_created"])
-        self.assertFalse(report["internal_manifest_hashes_verified"])
+        self.assertTrue(report["internal_manifest_hashes_verified"])
         self.assertTrue((self.root / "engine" / "smartsvg_ai" / "__init__.py").exists())
         self.assertFalse((self.root / ".automation" / "READY").exists())
 
