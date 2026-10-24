@@ -1,72 +1,33 @@
-name: SmartSVG - Import private source release
+name: SmartSVG - Verify Authentic V21.15.2 Source
+
 on:
   workflow_dispatch:
-    inputs:
-      release_tag:
-        description: Private release tag containing V21.15.2 ZIP
-        required: true
-        default: smartsvg-v21.15.2-source
-      expected_sha256:
-        description: Verified source ZIP SHA256 (must match provided V21.15.2 archive)
-        required: true
-        default: 9369656f0216cebb6dccce0d0155bffa16d8c384da6a984bf848cdd8aa003c54
+
 permissions:
-  contents: write
-  pull-requests: write
-concurrency:
-  group: smartsvg-private-source-bootstrap
-  cancel-in-progress: false
+  contents: read
+
 jobs:
-  source-import:
+  verify-imported-source:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Verify prerequisites
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check archive SHA, all manifests and exact extracted tree
+        shell: bash
         run: |
           set -euo pipefail
-          test -f tools/validate_release_archive.py
-          test -f tools/import_release_archive.py
-          test ! -e engine
+          echo '9369656f0216cebb6dccce0d0155bffa16d8c384da6a984bf848cdd8aa003c54  source-releases/ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip' | sha256sum --check
           echo '0e503a55fa622d7acea44d8e742205fb6a71119262c309a0b5a2bd48f0ab28a3  docs/ROADMAP_MASTER_v3_2.md' | sha256sum --check
-      - name: Download private asset
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          python tools/verify_source_integrity.py --repo .
+          python -m unittest discover -s tests -p 'test_*.py' -q
+      - name: Verify admission evidence exists (no state changes)
+        shell: bash
         run: |
-          mkdir -p "$RUNNER_TEMP/smartsvg-release"
-          gh release download "$RELEASE_TAG" --repo frenndak/SmartSVG-Studio --pattern 'ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip' --dir "$RUNNER_TEMP/smartsvg-release"
-      - name: Structural admission into isolated engine directory
-        env:
-          EXPECTED_SHA: ${{ inputs.expected_sha256 }}
-        run: |
-          set -euo pipefail
-          archive="$RUNNER_TEMP/smartsvg-release/ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip"
-          test "$EXPECTED_SHA" = '9369656f0216cebb6dccce0d0155bffa16d8c384da6a984bf848cdd8aa003c54'
-          python tools/import_release_archive.py "$archive" --destination engine --expected-sha256 "$EXPECTED_SHA"
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          report=json.loads(Path('docs/IMPORT_V21_15_2.json').read_text())
-          assert report.get('internal_manifest_hashes_verified') is True
-          assert report.get('verified_manifest_files') == 651
-          PY
-          test -f engine/smartsvg_ai/__init__.py
-          test ! -e .automation/READY
-      - name: Create private bootstrap branch and draft PR
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          branch="bootstrap/v21-15-2-$GITHUB_RUN_ID"
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git switch -c "$branch"
-          git add -A -- engine docs/IMPORT_V21_15_2.json
-          git commit -m 'bootstrap: import V21.15.2 as unapproved candidate'
-          git push --set-upstream origin "$branch"
-          if gh pr create --repo frenndak/SmartSVG-Studio --base main --head "$branch" --draft --title 'Bootstrap: import V21.15.2 - audit required' --body 'Private source candidate; zip structure checked. Embedded manifest, regression tests, ComfyUI and Cricut are NOT verified. Readiness remains disabled.' >/dev/null; then
-            echo 'Draft PR created privately.'
-          else
-            echo '::warning::Branch pushed. GitHub refused automated PR creation; please open the candidate branch privately.'
-          fi
+          test -s docs/IMPORT_V21_15_2.json
+          test -s .automation/READY
+          echo 'G0 source is admitted for draft-PR development. No GPU/Cricut claim is implied.'
