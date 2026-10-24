@@ -114,6 +114,7 @@ async function loadExtension() {
   globalThis.__ssModel=starter;
   globalThis.__ssGuide=guide;
   globalThis.__ssPreviewUrl=previewUrl;
+  globalThis.__ssProjectPanel={createProjectPanel:()=>new El('section')};
   globalThis.document={head:new El('head'),getElementById:()=>null,createElement:name=>new El(name)};
   globalThis.window={location:{href:'https://host.example/proxy/8188/'}};
   Object.defineProperty(globalThis,'navigator',
@@ -128,6 +129,8 @@ async function loadExtension() {
       'const {evaluateOutput,emptyState,statusForDisplay,STATES,configurationSignature}=globalThis.__ssGuide;')
     .replace('import { previewUrl } from "./smartsvg_ui_model_v2151.mjs";',
       'const previewUrl=globalThis.__ssPreviewUrl;');
+    .replace('import { createProjectPanel } from "./smartsvg_project_panel_g22.mjs";',
+      'const {createProjectPanel}=globalThis.__ssProjectPanel;');
   await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64')+'#'+(++sequence));
   assert.ok(registered);
   return registered;
