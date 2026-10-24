@@ -1,0 +1,340 @@
+{
+  "id": "SmartSVG_Studio_V19_8_Comparer_Puis_Exporter",
+  "revision": 0,
+  "last_node_id": 3,
+  "last_link_id": 4,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        80,
+        180
+      ],
+      "size": [
+        340,
+        314
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1,
+            3
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            2
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "selectionner_une_image_ou_planche.png",
+        "image"
+      ],
+      "title": "1 - Choisir PNG / JPG / planche"
+    },
+    {
+      "id": 2,
+      "type": "SmartSVGStudioV198Express",
+      "pos": [
+        1060,
+        180
+      ],
+      "size": [
+        520,
+        330
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "dossier_sortie",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "dossier_sortie"
+          }
+        },
+        {
+          "name": "largeur_planche_mm",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "largeur_planche_mm"
+          }
+        },
+        {
+          "name": "type_fichier",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "type_fichier"
+          }
+        },
+        {
+          "name": "segmentation_objets",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "segmentation_objets"
+          }
+        },
+        {
+          "name": "analyse_florence",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "analyse_florence"
+          }
+        },
+        {
+          "name": "profil_segmentation",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "profil_segmentation"
+          }
+        },
+        {
+          "name": "raffinement_contours",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "raffinement_contours"
+          }
+        },
+        {
+          "name": "contacts_objets",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "contacts_objets"
+          }
+        },
+        {
+          "name": "comparaison_masques",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "comparaison_masques"
+          }
+        },
+        {
+          "name": "profil_performances",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "profil_performances"
+          }
+        },
+        {
+          "name": "alignement_masques",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "alignement_masques"
+          }
+        },
+        {
+          "name": "masque_png",
+          "type": "MASK",
+          "link": 2
+        },
+        {
+          "name": "masques_objets",
+          "type": "MASK",
+          "link": 4
+        },
+        {
+          "name": "masque_alternative_B",
+          "type": "MASK",
+          "link": null
+        },
+        {
+          "name": "masque_alternative_C",
+          "type": "MASK",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "APERÇU",
+          "type": "IMAGE",
+          "links": null,
+          "slot_index": 0
+        },
+        {
+          "name": "RAPPORT",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGStudioV1971Express"
+      },
+      "widgets_values": [
+        "C:\\Users\\Public\\Documents\\Cricut_SVG",
+        180,
+        "auto",
+        "auto",
+        "auto",
+        "auto",
+        "conservateur",
+        "conservateur",
+        "diagnostic",
+        "activer",
+        "diagnostic"
+      ],
+      "title": "SmartSVG V19.8 Express — comparaison alignée et Cricut",
+      "color": "#1d5d53",
+      "bgcolor": "#18433b"
+    },
+    {
+      "id": 3,
+      "type": "SmartSVGAlignMasksV198",
+      "pos": [
+        520,
+        -300
+      ],
+      "size": [
+        370,
+        200
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 3
+        },
+        {
+          "name": "masque_reference",
+          "type": "MASK",
+          "link": null
+        },
+        {
+          "name": "mode",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "mode"
+          }
+        },
+        {
+          "name": "masque_alternative_B",
+          "type": "MASK",
+          "link": null
+        },
+        {
+          "name": "masque_alternative_C",
+          "type": "MASK",
+          "link": null
+        },
+        {
+          "name": "masque_annote",
+          "type": "MASK",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "masques_retenus",
+          "type": "MASK",
+          "links": [
+            4
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "zones_incertitude",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "rapport_appariement",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGAlignMasksV198"
+      },
+      "widgets_values": [
+        "diagnostic"
+      ],
+      "title": "MASQUE IA EXTERNE REQUIS - brancher sur masque_reference"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      1,
+      1,
+      2,
+      12,
+      "MASK"
+    ],
+    [
+      3,
+      1,
+      0,
+      3,
+      0,
+      "IMAGE"
+    ],
+    [
+      4,
+      3,
+      0,
+      2,
+      13,
+      "MASK"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1,
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "description": "V19.6 : ancien moteur photo intact, masques alternatifs facultatifs; diagnostic/selection prudente, jamais sans masque reference."
+  },
+  "version": 0.4
+}

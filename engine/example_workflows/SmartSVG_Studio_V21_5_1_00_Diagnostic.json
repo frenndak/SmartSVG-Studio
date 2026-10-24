@@ -1,0 +1,51 @@
+{
+  "id": "SmartSVG_Studio_V21_3_2_00_Diagnostic",
+  "revision": 0,
+  "last_node_id": 1,
+  "last_link_id": 0,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "SmartSVGDiagnosticV2151",
+      "pos": [
+        120,
+        160
+      ],
+      "size": [
+        470,
+        220
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "resume",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 0
+        },
+        {
+          "name": "rapport_json",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGDiagnosticV2151"
+      },
+      "widgets_values": [],
+      "title": "SmartSVG V21.5 - DIAGNOSTIC SANS IA"
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "smartsvg_release": "21.4",
+    "compatibility": "node IDs preserved; V21.4 main entrypoints"
+  },
+  "version": 0.4
+}

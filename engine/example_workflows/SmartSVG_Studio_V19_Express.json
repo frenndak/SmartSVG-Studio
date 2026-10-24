@@ -1,0 +1,171 @@
+{
+  "id": "SmartSVG_V19_Express",
+  "revision": 0,
+  "last_node_id": 2,
+  "last_link_id": 2,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        80,
+        180
+      ],
+      "size": [
+        340,
+        314
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            2
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "selectionner_une_image_ou_planche.png",
+        "image"
+      ],
+      "title": "1 - Choisir PNG / JPG / planche"
+    },
+    {
+      "id": 2,
+      "type": "SmartSVGStudioV19Express",
+      "pos": [
+        510,
+        180
+      ],
+      "size": [
+        520,
+        330
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "dossier_sortie",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "dossier_sortie"
+          }
+        },
+        {
+          "name": "largeur_planche_mm",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "largeur_planche_mm"
+          }
+        },
+        {
+          "name": "type_fichier",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "type_fichier"
+          }
+        },
+        {
+          "name": "ia_locale",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "ia_locale"
+          }
+        },
+        {
+          "name": "masque_png",
+          "type": "MASK",
+          "link": 2
+        },
+        {
+          "name": "masques_objets",
+          "type": "MASK",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "APERÇU",
+          "type": "IMAGE",
+          "links": null,
+          "slot_index": 0
+        },
+        {
+          "name": "RAPPORT",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGStudioV19Express"
+      },
+      "widgets_values": [
+        "C:\\Users\\Public\\Documents\\Cricut_SVG",
+        180,
+        "auto",
+        "auto"
+      ],
+      "title": "V19 Express | Sticker ou photo : extraction",
+      "color": "#1d5d53",
+      "bgcolor": "#18433b"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      1,
+      1,
+      2,
+      5,
+      "MASK"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1,
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "description": "V16 Express : image ou planche, chemin unique, dimensions physiques et IA auto; 1 PNG planche + SVG et PNG individuels."
+  },
+  "version": 0.4
+}

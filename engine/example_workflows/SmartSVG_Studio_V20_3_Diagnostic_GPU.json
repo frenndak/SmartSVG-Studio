@@ -1,0 +1,71 @@
+{
+  "id": "SmartSVG_Studio_V20_3_Diagnostic_GPU",
+  "revision": 0,
+  "last_node_id": 1,
+  "last_link_id": 0,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "SmartSVGGPUPreflightV203",
+      "pos": [
+        220,
+        130
+      ],
+      "size": [
+        520,
+        210
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "politique_gpu",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "politique_gpu"
+          }
+        },
+        {
+          "name": "vram_libre_min_gio",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "vram_libre_min_gio"
+          }
+        },
+        {
+          "name": "marge_securite_gio",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "marge_securite_gio"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "rapport_prevol_gpu",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGGPUPreflightV203"
+      },
+      "widgets_values": [
+        "protege",
+        2.5,
+        0.5
+      ],
+      "title": "SmartSVG - mesurer CUDA/VRAM avant les modeles"
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

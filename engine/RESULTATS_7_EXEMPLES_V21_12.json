@@ -1,0 +1,65 @@
+[
+  {
+    "image": "Escargots",
+    "dimensions": [
+      1024,
+      1536
+    ],
+    "masques_sans_ia": 12,
+    "etat": "MASQUES_PROPOSES_A_VERIFIER"
+  },
+  {
+    "image": "Manga",
+    "dimensions": [
+      1536,
+      1152
+    ],
+    "masques_sans_ia": 0,
+    "etat": "CORRECTION_NECESSAIRE"
+  },
+  {
+    "image": "Cadeau",
+    "dimensions": [
+      1536,
+      1229
+    ],
+    "masques_sans_ia": 0,
+    "etat": "CORRECTION_NECESSAIRE"
+  },
+  {
+    "image": "Leprechaun",
+    "dimensions": [
+      1536,
+      1152
+    ],
+    "masques_sans_ia": 0,
+    "etat": "CORRECTION_NECESSAIRE"
+  },
+  {
+    "image": "Affiche",
+    "dimensions": [
+      1536,
+      1087
+    ],
+    "masques_sans_ia": 0,
+    "etat": "CORRECTION_NECESSAIRE"
+  },
+  {
+    "image": "Canard",
+    "dimensions": [
+      1536,
+      691
+    ],
+    "masques_sans_ia": 0,
+    "etat": "CORRECTION_NECESSAIRE"
+  },
+  {
+    "image": "Psyduck",
+    "dimensions": [
+      1536,
+      1399
+    ],
+    "masques_sans_ia": 0,
+    "etat": "CORRECTION_NECESSAIRE"
+  }
+]

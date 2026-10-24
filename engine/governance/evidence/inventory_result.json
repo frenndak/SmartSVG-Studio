@@ -1,0 +1,18 @@
+{
+  "report_type": "READ_ONLY_PRE_INVENTORY_NOT_RUNTIME_VALIDATION",
+  "workflow_count": 186,
+  "workflow_parsed": 186,
+  "node_registration_count": 98,
+  "node_occurrences": 483,
+  "custom_node_types_in_workflows": 94,
+  "unresolved_types": [],
+  "duplicate_graph_groups": [
+    [
+      "SmartSVG_Studio_V21_12_00_Diagnostic_IA.json",
+      "SmartSVG_Studio_V21_12_1_00_Diagnostic_IA.json",
+      "SmartSVG_Studio_V21_12_2_00_Diagnostic_IA.json"
+    ]
+  ],
+  "warnings": [],
+  "external_test_status": "NOT_RUN: ComfyUI/Design Space/Explore 5"
+}

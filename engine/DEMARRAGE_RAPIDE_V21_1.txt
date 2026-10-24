@@ -1,0 +1,14 @@
+SMARTSVG V21.1 — COMMENCER ICI
+
+1. Placer cette extension dans le dossier custom_nodes de ComfyUI, redémarrer.
+2. Dans example_workflows ouvrir SmartSVG_Studio_V21_1_01_Express_Auto.json.
+3. Choisir un PNG/JPG et sélectionner le projet dans le noeud SmartSVG V21.1 - EXPRESS.
+4. Le dossier de sortie peut rester VIDE : ComfyUI utilisera son dossier output/SmartSVG.
+5. Choisir largeur et 300 ppp ; pour les Pokemon choisir 03_Pokemon_24 à 32 mm.
+6. Lire le RESUME en francais apres traitement, puis ouvrir le dossier indique.
+7. Utiliser le PNG IMPRIMER_DECOUPER pour les stickers, confirmer les dimensions dans Design Space.
+8. Le SVG CONTOUR_SEUL ne contient pas les traits internes.
+9. Conserver le dossier SOURCE et les PNG DETOURE_TRANSPARENT (lorsque des masques existent).
+10. Ne pas lancer une decoupe tant que la silhouette et le nombre d'ilots n'ont pas ete verifies.
+
+IMPORTANTS : photos sur fond complexe exigent un vrai MASK/une IA reelle. L'archive ne contient pas les poids SAM2/BiRefNet. Ce projet n'a pas ete teste sur une Cricut physique.

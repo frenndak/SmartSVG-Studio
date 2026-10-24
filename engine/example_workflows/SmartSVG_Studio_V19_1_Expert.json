@@ -1,0 +1,261 @@
+{
+  "id": "SmartSVG_Studio_V19_1_Expert",
+  "revision": 0,
+  "last_node_id": 2,
+  "last_link_id": 2,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        80,
+        180
+      ],
+      "size": [
+        340,
+        314
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            2
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "selectionner_une_image_ou_planche.png",
+        "image"
+      ],
+      "title": "1 - Choisir PNG / JPG / planche"
+    },
+    {
+      "id": 2,
+      "type": "SmartSVGStudioV191Expert",
+      "pos": [
+        510,
+        180
+      ],
+      "size": [
+        510,
+        470
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "dossier_sortie",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "dossier_sortie"
+          }
+        },
+        {
+          "name": "type_entree",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "type_entree"
+          }
+        },
+        {
+          "name": "type_creation",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "type_creation"
+          }
+        },
+        {
+          "name": "ia_locale",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "ia_locale"
+          }
+        },
+        {
+          "name": "largeur_planche_mm",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "largeur_planche_mm"
+          }
+        },
+        {
+          "name": "marge_sticker_mm",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "marge_sticker_mm"
+          }
+        },
+        {
+          "name": "couleurs_svg_simplifie",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "couleurs_svg_simplifie"
+          }
+        },
+        {
+          "name": "mode_objets",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "mode_objets"
+          }
+        },
+        {
+          "name": "noms_objets",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "noms_objets"
+          }
+        },
+        {
+          "name": "repere_masques",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "repere_masques"
+          }
+        },
+        {
+          "name": "transformation_masques_json",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "transformation_masques_json"
+          }
+        },
+        {
+          "name": "type_fichier",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "type_fichier"
+          }
+        },
+        {
+          "name": "strategie_photo",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "strategie_photo"
+          }
+        },
+        {
+          "name": "boites_objets_json",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "boites_objets_json"
+          }
+        },
+        {
+          "name": "masque_png",
+          "type": "MASK",
+          "link": 2
+        },
+        {
+          "name": "masques_objets",
+          "type": "MASK",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "APERÇU",
+          "type": "IMAGE",
+          "links": null,
+          "slot_index": 0
+        },
+        {
+          "name": "RAPPORT",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGStudioV191Expert"
+      },
+      "widgets_values": [
+        "C:\\Users\\Public\\Documents\\Cricut_SVG",
+        "auto",
+        "auto",
+        "auto",
+        180,
+        1.5,
+        10,
+        "auto",
+        "",
+        "planche",
+        "",
+        "auto",
+        "auto",
+        ""
+      ],
+      "title": "SmartSVG V19.1 — Expert",
+      "color": "#1d5d53",
+      "bgcolor": "#18433b"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      1,
+      1,
+      2,
+      15,
+      "MASK"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1,
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "description": "V16 Expert : modes de grille, creation et palette; sinon utiliser V16 Express."
+  },
+  "version": 0.4
+}

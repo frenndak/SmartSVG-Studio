@@ -1,0 +1,514 @@
+{
+  "id": "SmartSVG_Studio_V21_9_03",
+  "revision": 0,
+  "last_node_id": 6,
+  "last_link_id": 9,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        40,
+        120
+      ],
+      "size": [
+        350,
+        320
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1,
+            2
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "choisir_image.png",
+        "image"
+      ],
+      "title": "1 - Importer dessin PNG"
+    },
+    {
+      "id": 2,
+      "type": "SmartSVGExpressV218",
+      "pos": [
+        2180,
+        120
+      ],
+      "size": [
+        490,
+        500
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 8
+        },
+        {
+          "name": "dossier_sortie",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "dossier_sortie"
+          }
+        },
+        {
+          "name": "projet",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "projet"
+          }
+        },
+        {
+          "name": "largeur_mm",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "largeur_mm"
+          }
+        },
+        {
+          "name": "qualite_ppp",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "qualite_ppp"
+          }
+        },
+        {
+          "name": "ia_locale",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "ia_locale"
+          }
+        },
+        {
+          "name": "masques_objets",
+          "type": "MASK",
+          "link": 9
+        }
+      ],
+      "outputs": [
+        {
+          "name": "apercu",
+          "type": "IMAGE",
+          "links": null,
+          "slot_index": 0
+        },
+        {
+          "name": "resume_lisible",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 1
+        },
+        {
+          "name": "rapport_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGExpressV2151"
+      },
+      "widgets_values": [
+        "",
+        "Planche - 12 images (4x3)",
+        32.0,
+        "300",
+        "Desactivee"
+      ],
+      "title": "SmartSVG EXPRESS V21.8 — Import Cricut direct"
+    },
+    {
+      "id": 3,
+      "type": "SmartSVGMaskEditorV216",
+      "pos": [
+        1000,
+        120
+      ],
+      "size": [
+        420,
+        290
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 2
+        },
+        {
+          "name": "retouches_json",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "retouches_json"
+          }
+        },
+        {
+          "name": "masque_base",
+          "type": "MASK",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "masques_corriges",
+          "type": "MASK",
+          "links": [
+            4
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "image_source",
+          "type": "IMAGE",
+          "links": [
+            5
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "diagnostic_retouches",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGMaskEditorV216"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "title": "2 - Retoucher le masque (sauvegarde dans le workflow)"
+    },
+    {
+      "id": 4,
+      "type": "SmartSVGInstancesV2151",
+      "pos": [
+        480,
+        420
+      ],
+      "size": [
+        400,
+        300
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "profil",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "profil"
+          }
+        },
+        {
+          "name": "source_boites",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "source_boites"
+          }
+        },
+        {
+          "name": "boites_json",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "boites_json"
+          }
+        },
+        {
+          "name": "max_objets",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "max_objets"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "masques_individuels",
+          "type": "MASK",
+          "links": [
+            3
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "apercu_guidage",
+          "type": "IMAGE",
+          "links": null,
+          "slot_index": 1
+        },
+        {
+          "name": "diagnostic_instances",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGInstancesV2151"
+      },
+      "widgets_values": [
+        "Automatique",
+        "Florence-2",
+        "[]",
+        12
+      ]
+    },
+    {
+      "id": 5,
+      "type": "SmartSVGQualityV217",
+      "pos": [
+        1480,
+        120
+      ],
+      "size": [
+        400,
+        300
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 5
+        },
+        {
+          "name": "masques",
+          "type": "MASK",
+          "link": 4
+        },
+        {
+          "name": "largeur_mm",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "largeur_mm"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "masques_inchanges",
+          "type": "MASK",
+          "links": [
+            6
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "image_inchangee",
+          "type": "IMAGE",
+          "links": [
+            7
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "rapport_qa_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGQualityV217"
+      },
+      "widgets_values": [
+        32.0
+      ]
+    },
+    {
+      "id": 6,
+      "type": "SmartSVGNativeInspectorV219",
+      "pos": [
+        1680,
+        120
+      ],
+      "size": [
+        420,
+        290
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 7
+        },
+        {
+          "name": "masques",
+          "type": "MASK",
+          "link": 6
+        },
+        {
+          "name": "largeur_mm",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "largeur_mm"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "masques_inchanges",
+          "type": "MASK",
+          "links": [
+            9
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "image_inchangee",
+          "type": "IMAGE",
+          "links": [
+            8
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "diagnostic_natif_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGNativeInspectorV219"
+      },
+      "widgets_values": [
+        40.0
+      ],
+      "title": "5 - Inspecter contours natifs (non destructif)"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      4,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      1,
+      0,
+      3,
+      0,
+      "IMAGE"
+    ],
+    [
+      3,
+      4,
+      0,
+      3,
+      2,
+      "MASK"
+    ],
+    [
+      4,
+      3,
+      0,
+      5,
+      1,
+      "MASK"
+    ],
+    [
+      5,
+      3,
+      1,
+      5,
+      0,
+      "IMAGE"
+    ],
+    [
+      6,
+      5,
+      0,
+      6,
+      1,
+      "MASK"
+    ],
+    [
+      7,
+      5,
+      1,
+      6,
+      0,
+      "IMAGE"
+    ],
+    [
+      8,
+      6,
+      1,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      9,
+      6,
+      0,
+      2,
+      6,
+      "MASK"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "smartsvg_release": "21.7.1",
+    "guide": "Planche 12 sujets: GUIDAGE IA requiert des modeles deja installes, verifiez les masques et exportez.",
+    "warning": "Enregistrer les traits puis relancer pour obtenir les exports Cricut",
+    "first_run": "Exporter Express est muet (mode 2) pour permettre de peindre un masque vide. Après retouche et sauvegarde, passer Express en mode Always (0) puis relancer.",
+    "hd_automatique": "PNG complementaires a 600 ppp dans 06_HD_AUTOMATIQUE_V21_7_1; fichiers Cricut de fabrication conserves",
+    "note_hd": "Aucun parametre supplementaire; HD refusee si risque de memoire, de geometrie ou de renforcement excessif."
+  },
+  "version": 0.4
+}

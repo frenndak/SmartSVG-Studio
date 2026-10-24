@@ -1,0 +1,301 @@
+{
+  "id": "SmartSVG_Studio_V21_6_01_Corriger_Alpha_PNG",
+  "revision": 0,
+  "last_node_id": 4,
+  "last_link_id": 5,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        60,
+        140
+      ],
+      "size": [
+        350,
+        320
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            2
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "choisir_image.png",
+        "image"
+      ],
+      "title": "1 - Importer dessin PNG"
+    },
+    {
+      "id": 2,
+      "type": "SmartSVGExpressV2151",
+      "pos": [
+        1080,
+        150
+      ],
+      "size": [
+        490,
+        500
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 3
+        },
+        {
+          "name": "dossier_sortie",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "dossier_sortie"
+          }
+        },
+        {
+          "name": "projet",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "projet"
+          }
+        },
+        {
+          "name": "largeur_mm",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "largeur_mm"
+          }
+        },
+        {
+          "name": "qualite_ppp",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "qualite_ppp"
+          }
+        },
+        {
+          "name": "ia_locale",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "ia_locale"
+          }
+        },
+        {
+          "name": "masques_objets",
+          "type": "MASK",
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "apercu",
+          "type": "IMAGE",
+          "links": null,
+          "slot_index": 0
+        },
+        {
+          "name": "resume_lisible",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 1
+        },
+        {
+          "name": "rapport_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGExpressV2151"
+      },
+      "widgets_values": [
+        "",
+        "Planche - 24 images (6x4)",
+        32.0,
+        "300",
+        "Desactivee"
+      ],
+      "title": "3 - SmartSVG EXPRESS V21.5.1 (moteur inchangé)"
+    },
+    {
+      "id": 3,
+      "type": "SmartSVGMaskEditorV216",
+      "pos": [
+        480,
+        180
+      ],
+      "size": [
+        420,
+        290
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "retouches_json",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "retouches_json"
+          }
+        },
+        {
+          "name": "masque_base",
+          "type": "MASK",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "masques_corriges",
+          "type": "MASK",
+          "links": [
+            4
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "image_source",
+          "type": "IMAGE",
+          "links": [
+            3
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "diagnostic_retouches",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGMaskEditorV216"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "title": "2 - Retoucher le masque (sauvegarde dans le workflow)"
+    },
+    {
+      "id": 4,
+      "type": "InvertMask",
+      "pos": [
+        390,
+        30
+      ],
+      "size": [
+        240,
+        90
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            5
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "InvertMask"
+      },
+      "title": "1 bis - Inverser masque alpha Comfy (garder les pixels opaques)"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      3,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      1,
+      1,
+      4,
+      0,
+      "MASK"
+    ],
+    [
+      3,
+      3,
+      1,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      4,
+      3,
+      0,
+      2,
+      6,
+      "MASK"
+    ],
+    [
+      5,
+      4,
+      0,
+      3,
+      2,
+      "MASK"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "smartsvg_release": "21.6",
+    "guide": "Retoucher un PNG transparent ou masque LoadImage",
+    "warning": "Enregistrer les traits puis relancer pour obtenir les exports Cricut",
+    "note_alpha": "Comfy LoadImage.MASK = 1 - alpha. Il faut InvertMask pour choisir la silhouette opaque. Fonctionne sur PNG avec vrai canal alpha."
+  },
+  "version": 0.4
+}

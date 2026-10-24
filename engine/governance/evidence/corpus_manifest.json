@@ -1,0 +1,250 @@
+{
+  "schema_version": "g0-corpus-1",
+  "reference": "SmartSVG Studio roadmap v3.2 / G0.2-G0.3",
+  "description": "Sources humaines externes, fixtures R synthétiques seulement dans le paquet",
+  "real_cases": [
+    {
+      "id": "T-01",
+      "label": "Fille manga photographiée",
+      "original_filename": "1000077568.jpg",
+      "current_local_filename": "1000077568(2).jpg",
+      "sha256": "a408c4b908b06782b1e8c29ede6804bf5fcb32d5b65d30852252c71780c6c7b3",
+      "source_status": "SOURCE_VERIFIED",
+      "expected_size_px": [
+        1152,
+        1536
+      ],
+      "actual_size_px": [
+        1152,
+        1536
+      ],
+      "expected_subject_count": 1,
+      "family": "opaque_complex",
+      "objective": "isoler illustration; préserver détails et bordures",
+      "mask_truth_status": "PENDING_HUMAN_ANNOTATION",
+      "licensing": "user_supplied_internal_evaluation_only; redistribution_not_authorized",
+      "measured_cut_status": "NOT_TESTED"
+    },
+    {
+      "id": "T-02",
+      "label": "Planche de douze escargots",
+      "original_filename": "1000077534.jpg",
+      "current_local_filename": "1000077534(2).jpg",
+      "sha256": "cbaf4df5ca662217978bff5f64e3a6a6917e835fba33305552269df56546b0af",
+      "source_status": "SOURCE_VERIFIED",
+      "expected_size_px": [
+        1536,
+        1024
+      ],
+      "actual_size_px": [
+        1536,
+        1024
+      ],
+      "expected_subject_count": 12,
+      "family": "white_board",
+      "objective": "douze sujets isolés; ne pas découper un rectangle",
+      "mask_truth_status": "PENDING_HUMAN_ANNOTATION",
+      "licensing": "user_supplied_internal_evaluation_only; redistribution_not_authorized",
+      "measured_cut_status": "NOT_TESTED"
+    },
+    {
+      "id": "T-03",
+      "label": "Carte avec texte",
+      "original_filename": "1000077454.png",
+      "current_local_filename": "1000077454.png",
+      "sha256": "456429e0c4797dc25058d2c595726feda704c1870c82ff9e65e53c4a258fc851",
+      "source_status": "SOURCE_VERIFIED",
+      "expected_size_px": [
+        1122,
+        1111
+      ],
+      "actual_size_px": [
+        1122,
+        1111
+      ],
+      "expected_subject_count": 1,
+      "family": "text_layout",
+      "objective": "préserver texte; refuser segmentation ambiguë",
+      "mask_truth_status": "PENDING_HUMAN_ANNOTATION",
+      "licensing": "user_supplied_internal_evaluation_only; redistribution_not_authorized",
+      "measured_cut_status": "NOT_TESTED"
+    },
+    {
+      "id": "T-04",
+      "label": "Portrait fantaisie",
+      "original_filename": "1000077462.png",
+      "current_local_filename": "1000077462(2).png",
+      "sha256": "6e7699553a3eea4e1d43e80023f8b5baa7f02e6592670fe9ba9aa07e6733a0d8",
+      "source_status": "SOURCE_VERIFIED",
+      "expected_size_px": [
+        1152,
+        1536
+      ],
+      "actual_size_px": [
+        1152,
+        1536
+      ],
+      "expected_subject_count": 1,
+      "family": "photo_complex",
+      "objective": "sujet et accessoires; corrections manuelles si besoin",
+      "mask_truth_status": "PENDING_HUMAN_ANNOTATION",
+      "licensing": "user_supplied_internal_evaluation_only; redistribution_not_authorized",
+      "measured_cut_status": "NOT_TESTED"
+    },
+    {
+      "id": "T-05",
+      "label": "Affiche fantasy A",
+      "original_filename": "1000077435.png",
+      "current_local_filename": "1000077435(4).png",
+      "sha256": "e4b51eb04a6d49d15e1f8987fe78f87c82d63bd7651717eba2928f9c22855b82",
+      "source_status": "SOURCE_VERIFIED",
+      "expected_size_px": [
+        1087,
+        1536
+      ],
+      "actual_size_px": [
+        1087,
+        1536
+      ],
+      "expected_subject_count": 1,
+      "family": "scene_complex",
+      "objective": "ne pas inventer de contours dans le décor",
+      "mask_truth_status": "PENDING_HUMAN_ANNOTATION",
+      "licensing": "user_supplied_internal_evaluation_only; redistribution_not_authorized",
+      "measured_cut_status": "NOT_TESTED"
+    },
+    {
+      "id": "T-06",
+      "label": "Affiche fantasy B",
+      "original_filename": "1000077436.png",
+      "current_local_filename": "1000077436.png",
+      "sha256": "f1c05b6fc7852a97cd75adee204913055e73fb053cf8d8d375df27a1f0d8a634",
+      "source_status": "SOURCE_VERIFIED",
+      "expected_size_px": [
+        1024,
+        1536
+      ],
+      "actual_size_px": [
+        1024,
+        1536
+      ],
+      "expected_subject_count": 1,
+      "family": "scene_complex",
+      "objective": "ne pas fusionner des silhouettes de premier plan",
+      "mask_truth_status": "PENDING_HUMAN_ANNOTATION",
+      "licensing": "user_supplied_internal_evaluation_only; redistribution_not_authorized",
+      "measured_cut_status": "NOT_TESTED"
+    },
+    {
+      "id": "T-07",
+      "label": "Homme et atelier",
+      "original_filename": "1000077420.png",
+      "current_local_filename": "1000077420.png",
+      "sha256": "a9c6d6c807d4fc8f118e850fd6b2d74db5ac0e5f91be2a8febd0f76741c028a0",
+      "source_status": "SOURCE_VERIFIED",
+      "expected_size_px": [
+        1229,
+        1536
+      ],
+      "actual_size_px": [
+        1229,
+        1536
+      ],
+      "expected_subject_count": 1,
+      "family": "photo_complex",
+      "objective": "éviter d’inclure le fond comme une silhouette",
+      "mask_truth_status": "PENDING_HUMAN_ANNOTATION",
+      "licensing": "user_supplied_internal_evaluation_only; redistribution_not_authorized",
+      "measured_cut_status": "NOT_TESTED"
+    },
+    {
+      "id": "T-08",
+      "label": "Couverture illustrée",
+      "original_filename": "1000077347.webp",
+      "current_local_filename": "1000077347.webp",
+      "sha256": "6716f32eea01287f8c9c13bcb879eeffa5dd2c863e4bb860b3fa4f905ce2c9cf",
+      "source_status": "SOURCE_VERIFIED",
+      "expected_size_px": [
+        1074,
+        1536
+      ],
+      "actual_size_px": [
+        1074,
+        1536
+      ],
+      "expected_subject_count": 1,
+      "family": "text_layout",
+      "objective": "vérifier texte et aplats; option refus utile",
+      "mask_truth_status": "PENDING_HUMAN_ANNOTATION",
+      "licensing": "user_supplied_internal_evaluation_only; redistribution_not_authorized",
+      "measured_cut_status": "NOT_TESTED"
+    },
+    {
+      "id": "T-09",
+      "label": "Planche de vingt-quatre personnages",
+      "original_filename": "1000077309.png",
+      "current_local_filename": "1000077309(2).png",
+      "sha256": "f3376a7936955d794d856495cb1eb251d684ea5920e94d0be04d549df0ebb9e6",
+      "source_status": "SOURCE_VERIFIED",
+      "expected_size_px": [
+        1536,
+        1097
+      ],
+      "actual_size_px": [
+        1536,
+        1097
+      ],
+      "expected_subject_count": 24,
+      "family": "dark_board",
+      "objective": "24 sujets distincts sans fusion; petits détails à vérifier",
+      "mask_truth_status": "PENDING_HUMAN_ANNOTATION",
+      "licensing": "user_supplied_internal_evaluation_only; redistribution_not_authorized",
+      "measured_cut_status": "NOT_TESTED"
+    }
+  ],
+  "synthetic_cases": [
+    {
+      "id": "R-01",
+      "source": "R-01.png",
+      "source_sha256": "21cca9c85f8dcb6de889400e1ac2c46ddcc1201236bec067c8db5370d940353c",
+      "gt_mask": "R-01_mask.png",
+      "mask_sha256": "71afe8b4a1e1d1c54aa76dc315585ddb13cfa0545d6957f594ca3fae408ed677",
+      "size_px": [
+        160,
+        120
+      ],
+      "decision": "ACCEPT_ALPHA_MASK",
+      "origin": "synthetic_generated_in_code",
+      "truth_status": "approved_deterministic",
+      "expected_components": 1,
+      "expected_holes": 1
+    },
+    {
+      "id": "R-02",
+      "source": "R-02.png",
+      "source_sha256": "6c3f965c7c488fd27c0cebe79a945dd0cb2ca4fa089a79d7712164c922cb6b8b",
+      "gt_mask": "R-02_mask.png",
+      "mask_sha256": "3b1f64a0bde1b92a43339ab49b520c970867229064fef04447eafc351786a30e",
+      "size_px": [
+        160,
+        120
+      ],
+      "decision": "REJECT_AUTO_SILHOUETTE",
+      "origin": "synthetic_generated_in_code",
+      "truth_status": "approved_deterministic",
+      "expected_components": 0,
+      "expected_holes": 0
+    }
+  ],
+  "gate": {
+    "g0_2": "PASS",
+    "g0_3": "BLOCKED_9_HUMAN_MASKS_AND_REVIEWERS",
+    "g0_4": "RISKS_LOGGED_NOT_PHYSICAL_VALIDATION",
+    "G0_to_G1": "NO_GO_UNTIL_HUMAN_TRUTH_AND_RISK_SIGNOFF"
+  },
+  "warnings": [
+    "La présence des images ne constitue PAS une vérité terrain.",
+    "Aucun modèle IA ni appareil Cricut testé dans ce protocole.",
+    "Ne pas distribuer les images humaines dans un ZIP public."
+  ]
+}

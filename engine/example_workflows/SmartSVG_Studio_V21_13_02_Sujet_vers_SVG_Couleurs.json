@@ -1,0 +1,322 @@
+{
+  "id": "SmartSVG_Studio_V21_13_02_Sujet_vers_SVG_Couleurs",
+  "revision": 0,
+  "last_node_id": 4,
+  "last_link_id": 6,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        100,
+        130
+      ],
+      "size": [
+        350,
+        320
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1,
+            3
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            2
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "choisir_image.png",
+        "image"
+      ],
+      "title": "1 · Importer mon dessin / planche"
+    },
+    {
+      "id": 2,
+      "type": "SmartSVGAutoMasksV21121",
+      "pos": [
+        480,
+        120
+      ],
+      "size": [
+        420,
+        240
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "ia_locale",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "ia_locale"
+          }
+        },
+        {
+          "name": "alpha_loadimage",
+          "type": "MASK",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "masques_a_verifier",
+          "type": "MASK",
+          "links": [
+            4
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "image_source",
+          "type": "IMAGE",
+          "links": null,
+          "slot_index": 1
+        },
+        {
+          "name": "rapport_detourage_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGAutoMasksV2111"
+      },
+      "widgets_values": [
+        "Si disponible"
+      ],
+      "title": "2 · Détecter les sujets — vérifier le nombre"
+    },
+    {
+      "id": 3,
+      "type": "SmartSVGChooseSubjectV2113",
+      "pos": [
+        900,
+        120
+      ],
+      "size": [
+        390,
+        170
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 3
+        },
+        {
+          "name": "masques_objets",
+          "type": "MASK",
+          "link": 4
+        },
+        {
+          "name": "numero_sujet",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "numero_sujet"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "masque_sujet",
+          "type": "MASK",
+          "slot_index": 0,
+          "links": [
+            5
+          ]
+        },
+        {
+          "name": "image_source",
+          "type": "IMAGE",
+          "slot_index": 1,
+          "links": [
+            6
+          ]
+        },
+        {
+          "name": "rapport_selection",
+          "type": "STRING",
+          "slot_index": 2,
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGChooseSubjectV2113"
+      },
+      "widgets_values": [
+        1
+      ],
+      "title": "3 · Sélectionner le numéro du sujet (1 à 32)"
+    },
+    {
+      "id": 4,
+      "type": "SmartSVGEditableColorsV2113",
+      "pos": [
+        1350,
+        120
+      ],
+      "size": [
+        440,
+        270
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 6
+        },
+        {
+          "name": "couleurs",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "couleurs"
+          }
+        },
+        {
+          "name": "largeur_mm",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "largeur_mm"
+          }
+        },
+        {
+          "name": "dossier_sortie",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "dossier_sortie"
+          }
+        },
+        {
+          "name": "masque_sujet",
+          "type": "MASK",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "apercu_couleurs",
+          "type": "IMAGE",
+          "slot_index": 0,
+          "links": null
+        },
+        {
+          "name": "fichier_svg_editable",
+          "type": "STRING",
+          "slot_index": 1,
+          "links": null
+        },
+        {
+          "name": "rapport_vectorisation",
+          "type": "STRING",
+          "slot_index": 2,
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGEditableColorsV2113"
+      },
+      "widgets_values": [
+        8,
+        40.0,
+        ""
+      ],
+      "title": "4 · SVG COULEURS EDITABLES — expérimental (dessins simples)"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      1,
+      1,
+      2,
+      2,
+      "MASK"
+    ],
+    [
+      3,
+      1,
+      0,
+      3,
+      0,
+      "IMAGE"
+    ],
+    [
+      4,
+      2,
+      0,
+      3,
+      1,
+      "MASK"
+    ],
+    [
+      5,
+      3,
+      0,
+      4,
+      4,
+      "MASK"
+    ],
+    [
+      6,
+      3,
+      1,
+      4,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "smartsvg_release": "21.7.1",
+    "guide": "Planche 12 sujets: GUIDAGE IA requiert des modeles deja installes, verifiez les masques et exportez.",
+    "warning": "Enregistrer les traits puis relancer pour obtenir les exports Cricut",
+    "first_run": "Exporter Express est muet (mode 2) pour permettre de peindre un masque vide. Après retouche et sauvegarde, passer Express en mode Always (0) puis relancer.",
+    "hd_automatique": "PNG complementaires a 600 ppp dans 06_HD_AUTOMATIQUE_V21_7_1; fichiers Cricut de fabrication conserves",
+    "note_hd": "Aucun parametre supplementaire; HD refusee si risque de memoire, de geometrie ou de renforcement excessif."
+  },
+  "version": 0.4
+}

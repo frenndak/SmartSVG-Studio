@@ -1,0 +1,262 @@
+{
+  "id": "SmartSVG_Studio_V20_3_Photo_Ecran_GPU",
+  "revision": 0,
+  "last_node_id": 2,
+  "last_link_id": 1,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        80,
+        180
+      ],
+      "size": [
+        340,
+        314
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "selectionner_un_dessin.png",
+        "image"
+      ],
+      "title": "1 - Importer dessin / scan / photo"
+    },
+    {
+      "id": 2,
+      "type": "SmartSVGLineArtV204",
+      "pos": [
+        510,
+        180
+      ],
+      "size": [
+        580,
+        420
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "dossier_sortie",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "dossier_sortie"
+          }
+        },
+        {
+          "name": "source",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "source"
+          }
+        },
+        {
+          "name": "cible_decoupe",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "cible_decoupe"
+          }
+        },
+        {
+          "name": "operation_cricut",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "operation_cricut"
+          }
+        },
+        {
+          "name": "nettoyage",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "nettoyage"
+          }
+        },
+        {
+          "name": "corriger_perspective",
+          "type": "BOOLEAN",
+          "link": null,
+          "widget": {
+            "name": "corriger_perspective"
+          }
+        },
+        {
+          "name": "marge_blanche_px",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "marge_blanche_px"
+          }
+        },
+        {
+          "name": "largeur_finale_mm",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "largeur_finale_mm"
+          }
+        },
+        {
+          "name": "segmentation_ia",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "segmentation_ia"
+          }
+        },
+        {
+          "name": "analyse_florence",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "analyse_florence"
+          }
+        },
+        {
+          "name": "profil_segmentation",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "profil_segmentation"
+          }
+        },
+        {
+          "name": "prompt_personnalise",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "prompt_personnalise"
+          }
+        },
+        {
+          "name": "repere_masque",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "repere_masque"
+          }
+        },
+        {
+          "name": "politique_gpu",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "politique_gpu"
+          }
+        },
+        {
+          "name": "vram_libre_min_gio",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "vram_libre_min_gio"
+          }
+        },
+        {
+          "name": "marge_securite_gio",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "marge_securite_gio"
+          }
+        },
+        {
+          "name": "masques_objets",
+          "type": "MASK",
+          "link": null
+        },
+        {
+          "name": "controle_contours",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "controle_contours"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "apercu_qa",
+          "type": "IMAGE",
+          "links": null,
+          "slot_index": 0
+        },
+        {
+          "name": "rapport_export",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGLineArtV203"
+      },
+      "widgets_values": [
+        "C:\\Users\\Public\\Documents\\Cricut_SVG",
+        "photo_ecran",
+        "sticker",
+        "imprimer_decouper_contour",
+        "doux",
+        true,
+        10,
+        90,
+        "auto",
+        "auto",
+        "personne",
+        "",
+        "source",
+        "protege",
+        2.5,
+        0.5,
+        "activer"
+      ],
+      "title": "SmartSVG V20.4 • QA contours"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

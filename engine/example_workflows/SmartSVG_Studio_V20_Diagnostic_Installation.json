@@ -1,0 +1,41 @@
+{
+  "id": "SmartSVG_V20_Diagnostic_Installation",
+  "revision": 0,
+  "last_node_id": 1,
+  "last_link_id": 0,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "SmartSVGEnvironmentV20",
+      "pos": [
+        180,
+        140
+      ],
+      "size": [
+        420,
+        140
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "rapport_installation",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SmartSVGEnvironmentV20"
+      },
+      "widgets_values": [],
+      "title": "V20 - Vérifier les modèles RMBG et la RTX"
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}
