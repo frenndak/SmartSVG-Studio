@@ -14,10 +14,16 @@ on:
       - "tools/make_synthetic_pngs.py"
       - "tools/inspect_svg_contracts.py"
       - "examples/synthetic/**"
+      - "source-releases/**"
+      - "engine/**"
+      - "tools/verify_source_integrity.py"
       - ".github/workflows/g0-admission-tests.yml"
   push:
     branches: [main]
     paths:
+      - "source-releases/**"
+      - "engine/**"
+      - "tools/verify_source_integrity.py"
       - "tools/validate_release_archive.py"
       - "tools/import_release_archive.py"
       - "tests/test_release_archive_gate.py"
@@ -43,6 +49,14 @@ jobs:
           set -euo pipefail
           python -m compileall -q tools tests
           python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Verify bundled source against original ZIP (when present)
+        shell: bash
+        run: |
+          if [[ -f source-releases/ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip ]]; then
+            python tools/verify_source_integrity.py --repo .
+          else
+            echo "Source ZIP not yet committed to this ref; archive verification deferred."
+          fi
       - name: Confirm no readiness marker was added
         shell: bash
         run: |
