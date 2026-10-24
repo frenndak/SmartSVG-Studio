@@ -25,7 +25,8 @@ class ExpressStarterG15Tests(unittest.TestCase):
     def test_g15_adds_no_new_comfyui_node_ids(self):
         src = (ROOT / "engine" / "web" / "js" / "smartsvg_express_start_g15.js").read_text()
         self.assertNotIn("NODE_CLASS_MAPPINGS", src)
-        self.assertNotIn("onExecuted", src)
+        self.assertIn("node.onExecuted=function(output)", src)
+        self.assertNotIn("NODE_DISPLAY_NAME_MAPPINGS", src)
         self.assertIn("nodeCreated", src)
 
 
