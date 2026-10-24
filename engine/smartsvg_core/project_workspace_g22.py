@@ -13,7 +13,7 @@ from pathlib import Path
 import re
 
 from .project_archive import LoadedProject, ProjectArchiveError, load_project
-from .project_contracts import SourceAsset
+from .project_contracts import SourceAsset, Mask, Subject
 from .project_recovery import (
     RecoveryError, inspect_project, recover_previous, save_with_recovery,
 )
@@ -227,6 +227,9 @@ class ManagedWorkspace:
                 ('profile','width_mm','dpi','notes','stage')}
             report['source_count']=len(loaded.sources)
             report['operations_count']=len(loaded.operations)
+            report['subjects']=[{'subject_id':s.subject_id,'bbox_px':list(s.bbox_px),
+                                 'mask_id':s.mask_id} for s in loaded.subjects[:32]]
+            report['mask_count']=len(loaded.masks)
             report['sha256']=_sha(path.read_bytes())
         if health.status=='PROJECT_RECOVERABLE':
             previous=path.with_name(path.stem+'.previous.smartsvg')
@@ -286,3 +289,89 @@ class ManagedWorkspace:
         if not path_id.endswith('.png'):
             raise WorkspaceError('SOURCE_NOT_PNG')
         return loaded.resources[path_id]
+
+
+    def put_subject_mask(self, name, *, subject_id, mask_png, expected_sha256):
+        """Atomically insert/replace one subject mask, leaving source untouched.
+
+        Captures an audit entry and a single previous entire project snapshot.
+        This does NOT create Cricut-ready geometry or replayable brush strokes.
+        """
+        from .mask_inspection_g23 import inspect_l8_mask
+
+        path = self._path(name)
+        if not isinstance(subject_id, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,47}', subject_id):
+            raise WorkspaceError('INVALID_SUBJECT_ID')
+        if not isinstance(expected_sha256, str) or not re.fullmatch('[0-9a-f]{64}', expected_sha256):
+            raise WorkspaceError('EXPECTED_REVISION_REQUIRED')
+        if not path.is_file():
+            raise WorkspaceError('PROJECT_NOT_FOUND')
+        before = _sha(path.read_bytes())
+        if before != expected_sha256:
+            raise WorkspaceError('PROJECT_CHANGED')
+        project = load_project(path)
+        if (project.project_id != name or len(project.sources) != 1 or
+                project.artifacts or project.qa_results):
+            raise WorkspaceError('PROJECT_EDIT_NOT_SUPPORTED')
+        if project.document.get('stage') not in ('source_imported_only', 'subject_masks_available'):
+            raise WorkspaceError('PROJECT_EDIT_NOT_SUPPORTED')
+        if len(project.operations) >= 4999:
+            raise WorkspaceError('HISTORY_LIMIT')
+        source = project.sources[0]
+        details = inspect_l8_mask(mask_png, source.width_px, source.height_px)
+        old = next((m for m in project.masks if m.mask_id == 'mask-' + subject_id), None)
+        if old is None and len(project.subjects) >= 32:
+            raise WorkspaceError('TOO_MANY_SUBJECTS')
+        if any(s.subject_id == subject_id and s.mask_id != 'mask-' + subject_id for s in project.subjects):
+            raise WorkspaceError('SUBJECT_ID_CONFLICT')
+        digest = _sha(mask_png)
+        if old and old.sha256 == digest:
+            raise WorkspaceError('MASK_UNCHANGED')
+        mask = Mask('mask-' + subject_id, source.source_id, digest,
+                    source.width_px, source.height_px)
+        subject = Subject(subject_id, source.source_id, mask.mask_id, details['bbox_px'])
+        masks = tuple(m for m in project.masks if m.mask_id != mask.mask_id) + (mask,)
+        subjects = tuple(s for s in project.subjects if s.subject_id != subject_id) + (subject,)
+        paths = dict(project.mask_paths)
+        resource_path = 'masks/' + mask.mask_id + '.png'
+        paths[mask.mask_id] = resource_path
+        resources = dict(project.resources)
+        resources[resource_path] = mask_png
+        document = dict(project.document)
+        document['stage'] = 'subject_masks_available'
+        document['cricut_certified'] = False
+        operation = {'kind': 'replace_subject_mask' if old else 'add_subject_mask',
+                     'subject_id': subject_id,
+                     'new_sha256': digest,
+                     'previous_sha256': old.sha256 if old else None,
+                     'bbox_px': list(details['bbox_px']),
+                     'cut_certified': False}
+        updated = replace(project, masks=masks, subjects=subjects, mask_paths=paths,
+                          resources=resources, document=document,
+                          operations=[*project.operations, operation])
+        try:
+            result = save_with_recovery(path, updated, expected_sha256=before)
+        except RecoveryError as exc:
+            raise WorkspaceError(exc.code) from exc
+        return {'name': name, 'status': 'mask_saved',
+                'subject_id': subject_id, 'bbox_px': list(details['bbox_px']),
+                'selected_pixels': details['selected_pixels'],
+                'sha256': result['sha256'], 'mask_sha256': digest,
+                'previous_available': result['previous_available'],
+                'certified': False}
+
+    def subject_mask_png(self, name, subject_id):
+        """Retrieve only an already registered L8 mask, never an arbitrary path."""
+        path = self._path(name)
+        if not isinstance(subject_id, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,47}', subject_id):
+            raise WorkspaceError('INVALID_SUBJECT_ID')
+        project = load_project(path)
+        if project.project_id != name:
+            raise WorkspaceError('PROJECT_ID_MISMATCH')
+        subject = next((s for s in project.subjects if s.subject_id == subject_id), None)
+        if subject is None:
+            raise WorkspaceError('SUBJECT_NOT_FOUND')
+        resource_path = project.mask_paths.get(subject.mask_id)
+        if not resource_path or resource_path not in project.resources:
+            raise WorkspaceError('MASK_NOT_FOUND')
+        return project.resources[resource_path]
