@@ -1,0 +1,32 @@
+name: SmartSVG - Régression / problème
+about: Décrire une anomalie mesurable avec ses preuves sans publier de données sensibles
+labels: []
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version SmartSVG / SHA
+      placeholder: V21.15.2, commit...
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Priorité
+      options: [P0 - donnée / sécurité / fabrication, P1 - expérience ou fonction, P2 - confort]
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Étapes reproductibles
+      description: Utiliser de préférence les fixtures synthétiques. Ne pas inclure de secret ni de photo personnelle.
+    validations:
+      required: true
+  - type: textarea
+    id: expectations
+    attributes:
+      label: Attendu / observé / contexte
+      description: Différencier tests unitaires, ComfyUI réel, RTX GPU et machine Cricut physique.
+    validations:
+      required: true
