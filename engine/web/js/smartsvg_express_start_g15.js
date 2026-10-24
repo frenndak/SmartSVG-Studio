@@ -7,6 +7,7 @@ import { EXPRESS_CLASS, PROFILES, getProfile, chosenProfile,
          applyProfile, explainFailure } from "./smartsvg_express_start_model_g15.mjs";
 import { evaluateOutput, emptyState, statusForDisplay, STATES, configurationSignature } from "./smartsvg_guide_model_g21.mjs";
 import { previewUrl } from "./smartsvg_ui_model_v2151.mjs";
+import { createProjectPanel } from "./smartsvg_project_panel_g22.mjs";
 
 const EXTENSION_NAME='smartsvg.studio.g21.express.guide';
 
@@ -88,6 +89,13 @@ function starter(node){
   preview.alt='Aperçu de contrôle SmartSVG non certifié';preview.hidden=true;
   result.append(verdict,description,counter,cards,toolbar,preview,todo);
   root.append(heading,phases,label,select,intro,apply,state,notice,result);
+  // G2.2: explicit local PNG selection. This does NOT reconnect ComfyUI IMAGE.
+  root.appendChild(createProjectPanel(api,()=> {
+    const value=name=>node.widgets?.find(w=>w?.name===name)?.value;
+    return {profile:value('projet'),
+      width_mm:Number(value('largeur_mm')??40),
+      dpi:Number(value('qualite_ppp')??300)};
+  }));
 
   let latest=emptyState(),projectAtRun=null,hasRun=false,staleSinceRun=false;
 
