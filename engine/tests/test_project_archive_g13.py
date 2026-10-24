@@ -211,6 +211,31 @@ class ArchiveG13Tests(unittest.TestCase):
             save_project(self.path, project)
         self.assertFalse(self.path.exists())
 
+    def test_deep_json_graph_rejected_on_save_and_open(self):
+        project = _fixture()
+        nested = {}
+        top = nested
+        for _ in range(40):
+            next_value = {}
+            top['item'] = next_value
+            top = next_value
+        project.document['deep'] = nested
+        with self.assertRaisesRegex(ProjectArchiveError, 'JSON_NESTING_TOO_DEEP'):
+            save_project(self.path, project)
+        self.assertFalse(self.path.exists())
+        # Hostile externally crafted archive: checksummed document and updated manifest
+        save_project(self.path, _fixture())
+        with zipfile.ZipFile(self.path) as source:
+            manifest = json.loads(source.read('manifest.json'))
+        payload = json.dumps({'nested': nested}).encode()
+        manifest['entries']['document.json'] = {'sha256': _sha(payload), 'size_bytes': len(payload)}
+        self._write_zip_from({
+            'document.json': payload,
+            'manifest.json': json.dumps(manifest).encode(),
+        })
+        with self.assertRaisesRegex(ProjectArchiveError, 'JSON_NESTING_TOO_DEEP'):
+            load_project(self.path)
+
     def test_resource_path_escape_and_alias_collision(self):
         from dataclasses import replace
         project = _fixture()
