@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from validate_release_archive import ArchiveRejected, validate_archive
+from verify_v21152_manifest import verify_v21152_manifest
 
 
 def locate_package_root(members: list[str]) -> str:
@@ -44,6 +45,10 @@ def import_release(archive: Path, dest: Path, expected_sha256: str | None = None
     with zipfile.ZipFile(archive) as zf:
         members = [i.filename for i in zf.infolist() if not i.is_dir()]
         prefix = locate_package_root(members)
+        try:
+            verified_manifest = verify_v21152_manifest(zf, prefix)
+        except ValueError as exc:
+            raise ArchiveRejected(str(exc)) from exc
         relevant = [p for p in members if p.startswith(prefix) and p != prefix]
         if not relevant:
             raise ArchiveRejected("NO_SOURCE_FILES")
@@ -71,9 +76,10 @@ def import_release(archive: Path, dest: Path, expected_sha256: str | None = None
                 "original_filename": archive.name,
                 "archive_sha256": structural["archive_sha256"],
                 "entries_imported": len(relevant),
+                "verified_manifest_files": verified_manifest["declared_files_verified"],
                 "manifest_candidates": manifest_candidates,
                 "archive_crc_checked": True,
-                "internal_manifest_hashes_verified": False,
+                "internal_manifest_hashes_verified": True,
                 "complete_regression_suite_verified": False,
                 "comfyui_frontend_verified": False,
                 "actual_ai_inference_verified": False,
