@@ -8,6 +8,8 @@ on:
       - "tests/test_release_archive_gate.py"
       - "tests/test_release_import.py"
       - "tests/test_svg_contracts.py"
+      - "tests/test_synthetic_pngs.py"
+      - "tools/make_synthetic_pngs.py"
       - "tools/inspect_svg_contracts.py"
       - "examples/synthetic/**"
       - ".github/workflows/g0-admission-tests.yml"
