@@ -39,7 +39,7 @@ Le ZIP est lu en mémoire avec des budgets définis, **jamais extrait**. Les che
 - Contrôle des références et bounding-box G1.2 avant sauvegarde/après restauration ;
 - contrôle SHA-256 **réel sur les octets**, manifestes, dimensions déclarées et en-têtes d'images (PNG/JPEG/WebP) ;
 - masques obligatoirement en PNG L8 sujet blanc, CRC des chunks et décompression vérifiée sans dépasser le budget ;
-- limite d'entrées, taille membre, taille décompressée globale et JSON ;
+- limite d'entrées, taille membre, taille décompressée globale, profondeur JSON (32) et nombre d'éléments ;
 - fichier temporaire dans le même dossier, fsync, réouverture avant publication puis remplacement atomique ;
 - création par lien dur sans écrasement lorsque overwrite=False sur les systèmes où ce mécanisme est pris en charge.
 
@@ -53,7 +53,7 @@ Le ZIP est lu en mémoire avec des budgets définis, **jamais extrait**. Les che
 
 ## Tests et acceptation
 
-- tests engine/tests/test_project_archive_g13.py : 17 scénarios synthétiques de sauvegarde et attaques (sans œuvres utilisateur) ;
+- tests engine/tests/test_project_archive_g13.py : 18 scénarios synthétiques de sauvegarde et attaques (sans œuvres utilisateur) ;
 - tests racine tests/test_g13_project_archive.py exécutés automatiquement par la CI privée d'admission ;
 - tests des 8 contrats G1.2 conservés dans la branche parente ;
 - ne pas confondre ces tests avec une exécution GPU RTX 3070, Design Space ou coupe Explore 5.
