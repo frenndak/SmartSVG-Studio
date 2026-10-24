@@ -1,0 +1,39 @@
+name: SmartSVG - Live Engine CPU Smoke
+
+on:
+  pull_request:
+    paths:
+      - "engine/**"
+      - "tools/test_engine_cpu_smoke.py"
+      - ".github/workflows/engine-cpu-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smartsvg-cpu-smoke-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  live-engine-cpu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: engine/requirements.txt
+      - name: Install CPU-only test dependencies
+        run: |
+          python -m pip install --only-binary=:all: "numpy>=1.24,<3" "opencv-python-headless>=4.7,<5"
+      - name: Verify immutable V21.15.2 archive
+        run: python tools/verify_source_integrity.py --repo . --archive-only
+      - name: Exercise current production segmentation (synthetic images only)
+        run: python tools/test_engine_cpu_smoke.py
+      # This workflow is NOT evidence of RTX 3070 inference, actual ComfyUI
+      # integration, Design Space import, or a physical Cricut cut.
