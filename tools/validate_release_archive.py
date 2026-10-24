@@ -66,6 +66,11 @@ def validate_archive(
                 parts = clean.split("/")
                 if not clean or any(p in ("", ".", "..") for p in parts):
                     raise ArchiveRejected("UNSAFE_MEMBER_PATH")
+                if len(name) > 240 or any(ord(ch) < 32 or ord(ch) == 127 for ch in name):
+                    raise ArchiveRejected("UNSAFE_OR_OVERLONG_MEMBER_NAME")
+                reserved = {"CON", "PRN", "AUX", "NUL"} | {f"COM{i}" for i in range(1, 10)} | {f"LPT{i}" for i in range(1, 10)}
+                if any(":" in part or part.endswith((" ", ".")) or part.split(".")[0].upper() in reserved for part in parts):
+                    raise ArchiveRejected("WINDOWS_UNSAFE_MEMBER_NAME")
                 if unicodedata.normalize("NFC", name) != name:
                     raise ArchiveRejected("NON_NORMALIZED_NAME")
                 folded = clean.casefold()
