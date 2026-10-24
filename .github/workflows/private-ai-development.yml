@@ -1,0 +1,161 @@
+name: SmartSVG - Private AI Development
+
+on:
+  repository_dispatch:
+    types: [smartsvg-cycle]
+  workflow_dispatch:
+    inputs:
+      phase:
+        type: choice
+        description: develop or repair
+        options: [develop, repair]
+        default: develop
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: smartsvg-private-engineer
+  cancel-in-progress: false
+
+jobs:
+  engineer:
+    if: vars.SMARTSVG_AUTOMATION_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Verify baseline and select phase
+        id: gate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISPATCH_PHASE: ${{ github.event.client_payload.phase }}
+          INPUT_PHASE: ${{ inputs.phase }}
+        run: |
+          set -euo pipefail
+          phase="${DISPATCH_PHASE:-${INPUT_PHASE:-develop}}"
+          if [[ "$phase" != "develop" && "$phase" != "repair" ]]; then
+            echo "::error::Invalid phase"; exit 1
+          fi
+          echo "0e503a55fa622d7acea44d8e742205fb6a71119262c309a0b5a2bd48f0ab28a3  docs/ROADMAP_MASTER_v3_2.md" | sha256sum -c --status
+          if [[ ! -s .automation/READY || ! -f engine/INSTALLATION_MANIFEST_V21_15_2.json || ! -f docs/IMPORT_V21_15_2.json ]]; then
+            echo "Source import or independent readiness approval missing."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Require independently recorded source-admission evidence, not a marker alone.
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("docs/IMPORT_V21_15_2.json").read_text())
+          assert r.get("internal_manifest_hashes_verified") is True
+          assert r.get("archive_sha256")=="9369656f0216cebb6dccce0d0155bffa16d8c384da6a984bf848cdd8aa003c54"
+          PY
+          open_prs="$(gh pr list --repo frenndak/SmartSVG-Studio --state open --limit 100 --json headRefName,isDraft)"
+          count="$(jq 'length' <<< "$open_prs")"
+          if [[ "$count" == "0" && "$phase" == "develop" ]]; then
+            branch="smartsvg/auto-${GITHUB_RUN_ID}"
+            git switch -c "$branch"
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+            echo "mode=new" >> "$GITHUB_OUTPUT"
+            echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          elif [[ "$count" == "1" && "$phase" == "repair" ]]; then
+            branch="$(jq -r '.[0].headRefName' <<< "$open_prs")"
+            if [[ "$branch" != smartsvg/auto-* ]]; then
+              echo "Only a separately created draft PR exists; refusing agent repair."
+              echo "proceed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            git fetch origin "${branch}:refs/remotes/origin/${branch}"
+            git switch -c "$branch" "origin/$branch"
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+            echo "mode=repair" >> "$GITHUB_OUTPUT"
+            echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          else
+            echo "Nothing actionable for this phase (open PR count: $count)."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Python
+        if: steps.gate.outputs.proceed == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run focused private Codex
+        if: steps.gate.outputs.proceed == 'true'
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":workspace"
+          working-directory: .
+          safety-strategy: drop-sudo
+          prompt: |
+            You implement or repair ONE short SmartSVG roadmap micro-lot.
+            Read AGENTS.md, the canonical docs/ROADMAP_MASTER_v3_2.md and
+            relevant engine source, tests, and private PR review comments.
+            Current phase: ${{ steps.gate.outputs.mode }}.
+            Do not modify security workflows, provenance, frozen documents,
+            .automation/READY, secrets, or original archive material.
+            Preserve all historical ComfyUI node contracts. Respect true PNG
+            Print Then Cut versus silhouette SVG and editable color-layer SVG.
+            Maintain precise dimensions/mm, safe mask polarity, escape handling,
+            and accessible Express UI. Write focused regression tests.
+            Never claim user GPU, ComfyUI frontend, Design Space or actual
+            machine-cut tests without recorded observed evidence.
+            When repairing, address reviewer findings; do not expand scope.
+            Never push, merge, release, or set readiness markers yourself.
+            If safety/provenance prevents work, change no files.
+
+      - name: Check changes and private tests
+        if: steps.gate.outputs.proceed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes made."
+            exit 0
+          fi
+          while IFS= read -r -d '' path; do
+            case "$path" in
+              .github/*|.automation/*|AGENTS.md|.gitmodules|docs/ROADMAP_MASTER_v3_2.md|docs/ROADMAP_FREEZE_v3_2.json|docs/IMPORT_V21_15_2.json|engine/INSTALLATION_MANIFEST_*.json|*.env|*.pem|*.key)
+                echo "::error::Protected path edited: $path"; exit 1 ;;
+            esac
+          done < <(git diff --cached --name-only -z)
+          python -m compileall -q engine tools tests
+          python -m unittest discover -s tests -p 'test_*.py' -q
+          # Full ComfyUI/runtime tests require separately installed dependencies.
+          # No unconditional green claims when GPU/Design Space is unavailable.
+
+      - name: Commit and update private PR
+        if: steps.gate.outputs.proceed == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODE: ${{ steps.gate.outputs.mode }}
+          BRANCH: ${{ steps.gate.outputs.branch }}
+        run: |
+          set -euo pipefail
+          if git diff --cached --quiet; then
+            echo "No changes to propose."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "feat(smartsvg): focused autonomous roadmap candidate"
+          gh auth setup-git
+          git push -u origin "HEAD:refs/heads/$BRANCH" >/dev/null 2>&1
+          if [[ "$MODE" == "new" ]]; then
+            gh pr create --repo frenndak/SmartSVG-Studio --draft --base main \
+              --head "$BRANCH" --title "SmartSVG: AI micro-lot ${GITHUB_RUN_ID}" \
+              --body "Private candidate, awaiting independent hourly review. Unit tests only; no hardware validation implied." >/dev/null
+          else
+            echo "Existing private PR updated for independent review."
+          fi
