@@ -131,6 +131,26 @@ class ProjectRecoveryTests(unittest.TestCase):
         recover_previous(self.path, confirmed=True)
         self.assertEqual(load_project(self.path).document['objects'][0]['x'], 2)
 
+    def test_corrupt_existing_backup_is_never_overwritten(self):
+        save_with_recovery(self.path, fixture(1))
+        save_with_recovery(self.path, fixture(2))
+        self.backup.write_bytes(b'possibly-salvageable')
+        main_bytes = self.path.read_bytes()
+        with self.assertRaisesRegex(RecoveryError, 'BACKUP_CONFLICT'):
+            save_with_recovery(self.path, fixture(3))
+        self.assertEqual(self.backup.read_bytes(), b'possibly-salvageable')
+        self.assertEqual(self.path.read_bytes(), main_bytes)
+
+    def test_foreign_project_backup_is_never_overwritten(self):
+        from smartsvg_core.project_archive import save_project
+        save_with_recovery(self.path, fixture(1))
+        save_project(self.backup, fixture(9, project_id='other-project'))
+        backup_bytes = self.backup.read_bytes()
+        with self.assertRaisesRegex(RecoveryError, 'BACKUP_CONFLICT'):
+            save_with_recovery(self.path, fixture(2))
+        self.assertEqual(self.backup.read_bytes(), backup_bytes)
+        self.assertEqual(load_project(self.path).document['objects'][0]['x'], 1)
+
     def test_failed_publish_keeps_good_main_and_snapshot(self):
         save_with_recovery(self.path, fixture(2))
         old = self.path.read_bytes()
