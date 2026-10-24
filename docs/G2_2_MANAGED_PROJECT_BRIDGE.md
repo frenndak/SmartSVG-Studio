@@ -21,7 +21,7 @@ L'interface demeure visible si le service est inactif mais affiche une indisponi
 
 ## Dossier et protocole
 
-Stockage uniquement dans output/SmartSVG_Managed_Projects (dossier dérivé de folder_paths.get_output_directory côté serveur). Fichiers mon_projet.smartsvg, mon_projet.previous.smartsvg et mon_projet.smartsvg.lock. Aucun chemin client arbitraire accepté ; protection symlink, absence d'extraction ZIP, empreintes et validations G1.3/G1.4. Image limitée au PNG, 12 Mo et 20 mégapixels, avec décodage Pillow complet.
+Stockage uniquement dans output/SmartSVG_Managed_Projects (dossier dérivé de folder_paths.get_output_directory côté serveur). Fichiers mon_projet.smartsvg, mon_projet.previous.smartsvg et mon_projet.smartsvg.lock. Aucun chemin client arbitraire accepté ; protection symlink, absence d'extraction ZIP, empreintes et validations G1.3/G1.4. Image limitée au PNG, 12 Mo et 20 mégapixels, avec contrôle strict PNG sans dépendance externe : format non entrelacé 8 bits L/RGB/RGBA, CRC des chunks, filtres de lignes et décompression zlib bornée. Les variantes PNG non prises en charge sont refusées (pas de garantie de rendu complet des métadonnées).
 
 Endpoints optionnels :
 - GET /smartsvg/g22/projects : liste bornée des projets.
