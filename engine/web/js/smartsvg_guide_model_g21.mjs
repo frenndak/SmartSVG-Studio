@@ -11,6 +11,22 @@ export const STATES=Object.freeze({
 const EMPTY_MESSAGE='Importer une image, choisir le projet puis lancer le workflow manuellement.';
 const INVALID_MESSAGE='Aucun rapport de contrôle exploitable pour cette exécution. Ne pas découper ce résultat.';
 
+/** Observable ComfyUI configuration, no image pixels or private paths exposed.
+ * Used for conservative stale-output invalidation after UI edits.
+ */
+export function configurationSignature(node){
+  const names=['projet','largeur_mm','qualite_ppp','ia_locale','dossier_sortie'];
+  const widgets=names.map(name=>{
+    const value=node?.widgets?.find(w=>w?.name===name)?.value;
+    return [name,typeof value==='string' ? value.slice(0,512) :
+      (typeof value==='number' && Number.isFinite(value) ? value : null)];
+  });
+  const inputs=(Array.isArray(node?.inputs)?node.inputs:[])
+    .filter(x=>x?.name==='image'||x?.name==='masques_objets')
+    .map(x=>[x.name,x.link??null]);
+  return JSON.stringify({widgets,inputs});
+}
+
 export function evaluateOutput(output,{projectAtRun=null,currentProject=null,expectedObjects=null}={}){
   const raw=Array.isArray(output?.smartsvg) ? output.smartsvg[0] : null;
   // Unknown states, malformed object counts or missing QA must fail closed.
@@ -27,8 +43,8 @@ export function evaluateOutput(output,{projectAtRun=null,currentProject=null,exp
   }
   // A profile change after a result invalidates the previous review.
   if(projectAtRun!==null && currentProject!==null && projectAtRun!==currentProject){
-    return {state:STATES.STALE,headline:'Résultat obsolète après changement de projet',
-      explanation:'Les paramètres ont changé depuis la dernière exécution affichée.',
+    return {state:STATES.STALE,headline:'Résultat obsolète après modification des paramètres',
+      explanation:'Le projet, les dimensions, le mode IA ou les connexions ont changé depuis le dernier résultat.'
       action:'Relancer le workflow et vérifier les nouvelles sorties.',
       report:null,previews:[],filePath:null,mayCopy:false,verifiedPhysicalCut:false};
   }
