@@ -166,7 +166,7 @@ class SubjectMasksG23Tests(unittest.TestCase):
         self.put('one')
         current=self.filename.read_bytes()
         with self.assertRaisesRegex(WorkspaceError,'PROJECT_CHANGED'):
-            self.put('two',expected_sha256=old,mask=make_mask(rect=(6,2,5,6)))
+            self.put('two',sha=old,mask=make_mask(rect=(6,2,5,6)))
         self.assertEqual(self.filename.read_bytes(),current)
 
     def test_recovery_restores_preexisting_masks_after_corruption(self):
