@@ -20,7 +20,7 @@ La restauration sans confirmation échoue. Une sauvegarde principale encore vali
 ## Flux et invariants
 
 - Première sauvegarde : crée projet.smartsvg.
-- Nouvelle sauvegarde : valide le fichier principal, copie ses octets dans projet.previous.smartsvg via un temporaire sur le même volume, vérifie sa capacité à être relu et seulement ensuite publie le nouveau projet.
+- Nouvelle sauvegarde : valide le fichier principal, **refuse de remplacer un secours endommagé ou associé à un autre projet**, copie ses octets dans projet.previous.smartsvg via un temporaire sur le même volume, vérifie sa capacité à être relu et seulement ensuite publie le nouveau projet.
 - En cas de coupure avant publication : projet.smartsvg et/ou projet.previous.smartsvg contiennent une version précédemment valide.
 - En cas de coupure après publication : le fichier principal est complet, et la version antérieure peut être conservée comme secours.
 - En cas de corruption du principal : inspect_project renvoie PROJECT_RECOVERABLE si le précédent peut être relu.
@@ -40,16 +40,17 @@ La restauration sans confirmation échoue. Une sauvegarde principale encore vali
 - RECOVERY_WOULD_OVERWRITE_VALID_PROJECT : blocage de perte d'une bonne version.
 - PROJECT_CHANGED_DURING_SAVE : identité projet ou bytes modifiés.
 - NO_VALID_RECOVERY_SNAPSHOT : absence d'une version récupérable.
+- BACKUP_CONFLICT : secours existant étranger/corrompu, conservation obligatoire.
 - INVALID_RECOVERY_PATH : chemin hors contrat.
 
 Les codes et consignes sont fournis par recovery_message() et destinés à l'UI Express, qui n'est pas encore branchée.
 
 ## Tests et sécurité
 
-17 scénarios synthétiques dédiés :
+19 scénarios synthétiques dédiés :
 - sauvegarde initiale, écrasement contrôlé et copie précédente bit-à-bit ;
 - trois révisions, restauration volontaire, refus du remplacement d'un projet valide ;
-- copie corrompue, projet corrompu, principal manquant ;
+- copie corrompue, projet corrompu, principal manquant, secours étranger ou endommagé ;
 - simulation d'échec de copie / publication avec conservation du dernier état et nettoyage des temporaires ;
 - verrou concurrent, identité de projet, chemins invalides ;
 - messages FR et absence de revendication de coupe physique.
@@ -63,6 +64,6 @@ Les codes et consignes sont fournis par recovery_message() et destinés à l'UI 
 
 ## Gate
 
-Exécuter les tests de la PR exact-HEAD via SmartSVG G0 Admission Tests et le CPU Smoke historique. Vérifier 17 scénarios G1.4, 18 G1.3 et 8 G1.2, conservation de l'archive V21.15.2 et absence de modification des nœuds ComfyUI.
+Exécuter les tests de la PR exact-HEAD via SmartSVG G0 Admission Tests et le CPU Smoke historique. Vérifier 19 scénarios G1.4, 18 G1.3 et 8 G1.2, conservation de l'archive V21.15.2 et absence de modification des nœuds ComfyUI.
 
 **Suite :** intégration des messages d'erreur dans un écran Express et tests de bout-en-bout incluant reprise clavier et interface Windows.
