@@ -1,0 +1,51 @@
+{
+  "name": "SmartSVG Studio — Gel documentaire V3.2 (intégration UX/UI)",
+  "freeze_date": "2026-10-24",
+  "status": "ROADMAP_FROZEN_FOR_PLANNING; SOFTWARE_BASELINE_UNMODIFIED",
+  "historical_v31_sha256": "878edd293cc08fe34a4c9fc1d161c9e1b580492cb96da477e7c05366c0a15fee",
+  "baseline_software": {
+    "archive_name": "ComfyUI_SmartSVG_Studio_V21_14_1_Installation.zip",
+    "historical_sha256": "b35ed631bcf6243bf0dd9b0af5b8e01dab1cfe38a5ef0f93e74f21a49df28835",
+    "verified_in_this_turn": false
+  },
+  "tests_documentaires": {
+    "roadmap_master_previous_version_unchanged": true,
+    "tickets_contiguous": true,
+    "ticket_total": 101,
+    "tickets_v32_added": 35,
+    "functional_families": 15,
+    "jalons": 10,
+    "value_user_ids": 28,
+    "user_scenarios": 10,
+    "section_42_exists": true,
+    "fenced_code_balanced": true,
+    "full_source_code_audited": false,
+    "physical_cut_tested": false
+  },
+  "files": [
+    {
+      "filename": "SmartSVG_Studio_Roadmap_Master_v3_2_CONSOLIDEE.md",
+      "sha256": "0e503a55fa622d7acea44d8e742205fb6a71119262c309a0b5a2bd48f0ab28a3",
+      "size_bytes": 147651,
+      "lines": 1480
+    },
+    {
+      "filename": "SmartSVG_Studio_Contre_Expertise_UX_V3_2.md",
+      "sha256": "67b491d24f3412b7709b3508d84157b2cebc2f713cf757921b76b3e38652b62b",
+      "size_bytes": 4580,
+      "lines": 54
+    },
+    {
+      "filename": "SmartSVG_Studio_Tableau_de_Pilotage_v3_2.md",
+      "sha256": "ffefea70d93879bc3a1db976eb1665cf672e1b6548f637c7892a7f0ef94053cd",
+      "size_bytes": 2927,
+      "lines": 43
+    }
+  ],
+  "limits": [
+    "Software code not modified or tested",
+    "G0/G1 inventory not run",
+    "RTX 3070 GPU not tested",
+    "No Design Space or Explore 5 physical test"
+  ]
+}
