@@ -17,7 +17,7 @@ Le modèle de présentation engine/web/js/smartsvg_guide_model_g21.mjs refuse pa
 - statut inconnu ou « PASS » non prévu au contrat ;
 - REVIEW_REQUIRED avec 0 objet ;
 - écart entre nombre d'objets et profil explicitement choisi (12 ou 24) ;
-- ancien résultat affiché après changement du profil du nœud.
+- ancien résultat affiché après changement de profil, largeur, résolution, mode IA, dossier ou connexion IMAGE/MASK observé sur le nœud (résultat marqué périmé jusqu'à une nouvelle exécution).
 
 Seuls deux états métiers peuvent apparaître pour des résultats exploitables : **BLOCKED** et **REVIEW_REQUIRED**. REVIEW_REQUIRED ne veut **jamais** dire que Design Space a importé le fichier, ni que la découpe physique est validée.
 
@@ -36,13 +36,13 @@ Le contrôle de cohérence par profil est un **garde de présentation** et ne mo
 ## Limites et validation
 
 - Les projets .smartsvg et la reprise G1.3/G1.4 sont prêts au niveau backend mais **pas encore reliés** à cette interface. Il n'y a pas encore de boutons « Sauvegarder », « Ouvrir » ou « Restaurer ».
-- Les anciens rapports ne prouvent pas cryptographiquement quels paramètres ont été utilisés au démarrage d'une tâche. G2.1 prend l'état des widgets à l'affichage du résultat et invalide les changements postérieurs. La liaison fiable des run IDs et fingerprints est un travail futur.
+- Les anciens rapports ne prouvent pas cryptographiquement quels paramètres ont été utilisés au démarrage d'une tâche. G2.1 prend l'état des widgets et connexions à l'affichage du résultat, puis invalide tout changement observable postérieur, y compris via l'actualisation du canevas ComfyUI. Revenir aux anciens réglages ne réhabilite pas le résultat sans réexécution. La liaison fiable des run IDs et fingerprints est un travail futur.
 - Aucune validation réelle sous Windows, aucune IA RTX 3070, aucun import Design Space ni coupe Explore 5 n'a été réalisé par ce lot.
 - L'intégration dépend de l'ordre des PR empilées #14 → #15 → #16 → #17 → G2.1. Pas de fusion automatique avant revue.
 
 ## Tests
 
-- engine/tests/test_g21_guided_express.mjs : états invalides, blocages, 12/24 motifs, non-certification, changement de profil, prévisualisation sûre, DOM du vrai panneau et isolation des anciens nœuds.
+- engine/tests/test_g21_guided_express.mjs : états invalides, blocages, 12/24 motifs, non-certification, changement de profil/taille/IA/connexion, prévisualisation sûre, DOM du vrai panneau et isolation des anciens nœuds.
 - tests/test_g21_guided_express.py : lance les tests Node.js dans la CI privée, sans modifier les workflows.
 - Rejouer aussi test_g15_express_start.mjs, les tests dashboard V21.5.1 et la suite Python G0.
 
