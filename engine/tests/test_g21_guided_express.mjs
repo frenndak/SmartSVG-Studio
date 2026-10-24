@@ -128,7 +128,7 @@ async function loadExtension() {
     .replace('import { evaluateOutput, emptyState, statusForDisplay, STATES, configurationSignature } from "./smartsvg_guide_model_g21.mjs";',
       'const {evaluateOutput,emptyState,statusForDisplay,STATES,configurationSignature}=globalThis.__ssGuide;')
     .replace('import { previewUrl } from "./smartsvg_ui_model_v2151.mjs";',
-      'const previewUrl=globalThis.__ssPreviewUrl;');
+      'const previewUrl=globalThis.__ssPreviewUrl;')
     .replace('import { createProjectPanel } from "./smartsvg_project_panel_g22.mjs";',
       'const {createProjectPanel}=globalThis.__ssProjectPanel;');
   await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64')+'#'+(++sequence));
