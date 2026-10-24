@@ -10,6 +10,10 @@ on:
         description: develop or repair
         options: [develop, repair]
         default: develop
+      execute:
+        type: boolean
+        description: "Explicitly run paid Codex (unchecked runs free preflight only)"
+        default: false
 
 permissions:
   contents: write
@@ -23,8 +27,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify admitted source and manual phase without API calls
+        shell: bash
+        env:
+          REQUESTED_PHASE: ${{ inputs.phase }}
+          DISPATCH_PHASE: ${{ github.event.client_payload.phase }}
+        run: |
+          set -euo pipefail
+          phase="${DISPATCH_PHASE:-${REQUESTED_PHASE:-develop}}"
+          [[ "$phase" == "develop" || "$phase" == "repair" ]]
+          echo '0e503a55fa622d7acea44d8e742205fb6a71119262c309a0b5a2bd48f0ab28a3  docs/ROADMAP_MASTER_v3_2.md' | sha256sum --check --status
+          python tools/verify_source_integrity.py --repo . --archive-only
+          test -s .automation/READY
+          test -s docs/IMPORT_V21_15_2.json
+          echo "Manual preflight passed. No Codex or paid API call was invoked."
+
   engineer:
-    if: vars.SMARTSVG_AUTOMATION_ENABLED == 'true'
+    needs: preflight
+    if: vars.SMARTSVG_AUTOMATION_ENABLED == 'true' && (github.event_name == 'repository_dispatch' || inputs.execute == true)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -60,7 +89,7 @@ jobs:
           assert r.get("internal_manifest_hashes_verified") is True
           assert r.get("archive_sha256")=="9369656f0216cebb6dccce0d0155bffa16d8c384da6a984bf848cdd8aa003c54"
           PY
-          open_prs="$(gh pr list --repo frenndak/SmartSVG-Studio --state open --limit 100 --json headRefName,isDraft)"
+          open_prs="$(gh pr list --repo frenndak/SmartSVG-Studio --state open --limit 100 --json number,headRefName,isDraft,labels)"
           # A human/bootstrap PR must not starve autonomous engineering.
           # Enforce WIP=1 among agent branches only; never repair human branches.
           auto_prs="$(jq '[.[] | select(.headRefName | startswith("smartsvg/auto-"))]' <<< "$open_prs")"
@@ -72,7 +101,16 @@ jobs:
             echo "mode=new" >> "$GITHUB_OUTPUT"
             echo "branch=$branch" >> "$GITHUB_OUTPUT"
           elif [[ "$count" == "1" && "$phase" == "repair" ]]; then
+            # No repeated paid repair calls without an explicit reviewer request.
+            repair_requested="$(jq -r '.[0].labels | any(.name == "smartsvg:repair" or .name == "bug")' <<< "$auto_prs")"
+            if [[ "$repair_requested" != "true" ]]; then
+              echo "No reviewer-requested repair label; skip paid Codex call."
+              echo "proceed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
             branch="$(jq -r '.[0].headRefName' <<< "$auto_prs")"
+            echo "pr_number=$(jq -r '.[0].number' <<< "$auto_prs")" >> "$GITHUB_OUTPUT"
+            echo "repair_label=$(jq -r '[.[0].labels[].name | select(. == "smartsvg:repair" or . == "bug")] | first' <<< "$auto_prs")" >> "$GITHUB_OUTPUT"
             # Fail closed unless this is exactly the sole autonomous branch.
             if [[ "$branch" != smartsvg/auto-* ]]; then
               echo "::error::Invalid autonomous branch"
@@ -87,6 +125,31 @@ jobs:
             echo "Nothing actionable for this phase (autonomous PR count: $count)."
             echo "proceed=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Require the private OpenAI API secret
+        if: steps.gate.outputs.proceed == 'true'
+        shell: bash
+        env:
+          CODEX_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [[ -z "$CODEX_KEY" ]]; then
+            echo "::error::OPENAI_API_KEY is not configured in PRIVATE Actions secrets."
+            exit 1
+          fi
+
+      - name: Claim reviewer repair request before any API cost
+        if: steps.gate.outputs.proceed == 'true' && steps.gate.outputs.mode == 'repair'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.gate.outputs.pr_number }}
+          REPAIR_LABEL: ${{ steps.gate.outputs.repair_label }}
+        run: |
+          set -euo pipefail
+          test -n "$PR_NUMBER"
+          test -n "$REPAIR_LABEL"
+          gh pr edit "$PR_NUMBER" --repo frenndak/SmartSVG-Studio --remove-label "$REPAIR_LABEL" >/dev/null
+          echo "Claimed one review request before invoking paid Codex."
 
       - name: Set up Python
         if: steps.gate.outputs.proceed == 'true'
@@ -137,6 +200,9 @@ jobs:
           done < <(git diff --cached --name-only -z)
           python -m compileall -q engine tools tests
           python -m unittest discover -s tests -p 'test_*.py' -q
+          # This intentionally does NOT attest live ComfyUI, GPU, Design Space,
+          # or physical Cricut results. Per-branch Actions tests are dispatched
+          # separately and the reviewer must read their exact-head conclusions.
           # Full ComfyUI/runtime tests require separately installed dependencies.
           # No unconditional green claims when GPU/Design Space is unavailable.
 
@@ -164,6 +230,8 @@ jobs:
               --body "Private candidate, awaiting independent hourly review. Unit tests only; no hardware validation implied." >/dev/null
           else
             echo "Existing private PR updated for independent review."
+            pr_number="${{ steps.gate.outputs.pr_number }}"
+            # Repair request already consumed in the pre-Codex claim step.
           fi
           # GITHUB_TOKEN-origin PR events can wait for a separate approval;
           # workflow_dispatch is an explicit documented GitHub exception.
