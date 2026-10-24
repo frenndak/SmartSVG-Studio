@@ -218,7 +218,20 @@ def _record_list(data, cls):
     if not isinstance(data, list):
         raise ProjectArchiveError('INVALID_RECORD_LIST')
     try:
-        return tuple(cls(**x) for x in data)
+        records = []
+        for row in data:
+            if not isinstance(row, dict):
+                raise ProjectArchiveError('INVALID_RECORD_FIELDS')
+            values = dict(row)
+            # JSON arrays must round-trip to the immutable record field types.
+            if cls is Subject:
+                for field in ('bbox_px', 'accessory_ids'):
+                    if field in values and isinstance(values[field], list):
+                        values[field] = tuple(values[field])
+            if cls is Artifact and isinstance(values.get('subject_ids'), list):
+                values['subject_ids'] = tuple(values['subject_ids'])
+            records.append(cls(**values))
+        return tuple(records)
     except (TypeError, ValueError, KeyError) as exc:
         raise ProjectArchiveError('INVALID_RECORD_FIELDS') from exc
 
