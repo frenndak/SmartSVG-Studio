@@ -43,8 +43,17 @@ def check_source(repo: Path) -> dict:
             if digest.hexdigest() != hashlib.sha256(zf.read(item)).hexdigest():
                 raise ValueError("SOURCE_CONTENT_MISMATCH: " + relative)
             expected[relative] = True
-        actual = {p.relative_to(repo / "engine").as_posix()
-                  for p in (repo / "engine").rglob("*") if p.is_file()}
+        # compileall and imports generate bytecode in-place. These are not
+        # distribution source, but every other unexpected engine file still
+        # fails the exact source inventory check.
+        actual = set()
+        for path in (repo / "engine").rglob("*"):
+            if not path.is_file():
+                continue
+            relative = path.relative_to(repo / "engine")
+            if "__pycache__" in relative.parts and relative.suffix in {".pyc", ".pyo"}:
+                continue
+            actual.add(relative.as_posix())
         if actual != expected.keys():
             raise ValueError("SOURCE_FILE_INVENTORY_MISMATCH")
     return {
