@@ -55,6 +55,9 @@ MESSAGES_FR = {
     'PROJECT_CHANGED_DURING_SAVE': (
         'Le projet a été modifié pendant la sauvegarde.',
         'Conserver les versions existantes et relancer la sauvegarde.'),
+    'BACKUP_CONFLICT': (
+        'Une copie de secours existe déjà mais elle est endommagée ou appartient à un autre projet.',
+        'Préserver ce fichier et choisir un nouvel emplacement après vérification.'),
     'SAVE_FAILED': (
         'La sauvegarde n’a pas pu être terminée.',
         'Vérifier l’espace disponible, les droits du dossier et le fichier de secours.'),
@@ -219,6 +222,13 @@ def save_with_recovery(path, project: LoadedProject) -> dict:
         if primary == 'valid':
             if current.project_id != project.project_id:
                 raise RecoveryError('PROJECT_CHANGED_DURING_SAVE')
+            backup_state, backup_project = _diagnose(_previous(target))
+            if backup_state == 'invalid' or (
+                backup_state == 'valid' and
+                backup_project.project_id != current.project_id
+            ):
+                # Never destroy a foreign or potentially salvageable old backup.
+                raise RecoveryError('BACKUP_CONFLICT')
             # Preserves the last-known-good primary even if new save fails.
             _atomic_copy(target, _previous(target))
         try:
