@@ -5,7 +5,7 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { EXPRESS_CLASS, PROFILES, getProfile, chosenProfile,
          applyProfile, explainFailure } from "./smartsvg_express_start_model_g15.mjs";
-import { evaluateOutput, emptyState, statusForDisplay, STATES } from "./smartsvg_guide_model_g21.mjs";
+import { evaluateOutput, emptyState, statusForDisplay, STATES, configurationSignature } from "./smartsvg_guide_model_g21.mjs";
 import { previewUrl } from "./smartsvg_ui_model_v2151.mjs";
 
 const EXTENSION_NAME='smartsvg.studio.g21.express.guide';
@@ -89,8 +89,7 @@ function starter(node){
   result.append(verdict,description,counter,cards,toolbar,preview,todo);
   root.append(heading,phases,label,select,intro,apply,state,notice,result);
 
-  let latest=emptyState(),projectAtRun=null,hasRun=false;
-  const projectValue=()=>node.widgets?.find(w=>w?.name==='projet')?.value??null;
+  let latest=emptyState(),projectAtRun=null,hasRun=false,staleSinceRun=false;
 
   function renderProfile(){
     const profile=getProfile(select.value);
@@ -115,8 +114,11 @@ function starter(node){
   }
   function paint(){
     // The old output loses validity when the underlying ComfyUI project choice changes.
+    if(hasRun && configurationSignature(node)!==projectAtRun)staleSinceRun=true;
     const visible=hasRun
-      ? evaluateOutput(latest,{projectAtRun,currentProject:projectValue(),expectedObjects:chosenProfile(node)?.expected??null})
+      ? evaluateOutput(latest,{projectAtRun,
+          currentProject:staleSinceRun?'configuration-changed':configurationSignature(node),
+          expectedObjects:chosenProfile(node)?.expected??null})
       : emptyState();
     result.dataset.state=visible.state;
     verdict.textContent=statusForDisplay(visible.state);
@@ -143,7 +145,8 @@ function starter(node){
       });
       if(visible.previews.length)show(0,visible.previews);
       if(visible.mayCopy){
-        toolbar.appendChild(button('Copier dossier de résultats',()=>{
+        toolbar.appendChild(button(visible.state===STATES.BLOCKED ?
+          'Copier dossier de brouillons (non validés)' : 'Copier dossier de résultats',()=>{
           if(typeof navigator==='undefined' || !navigator.clipboard?.writeText){
             state.textContent='Copie non disponible dans ce navigateur.';return;
           }
@@ -170,10 +173,14 @@ function starter(node){
   });
   paint();
   return {root,updateResult(output){
-    projectAtRun=projectValue();
-    latest=output;hasRun=true;
+    projectAtRun=configurationSignature(node);
+    latest=output;hasRun=true;staleSinceRun=false;
     state.textContent='';
     paint();
+  },refreshIfStale(){
+    if(hasRun && !staleSinceRun && configurationSignature(node)!==projectAtRun){
+      staleSinceRun=true;paint();
+    }
   }};
 }
 
@@ -196,6 +203,15 @@ app.registerExtension({
         old?.apply(this,arguments);
         try{panel.updateResult(output);}
         catch(err){console.warn('SmartSVG guide rendering unavailable',err);}
+      };
+      // Also detect changes to old ComfyUI widgets made outside this panel.
+      const oldForeground=node.onDrawForeground;
+      node.onDrawForeground=function(){
+        const result=oldForeground?.apply(this,arguments);
+        try{panel.refreshIfStale();}catch(err){
+          console.warn('SmartSVG stale check unavailable',err);
+        }
+        return result;
       };
     }catch(err){
       console.warn('SmartSVG guided panel unavailable; Python node remains operational',err);
