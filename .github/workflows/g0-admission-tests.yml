@@ -59,10 +59,25 @@ jobs:
           else
             echo "Source ZIP not yet committed to this ref; archive verification deferred."
           fi
-      - name: Confirm no readiness marker was added
+      - name: Check previously approved admission marker
         shell: bash
         run: |
+          set -euo pipefail
+          # The admitted source and marker are already on main. CI must not
+          # treat their mere presence as an unauthorized *new* creation.
           if [[ -e .automation/READY ]]; then
-            echo "::error::Manual readiness marker must not be created by G0 admission tests."
-            exit 1
+            test -s .automation/READY
+            test -f engine/INSTALLATION_MANIFEST_V21_15_2.json
+            test -f source-releases/ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip
+            test -f docs/IMPORT_V21_15_2.json
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("docs/IMPORT_V21_15_2.json").read_text())
+          assert data.get("archive_sha256") == "9369656f0216cebb6dccce0d0155bffa16d8c384da6a984bf848cdd8aa003c54"
+          assert data.get("internal_manifest_hashes_verified") is True
+          assert data.get("verified_manifest_files") == 651
+          PY
+          else
+            echo "Pre-admission branch: marker absent (expected)."
           fi
