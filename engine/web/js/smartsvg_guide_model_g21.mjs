@@ -11,7 +11,7 @@ export const STATES=Object.freeze({
 const EMPTY_MESSAGE='Importer une image, choisir le projet puis lancer le workflow manuellement.';
 const INVALID_MESSAGE='Aucun rapport de contrôle exploitable pour cette exécution. Ne pas découper ce résultat.';
 
-export function evaluateOutput(output,{projectAtRun=null,currentProject=null}={}){
+export function evaluateOutput(output,{projectAtRun=null,currentProject=null,expectedObjects=null}={}){
   const raw=Array.isArray(output?.smartsvg) ? output.smartsvg[0] : null;
   // Unknown states, malformed object counts or missing QA must fail closed.
   if(!raw || typeof raw!=='object' || Array.isArray(raw) ||
@@ -38,8 +38,11 @@ export function evaluateOutput(output,{projectAtRun=null,currentProject=null}={}
       explanation:INVALID_MESSAGE,action:'Relancer le traitement.',
       report:null,previews:[],filePath:null,mayCopy:false,verifiedPhysicalCut:false};
   }
-  const blocked=raw.etat_prevol==='BLOCKED';
-  const explanation=blocked
+  const countMismatch=Number.isSafeInteger(expectedObjects) && expectedObjects>0 && raw.objets_total!==expectedObjects;
+  const blocked=raw.etat_prevol==='BLOCKED'||countMismatch;
+  const explanation=countMismatch
+    ? '⛔ Nombre de sujets incohérent : '+String(raw.objets_total)+' détecté(s), '+String(expectedObjects)+' attendu(s).'
+    : blocked
     ? '⛔ Précontrôle bloqué : ces contours ne doivent pas être considérés comme prêts à découper.'
     : '⚠️ Silhouettes candidates : contrôle visuel et import Design Space obligatoires.';
   return {
