@@ -94,10 +94,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--output", type=Path, default=Path("docs/IMPORT_V21_15_2.json"))
     args = p.parse_args(argv)
     try:
-        summary = import_release(args.archive, args.destination, args.expected_sha256)
-        args.output.parent.mkdir(parents=True, exist_ok=True)
         if args.output.exists():
             raise ArchiveRejected("IMPORT_REPORT_EXISTS_NO_OVERWRITE")
+        summary = import_release(args.archive, args.destination, args.expected_sha256)
+        args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print("Imported candidate safely into engine/. Activation remains DISABLED.")
         return 0
