@@ -28,7 +28,6 @@ concurrency:
 
 jobs:
   preflight:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -41,9 +40,11 @@ jobs:
         shell: bash
         env:
           REQUESTED_PHASE: ${{ inputs.phase }}
+          DISPATCH_PHASE: ${{ github.event.client_payload.phase }}
         run: |
           set -euo pipefail
-          [[ "$REQUESTED_PHASE" == "develop" || "$REQUESTED_PHASE" == "repair" ]]
+          phase="${DISPATCH_PHASE:-${REQUESTED_PHASE:-develop}}"
+          [[ "$phase" == "develop" || "$phase" == "repair" ]]
           echo '0e503a55fa622d7acea44d8e742205fb6a71119262c309a0b5a2bd48f0ab28a3  docs/ROADMAP_MASTER_v3_2.md' | sha256sum --check --status
           python tools/verify_source_integrity.py --repo . --archive-only
           test -s .automation/READY
@@ -51,6 +52,7 @@ jobs:
           echo "Manual preflight passed. No Codex or paid API call was invoked."
 
   engineer:
+    needs: preflight
     if: vars.SMARTSVG_AUTOMATION_ENABLED == 'true' && (github.event_name == 'repository_dispatch' || inputs.execute == true)
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -124,6 +126,17 @@ jobs:
             echo "proceed=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Require the private OpenAI API secret
+        if: steps.gate.outputs.proceed == 'true'
+        shell: bash
+        env:
+          CODEX_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [[ -z "$CODEX_KEY" ]]; then
+            echo "::error::OPENAI_API_KEY is not configured in PRIVATE Actions secrets."
+            exit 1
+          fi
+
       - name: Claim reviewer repair request before any API cost
         if: steps.gate.outputs.proceed == 'true' && steps.gate.outputs.mode == 'repair'
         shell: bash
@@ -137,17 +150,6 @@ jobs:
           test -n "$REPAIR_LABEL"
           gh pr edit "$PR_NUMBER" --repo frenndak/SmartSVG-Studio --remove-label "$REPAIR_LABEL" >/dev/null
           echo "Claimed one review request before invoking paid Codex."
-
-      - name: Require the private OpenAI API secret
-        if: steps.gate.outputs.proceed == 'true'
-        shell: bash
-        env:
-          CODEX_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          if [[ -z "$CODEX_KEY" ]]; then
-            echo "::error::OPENAI_API_KEY is not configured in PRIVATE Actions secrets."
-            exit 1
-          fi
 
       - name: Set up Python
         if: steps.gate.outputs.proceed == 'true'
