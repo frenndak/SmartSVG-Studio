@@ -85,7 +85,28 @@ def _reject_constant(_):
     raise ProjectArchiveError('NONFINITE_JSON_NUMBER')
 
 
+def _check_json_structure(value, depth=0):
+    # Avoid recursively hostile documents accepted by JSON but unusable in the UI.
+    if depth > 32:
+        raise ProjectArchiveError('JSON_NESTING_TOO_DEEP')
+    if isinstance(value, dict):
+        if len(value) > 50000:
+            raise ProjectArchiveError('JSON_TOO_MANY_FIELDS')
+        for key, item in value.items():
+            if not isinstance(key, str) or len(key) > 512:
+                raise ProjectArchiveError('INVALID_JSON_KEY')
+            _check_json_structure(item, depth + 1)
+    elif isinstance(value, (list, tuple)):
+        if len(value) > 50000:
+            raise ProjectArchiveError('JSON_TOO_MANY_ITEMS')
+        for item in value:
+            _check_json_structure(item, depth + 1)
+    elif not (value is None or isinstance(value, (str, bool, int, float))):
+        raise ProjectArchiveError('INVALID_JSON_TYPE')
+
+
 def _json_bytes(value) -> bytes:
+    _check_json_structure(value)
     try:
         encoded = json.dumps(value, allow_nan=False, sort_keys=True,
                              separators=(',', ':'), ensure_ascii=False).encode('utf-8')
