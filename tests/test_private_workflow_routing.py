@@ -61,6 +61,15 @@ class PrivateAgentRoutingTests(unittest.TestCase):
             self.assertIn(required, self.source)
         self.assertNotIn("gh pr merge", self.source)
 
+    def test_github_token_candidates_receive_explicit_branch_ci(self):
+        # GitHub may hold pull_request CI created with GITHUB_TOKEN for
+        # approval. Explicit workflow_dispatch has different event semantics.
+        self.assertIn("actions: write", self.source)
+        self.assertIn("gh workflow run g0-admission-tests.yml", self.source)
+        self.assertIn("gh workflow run engine-cpu-smoke.yml", self.source)
+        self.assertEqual(self.source.count('--ref "$BRANCH"'), 2)
+        self.assertIn('git diff --quiet HEAD^ HEAD -- engine/', self.source)
+
     @classmethod
     def _filter(cls, prs):
         completed = subprocess.run(
