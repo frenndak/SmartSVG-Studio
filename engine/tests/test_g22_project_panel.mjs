@@ -39,6 +39,10 @@ function harness(){
         main={...main,sha256:'b'.repeat(64),document:{...main.document,notes:'nouveau'}};
         return makeResponse({ok:true,result:{status:'updated'}});
       }
+      if(route.endsWith('/mask') && options?.method==='POST'){
+        main={...main,sha256:'d'.repeat(64),subjects:[{subject_id:'sujet_01',bbox_px:[2,3,5,4]}],mask_count:1};
+        return makeResponse({ok:true,result:{status:'mask_saved',certified:false}});
+      }
       if(route.endsWith('/restore')){
         main={...main,status:'PROJECT_HEALTHY',recoverable:false,sha256:'c'.repeat(64)};
         return makeResponse({ok:true,result:{status:'restored_from_previous'}});
@@ -58,10 +62,14 @@ function harness(){
   const buttons=els.filter(x=>x.tagName==='button');
   const name=els.find(x=>x.tagName==='input'&&x.type==='text');
   const file=els.find(x=>x.tagName==='input'&&x.type==='file');
+  const inputs=els.filter(x=>x.tagName==='input');
+  const maskFile=inputs.filter(x=>x.type==='file')[1];
+  const subject=inputs.filter(x=>x.type==='text')[1];
+  const maskPreview=els.filter(x=>x.tagName==='img')[1];
   const notes=els.find(x=>x.tagName==='textarea');
   const preview=els.find(x=>x.tagName==='img');
   const status=els.find(x=>x.attrs.role==='status');
-  return {root,buttons,name,file,notes,preview,status,calls,
+  return {root,buttons,name,file,notes,preview,maskPreview,maskFile,subject,status,calls,
     setMain:value=>{main=value},getMain:()=>main};
 }
 test('project names never permit traversal, separators, or reserved names',()=>{
@@ -73,7 +81,8 @@ test('project names never permit traversal, separators, or reserved names',()=>{
 });
 test('creation uses chosen local PNG, historical settings and custom CSRF header',async()=>{
   const h=harness();
-  assert.equal(h.buttons.length,4);
+  assert.equal(h.buttons.length,5);
+  assert.equal(h.buttons[4].disabled,true);
   assert.equal(h.buttons[2].disabled,true);
   assert.equal(h.buttons[3].disabled,true);
   h.name.value='snails';
@@ -129,4 +138,38 @@ test('no direct queue/automatic workflow mutation in project controls',()=>{
   assert.equal(h.root.attrs['aria-label'],'Projet SmartSVG sauvegarde et récupération');
   assert.ok(projectError('BACKUP_CONFLICT').includes('aucune donnée'));
   assert.ok(all(h.root).some(el=>el.textContent.includes('ne restaure pas encore')));
+});
+
+
+test('subject mask upload uses fresh revision and does not mutate the graph',async()=>{
+  const h=harness();h.name.value='snails';
+  await h.buttons[1].trigger('click');
+  assert.equal(h.buttons[4].disabled,false);
+  const mask={name:'mask.png',size:240,type:'image/png'};
+  h.subject.value='sujet_01';
+  h.maskFile.files=[mask];
+  await h.buttons[4].trigger('click');
+  const action=h.calls.find(x=>x.route==='/smartsvg/g22/mask' && x.options?.method==='POST');
+  assert.ok(action);
+  const fields=action.options.body.rows;
+  assert.equal(fields.find(x=>x[0]==='subject_id')[1],'sujet_01');
+  assert.equal(fields.find(x=>x[0]==='mask')[1],mask);
+  assert.equal(fields.find(x=>x[0]==='expected_sha256')[1],'a'.repeat(64));
+  assert.equal(action.options.headers['X-SmartSVG-UI'],'1');
+  assert.match(h.status.textContent,/non certifiée/);
+  assert.match(h.maskPreview.src,/\/proxy\/8188\/smartsvg\/g22\/mask\?name=snails&subject_id=sujet_01/);
+});
+
+test('invalid subject mask name or file never sends a request',async()=>{
+  const h=harness();h.name.value='snails';
+  await h.buttons[1].trigger('click');
+  const original=h.calls.length;
+  h.subject.value='../secrets';h.maskFile.files=[{name:'mask.png',size:200}];
+  await h.buttons[4].trigger('click');
+  assert.equal(h.calls.length,original);
+  assert.match(h.status.textContent,/Identifiant/);
+  h.subject.value='sujet_01';h.maskFile.files=[{name:'mask.svg',size:200}];
+  await h.buttons[4].trigger('click');
+  assert.equal(h.calls.length,original);
+  assert.match(h.status.textContent,/PNG/);
 });
