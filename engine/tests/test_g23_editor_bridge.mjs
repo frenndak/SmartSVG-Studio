@@ -59,7 +59,7 @@ function makePanel(){
     fail:()=>{allowed=false},countChanges:()=>callbackCalls};
 }
 test('name validation refuses path tricks and reserved suffixes',()=>{
-  for(const n of ('../../secret','C:\\Windows','with spaces','a.previous','a'.repeat(49),'demo_previous'))
+  for(const n of ['../../secret','C:\\Windows','with spaces','a.previous','a'.repeat(49),'demo_previous'])
     assert.equal(validName(n),false,n);
   assert.equal(validName('snails_24'),true);
 });
