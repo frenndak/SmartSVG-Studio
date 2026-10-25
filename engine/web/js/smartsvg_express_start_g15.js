@@ -49,6 +49,12 @@ function styles() {
     '.smartsvg-g15 .toolbar{display:flex;flex-wrap:wrap;gap:5px}',
     '.smartsvg-g15 .toolbar button{width:auto;flex:1 1 120px}',
     '.smartsvg-g15 .compact{margin:2px 0}',
+    '.smartsvg-g15 .smartsvg-g25-resume{display:block;border:1px solid #758ba0;border-radius:6px;padding:7px;max-width:100%;overflow-wrap:anywhere}',
+    '.smartsvg-g15 .smartsvg-g25-resume summary{font-weight:700;cursor:pointer;padding:4px;list-style-position:inside}',
+    '.smartsvg-g15 .smartsvg-g25-resume summary:focus-visible{outline:2px solid #c5edff;outline-offset:2px}',
+    '.smartsvg-g15 .smartsvg-g25-steps{max-height:190px;overflow-y:auto;padding-left:18px;font-size:11px;line-height:1.5}',
+    '.smartsvg-g15 .smartsvg-g25-steps li{margin-bottom:5px}',
+    '.smartsvg-g15 .smartsvg-g25-resume input{width:100%;min-height:30px;color:#f0f5fd;background:#263543;border:1px solid #8499b2;border-radius:5px;padding:5px;font:11px monospace}',
     '@media(max-width:420px){.smartsvg-g15{min-width:220px;padding:8px}}',
   ].join('\n');
   document.head.appendChild(style);
