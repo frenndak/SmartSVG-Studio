@@ -16,6 +16,11 @@ import re
 from .project_archive import LoadedProject, ProjectArchiveError, load_project
 from .project_contracts import SourceAsset
 from .editor_session_g23 import parse_editor_document, EditorSessionError
+from .project_contracts import Mask
+from .mask_snapshot_g24 import (
+    SNAPSHOT_KEY, SNAPSHOT_PATH, create_snapshot, decode_snapshot,
+    encode_preview_l8, MaskSnapshotError,
+)
 from .project_recovery import (
     RecoveryError, inspect_project, recover_previous, save_with_recovery,
 )
@@ -230,6 +235,15 @@ class ManagedWorkspace:
             report['source_count']=len(loaded.sources)
             report['operations_count']=len(loaded.operations)
             report['sha256']=_sha(path.read_bytes())
+            snap=loaded.document.get(SNAPSHOT_KEY)
+            if isinstance(snap,dict):
+                report['base_masks']={
+                    'exact_float32':True,'count':snap['shape'][0],
+                    'dimensions_px':[snap['shape'][2],snap['shape'][1]],
+                    'editor_fingerprint':snap['editor_fingerprint'],
+                    'source_fingerprint':snap['image_fingerprint'],
+                    'physical_cut_verified':False,
+                }
             session=loaded.document.get('editor_v216')
             if isinstance(session,dict):
                 report['editor_session']={
@@ -321,6 +335,9 @@ class ManagedWorkspace:
                 editor_json,source_dimensions=(src.width_px,src.height_px))
         except EditorSessionError as exc:
             raise WorkspaceError(exc.code) from exc
+        snap=previous.document.get(SNAPSHOT_KEY)
+        if snap is not None and parsed['source']!=snap['editor_fingerprint']:
+            raise WorkspaceError('EDITOR_MASK_SNAPSHOT_MISMATCH')
         document=dict(previous.document)
         document['editor_v216']=parsed
         document['stage']='editor_strokes_saved_base_masks_external'
@@ -361,3 +378,100 @@ class ManagedWorkspace:
         return {'name':name,'editor_json':canonical,
                 'expected_sha256':_sha(path.read_bytes()),
                 'base_masks_persisted':False,'certified':False}
+
+
+    def save_base_masks(self, name, *, raw_float32, shape,
+                        image_fingerprint, editor_fingerprint, expected_sha256):
+        """Trusted node-only API. Browser routes never accept float mask payloads.
+
+        The caller is responsible for verifying that the IMAGE tensor matches
+        the project's original PNG and that editor_fingerprint was computed
+        from exactly (IMAGE, raw base MASK). This module checks persistence,
+        shapes and all resource consistency independently.
+        """
+        path=self._path(name)
+        if not isinstance(expected_sha256,str) or not re.fullmatch('[0-9a-f]{64}',expected_sha256):
+            raise WorkspaceError('EXPECTED_REVISION_REQUIRED')
+        if not path.is_file():
+            raise WorkspaceError('PROJECT_NOT_FOUND')
+        current_sha=_sha(path.read_bytes())
+        if current_sha!=expected_sha256:
+            raise WorkspaceError('PROJECT_CHANGED')
+        try:
+            previous=load_project(path)
+        except (ProjectArchiveError,OSError) as exc:
+            raise WorkspaceError('INVALID_PROJECT_CONTENTS') from exc
+        if previous.project_id!=name or len(previous.sources)!=1:
+            raise WorkspaceError('PROJECT_ID_MISMATCH')
+        try:
+            meta,payload=create_snapshot(raw_float32,shape,
+                image_fingerprint=image_fingerprint,
+                editor_fingerprint=editor_fingerprint)
+        except MaskSnapshotError as exc:
+            raise WorkspaceError(exc.code) from exc
+        src=previous.sources[0]
+        count,height,width=meta['shape']
+        if (width,height)!=(src.width_px,src.height_px):
+            raise WorkspaceError('MASK_SOURCE_SIZE_MISMATCH')
+        session=previous.document.get('editor_v216')
+        if session and session.get('source')!=editor_fingerprint:
+            raise WorkspaceError('EDITOR_MASK_SNAPSHOT_MISMATCH')
+        if previous.masks and SNAPSHOT_KEY not in previous.document:
+            raise WorkspaceError('EXISTING_MASKS_NOT_OWNED')
+        resources={key:value for key,value in previous.resources.items()
+                   if key!=SNAPSHOT_PATH and not key.startswith('masks/base-mask-')}
+        records=[]
+        paths={}
+        step=width*height*4
+        for i in range(count):
+            mask_id=f'base-mask-{i:02d}'
+            path_png=f'masks/{mask_id}.png'
+            try:
+                preview=encode_preview_l8(raw_float32[step*i:step*(i+1)],width,height)
+            except MaskSnapshotError as exc:
+                raise WorkspaceError(exc.code) from exc
+            resources[path_png]=preview
+            paths[mask_id]=path_png
+            records.append(Mask(mask_id,src.source_id,_sha(preview),width,height))
+        resources[SNAPSHOT_PATH]=payload
+        document=dict(previous.document)
+        document[SNAPSHOT_KEY]=meta
+        document['stage']='full_resolution_base_masks_saved'
+        if len(previous.operations)>=4999:
+            raise WorkspaceError('HISTORY_LIMIT')
+        updated=replace(previous,document=document,
+            masks=tuple(records),mask_paths=paths,resources=resources,
+            operations=[*previous.operations,{
+                'kind':'capture_base_masks_float32_v1','count':count,
+                'editor_fingerprint':editor_fingerprint}])
+        try:
+            saved=save_with_recovery(path,updated,expected_sha256=current_sha)
+        except RecoveryError as exc:
+            raise WorkspaceError(exc.code) from exc
+        return {'name':name,'status':'full_resolution_masks_saved',
+            'sha256':saved['sha256'],'count':count,
+            'base_masks_exact':True,'certified':False}
+
+    def base_masks(self,name,*,expected_sha256):
+        """Get lossless float32 mask bytes only for the trusted ComfyUI node."""
+        path=self._path(name)
+        if not isinstance(expected_sha256,str) or not re.fullmatch('[0-9a-f]{64}',expected_sha256):
+            raise WorkspaceError('EXPECTED_REVISION_REQUIRED')
+        if not path.is_file():
+            raise WorkspaceError('PROJECT_NOT_FOUND')
+        if _sha(path.read_bytes())!=expected_sha256:
+            raise WorkspaceError('PROJECT_CHANGED')
+        try:
+            loaded=load_project(path)
+        except (ProjectArchiveError,OSError) as exc:
+            raise WorkspaceError('INVALID_PROJECT_CONTENTS') from exc
+        if loaded.project_id!=name:
+            raise WorkspaceError('PROJECT_ID_MISMATCH')
+        meta=loaded.document.get(SNAPSHOT_KEY)
+        if meta is None:
+            raise WorkspaceError('BASE_MASK_SNAPSHOT_NOT_FOUND')
+        try:
+            raw=decode_snapshot(meta,loaded.resources[SNAPSHOT_PATH])
+        except (KeyError,MaskSnapshotError) as exc:
+            raise WorkspaceError('INVALID_BASE_MASK_SNAPSHOT') from exc
+        return raw,meta.copy()
