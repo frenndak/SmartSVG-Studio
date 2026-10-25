@@ -88,12 +88,22 @@ class G24MaskArchiveTests(unittest.TestCase):
     def test_revisions_capture_second_snapshot_without_mixing(self):
         self.capture()
         old=self.ws.inspect('snails')['sha256']
-        second=mask_bytes(2,12,9).replace(b'\x00',b'\x01',1)
-        # Only one byte changed: still a finite float32 within 0..1?
-        self.capture(raw=self.raw,sha=old)
+        # Change one real float32 pixel; the old mask remains in .previous.
+        second=struct.pack('<f',.77)+self.raw[4:]
+        self.capture(raw=second,sha=old)
         rec=self.ws.inspect('snails')
         self.assertEqual(rec['base_masks']['count'],2)
-        self.assertEqual(self.ws.base_masks('snails',expected_sha256=rec['sha256'])[0],self.raw)
+        self.assertEqual(self.ws.base_masks('snails',expected_sha256=rec['sha256'])[0],second)
+        self.assertNotEqual(self.raw,second)
+        self.path.write_bytes(b'damaged new mask archive')
+        recovery=self.ws.inspect('snails')
+        self.assertTrue(recovery['recoverable'])
+        self.ws.restore('snails',confirmed=True,
+            expected_recovery_sha256=recovery['recovery_sha256'])
+        current=self.ws.inspect('snails')
+        self.assertEqual(
+            self.ws.base_masks('snails',expected_sha256=current['sha256'])[0],
+            self.raw)
 
     def test_corrupted_main_restores_previous_exact_floats(self):
         self.capture()
