@@ -56,8 +56,6 @@ test('no project status claims physical Cricut cut or automatic graph restoratio
     assert.ok(r.detail.length>20);
   }
 });
-  }
-});
 
 class Element {
   constructor(tag){this.tagName=tag;this.children=[];this.textContent='';this.attrs={};
