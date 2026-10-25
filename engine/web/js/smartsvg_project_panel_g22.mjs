@@ -2,6 +2,8 @@
  * Never reads arbitrary server files, never queues a graph, and never
  * claims reopening a .smartsvg restores the editor/IMAGE connection.
  */
+import { projectReadiness } from './smartsvg_express_ux_g25.mjs';
+
 export const PROJECT_NAME=/^[A-Za-z0-9][A-Za-z0-9_-]{0,47}$/;
 const BYTES_LIMIT=12*1024*1024;
 const ROOT='/smartsvg/g22';
@@ -26,7 +28,7 @@ export function projectError(code){
   return map[code]||'Opération indisponible. Vérifier que le module de projets G2.2 est activé dans ComfyUI.';
 }
 
-export function createProjectPanel(api, currentSettings){
+export function createProjectPanel(api, currentSettings, ownerId='default'){
   const el=(tag,text='')=>{
     const item=document.createElement(tag);
     if(text)item.textContent=text;
@@ -39,7 +41,7 @@ export function createProjectPanel(api, currentSettings){
   const label=el('label','Nom du projet');
   const name=el('input');name.type='text';name.maxLength=48;
   name.placeholder='exemple_escargots';
-  const inputId='smartsvg-g22-name';
+  const inputId='smartsvg-g22-name-'+String(ownerId).replace(/[^a-zA-Z0-9_-]/g,'').slice(0,30);
   name.id=inputId;label.setAttribute('for',inputId);
   const fileLabel=el('label','PNG original à enregistrer dans le projet');
   const file=el('input');file.type='file';file.accept='image/png';
@@ -49,15 +51,38 @@ export function createProjectPanel(api, currentSettings){
   const status=el('p');status.setAttribute('role','status');
   status.setAttribute('aria-live','polite');
   const details=el('p');details.className='fine';
+  const readiness=el('p');readiness.className='fine';
+  readiness.textContent='État du projet : aucune archive ouverte.';
   const source=el('img');source.className='preview';source.hidden=true;
   source.alt='Source conservée dans le projet, sans validation de découpe';
   const hint=el('p','Sauvegarde : sélectionner explicitement un PNG local. Ouvrir réaffiche sa source et ses notes, mais ne restaure pas encore les retouches ni le graphe ComfyUI.');
   hint.className='fine';
-  let loaded=null;
+  let loaded=null,pending=false;
+  const actionButtons=[];
+  const discard=()=>{
+    loaded=null;
+    saveNotes.disabled=true;restore.disabled=true;
+    source.hidden=true;source.removeAttribute('src');
+    readiness.textContent='Projet à réinspecter avant toute modification.';
+  };
   const action=(text,handler)=>{
     const button=el('button',text);button.type='button';
-    button.addEventListener('click',handler);
+    button.addEventListener('click',async()=>{
+      if(pending)return;
+      pending=true;
+      root.setAttribute('aria-busy','true');
+      for(const b of actionButtons)b.disabled=true;
+      try{await handler();}
+      finally{
+        pending=false;
+        root.setAttribute('aria-busy','false');
+        for(const b of actionButtons)b.disabled=false;
+        saveNotes.disabled=!loaded?.sha256;
+        restore.disabled=!loaded?.recoverable;
+      }
+    });
     actions.appendChild(button);
+    actionButtons.push(button);
     return button;
   };
   const show=(text)=>{status.textContent=text;};
@@ -82,7 +107,10 @@ export function createProjectPanel(api, currentSettings){
     const n=nameValue();
     if(!validProjectName(n))throw Error('INVALID_PROJECT_NAME');
     const result=await request('/project?name='+encodeURIComponent(n));
+    if(nameValue()!==n)throw Error('PROJECT_SELECTION_CHANGED');
     loaded=result.project;
+    const level=projectReadiness(loaded);
+    readiness.textContent=level.title+' — '+level.detail;
     details.textContent='Statut : '+loaded.status+
       (loaded.document ? ' · '+String(loaded.document.width_mm)+' mm · '+String(loaded.document.dpi)+' ppp' : '')+
       (loaded.sha256 ? ' · SHA-256 révision (à copier dans le nœud G2.4) : '+loaded.sha256 : '')+
@@ -114,16 +142,21 @@ export function createProjectPanel(api, currentSettings){
     }catch(err){show(projectError(err.message));}
   });
   const open=action('Ouvrir et inspecter',async()=>{
-    try{await inspect();show('Projet inspecté. La source et les notes sont consultables ici.');}
-    catch(err){loaded=null;restore.disabled=true;saveNotes.disabled=true;
-      source.hidden=true;source.removeAttribute('src');show(projectError(err.message));}
+    try{
+      show('Ouverture et vérification du projet en cours…');
+      await inspect();show('Projet inspecté. Lire son état avant de reprendre.');
+    }
+    catch(err){discard();show(projectError(err.message));}
   });
   const saveNotes=action('Enregistrer les notes',async()=>{
     try{
       if(!loaded?.sha256)throw Error('PROJECT_CHANGED');
       await post('/notes',{name:nameValue(),notes:notes.value||'',expected_sha256:loaded.sha256});
       await inspect();show('Notes enregistrées. Sauvegarde précédente conservée.');
-    }catch(err){show(projectError(err.message));}
+    }catch(err){
+      if(['PROJECT_CHANGED','PROJECT_CHANGED_DURING_SAVE'].includes(err.message))discard();
+      show(projectError(err.message));
+    }
   });
   const restore=action('Restaurer le secours',async()=>{
     try{
@@ -137,10 +170,9 @@ export function createProjectPanel(api, currentSettings){
   });
   saveNotes.disabled=true;restore.disabled=true;
   name.addEventListener('input',()=>{
-    loaded=null;saveNotes.disabled=true;restore.disabled=true;
-    source.hidden=true;source.removeAttribute('src');details.textContent='';
+    discard();details.textContent='';
   });
   root.append(title,label,name,fileLabel,file,noteLabel,notes,
-    actions,status,details,source,hint);
+    actions,status,readiness,details,source,hint);
   return root;
 }
