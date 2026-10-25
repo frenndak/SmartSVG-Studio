@@ -63,6 +63,7 @@ class Element {
     this.type='';this.files=[];this.className='';this.dataset={};}
   append(...items){this.children.push(...items);if(this.tagName==='select'&&!this.value&&this.children[0])this.value=this.children[0].value;}
   appendChild(x){this.children.push(x);return x;}
+  replaceChildren(...items){this.children=[...items];}
   addEventListener(k,callback){(this.events[k]??=[]).push(callback);}
   setAttribute(k,v){this.attrs[k]=v;}
   removeAttribute(k){delete this.attrs[k];if(k==='src')this.src='';}
@@ -130,7 +131,6 @@ test('G2.5 has real semantic disclosure and responsive CSS without fake export c
 
 
 test('actual Express panel updates 4-step guidance when IMAGE link changes before execution',async()=>{
-  const {default:fs2}=await import('node:fs');
   const presets=await import('../web/js/smartsvg_express_start_model_g15.mjs');
   const guide=await import('../web/js/smartsvg_guide_model_g21.mjs');
   const ux=await import('../web/js/smartsvg_express_ux_g25.mjs');
@@ -149,7 +149,7 @@ test('actual Express panel updates 4-step guidance when IMAGE link changes befor
     head:new Element('head'),getElementById:()=>null,
     createElement:tag=>new Element(tag)
   };
-  let source=fs2.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)),
+  let source=fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)),
     '../web/js/smartsvg_express_start_g15.js'),'utf8');
   source=source.replace('import { app } from "../../scripts/app.js";',
     'const app=globalThis.__ssApp;');
@@ -198,5 +198,6 @@ test('actual Express panel updates 4-step guidance when IMAGE link changes befor
   assert.equal(steps.children[2].attrs['aria-current'],'step');
   node.onExecuted({});
   assert.equal(steps.children[3].attrs['aria-current'],'step');
-  assert.equal(descendants(node.ui).some(el=>el.textContent.includes('aucune validation Cricut')),true);
+  const result=descendants(node.ui).find(el=>el.attrs['aria-label']==='Contrôle du dernier traitement SmartSVG');
+  assert.equal(result.dataset.state,'INVALID');
 });
