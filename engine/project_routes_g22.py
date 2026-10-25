@@ -30,7 +30,7 @@ async def _multipart_fields(request, *, image=False):
     reader = await request.multipart()
     fields = {}
     allowed = {'name','profile','width_mm','dpi','notes','expected_sha256',
-               'expected_recovery_sha256','confirmed'}
+               'expected_recovery_sha256','confirmed','editor_json'}
     total = 0
     for _ in range(12):
         part = await reader.next()
@@ -41,7 +41,7 @@ async def _multipart_fields(request, *, image=False):
             raise WorkspaceError('UNKNOWN_FIELD')
         if key in fields:
             raise WorkspaceError('DUPLICATE_FIELD')
-        limit = MAX_IMAGE_BYTES if key == 'image' and image else 2000
+        limit = MAX_IMAGE_BYTES if key == 'image' and image else (350000 if key == 'editor_json' else 2000)
         if key == 'image' and not image:
             raise WorkspaceError('UNEXPECTED_IMAGE')
         chunks = []
@@ -143,5 +143,27 @@ def register_project_routes(routes, trusted_output_root):
             return web.json_response({'ok':True,'result':result,'certified':False})
         except (WorkspaceError, ValueError) as exc:
             return json_error(getattr(exc,'code','INVALID_REQUEST'))
+
+    @routes.get(prefix+'/editor')
+    async def editor(request):
+        try:
+            session=workspace.editor_document(request.query.get('name'))
+            return web.json_response({'ok':True,'session':session,'certified':False},
+                                     headers={'Cache-Control':'no-store'})
+        except (WorkspaceError,ValueError) as exc:
+            return json_error(getattr(exc,'code','EDITOR_SESSION_UNAVAILABLE'),404)
+
+    @routes.post(prefix+'/editor/save')
+    async def save_editor(request):
+        if not _browser_origin_ok(request):
+            return json_error('ORIGIN_REJECTED',403)
+        try:
+            fields=await _multipart_fields(request)
+            result=workspace.save_editor_document(
+                fields.get('name'),editor_json=fields.get('editor_json'),
+                expected_sha256=fields.get('expected_sha256'))
+            return web.json_response({'ok':True,'result':result,'certified':False})
+        except (WorkspaceError,ValueError) as exc:
+            return json_error(getattr(exc,'code','INVALID_EDITOR_REQUEST'))
 
     return workspace
