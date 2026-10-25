@@ -58,7 +58,9 @@ export function resumeFromProject(report){
       'Inspecter le dossier ou la sauvegarde précédente sans écraser le projet.');
   if(!SHA.test(report.sha256||'') || !report.document ||
      typeof report.document!=='object' || Array.isArray(report.document) ||
-     (report.source_count!==undefined && report.source_count!==1))
+     report.source_count!==1 ||
+     typeof report.document.profile!=='string' || !report.document.profile ||
+     typeof report.document.stage!=='string' || !report.document.stage)
     return result(STATES.UNKNOWN,'Informations de projet incomplètes',
       'Réinspecter l’archive avant toute reprise.');
   const source=true;
