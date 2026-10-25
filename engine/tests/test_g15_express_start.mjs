@@ -93,6 +93,10 @@ async function extension(){
   globalThis.__ssGuide={evaluateOutput:()=>({state:'EMPTY'}),emptyState:()=>({state:'EMPTY',report:null,previews:[],action:'',explanation:''}),statusForDisplay:()=>'',STATES:{},configurationSignature:()=>'{compat}'};
   globalThis.__ssPreviewUrl=()=>null;
   globalThis.__ssProjectPanel={createProjectPanel:()=>new Element('section')};
+  globalThis.__ssUx={
+    STEPS:[{label:'Image'},{label:'Création'},{label:'Traitement'},{label:'Contrôle'}],
+    expressStep:()=>({index:0,explanation:'Installer IMAGE'}),screenMode:()=> 'compact'
+  };
   const head=new Element('head');
   globalThis.document={head,getElementById:()=>null,createElement:t=>new Element(t)};
   let code=fs.readFileSync(path.join(root,'../web/js/smartsvg_express_start_g15.js'),'utf8');
@@ -104,6 +108,8 @@ async function extension(){
                     'const previewUrl=globalThis.__ssPreviewUrl;');
   code=code.replace('import { createProjectPanel } from "./smartsvg_project_panel_g22.mjs";',
                     'const {createProjectPanel}=globalThis.__ssProjectPanel;');
+  code=code.replace('import { STEPS, expressStep, screenMode } from "./smartsvg_express_ux_g25.mjs";',
+                    'const {STEPS,expressStep,screenMode}=globalThis.__ssUx;');
   code=code.replace(/import \{ EXPRESS_CLASS, PROFILES, getProfile, chosenProfile,\s*applyProfile, explainFailure \} from "\.\/smartsvg_express_start_model_g15\.mjs";/,
                     'const {EXPRESS_CLASS,PROFILES,getProfile,chosenProfile,applyProfile,explainFailure}=globalThis.__ssModel;');
   await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64')+'#'+(++serial));
