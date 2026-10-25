@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from hashlib import sha256
+import json
 import struct
 import zlib
 from pathlib import Path
@@ -14,6 +15,7 @@ import re
 
 from .project_archive import LoadedProject, ProjectArchiveError, load_project
 from .project_contracts import SourceAsset
+from .editor_session_g23 import parse_editor_document, EditorSessionError
 from .project_recovery import (
     RecoveryError, inspect_project, recover_previous, save_with_recovery,
 )
@@ -228,6 +230,15 @@ class ManagedWorkspace:
             report['source_count']=len(loaded.sources)
             report['operations_count']=len(loaded.operations)
             report['sha256']=_sha(path.read_bytes())
+            session=loaded.document.get('editor_v216')
+            if isinstance(session,dict):
+                report['editor_session']={
+                    'available':True,
+                    'count':session.get('count'),
+                    'stroke_count':len(session.get('strokes',[])),
+                    'source_fingerprint':session.get('source'),
+                    'base_masks_persisted':False,
+                }
         if health.status=='PROJECT_RECOVERABLE':
             previous=path.with_name(path.stem+'.previous.smartsvg')
             # An explicit restore request must carry a fingerprint of this snapshot.
@@ -286,3 +297,67 @@ class ManagedWorkspace:
         if not path_id.endswith('.png'):
             raise WorkspaceError('SOURCE_NOT_PNG')
         return loaded.resources[path_id]
+
+
+    def save_editor_document(self, name, *, editor_json, expected_sha256):
+        """Persist V21.6 strokes only; check archive revision inside the lock."""
+        path=self._path(name)
+        if not isinstance(expected_sha256,str) or not re.fullmatch('[0-9a-f]{64}',expected_sha256):
+            raise WorkspaceError('EXPECTED_REVISION_REQUIRED')
+        if not path.is_file():
+            raise WorkspaceError('PROJECT_NOT_FOUND')
+        previous_hash=_sha(path.read_bytes())
+        if previous_hash!=expected_sha256:
+            raise WorkspaceError('PROJECT_CHANGED')
+        try:
+            previous=load_project(path)
+        except ProjectArchiveError as exc:
+            raise WorkspaceError('INVALID_PROJECT_CONTENTS') from exc
+        if previous.project_id!=name or len(previous.sources)!=1:
+            raise WorkspaceError('PROJECT_ID_MISMATCH')
+        src=previous.sources[0]
+        try:
+            parsed,_=parse_editor_document(
+                editor_json,source_dimensions=(src.width_px,src.height_px))
+        except EditorSessionError as exc:
+            raise WorkspaceError(exc.code) from exc
+        document=dict(previous.document)
+        document['editor_v216']=parsed
+        document['stage']='editor_strokes_saved_base_masks_external'
+        if len(previous.operations)>=4999:
+            raise WorkspaceError('HISTORY_LIMIT')
+        ops=[*previous.operations,{'kind':'save_editor_v216',
+                                  'source':parsed['source'],
+                                  'stroke_count':len(parsed['strokes'])}]
+        updated=replace(previous,document=document,operations=ops)
+        try:
+            saved=save_with_recovery(path,updated,expected_sha256=previous_hash)
+        except RecoveryError as exc:
+            raise WorkspaceError(exc.code) from exc
+        return {'name':name,'status':'editor_session_saved',
+                'sha256':saved['sha256'],
+                'strokes_saved':len(parsed['strokes']),
+                'base_masks_persisted':False,'certified':False}
+
+    def editor_document(self, name):
+        """Retrieve exact strokes for explicit import into a matching V21.6 node."""
+        path=self._path(name)
+        try:
+            project=load_project(path)
+        except (ProjectArchiveError,OSError) as exc:
+            raise WorkspaceError('INVALID_PROJECT_CONTENTS') from exc
+        if project.project_id!=name or len(project.sources)!=1:
+            raise WorkspaceError('PROJECT_ID_MISMATCH')
+        session=project.document.get('editor_v216')
+        if session is None:
+            raise WorkspaceError('EDITOR_SESSION_NOT_FOUND')
+        try:
+            _,canonical=parse_editor_document(json.dumps(
+                session,ensure_ascii=False,allow_nan=False),
+                source_dimensions=(project.sources[0].width_px,
+                                   project.sources[0].height_px))
+        except (EditorSessionError,ValueError,TypeError) as exc:
+            raise WorkspaceError('CORRUPT_EDITOR_SESSION') from exc
+        return {'name':name,'editor_json':canonical,
+                'expected_sha256':_sha(path.read_bytes()),
+                'base_masks_persisted':False,'certified':False}
