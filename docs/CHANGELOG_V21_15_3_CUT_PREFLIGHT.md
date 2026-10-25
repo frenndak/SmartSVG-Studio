@@ -10,13 +10,13 @@ Le précontrôle V21.15.2 se contentait de dénombrer les éléments `<path>` d'
 
 - Nouveau `engine/smartsvg_governance/cut_path_preflight.py` : tokenisation bornée et vérification des fermetures ; aire strictement non nulle pour les polygones `M/L/Z`, y compris les coordonnées relatives ; refus des balises et attributs actifs/externes/transformation, chemins vides et complexité excessive.
 - `engine/smartsvg_governance/artifact_qa.py` : applique ce contrôle **aux SVG réellement exportés**, plutôt qu'aux métadonnées déclarées uniquement ; signale `FICHIER_NON_VERIFIABLE` en cas d'échec et `DIMENSIONS_MM_ABSENTES` quand une largeur en mm attendue est introuvable.
-- Nouveau corpus de régression `engine/tests/test_v21153_cut_preflight.py` (5 méthodes, sous-cas multiples) ; ancien fixture SVG de surface nulle remplacé par un vrai rectangle polygonal.
+- \`engine/smartsvg_quality/release_gate_v21152.py\` : consignes de correction différenciées selon un défaut de contour SVG, de masque rectangulaire ou de planche.\n- Nouveau corpus de régression `engine/tests/test_v21153_cut_preflight.py` (5 méthodes, sous-cas multiples) ; ancien fixture SVG de surface nulle remplacé par un vrai rectangle polygonal.
 
 **Compatibilité :** aucun nœud ComfyUI, connecteur IA, signature de workflow, sortie raster, ou module UI n'a été modifié. En cas d'audit bloqué, les artefacts existants restent des brouillons ; leur découpe n'est jamais automatiquement autorisée.
 
 ## Preuves obtenues localement
 
-- `python -m unittest tests.test_v21153_cut_preflight tests.test_v21151_image_qa tests.test_v21152 tests.test_v21132 tests.test_v2114 tests.test_v21141_color tests.test_v2110 -q` : **55 tests OK**.
+- `python -m unittest tests.test_v21153_cut_preflight tests.test_v21151_image_qa tests.test_v21152 tests.test_v21132 tests.test_v2114 tests.test_v21141_color tests.test_v2110 -q` : **56 tests OK**.
 - `for script in tests/*.mjs; do node "$script"; done` : **12 scripts OK**.
 - La suite Python complète n'a pas terminé dans la fenêtre d'exécution disponible. **Ne pas affirmer une validation complète.** Les 876 tests consignés précédemment concernent le socle V21.15.2 avant ce correctif.
 
