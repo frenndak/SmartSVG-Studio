@@ -55,6 +55,7 @@ function styles() {
     '.smartsvg-g15 .smartsvg-g25-steps{max-height:190px;overflow-y:auto;padding-left:18px;font-size:11px;line-height:1.5}',
     '.smartsvg-g15 .smartsvg-g25-steps li{margin-bottom:5px}',
     '.smartsvg-g15 .smartsvg-g25-resume input{width:100%;min-height:30px;color:#f0f5fd;background:#263543;border:1px solid #8499b2;border-radius:5px;padding:5px;font:11px monospace}',
+    '@media(max-height:820px){.smartsvg-g15{max-height:min(72vh,640px);overflow-y:auto;overscroll-behavior:contain}}',
     '@media(max-width:420px){.smartsvg-g15{min-width:220px;padding:8px}}',
   ].join('\n');
   document.head.appendChild(style);
