@@ -21,7 +21,7 @@
 
 ## Tests vérifiés localement
 
-- 39 tests Python des modules V21.13, V21.13.1, V21.15.1, V21.15.2 et V21.15.4 : réussis.
+- 40 tests Python des modules V21.13, V21.13.1, V21.15.1, V21.15.2 et V21.15.4 : réussis.
 - 13 scripts de tests JavaScript : réussis.
 - Compilation Python des nouveaux modules : réussie.
 - Tentative de suite Python globale : **non terminée (timeout)** ; ne pas la déclarer validée.
