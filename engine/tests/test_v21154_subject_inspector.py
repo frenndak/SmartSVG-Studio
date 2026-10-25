@@ -66,6 +66,20 @@ class TestSubjectInspector(unittest.TestCase):
         self.assertIn('MICRO_FRAGMENTS', result['codes'])
         self.assertEqual(int(m.sum()), result['surface_px'])
 
+    def test_24_subjects_keep_order_and_isolated_warnings(self):
+        masks = np.zeros((24, 360, 480), np.float32)
+        for i in range(24):
+            row, col = divmod(i, 6)
+            cv2.circle(masks[i], (col*75+35, row*80+30), 14, 1, -1)
+        masks[17, 1, 1] = 1  # an isolated pixel, never deleted
+        saved = masks.copy()
+        out = core.inspect_subject_masks(masks, expected_shape=(360, 480))
+        self.assertEqual(len(out), 24)
+        self.assertEqual([entry['numero'] for entry in out], list(range(1, 25)))
+        self.assertEqual(out[17]['micro_fragments'], 1)
+        self.assertTrue(all(entry['surface_px'] > 0 for entry in out))
+        np.testing.assert_array_equal(masks, saved)
+
     def test_unsafe_or_enormous_masks_are_refused_without_modification(self):
         with self.assertRaises(core.SubjectInspectionUnavailable):
             core.inspect_subject_masks(np.zeros((33, 12, 12), np.float32))
