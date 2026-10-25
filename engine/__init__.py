@@ -17,3 +17,17 @@ if _ss_os.environ.get('SMARTSVG_ENABLE_PROJECT_API') == '1':
     except (ImportError, AttributeError, OSError, ValueError) as _ss_exc:
         # Never break all historical nodes due to an optional project UI.
         print('SmartSVG G2.2: project API unavailable: '+type(_ss_exc).__name__)
+
+
+# An explicit, opt-in mask-vault node. No historical nœud is renamed.
+# Registration is absent in default installations, including public servers.
+if _ss_os.environ.get('SMARTSVG_ENABLE_PROJECT_API') == '1':
+    try:
+        from .node_g24_mask_vault import (
+            NODE_CLASS_MAPPINGS as _ss_vault_nodes,
+            NODE_DISPLAY_NAME_MAPPINGS as _ss_vault_labels,
+        )
+        NODE_CLASS_MAPPINGS.update(_ss_vault_nodes)
+        NODE_DISPLAY_NAME_MAPPINGS.update(_ss_vault_labels)
+    except (ImportError,AttributeError,OSError,ValueError) as _ss_exc:
+        print('SmartSVG G2.4: mask vault unavailable: '+type(_ss_exc).__name__)
