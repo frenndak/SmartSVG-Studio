@@ -115,6 +115,10 @@ async function loadExtension() {
   globalThis.__ssGuide=guide;
   globalThis.__ssPreviewUrl=previewUrl;
   globalThis.__ssProjectPanel={createProjectPanel:()=>new El('section')};
+  globalThis.__ssUx={
+    STEPS:[{label:'Image'},{label:'Création'},{label:'Traitement'},{label:'Contrôle'}],
+    expressStep:()=>({index:0,explanation:'Installer IMAGE'}),screenMode:()=> 'compact'
+  };
   globalThis.document={head:new El('head'),getElementById:()=>null,createElement:name=>new El(name)};
   globalThis.window={location:{href:'https://host.example/proxy/8188/'}};
   Object.defineProperty(globalThis,'navigator',
@@ -130,7 +134,9 @@ async function loadExtension() {
     .replace('import { previewUrl } from "./smartsvg_ui_model_v2151.mjs";',
       'const previewUrl=globalThis.__ssPreviewUrl;')
     .replace('import { createProjectPanel } from "./smartsvg_project_panel_g22.mjs";',
-      'const {createProjectPanel}=globalThis.__ssProjectPanel;');
+      'const {createProjectPanel}=globalThis.__ssProjectPanel;')
+    .replace('import { STEPS, expressStep, screenMode } from "./smartsvg_express_ux_g25.mjs";',
+      'const {STEPS,expressStep,screenMode}=globalThis.__ssUx;');
   await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64')+'#'+(++sequence));
   assert.ok(registered);
   return registered;
