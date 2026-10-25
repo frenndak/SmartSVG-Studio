@@ -25,7 +25,7 @@ python -m unittest tests.test_v2113 tests.test_v21131 tests.test_v21151_image_qa
 for f in tests/*.mjs; do node --test "$f"; done
 ```
 
-**Tests locaux :** 47 tests Python ciblés, 14 scripts JavaScript et compilation Python passés. La suite Python globale n'est pas comprise dans ces preuves ; les essais en interface native ComfyUI, l'import réel dans Design Space, la RTX 3070 et la découpe Explore 5 n'ont pas été effectués.
+**Tests locaux :** 47 tests Python ciblés, 14 scripts JavaScript et compilation Python passés. **Suite Python complète : 891 tests, zéro échec (59,7 secondes) après correction du test d'inventaire (99 → 100 nœuds).** Les essais en interface native ComfyUI, la RTX 3070, Design Space et Cricut Explore 5 restent non validés.
 
 ## Limites et sécurité
 
