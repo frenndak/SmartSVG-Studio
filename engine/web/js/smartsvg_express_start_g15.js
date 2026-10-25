@@ -29,7 +29,7 @@ function styles() {
   const style=e('style');
   style.id='smartsvg-g21-guide-css';
   style.textContent=[
-    '.smartsvg-g15{display:flex;flex-direction:column;gap:7px;background:#1c2631;color:#f0f5fd;font:12px/1.5 system-ui,sans-serif;padding:11px;border:1px solid #697b91;border-radius:10px;box-sizing:border-box;min-width:260px}',
+    '.smartsvg-g15{display:flex;flex-direction:column;gap:7px;background:#1c2631;color:#f0f5fd;font:12px/1.5 system-ui,sans-serif;padding:11px;border:1px solid #697b91;border-radius:10px;box-sizing:border-box;min-width:0;max-width:100%;max-height:min(700px,72dvh);overflow-y:auto}',
     '.smartsvg-g15 *{box-sizing:border-box}',
     '.smartsvg-g15 strong{font-size:14px}',
     '.smartsvg-g15 select,.smartsvg-g15 button{width:100%;min-height:32px;padding:5px 8px;color:#f6f9ff;background:#2e3d4c;border:1px solid #8499b2;border-radius:6px;font:inherit}',
@@ -112,7 +112,7 @@ function starter(node){
     return {profile:value('projet'),
       width_mm:Number(value('largeur_mm')??40),
       dpi:Number(value('qualite_ppp')??300)};
-  }));
+  },node.id));
   root.appendChild(projectDetails);
 
   let latest=emptyState(),projectAtRun=null,hasRun=false,staleSinceRun=false;
@@ -155,7 +155,7 @@ function starter(node){
       resultState:visible.state,
     });
     stepStatus.textContent=journey.explanation;
-    phases.children.forEach?.((phase,index)=>{
+    Array.from(phases.children).forEach((phase,index)=>{
       phase.setAttribute('aria-current',index===journey.index?'step':'false');
     });
     verdict.textContent=statusForDisplay(visible.state);
@@ -229,12 +229,12 @@ app.registerExtension({
     try{
       const panel=starter(node);
       const widget=node.addDOMWidget('smartsvg_g15_starter','smartsvg_start',
-        panel.root,{serialize:false,hideOnZoom:true,getMinHeight:()=>340,getMaxHeight:()=>680});
+        panel.root,{serialize:false,hideOnZoom:true,getMinHeight:()=>330,getMaxHeight:()=>700});
       if(!widget)return;
       widget.serialize=false;
       widget.options={...(widget.options||{}),serialize:false};
       node._smartsvgG15Starter=panel.root;
-      node.size=[Math.max(node.size?.[0]||400,420),Math.max(node.size?.[1]||400,700)];
+      node.size=[Math.max(node.size?.[0]||400,440),Math.max(node.size?.[1]||400,590)];
       const old=node.onExecuted;
       node.onExecuted=function(output){
         old?.apply(this,arguments);
