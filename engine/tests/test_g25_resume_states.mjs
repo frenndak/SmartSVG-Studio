@@ -93,7 +93,8 @@ test('recovery only offered with a verified hash and confirmed health flag',()=>
 });
 test('unknown archive health and malformed summaries never become ready',()=>{
   const scenarios=[null,[],{}, {status:'PROJECT_HEALTHY',sha256:A},
-    base({sha256:'invalid'}),base({source_count:0}),base({document:[]}),
+    base({sha256:'invalid'}),base({source_count:0}),base({source_count:undefined}),
+    base({document:{stage:'source_imported_only'}}),base({document:[]}),
     {status:'PROJECT_BROKEN',recoverable:true,recovery_sha256:C}];
   for(const report of scenarios){
     const view=resumeFromProject(report);
