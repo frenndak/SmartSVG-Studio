@@ -23,7 +23,7 @@ const makeResponse=(data,status=200)=>({
 function harness(options={}){
   let main={
     name:'snails',status:'PROJECT_HEALTHY',sha256:'a'.repeat(64),
-    recoverable:false,
+    source_count:1,recoverable:false,
     document:{profile:'Planche - 12 images (4x3)',width_mm:40,dpi:300,
       notes:'départ',stage:'source_imported_only'},
   };
