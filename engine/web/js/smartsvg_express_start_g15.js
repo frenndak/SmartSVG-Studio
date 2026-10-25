@@ -8,6 +8,7 @@ import { EXPRESS_CLASS, PROFILES, getProfile, chosenProfile,
 import { evaluateOutput, emptyState, statusForDisplay, STATES, configurationSignature } from "./smartsvg_guide_model_g21.mjs";
 import { previewUrl } from "./smartsvg_ui_model_v2151.mjs";
 import { createProjectPanel } from "./smartsvg_project_panel_g22.mjs";
+import { STEPS, expressStep, screenMode } from "./smartsvg_express_ux_g25.mjs";
 
 const EXTENSION_NAME='smartsvg.studio.g21.express.guide';
 
@@ -38,7 +39,15 @@ function styles() {
     '.smartsvg-g15 .details{padding:8px;border-radius:6px;background:#263543}',
     '.smartsvg-g15 .fine{font-size:11px;color:#d1dce8}',
     '.smartsvg-g15 [role=status]{min-height:20px;font-weight:600}',
-    '.smartsvg-g15 .steps{display:flex;gap:5px;flex-wrap:wrap}',
+    '.smartsvg-g15 .steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}',
+    '.smartsvg-g15 .steps span[aria-current=step]{background:#33546d;border-color:#b8e3ff;font-weight:700}',
+    '.smartsvg-g15 details{min-width:0}',
+    '.smartsvg-g15 summary{cursor:pointer;padding:5px 0;font-weight:650}',
+    '.smartsvg-g15 .step-status{margin:2px 0;color:#cbe6fb}',
+    '.smartsvg-g15[data-screen=comfortable] .steps{grid-template-columns:repeat(4,minmax(0,1fr))}',
+    '.smartsvg-g15[data-screen=compact] .preview{max-height:110px}',
+    '@media(max-height:800px){.smartsvg-g15{padding:8px;gap:5px}.smartsvg-g15 .cards{max-height:78px}}',
+    '@media(max-width:460px){.smartsvg-g15 .steps{grid-template-columns:repeat(2,minmax(0,1fr))}.smartsvg-g15{min-width:220px}}',
     '.smartsvg-g15 .steps span{border:1px solid #657b91;border-radius:6px;padding:3px 5px;font-size:10px}',
     '.smartsvg-g15 .result{border:1px solid #60758b;border-radius:7px;padding:8px;display:flex;flex-direction:column;gap:5px}',
     '.smartsvg-g15 .result[data-state=BLOCKED],.smartsvg-g15 .result[data-state=INVALID]{border-color:#ea8b83}',
@@ -59,10 +68,14 @@ function starter(node){
   const root=e('section','smartsvg-g15');
   root.setAttribute('role','region');
   root.setAttribute('aria-label','SmartSVG : importer, contrôler puis retrouver les exports');
+  root.dataset.screen=screenMode(
+    typeof window==='undefined'?1366:window.innerWidth,
+    typeof window==='undefined'?768:window.innerHeight);
   const heading=e('strong','','SmartSVG · Express guidé');
   const phases=e('div','steps');
-  for(const label of ['1 Importer','2 Configurer','3 Lancer','4 Vérifier'])
-    phases.appendChild(e('span','',label));
+  for(const step of STEPS)
+    phases.appendChild(e('span','',step.label));
+  const stepStatus=e('p','fine step-status');
   const label=e('label','','Quel type de création ?');
   const select=e('select');
   const id='smartsvg-g21-profile-'+String(node.id??'node').replace(/[^0-9a-zA-Z_-]/g,'').slice(0,24);
@@ -88,14 +101,19 @@ function starter(node){
   const preview=e('img','preview');
   preview.alt='Aperçu de contrôle SmartSVG non certifié';preview.hidden=true;
   result.append(verdict,description,counter,cards,toolbar,preview,todo);
-  root.append(heading,phases,label,select,intro,apply,state,notice,result);
-  // G2.2: explicit local PNG selection. This does NOT reconnect ComfyUI IMAGE.
-  root.appendChild(createProjectPanel(api,()=> {
+  root.append(heading,phases,stepStatus,label,select,intro,apply,state,notice,result);
+  // Advanced project tools remain discoverable, but no longer occupy the
+  // default 1366×768 workspace or conceal the cutting QA state.
+  const projectDetails=e('details','details');
+  const summary=e('summary','', 'Projet .smartsvg · sauvegarder / inspecter / récupérer');
+  projectDetails.appendChild(summary);
+  projectDetails.appendChild(createProjectPanel(api,()=> {
     const value=name=>node.widgets?.find(w=>w?.name===name)?.value;
     return {profile:value('projet'),
       width_mm:Number(value('largeur_mm')??40),
       dpi:Number(value('qualite_ppp')??300)};
   }));
+  root.appendChild(projectDetails);
 
   let latest=emptyState(),projectAtRun=null,hasRun=false,staleSinceRun=false;
 
@@ -129,6 +147,17 @@ function starter(node){
           expectedObjects:chosenProfile(node)?.expected??null})
       : emptyState();
     result.dataset.state=visible.state;
+    const imageConnected=(Array.isArray(node.inputs)?node.inputs:[]).some(
+      input=>input?.name==='image'&&input.link!==null&&input.link!==undefined);
+    const journey=expressStep({
+      imageConnected,
+      profileApplied:chosenProfile(node)?.id===select.value,
+      resultState:visible.state,
+    });
+    stepStatus.textContent=journey.explanation;
+    phases.children.forEach?.((phase,index)=>{
+      phase.setAttribute('aria-current',index===journey.index?'step':'false');
+    });
     verdict.textContent=statusForDisplay(visible.state);
     description.textContent=visible.explanation;
     todo.textContent=visible.action;
@@ -169,7 +198,7 @@ function starter(node){
   const initial=chosenProfile(node);
   select.value=(initial||PROFILES[0]).id;
   renderProfile();
-  select.addEventListener('change',()=>{state.textContent='';renderProfile();});
+  select.addEventListener('change',()=>{state.textContent='';renderProfile();paint();});
   // Attach the handler to a real button once. Other G1.5 API expectations remain.
   apply.addEventListener('click',()=>{
     const changed=applyProfile(node,select.value);
