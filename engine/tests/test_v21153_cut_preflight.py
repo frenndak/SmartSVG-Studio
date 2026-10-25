@@ -62,5 +62,16 @@ class TestCutPreflight(unittest.TestCase):
         self.assertTrue(result['objects'][0]['svg']['nonpolygonal_paths_require_visual_review'])
 
 
+    def test_corrective_message_matches_svg_failure(self):
+        from tests.test_v21152 import release
+        _action_for_qa = release._action_for_qa
+        message = _action_for_qa({'status': 'BLOCKED',
+                                  'blocking_codes': ['FICHIER_NON_VERIFIABLE']})
+        self.assertIn('régénérer le SVG', message)
+        self.assertNotIn('carte rectangulaire', message)
+        self.assertIn('Corriger le masque', _action_for_qa({
+            'status': 'BLOCKED',
+            'blocking_codes': ['SILHOUETTE_RECTANGULAIRE_NON_FIABLE']}))
+
 if __name__ == '__main__':
     unittest.main()
