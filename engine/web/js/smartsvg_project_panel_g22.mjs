@@ -2,6 +2,8 @@
  * Never reads arbitrary server files, never queues a graph, and never
  * claims reopening a .smartsvg restores the editor/IMAGE connection.
  */
+import {resumeEmpty,resumeLoading,resumeError,resumeFromProject,RESUME_STATES} from './smartsvg_resume_state_g25.mjs';
+
 export const PROJECT_NAME=/^[A-Za-z0-9][A-Za-z0-9_-]{0,47}$/;
 const BYTES_LIMIT=12*1024*1024;
 const ROOT='/smartsvg/g22';
@@ -22,6 +24,8 @@ export function projectError(code){
     RECOVERY_SNAPSHOT_CHANGED:'La sauvegarde précédente a changé : recommencer l’inspection.',
     SAVE_FAILED:'Écriture refusée : contrôler le dossier ou les permissions.',
     ORIGIN_REJECTED:'Requête refusée : utiliser cette interface depuis ComfyUI.',
+    PROJECT_SELECTION_CHANGED:'Projet changé pendant la lecture : inspecter le nouveau nom.',
+    PROJECT_REPORT_INCOMPLETE:'Rapport incomplet : aucun projet présenté comme récupéré.',
   };
   return map[code]||'Opération indisponible. Vérifier que le module de projets G2.2 est activé dans ComfyUI.';
 }
@@ -53,7 +57,44 @@ export function createProjectPanel(api, currentSettings){
   source.alt='Source conservée dans le projet, sans validation de découpe';
   const hint=el('p','Sauvegarde : sélectionner explicitement un PNG local. Ouvrir réaffiche sa source et ses notes, mais ne restaure pas encore les retouches ni le graphe ComfyUI.');
   hint.className='fine';
-  let loaded=null;
+  const resumePanel=el('details');
+  resumePanel.className='smartsvg-g25-resume';
+  resumePanel.setAttribute('aria-label','Étapes de reprise du projet SmartSVG');
+  const resumeHeading=el('summary','Reprendre ce projet · diagnostic');
+  const resumeStatus=el('p');
+  resumeStatus.setAttribute('role','status');
+  resumeStatus.setAttribute('aria-live','polite');
+  const resumeAction=el('p');
+  resumeAction.className='fine';
+  const resumeSteps=el('ol');
+  resumeSteps.className='smartsvg-g25-steps';
+  const revisionLabel=el('label','Empreinte SHA-256 de la révision');
+  const revisionField=el('input');
+  revisionField.type='text';
+  revisionField.readOnly=true;
+  revisionField.setAttribute('aria-label','Empreinte de projet à copier dans le nœud G2.4');
+  resumePanel.append(resumeHeading,resumeStatus,resumeAction,resumeSteps,
+    revisionLabel,revisionField);
+  let loaded=null,selectionEpoch=0;
+  function paintResume(view){
+    resumePanel.dataset.state=view.state;
+    resumeStatus.textContent=view.title+' · Aucune découpe Cricut certifiée';
+    resumeAction.textContent=view.action;
+    resumeSteps.replaceChildren(...view.steps.map(step=>{
+      const item=el('li',step.label+' : '+(step.status==='saved'?'conservé':
+        step.status==='manual'?'manuel':'à compléter')+'. '+step.help);
+      item.dataset.state=step.status;
+      return item;
+    }));
+    revisionField.value=view.revision||'';
+    revisionField.hidden=!view.revision;
+    revisionLabel.hidden=!view.revision;
+    resumePanel.open=view.state===RESUME_STATES.RECOVERABLE ||
+      view.state===RESUME_STATES.INCOMPATIBLE ||
+      view.state===RESUME_STATES.COMPLETE_MANUAL;
+    return view;
+  }
+  paintResume(resumeEmpty());
   const action=(text,handler)=>{
     const button=el('button',text);button.type='button';
     button.addEventListener('click',handler);
@@ -79,10 +120,14 @@ export function createProjectPanel(api, currentSettings){
     method:'POST',headers:{'X-SmartSVG-UI':'1'},body:form(fields),
   });
   const inspect=async()=>{
-    const n=nameValue();
+    const n=nameValue(),epoch=++selectionEpoch;
     if(!validProjectName(n))throw Error('INVALID_PROJECT_NAME');
+    paintResume(resumeLoading());
     const result=await request('/project?name='+encodeURIComponent(n));
+    if(epoch!==selectionEpoch || nameValue()!==n)
+      throw Error('PROJECT_SELECTION_CHANGED');
     loaded=result.project;
+    const view=paintResume(resumeFromProject(loaded));
     details.textContent='Statut : '+loaded.status+
       (loaded.document ? ' · '+String(loaded.document.width_mm)+' mm · '+String(loaded.document.dpi)+' ppp' : '')+
       (loaded.sha256 ? ' · SHA-256 révision (à copier dans le nœud G2.4) : '+loaded.sha256 : '')+
@@ -96,8 +141,9 @@ export function createProjectPanel(api, currentSettings){
       source.hidden=false;
       source.onerror=()=>{source.hidden=true;source.removeAttribute('src');};
     }
-    restore.disabled=!loaded.recoverable;
+    restore.disabled=!view.mayRestore;
     saveNotes.disabled=!loaded.sha256;
+    renderCopy();
     return loaded;
   };
   const save=action('Créer projet depuis PNG',async()=>{
@@ -116,7 +162,8 @@ export function createProjectPanel(api, currentSettings){
   const open=action('Ouvrir et inspecter',async()=>{
     try{await inspect();show('Projet inspecté. La source et les notes sont consultables ici.');}
     catch(err){loaded=null;restore.disabled=true;saveNotes.disabled=true;
-      source.hidden=true;source.removeAttribute('src');show(projectError(err.message));}
+      source.hidden=true;source.removeAttribute('src');
+      paintResume(resumeError());show(projectError(err.message));}
   });
   const saveNotes=action('Enregistrer les notes',async()=>{
     try{
@@ -135,12 +182,31 @@ export function createProjectPanel(api, currentSettings){
       await inspect();show('Version précédente restaurée après confirmation.');
     }catch(err){show(projectError(err.message));}
   });
-  saveNotes.disabled=true;restore.disabled=true;
+  const copyRevision=action('Copier l’empreinte de révision',async()=>{
+    if(!loaded || !/^[0-9a-f]{64}$/.test(loaded.sha256||'')){
+      show('Inspecter un projet valide avant de copier sa révision.');return;
+    }
+    if(typeof navigator==='undefined'||!navigator.clipboard?.writeText){
+      show('Copie indisponible : sélectionner et copier le champ SHA-256.');return;
+    }
+    try{
+      await navigator.clipboard.writeText(loaded.sha256);
+      show('Empreinte copiée. Le nœud G2.4 vérifiera la même révision.');
+    }catch{
+      show('Copie refusée : sélectionner manuellement le champ SHA-256.');
+    }
+  });
+  saveNotes.disabled=true;restore.disabled=true;copyRevision.disabled=true;
+  // Keep copy disabled until the inspected archive has a verified revision.
+  const renderCopy=()=>{copyRevision.disabled=!loaded ||
+    !/^[0-9a-f]{64}$/.test(loaded.sha256||'');};
   name.addEventListener('input',()=>{
-    loaded=null;saveNotes.disabled=true;restore.disabled=true;
+    selectionEpoch++;
+    loaded=null;saveNotes.disabled=true;restore.disabled=true;renderCopy();
+    paintResume(resumeEmpty());
     source.hidden=true;source.removeAttribute('src');details.textContent='';
   });
   root.append(title,label,name,fileLabel,file,noteLabel,notes,
-    actions,status,details,source,hint);
+    actions,status,details,source,hint,resumePanel);
   return root;
 }
