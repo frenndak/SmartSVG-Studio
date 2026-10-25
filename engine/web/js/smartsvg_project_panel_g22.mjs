@@ -85,6 +85,8 @@ export function createProjectPanel(api, currentSettings){
     loaded=result.project;
     details.textContent='Statut : '+loaded.status+
       (loaded.document ? ' · '+String(loaded.document.width_mm)+' mm · '+String(loaded.document.dpi)+' ppp' : '')+
+      (loaded.sha256 ? ' · SHA-256 révision (à copier dans le nœud G2.4) : '+loaded.sha256 : '')+
+      (loaded.base_masks ? ' · '+String(loaded.base_masks.count)+' masque(s) float32 intacts' : '')+
       ' · découpe non certifiée';
     if(loaded.document && typeof loaded.document.notes==='string')
       notes.value=loaded.document.notes;
