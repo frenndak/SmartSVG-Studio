@@ -3,6 +3,7 @@
  * replay resolution or the serialized V21.6 stroke JSON format.
  */
 import { app } from '../../scripts/app.js';
+import { createEditorProjectControls } from './smartsvg_editor_project_bridge_g23.mjs';
 import { api } from '../../scripts/api.js';
 import { normalizeMeta, previewUrl, encodeDocument, decodeDocument, LIMITS, fitView,
   constrainView, zoomView, moveView, viewToUV, strokeSpacing } from './smartsvg_editor_model_v216.mjs';
@@ -303,22 +304,24 @@ app.registerExtension({
         field.value='';field.callback?.('');app.graph?.change?.();node.setDirtyCanvas?.(true,true);
         note.textContent='Retouches effacées. Relancer le workflow pour charger la nouvelle image.';
       });
-      region.append(trigger,reset,note);
+      const projectControls=createEditorProjectControls(api,app,node);
+      region.append(trigger,reset,note,projectControls.root);
       const w=node.addDOMWidget('smartsvg_editor_v216','smartsvg_editor',region,{
         serialize:false,hideOnZoom:true,getMinHeight:()=>85,getMaxHeight:()=>115
       });
       if(w){w.serialize=false;w.options={...(w.options||{}),serialize:false};}
-      node._smartsvgV216Editor={region,trigger,note};
+      node._smartsvgV216Editor={region,trigger,note,projectControls};
       const original=node.onExecuted;
       node.onExecuted=function(output){
         original?.apply(this,arguments);
         const meta=normalizeMeta(output);node._smartsvgV216Meta=meta;
+        projectControls.refresh(meta);
         trigger.disabled=!meta||!!node._smartsvgV216ModalOpen;
         note.textContent=meta?`${meta.count} sujet(s) chargés · ${meta.width} × ${meta.height} px. Zoom/déplacement et retouches disponibles.`:
           'Aucun aperçu valide : consulter le résultat Python et relancer.';
         node.setDirtyCanvas?.(true,true);
       };
-      node.size=[Math.max(node.size?.[0]||350,350),Math.max(node.size?.[1]||230,315)];
+      node.size=[Math.max(node.size?.[0]||350,410),Math.max(node.size?.[1]||230,435)];
     }catch(e){console.warn('SmartSVG V21.6.1 mask editor disabled',e);}
   }
 });
