@@ -5,11 +5,12 @@ import {validProjectName,createProjectPanel,projectError} from '../web/js/smarts
 class Element {
   constructor(tag){
     this.tagName=tag;this.children=[];this.textContent='';this.value='';
-    this.disabled=false;this.hidden=false;this.type='';this.src='';
+    this.disabled=false;this.hidden=false;this.type='';this.src='';this.dataset={};this.style={};
     this.attrs={};this.events={};this.files=[];
   }
   append(...items){this.children.push(...items);}
   appendChild(item){this.children.push(item);return item;}
+  replaceChildren(...items){this.children=[...items];}
   setAttribute(name,value){this.attrs[name]=value;}
   removeAttribute(name){delete this.attrs[name];if(name==='src')this.src='';}
   addEventListener(type,callback){(this.events[type]??=[]).push(callback);}
@@ -48,6 +49,7 @@ function harness(){
   };
   globalThis.document={createElement:type=>new Element(type)};
   globalThis.window={confirm:()=>true};
+  Object.defineProperty(globalThis,'navigator',{configurable:true,value:{clipboard:{writeText:async()=>{}}}});
   globalThis.FormData=class{
     constructor(){this.rows=[];}
     append(k,v){this.rows.push([k,v]);}
@@ -73,7 +75,7 @@ test('project names never permit traversal, separators, or reserved names',()=>{
 });
 test('creation uses chosen local PNG, historical settings and custom CSRF header',async()=>{
   const h=harness();
-  assert.equal(h.buttons.length,4);
+  assert.equal(h.buttons.length,5);
   assert.equal(h.buttons[2].disabled,true);
   assert.equal(h.buttons[3].disabled,true);
   h.name.value='snails';
