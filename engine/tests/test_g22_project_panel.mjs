@@ -63,7 +63,9 @@ function harness(){
   const notes=els.find(x=>x.tagName==='textarea');
   const preview=els.find(x=>x.tagName==='img');
   const status=els.find(x=>x.attrs.role==='status');
-  return {root,buttons,name,file,notes,preview,status,calls,
+  const resume=els.find(x=>x.tagName==='details');
+  const revision=els.find(x=>x.attrs['aria-label']==='Empreinte de projet à copier dans le nœud G2.4');
+  return {root,buttons,name,file,notes,preview,status,resume,revision,calls,
     setMain:value=>{main=value},getMain:()=>main};
 }
 test('project names never permit traversal, separators, or reserved names',()=>{
@@ -131,4 +133,70 @@ test('no direct queue/automatic workflow mutation in project controls',()=>{
   assert.equal(h.root.attrs['aria-label'],'Projet SmartSVG sauvegarde et récupération');
   assert.ok(projectError('BACKUP_CONFLICT').includes('aucune donnée'));
   assert.ok(all(h.root).some(el=>el.textContent.includes('ne restaure pas encore')));
+});
+
+test('guided steps explicitly distinguish full mask snapshots and brush corrections',async()=>{
+  const h=harness();
+  assert.equal(h.resume.dataset.state,'EMPTY');
+  h.name.value='snails';
+  await h.buttons[1].trigger('click');
+  assert.equal(h.resume.dataset.state,'SOURCE_ONLY');
+  assert.equal(h.revision.value,'a'.repeat(64));
+  assert.equal(h.resume.open,false);
+  const list=all(h.resume).filter(x=>x.tagName==='li');
+  assert.equal(list.length,4);
+  assert.match(list[1].textContent,/à compléter/);
+  assert.match(list[3].textContent,/manuel/);
+  h.setMain({...h.getMain(),base_masks:{
+    exact_float32:true,count:2,dimensions_px:[12,9],
+    editor_fingerprint:'b'.repeat(64),
+    source_fingerprint:'c'.repeat(64)},
+    editor_session:{available:true,count:2,stroke_count:3,
+      source_fingerprint:'b'.repeat(64)}});
+  await h.buttons[1].trigger('click');
+  assert.equal(h.resume.dataset.state,'COMPLETE_MANUAL');
+  assert.equal(h.resume.open,true);
+  assert.match(all(h.resume).find(x=>x.attrs.role==='status').textContent,/Aucune découpe Cricut certifiée/);
+});
+test('recovery states are explicit and guarded by verified fallback fingerprint',async()=>{
+  const h=harness();
+  h.name.value='snails';
+  h.setMain({name:'snails',status:'PROJECT_RECOVERABLE',
+    recoverable:true,recovery_sha256:'d'.repeat(64)});
+  await h.buttons[1].trigger('click');
+  assert.equal(h.resume.dataset.state,'RECOVERABLE');
+  assert.equal(h.resume.open,true);
+  assert.equal(h.buttons[3].disabled,false);
+  assert.equal(h.buttons[4].disabled,true);
+  h.setMain({name:'snails',status:'PROJECT_RECOVERABLE',
+    recoverable:true,recovery_sha256:'not-sha'});
+  await h.buttons[1].trigger('click');
+  assert.equal(h.resume.dataset.state,'UNAVAILABLE');
+  assert.equal(h.buttons[3].disabled,true);
+});
+test('copy project revision uses an explicit click and is disabled without inspection',async()=>{
+  const h=harness();
+  assert.equal(h.buttons[4].disabled,true);
+  h.name.value='snails';
+  await h.buttons[1].trigger('click');
+  assert.equal(h.buttons[4].disabled,false);
+  let copied=null;
+  Object.defineProperty(globalThis,'navigator',{configurable:true,value:{
+    clipboard:{writeText:async s=>{copied=s;}}
+  }});
+  await h.buttons[4].trigger('click');
+  assert.equal(copied,'a'.repeat(64));
+  h.name.value='new_project';await h.name.trigger('input');
+  assert.equal(h.buttons[4].disabled,true);
+  assert.equal(h.resume.dataset.state,'EMPTY');
+  assert.equal(h.revision.value,'');
+});
+test('server refusal never leaves a usable revision after an unsuccessful inspection',async()=>{
+  const h=harness();
+  h.name.value='../invalid';
+  await h.buttons[1].trigger('click');
+  assert.equal(h.resume.dataset.state,'ERROR');
+  assert.equal(h.buttons[3].disabled,true);
+  assert.equal(h.buttons[4].disabled,true);
+  assert.equal(h.preview.hidden,true);
 });
