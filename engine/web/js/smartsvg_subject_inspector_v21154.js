@@ -1,4 +1,4 @@
-/** V21.15.4: advisory per-subject warnings, explicit selection, never auto-export. */
+/** V21.15.5: locate suspicious components; diagnostics only, no mask mutations. */
 import {app} from '../../scripts/app.js';
 const CLASS='SmartSVGChooseSubjectV21154';
 const LABELS=Object.freeze({
@@ -16,6 +16,37 @@ const element=(tag,content)=>{
 };
 const validPreview=value=>typeof value==='string'&&value.length<700000&&
   /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value);
+const validZone=zone=>{
+  const coords=zone?.bbox_apercu_88px;
+  const src=zone?.bbox_source_px;
+  return (zone?.type==='MICRO_FRAGMENT'||zone?.type==='FRAGMENT_SEPARE')&&
+    Array.isArray(coords)&&coords.length===4&&coords.every(n=>Number.isInteger(n)&&n>=0&&n<=88)&&
+    coords[2]>=coords[0]&&coords[3]>=coords[1]&&
+    Array.isArray(src)&&src.length===4&&src.every(n=>Number.isInteger(n)&&n>=0)&&
+    src[2]>src[0]&&src[3]>src[1];
+};
+const makePreview=(item,zones)=>{
+  const preview=element('span');
+  preview.style.cssText='display:inline-block;position:relative;width:76px;height:76px;flex-shrink:0';
+  const img=element('img');img.width=76;img.height=76;
+  img.style.cssText='object-fit:contain;width:76px;height:76px;max-width:100%';
+  img.src=item.image_data;img.alt='Aperçu du sujet '+item.numero;
+  preview.append(img);
+  for(const zone of zones){
+    const b=zone.bbox_apercu_88px;
+    const ring=element('span');
+    const left=Math.max(0,Math.min(73,b[0]*76/88));
+    const top=Math.max(0,Math.min(73,b[1]*76/88));
+    const width=Math.min(76-left,Math.max(3,(b[2]-b[0])*76/88));
+    const height=Math.min(76-top,Math.max(3,(b[3]-b[1])*76/88));
+    ring.style.cssText=['position:absolute','pointer-events:none',
+      'left:'+left+'px','top:'+top+'px','width:'+width+'px','height:'+height+'px',
+      'outline:2px solid #ffce73','background:rgba(255,174,0,.17)','box-sizing:border-box'].join(';');
+    ring.setAttribute('aria-hidden','true');
+    preview.append(ring);
+  }
+  return preview;
+};
 
 function inspector(node){
  const root=element('section');
@@ -40,23 +71,32 @@ function inspector(node){
    for(const item of entry.sujets.slice(0,32)){
      if(!Number.isInteger(item.numero)||item.numero<1||item.numero>32)continue;
      const warnings=Array.isArray(item.codes)?item.codes.filter(code=>Object.hasOwn(LABELS,code)).slice(0,5):[];
-     if(warnings.length)issues++;
+     const zones=Array.isArray(item.zones_a_examiner)?item.zones_a_examiner.filter(validZone).slice(0,12):[];
+     const hidden=Number.isInteger(item.zones_non_affichees)&&item.zones_non_affichees>=0?
+       Math.min(item.zones_non_affichees,1000000):0;
+     if(warnings.length||zones.length||hidden)issues++;
      const canSelect=validPreview(item.image_data) && !warnings.includes('MASQUE_VIDE');
      const button=element('button');button.type='button';
-     button.style.cssText='background:#293a48;color:#fff;border:2px solid #607689;border-radius:7px;padding:5px;cursor:pointer;min-height:112px;display:flex;flex-direction:column;align-items:center;gap:4px;';
-     const image=element('img');image.width=76;image.height=76;
-     image.style.cssText='object-fit:contain;max-width:100%';
-     if(canSelect){image.src=item.image_data;image.alt='Aperçu du sujet '+item.numero;}
+     button.style.cssText='background:#293a48;color:#fff;border:2px solid #607689;border-radius:7px;padding:5px;cursor:pointer;min-height:138px;display:flex;flex-direction:column;align-items:center;gap:4px;';
      const name=element('strong','Sujet '+item.numero);
      const message=warnings.length ? warnings.map(w=>LABELS[w]).join(' · ') : 'Inspection visuelle requise';
      const detail=element('span',message);
      detail.style.cssText='font-size:11px;text-align:center;';
-     if(canSelect)button.append(image,name,detail);
-     else button.append(name,element('span','Aucun aperçu exploitable'),detail);
-     button.setAttribute('aria-label',`Sujet ${item.numero} : ${message}. ${canSelect?'Cliquer pour choisir et relancer.':'Non sélectionnable ici.'}`);
+     const locations=zones.slice(0,3).map(z=>{
+       const b=z.bbox_source_px;
+       return (z.type==='MICRO_FRAGMENT'?'Micro-îlot':'Fragment séparé')+' : x'+b[0]+'–'+b[2]+', y'+b[1]+'–'+b[3];
+     });
+     const extra=zones.length-Math.min(3,zones.length)+hidden;
+     const focus=element('span',locations.join(' · ')+(extra>0?' · +'+extra+' autre(s) zone(s)':''));
+     focus.style.cssText='font-size:10px;overflow-wrap:anywhere;text-align:center';
+     if(canSelect)button.append(makePreview(item,zones),name,detail,focus);
+     else button.append(name,element('span','Aucun aperçu exploitable'),detail,focus);
+     button.setAttribute('aria-label','Sujet '+item.numero+' : '+message+'. '+(zones.length+hidden)+
+       ' zone(s) localisée(s) à inspecter. '+locations.join('; ')+'. '+
+       (canSelect?'Cliquer pour choisir et relancer.':'Non sélectionnable ici.'));
      button.setAttribute('aria-pressed',String(item.numero===selected));
      if(item.numero===selected)button.style.borderColor='#82d8bc';
-     if(warnings.length)button.style.borderStyle='dashed';
+     if(warnings.length||zones.length)button.style.borderStyle='dashed';
      if(!canSelect){button.disabled=true;button.style.opacity='.65';}
      else button.addEventListener('click',()=>{
        const widget=node.widgets?.find(w=>w.name==='numero_sujet');
@@ -72,7 +112,7 @@ function inspector(node){
      });
      layout.append(button);shown++;
    }
-   summary.textContent=`${shown} sujet(s) affiché(s), ${issues} avec avertissement(s). Aucune validation de découpe.`;
+   summary.textContent=`${shown} sujet(s) affiché(s), ${issues} à examiner. Cadres orange = fragments possibles, jamais supprimés. Aucune validation de découpe.`;
    hint.textContent='Cliquer un sujet puis relancer. Un avertissement demande inspection, pas suppression automatique.';
  }
  return {root,update};
