@@ -31,6 +31,7 @@ async function extension(){
  globalThis.__mockApp={registerExtension(n){ext=n;},graph:{change(){}}};
  globalThis.__mockApi={apiURL(s){return '/proxy/8188'+s;}};
  globalThis.__model=model;
+ globalThis.__g23Bridge={createEditorProjectControls:()=>({root:new Dom('div'),refresh(){}})};
  globalThis.window={location:{href:'https://test.example/proxy/8188/'}};
  globalThis.Image=FakeImage;
  let style=null;
@@ -42,6 +43,8 @@ async function extension(){
  globalThis.document=doc;
  let src=fs.readFileSync(path.join(base,'../web/js/smartsvg_editor_v216.js'),'utf8');
  src=src.replace("import { app } from '../../scripts/app.js';","const app=globalThis.__mockApp;");
+ src=src.replace("import { createEditorProjectControls } from './smartsvg_editor_project_bridge_g23.mjs';",
+                 'const {createEditorProjectControls}=globalThis.__g23Bridge;');
  src=src.replace("import { api } from '../../scripts/api.js';","const api=globalThis.__mockApi;");
  src=src.replace(/import \{ normalizeMeta,[\s\S]*?\} from '\.\/smartsvg_editor_model_v216\.mjs';/,
  'const { normalizeMeta, previewUrl, encodeDocument, decodeDocument, LIMITS, fitView, constrainView, zoomView, moveView, viewToUV, strokeSpacing }=globalThis.__model;');
