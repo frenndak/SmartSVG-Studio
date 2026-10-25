@@ -136,13 +136,13 @@ export function createProjectPanel(api, currentSettings){
     if(loaded.document && typeof loaded.document.notes==='string')
       notes.value=loaded.document.notes;
     source.hidden=true;source.removeAttribute('src');
-    if(loaded.status==='PROJECT_HEALTHY'){
+    if(view.mayOpenSource){
       source.src=api.apiURL(ROOT+'/source?name='+encodeURIComponent(n));
       source.hidden=false;
       source.onerror=()=>{source.hidden=true;source.removeAttribute('src');};
     }
     restore.disabled=!view.mayRestore;
-    saveNotes.disabled=!loaded.sha256;
+    saveNotes.disabled=!view.revision || view.state===RESUME_STATES.INCOMPATIBLE || view.state===RESUME_STATES.UNKNOWN;
     renderCopy();
     return loaded;
   };
@@ -156,19 +156,24 @@ export function createProjectPanel(api, currentSettings){
       show('Enregistrement en cours…');
       await post('/create',{name:n,image:chosen,profile:config.profile,
         width_mm:String(config.width_mm),dpi:String(config.dpi),notes:notes.value||''});
+      if(nameValue()!==n)throw Error('PROJECT_SELECTION_CHANGED');
       await inspect();show('Projet créé. Source PNG conservée ; découpe non certifiée.');
-    }catch(err){show(projectError(err.message));}
+    }catch(err){if(err.message!=='PROJECT_SELECTION_CHANGED')paintResume(resumeError());
+      show(projectError(err.message));}
   });
   const open=action('Ouvrir et inspecter',async()=>{
     try{await inspect();show('Projet inspecté. La source et les notes sont consultables ici.');}
-    catch(err){loaded=null;restore.disabled=true;saveNotes.disabled=true;
+    catch(err){if(err.message==='PROJECT_SELECTION_CHANGED')return;
+      loaded=null;restore.disabled=true;saveNotes.disabled=true;renderCopy();
       source.hidden=true;source.removeAttribute('src');
       paintResume(resumeError());show(projectError(err.message));}
   });
   const saveNotes=action('Enregistrer les notes',async()=>{
     try{
       if(!loaded?.sha256)throw Error('PROJECT_CHANGED');
-      await post('/notes',{name:nameValue(),notes:notes.value||'',expected_sha256:loaded.sha256});
+      const n=nameValue();
+      await post('/notes',{name:n,notes:notes.value||'',expected_sha256:loaded.sha256});
+      if(nameValue()!==n)throw Error('PROJECT_SELECTION_CHANGED');
       await inspect();show('Notes enregistrées. Sauvegarde précédente conservée.');
     }catch(err){show(projectError(err.message));}
   });
@@ -177,8 +182,10 @@ export function createProjectPanel(api, currentSettings){
       if(!loaded?.recoverable||!loaded.recovery_sha256)throw Error('NOT_RECOVERABLE');
       if(typeof window?.confirm!=='function'||!window.confirm(
         'Restaurer la précédente version vérifiée du projet ? Le fichier corrompu actuel sera remplacé.'))return;
-      await post('/restore',{name:nameValue(),
+      const n=nameValue();
+      await post('/restore',{name:n,
         expected_recovery_sha256:loaded.recovery_sha256,confirmed:'yes'});
+      if(nameValue()!==n)throw Error('PROJECT_SELECTION_CHANGED');
       await inspect();show('Version précédente restaurée après confirmation.');
     }catch(err){show(projectError(err.message));}
   });
@@ -198,8 +205,9 @@ export function createProjectPanel(api, currentSettings){
   });
   saveNotes.disabled=true;restore.disabled=true;copyRevision.disabled=true;
   // Keep copy disabled until the inspected archive has a verified revision.
-  const renderCopy=()=>{copyRevision.disabled=!loaded ||
-    !/^[0-9a-f]{64}$/.test(loaded.sha256||'');};
+  const renderCopy=()=>{const view=resumeFromProject(loaded);
+    copyRevision.disabled=!view.revision ||
+      view.state===RESUME_STATES.INCOMPATIBLE || view.state===RESUME_STATES.UNKNOWN;};
   name.addEventListener('input',()=>{
     selectionEpoch++;
     loaded=null;saveNotes.disabled=true;restore.disabled=true;renderCopy();
