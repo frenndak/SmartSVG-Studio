@@ -20,7 +20,7 @@ function all(el){return [el,...el.children.flatMap(all)]}
 const makeResponse=(data,status=200)=>({
   ok:status>=200&&status<300,json:async()=>data,
 });
-function harness(){
+function harness(options={}){
   let main={
     name:'snails',status:'PROJECT_HEALTHY',sha256:'a'.repeat(64),
     recoverable:false,
@@ -32,7 +32,10 @@ function harness(){
     apiURL:route=>'/proxy/8188'+route,
     async fetchApi(route,options){
       calls.push({route,options});
-      if(route.startsWith('/smartsvg/g22/project?'))return makeResponse({ok:true,project:main});
+      if(route.startsWith('/smartsvg/g22/project?')){
+        if(options.inspectGate)await options.inspectGate();
+        return makeResponse({ok:true,project:main});
+      }
       if(route.endsWith('/create')){
         return makeResponse({ok:true,result:{name:'snails',status:'created'}});
       }
@@ -199,4 +202,21 @@ test('server refusal never leaves a usable revision after an unsuccessful inspec
   assert.equal(h.buttons[3].disabled,true);
   assert.equal(h.buttons[4].disabled,true);
   assert.equal(h.preview.hidden,true);
+});
+
+test('changing name during an async inspection never repaints the wrong project',async()=>{
+  let release;
+  const gate=new Promise(resolve=>{release=resolve});
+  const h=harness({inspectGate:()=>gate});
+  h.name.value='snails';
+  const pending=h.buttons[1].trigger('click');
+  assert.equal(h.resume.dataset.state,'LOADING');
+  h.name.value='another';await h.name.trigger('input');
+  assert.equal(h.resume.dataset.state,'EMPTY');
+  release();await pending;
+  assert.equal(h.resume.dataset.state,'EMPTY');
+  assert.equal(h.buttons[2].disabled,true);
+  assert.equal(h.buttons[4].disabled,true);
+  assert.equal(h.preview.hidden,true);
+  assert.equal(h.revision.value,'');
 });
