@@ -297,6 +297,18 @@ def _validate_bundle(project: LoadedProject):
         if path in expected:
             raise ProjectArchiveError('RESOURCE_PATH_COLLISION')
         expected[path] = ('artifact', artifact)
+    # G2.4 extension: one explicitly declared lossless mask supplement.
+    # Older .smartsvg archives have no such metadata and remain unchanged.
+    try:
+        from .mask_snapshot_g24 import validate_archive_snapshot, MaskSnapshotError
+        mask_extras=validate_archive_snapshot(project)
+    except MaskSnapshotError as exc:
+        raise ProjectArchiveError('MASK_SNAPSHOT_INVALID: '+exc.code) from exc
+    for snapshot_path in mask_extras:
+        _safe_path(snapshot_path)
+        if snapshot_path in expected:
+            raise ProjectArchiveError('RESOURCE_PATH_COLLISION')
+        expected[snapshot_path]=('snapshot', None)
     if set(project.source_paths) != {x.source_id for x in project.sources}:
         raise ProjectArchiveError('UNKNOWN_SOURCE_PATH')
     if set(project.mask_paths) != {x.mask_id for x in project.masks}:
