@@ -115,7 +115,7 @@ function starter(node){
   },node.id));
   root.appendChild(projectDetails);
 
-  let latest=emptyState(),projectAtRun=null,hasRun=false,staleSinceRun=false;
+  let latest=emptyState(),projectAtRun=null,hasRun=false,staleSinceRun=false,lastSeenSignature=null;
 
   function renderProfile(){
     const profile=getProfile(select.value);
@@ -193,6 +193,7 @@ function starter(node){
         }));
       }
     }
+    lastSeenSignature=configurationSignature(node);
     node.setDirtyCanvas?.(true,true);
   }
   const initial=chosenProfile(node);
@@ -215,9 +216,12 @@ function starter(node){
     state.textContent='';
     paint();
   },refreshIfStale(){
-    if(hasRun && !staleSinceRun && configurationSignature(node)!==projectAtRun){
-      staleSinceRun=true;paint();
-    }
+    // Update guidance on IMAGE link changes even BEFORE the first execution.
+    // Only repaint on a changed signature; avoid a LiteGraph redraw loop.
+    const signature=configurationSignature(node);
+    if(signature===lastSeenSignature)return;
+    if(hasRun && signature!==projectAtRun)staleSinceRun=true;
+    paint();
   }};
 }
 
