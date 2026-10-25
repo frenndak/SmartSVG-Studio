@@ -322,8 +322,10 @@ def _validate_bundle(project: LoadedProject):
         data = project.resources[path]
         if not isinstance(data, bytes) or not data or len(data) > MAX_MEMBER_BYTES:
             raise ProjectArchiveError('INVALID_RESOURCE_BYTES')
-        if _digest(data) != rec.sha256:
+        if kind != 'snapshot' and _digest(data) != rec.sha256:
             raise ProjectArchiveError('RESOURCE_SHA256_MISMATCH')
+        # Snapshot bytes and decoded SHA are fully verified by the G2.4
+        # extension above; manifest entry SHA still protects ZIP transport.
         if kind == 'source':
             dims = _source_dimensions(path, data)
             if dims != (rec.width_px, rec.height_px):
