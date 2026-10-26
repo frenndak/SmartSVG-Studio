@@ -107,6 +107,40 @@ class ContractsG12Tests(unittest.TestCase):
                 replace(artifact, **values)
         self.assertEqual(replace(artifact, width_mm=45).width_mm, 45)
 
+    def test_artifact_paths_must_be_unique_on_portable_filesystems(self):
+        s, m, sub, artifact, qa = fixtures()
+
+        def validate_pair(second):
+            return validate_project_records(
+                sources=[s], masks=[m], subjects=[sub],
+                artifacts=[artifact, second], qa_results=[qa])
+
+        # A distinct artifact ID must never overwrite another artifact file.
+        with self.assertRaisesRegex(RecordError, 'DUPLICATE_FILE_PATH'):
+            validate_pair(replace(artifact, artifact_id='artifact-02',
+                                  sha256='0' * 64))
+        # Windows aliases paths that differ only by case, including extension.
+        with self.assertRaisesRegex(RecordError, 'DUPLICATE_FILE_PATH'):
+            validate_pair(replace(artifact, artifact_id='artifact-02',
+                                  file_path='EXPORTS/STICKER.PNG'))
+        # Even identical content cannot assign two artifact IDs to one path.
+        with self.assertRaisesRegex(RecordError, 'DUPLICATE_FILE_PATH'):
+            validate_pair(replace(artifact, artifact_id='artifact-02'))
+        # Distinct names remain valid; neither original is modified.
+        result = validate_pair(replace(artifact, artifact_id='artifact-02',
+                                       file_path='exports/sticker_02.png'))
+        self.assertEqual(result['artifacts'], 2)
+        self.assertEqual(artifact.file_path, 'exports/sticker.png')
+
+    def test_artifact_paths_unicode_normalization_aliases(self):
+        s, m, sub, artifact, qa = fixtures()
+        first = replace(artifact, file_path='exports/étiquette.png')
+        second = replace(artifact, artifact_id='artifact-02',
+                         file_path='exports/e\u0301tiquette.png')
+        with self.assertRaisesRegex(RecordError, 'DUPLICATE_FILE_PATH'):
+            validate_project_records(sources=[s], masks=[m], subjects=[sub],
+                                     artifacts=[first, second], qa_results=[qa])
+
     def test_qa_never_promotes_simulation_to_real(self):
         with self.assertRaisesRegex(RecordError, 'IMPORT_PASS_REQUIRES_REAL_EVIDENCE'):
             QAResult('artifact-01', design_space_import='passed', import_evidence='fixture')
