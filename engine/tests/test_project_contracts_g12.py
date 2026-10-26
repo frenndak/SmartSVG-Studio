@@ -61,6 +61,55 @@ class ContractsG12Tests(unittest.TestCase):
         with self.assertRaisesRegex(RecordError, 'DUPLICATE_ID'):
             validate_project_records(sources=[s,s], masks=[m], subjects=[sub], artifacts=[a])
 
+
+    def test_accessory_graph_rejects_direct_and_long_cycles(self):
+        # A link can be individually valid and still create a dependency
+        # cycle. The metadata validator must reject this before exporters
+        # try to resolve nested or attached subjects.
+        source, mask, original, artifact, qa = fixtures()
+        a = replace(original, subject_id='subject-A', accessory_ids=('subject-B',))
+        b = replace(original, subject_id='subject-B', accessory_ids=('subject-A',))
+        for subjects in (
+            [a, b],
+            [replace(a, accessory_ids=('subject-C',)),
+             b, replace(original, subject_id='subject-C',
+                        accessory_ids=('subject-B',))],
+        ):
+            with self.subTest(subjects=[item.subject_id for item in subjects]):
+                with self.assertRaisesRegex(RecordError, 'CYCLIC_ACCESSORY_LINK'):
+                    validate_project_records(
+                        sources=[source], masks=[mask], subjects=subjects,
+                        artifacts=[], qa_results=[])
+
+    def test_accessory_graph_accepts_long_acyclic_chain(self):
+        # Iterative traversal also supports many valid accessories without
+        # depending on the Python recursion limit or mutating frozen records.
+        source, mask, original, _, _ = fixtures()
+        subjects = [
+            replace(original, subject_id=f'subject-{i:04d}',
+                    accessory_ids=((f'subject-{i+1:04d}',) if i < 1499 else ()))
+            for i in range(1500)
+        ]
+        before = subjects[0].accessory_ids
+        result = validate_project_records(
+            sources=[source], masks=[mask], subjects=subjects,
+            artifacts=[], qa_results=[])
+        self.assertEqual(result['subjects'], 1500)
+        self.assertEqual(subjects[0].accessory_ids, before)
+
+    def test_accessory_graph_accepts_branching_and_disconnected_subjects(self):
+        source, mask, original, _, _ = fixtures()
+        subjects = [
+            replace(original, subject_id='main-subject',
+                    accessory_ids=('accessory-1', 'accessory-2')),
+            replace(original, subject_id='accessory-1', accessory_ids=()),
+            replace(original, subject_id='accessory-2', accessory_ids=()),
+            replace(original, subject_id='independent', accessory_ids=()),
+        ]
+        result = validate_project_records(
+            sources=[source], masks=[mask], subjects=subjects, artifacts=[])
+        self.assertEqual(result['subjects'], 4)
+
     def test_export_path_and_mm(self):
         _, _, _, a, _ = fixtures()
         for values in ({'file_path':'../outside.png'}, {'file_path':'C:\\outside.png'},
