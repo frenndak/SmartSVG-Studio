@@ -7,10 +7,8 @@ free validation.
 
 ## Current implementation
 
-- `.github/workflows/public-autonomous-cycle.yml` runs twice per hour on
-  the default branch: develop preflight at :05 UTC and repair preflight at :50 UTC.
-- Both cycles validate the frozen roadmap, the original source archive and the
-  repository's Python unit tests without OpenAI API usage.
+- **Candidate only until PR #30 is merged:** `.github/workflows/public-autonomous-cycle.yml` is configured to run twice per hour on the default branch after integration: develop preflight at :05 UTC and repair preflight at :50 UTC. A green pull-request run is not evidence of an active schedule.
+- Both proposed cycles validate the frozen roadmap, the original source archive and the repository's Python unit tests without OpenAI API usage. `tests/test_public_single_repo_preflight.py` adds negative checks to prevent accidental paid/privileged triggers and permission drift.
 - These scheduled checks **do not implement AI code changes or merge PRs**.
   GitHub Actions schedules may be delayed or skipped; a scheduled run is not
   evidence of an agent execution.
@@ -33,7 +31,7 @@ free validation.
 
 ## Migration follow-up
 
-1. Review and integrate this free single-repo schedule.
+1. Review and integrate this free single-repo schedule. Its current `pull_request` checkout uses GitHub's default synthetic merge ref, so the successful PR CI is **not** proof of direct HEAD checkout. Require an explicit exact-HEAD validation before claiming that property; the frozen archive and roadmap checks are separate. Once merged, observe a real scheduled run on `main` before claiming scheduling is active.
 2. Replace the legacy private-engineer workflow with a dedicated public-repo
    worker PR that uses scoped credentials, least privilege, budget enforcement
    and non-destructive PR-only changes.
