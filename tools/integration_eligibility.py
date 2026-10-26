@@ -15,6 +15,10 @@ from pathlib import Path
 
 SHA = re.compile(r"^[0-9a-f]{40}$")
 REQUIRED = ("SmartSVG G0 - Admission Tests", "SmartSVG - Live Engine CPU Smoke")
+REQUIRED_WORKFLOW_FILES = {
+    "SmartSVG G0 - Admission Tests": ".github/workflows/g0-admission-tests.yml",
+    "SmartSVG - Live Engine CPU Smoke": ".github/workflows/engine-cpu-smoke.yml",
+}
 EXPECTED_REPO = "frenndak/SmartSVG-Studio"
 
 
@@ -142,9 +146,33 @@ def assess(snapshot):
     if not isinstance(workflows, list):
         workflows = []
         blockers.append("WORKFLOWS_MISSING")
+    provenance = snapshot.get("workflow_provenance")
+    if not isinstance(provenance, dict):
+        provenance = {}
     for name in (REQUIRED if needs_cpu else REQUIRED[:1]):
+        # A successful workflow_dispatch is not proof of tests if a candidate
+        # can edit the workflow definition on its own branch. Only accept a
+        # run from the same workflow blob as trusted main, with matching
+        # GitHub workflow identity and path. Workflow-changing PRs require a
+        # separate maintainer bootstrap review; this gate never waives it.
+        proof = provenance.get(name)
+        expected_path = REQUIRED_WORKFLOW_FILES[name]
+        trusted_workflow = (
+            isinstance(proof, dict)
+            and proof.get("path") == expected_path
+            and type(proof.get("workflow_id")) is int
+            and proof["workflow_id"] > 0
+            and _sha(proof.get("main_blob_sha"))
+            and proof.get("head_blob_sha") == proof["main_blob_sha"]
+        )
+        if not trusted_workflow:
+            blockers.append("CI_WORKFLOW_UNTRUSTED:" + name)
         all_runs = [run for run in workflows if isinstance(run, dict)
-                    and run.get("name") == name and run.get("head_sha") == head]
+                    and trusted_workflow
+                    and run.get("name") == name and run.get("head_sha") == head
+                    and run.get("path") == expected_path
+                    and type(run.get("workflow_id")) is int
+                    and run["workflow_id"] == proof["workflow_id"]]
         # Even a direct-branch success cannot hide a newer failed/pending run
         # for the same workflow and exact candidate commit.
         sort_key = lambda r: (str(r.get("run_started_at") or r.get("created_at") or ""),
