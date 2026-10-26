@@ -18,7 +18,7 @@ _SHA = re.compile(r'^[0-9a-f]{64}$')
 _STATUSES = frozenset({'not_tested', 'passed', 'failed'})
 # Windows device names are invalid even with a file extension. Project paths
 # must be portable between ComfyUI installations on Windows and POSIX.
-_WINDOWS_DEVICE = re.compile(r'^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9]|CONIN\\$|CONOUT\\$)(?:\\..*)?
+_WINDOWS_DEVICE = re.compile(r'^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9]|CONIN\$|CONOUT\$)(?:\..*)?
 
 
 class RecordError(ValueError):
