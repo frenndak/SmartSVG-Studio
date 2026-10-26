@@ -12,6 +12,7 @@ on:
       - "tests/test_svg_contracts.py"
       - "tests/test_synthetic_pngs.py"
       - "tests/test_private_workflow_routing.py"
+      - "tests/test_private_agent_protected_paths.py"
       - "tests/test_integration_eligibility.py"
       - "tools/integration_eligibility.py"
       - ".github/workflows/integration-preflight.yml"
