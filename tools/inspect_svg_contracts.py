@@ -7,6 +7,7 @@ flattening, geometry offset simulation or machine/knife modeling occurs here.
 from __future__ import annotations
 
 import argparse
+from io import BytesIO
 import json
 import math
 import re
@@ -17,7 +18,7 @@ from pathlib import Path
 SVG_NS = "http://www.w3.org/2000/svg"
 XLINK_NS = "http://www.w3.org/1999/xlink"
 VECTOR_ELEMENTS = {"path", "rect", "circle", "ellipse", "polygon", "polyline", "line"}
-FORBIDDEN = {"script", "foreignObject", "image", "use", "animate", "animateMotion",
+FORBIDDEN = {"script", "style", "a", "foreignObject", "image", "use", "animate", "animateMotion",
              "animateTransform", "set", "filter", "feImage", "textPath"}
 DIMENSION = re.compile(r"^(\d+(?:\.\d+)?)mm$")
 
@@ -35,6 +36,11 @@ def inspect_svg(path: Path, *, profile: str = "cut", max_bytes: int = 2_000_000)
     if re.search(rb"<!\s*(?:DOCTYPE|ENTITY)\b", raw, re.IGNORECASE):
         raise SVGRejected("DTD_OR_ENTITY_DECLARATION")
     try:
+        # ElementTree.fromstring() silently discards XML processing instructions,
+        # including a prolog xml-stylesheet that could load external resources
+        # when the same file is later opened by another SVG consumer.
+        if any(True for _event, _node in ET.iterparse(BytesIO(raw), events=("pi",))):
+            raise SVGRejected("PROCESSING_INSTRUCTION")
         root = ET.fromstring(raw)
     except ET.ParseError as exc:
         raise SVGRejected("INVALID_XML") from exc
