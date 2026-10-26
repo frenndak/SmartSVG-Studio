@@ -33,7 +33,7 @@ async function extension(){
  globalThis.__mockApi={apiURL(s){return '/proxy/8188'+s;}};
  globalThis.__model=model;
  globalThis.__focusModel=focusModel;
- globalThis.window={location:{href:'https://test.example/proxy/8188/'},addEventListener(){},removeEventListener(){}};
+ globalThis.window={location:{href:'https://test.example/proxy/8188/'},listeners:new Map(),confirm(){return true;},addEventListener(t,fn){this.listeners.set(t,fn);},removeEventListener(t){this.listeners.delete(t);},dispatchEvent(e){this.listeners.get(e.type)?.(e);}};
  globalThis.Image=FakeImage;
  let style=null;
  const documentEvents={};
@@ -108,6 +108,32 @@ test('new editor persists modifications to real workflow widget, and does not se
  // User can explicitly reset corrections even if the image/source changed.
  node.dashboard.root.children[2].fire('click');
  assert.equal(textWidget.value,'');
+});
+test('source-pinned focus opens in pan mode and does not create strokes',async()=>{
+ const {ext,doc}=await extension();
+ const widget={name:'retouches_json',value:''};
+ const node={comfyClass:'SmartSVGMaskEditorV216',widgets:[widget],size:[200,100],
+ addDOMWidget(name,type,root,options){this.dashboard={name,type,root,options};return this.dashboard;},
+ setDirtyCanvas(){}};
+ ext.nodeCreated(node);node.onExecuted(sample);
+ const focus=node._smartsvgV216Editor.focusTrigger;
+ assert.equal(focus.disabled,true);
+ const intent={version:1,source_sha256:'a'.repeat(64),width_px:760,height_px:570,
+  subject:1,bbox_source_px:[120,150,150,180]};
+ globalThis.window.dispatchEvent({type:'smartsvg:mask-focus:v1',detail:{...intent,source_sha256:'b'.repeat(64)}});
+ assert.equal(focus.disabled,true);
+ globalThis.window.dispatchEvent({type:'smartsvg:mask-focus:v1',detail:intent});
+ assert.equal(focus.disabled,false);
+ focus.fire('click');await tick();await tick();
+ const overlay=doc.body.children.at(-1);
+ assert.equal(overlay.children[0].attributes.role,'dialog');
+ assert.equal(widget.value,'');
+ const panel=overlay.children[0],viewport=panel.children[3];
+ viewport.fire('pointerdown',{button:0,pointerId:2,clientX:210,clientY:180,preventDefault(){}});
+ viewport.fire('pointerup',{button:0,pointerId:2,preventDefault(){}});
+ panel.children[5].children[0].fire('click');
+ assert.equal(JSON.parse(widget.value).strokes.length,0);
+ node.onRemoved();assert.equal(globalThis.window.listeners.size,0);
 });
 test('legacy nodes remain unaffected; browser without DOM widget degrades',async()=>{
  const {ext}=await extension();
