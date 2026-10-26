@@ -109,6 +109,27 @@ class IntegrationGateTests(unittest.TestCase):
         )
         self.assertEqual(self.blockers(), [])
 
+    def test_renamed_engine_source_still_requires_cpu(self):
+        # GitHub records renamed file's destination as filename. Dropping
+        # engine/ from the destination must not bypass live CPU checks.
+        old_diff = gate.diff_identity(self.data["changed_files"])
+        changed = [file_info("docs/relocated.py"), file_info("tools/other.py")]
+        changed[0]["status"] = "renamed"
+        changed[0]["previous_filename"] = "engine/smartsvg_core/original.py"
+        self.data["changed_files"] = changed
+        new_diff = gate.diff_identity(changed)
+        self.assertIsNotNone(new_diff)
+        self.data["audit_comments"][0]["body"] = (
+            self.data["audit_comments"][0]["body"].replace(old_diff, new_diff)
+        )
+        self.data["workflow_runs"] = self.data["workflow_runs"][:1]
+        self.assertIn("CI_NOT_SUCCESS:" + gate.REQUIRED[1], self.blockers())
+
+        # With the mandatory direct-head CPU run restored the example is
+        # eligible again. This checks the absence of unrelated blockers.
+        self.data["workflow_runs"].append(base_snapshot()["workflow_runs"][1])
+        self.assertEqual(self.blockers(), [])
+
     def test_engine_change_still_requires_cpu(self):
         self.data["workflow_runs"] = self.data["workflow_runs"][:1]
         self.assertIn("CI_NOT_SUCCESS:" + gate.REQUIRED[1], self.blockers())
