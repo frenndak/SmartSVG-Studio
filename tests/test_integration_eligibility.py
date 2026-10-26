@@ -102,6 +102,11 @@ class IntegrationGateTests(unittest.TestCase):
             file_info("tools/integration_eligibility.py"),
         ]
         self.data["workflow_runs"] = self.data["workflow_runs"][:1]
+        old_diff = gate.diff_identity(base_snapshot()["changed_files"])
+        new_diff = gate.diff_identity(self.data["changed_files"])
+        self.data["audit_comments"][0]["body"] = (
+            self.data["audit_comments"][0]["body"].replace(old_diff, new_diff)
+        )
         self.assertEqual(self.blockers(), [])
 
     def test_engine_change_still_requires_cpu(self):
@@ -195,7 +200,7 @@ class IntegrationGateTests(unittest.TestCase):
         self.assertIn("STALE_SNAPSHOT", self.blockers())
 
     def test_nul_and_missing_file_sha_fail_closed(self):
-        self.data["changed_files"][0]["filename"] = "engine/\\x00evil.py"
+        self.data["changed_files"][0]["filename"] = "engine/\x00evil.py"
         self.assertIn("CHANGESET_UNVERIFIED", self.blockers())
         self.data["changed_files"][0] = file_info("engine/good.py")
         self.data["changed_files"][0]["sha"] = None
