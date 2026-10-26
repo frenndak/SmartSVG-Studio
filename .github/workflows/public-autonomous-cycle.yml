@@ -1,0 +1,54 @@
+name: SmartSVG - Public autonomous cycle
+
+on:
+  schedule:
+    - cron: "5 * * * *"
+    - cron: "50 * * * *"
+  workflow_dispatch:
+    inputs:
+      phase:
+        type: choice
+        options: [develop, repair]
+        default: develop
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smartsvg-public-cycle
+  cancel-in-progress: false
+
+jobs:
+  free-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Select phase and verify immutable baseline
+        shell: bash
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+          REQUESTED_PHASE: ${{ inputs.phase }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
+            case "$SCHEDULE" in
+              "5 * * * *") phase=develop ;;
+              "50 * * * *") phase=repair ;;
+              *) echo "::error::Unknown schedule"; exit 1 ;;
+            esac
+          else
+            phase="${REQUESTED_PHASE:-develop}"
+          fi
+          [[ "$phase" == develop || "$phase" == repair ]]
+          echo "phase=$phase" >> "$GITHUB_STEP_SUMMARY"
+          echo '0e503a55fa622d7acea44d8e742205fb6a71119262c309a0b5a2bd48f0ab28a3  docs/ROADMAP_MASTER_v3_2.md' | sha256sum -c
+          python tools/verify_source_integrity.py --repo . --archive-only
+          test -s .automation/READY
+          python -m unittest discover -s tests -p 'test_*.py' -q
+          echo "Free public preflight complete; no paid API, no private dispatch, no merge." >> "$GITHUB_STEP_SUMMARY"
