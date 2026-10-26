@@ -243,7 +243,10 @@ jobs:
               .github/*|.automation/*|AGENTS.md|.gitmodules|docs/ROADMAP_MASTER_v3_2.md|docs/ROADMAP_FREEZE_v3_2.json|docs/IMPORT_V21_15_2.json|docs/SOURCE_V21_15_2_PROVENANCE.json|source-releases/*|source-releases/**|engine/INSTALLATION_MANIFEST_*.json|*.env|*.pem|*.key)
                 echo "::error::Protected path edited: $path"; exit 1 ;;
             esac
-          # Disable rename detection: the default --name-only output omits a\n          # protected source path moved to an otherwise unprotected destination.\n          # With --no-renames, BOTH sides are checked before any paid commit.\n          done < <(git diff --cached --name-only --no-renames -z)
+          # Disable rename detection: default --name-only omits the original
+          # protected path when that file is renamed into a safe-looking path.
+          # --no-renames reports both paths, failing closed before any commit.
+          done < <(git diff --cached --name-only --no-renames -z)
           python -m compileall -q engine tools tests
           python -m unittest discover -s tests -p 'test_*.py' -q
           # This intentionally does NOT attest live ComfyUI, GPU, Design Space,
