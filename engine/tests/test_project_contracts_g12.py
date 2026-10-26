@@ -133,10 +133,10 @@ class ContractsG12Tests(unittest.TestCase):
         self.assertEqual(replace(artifact, file_path=accented).file_path, accented)
 
     def test_artifact_path_rejects_unicode_line_and_paragraph_separators(self):
-        # U+2028/U+2029 split visual lines in diagnostics and project UIs.
-        # They are Zl/Zp, not C0 controls or format characters (Cf).
+        # C1 controls (including U+0085 NEXT LINE) can split UI/log lines,
+        # just like U+2028/U+2029. Preserve ordinary visible accents.
         _, _, _, artifact, _ = fixtures()
-        for separator in ('\u2028', '\u2029'):
+        for separator in ('\u0080', '\u0085', '\u009f', '\u2028', '\u2029'):
             path = f'exports/sticker{separator}.png'
             with self.subTest(codepoint=hex(ord(separator))), self.assertRaisesRegex(
                     RecordError, 'INVALID_ARTIFACT_PATH'):
