@@ -150,6 +150,17 @@ class ContractsG12Tests(unittest.TestCase):
                       environment='real', import_evidence='real-import-01', physical_evidence='real-cut-01')
         self.assertEqual(qa.physical_cut, 'passed')
 
+    def test_qa_status_rejects_unhashable_metadata_with_record_error(self):
+        # Untrusted JSON can contain arrays/objects in fields requiring a status.
+        for field in ('visual', 'geometry', 'design_space_import', 'physical_cut'):
+            for bad in ([], {}, ['passed']):
+                with self.subTest(field=field, bad=bad), self.assertRaisesRegex(
+                        RecordError, f'{field}: INVALID_STATUS'):
+                    QAResult('artifact-01', **{field: bad})
+        # Preserve the supported status values and real-evidence contract.
+        for status in ('not_tested', 'passed', 'failed'):
+            self.assertEqual(QAResult('artifact-01', visual=status).visual, status)
+
     def test_unknown_artifact_and_subject_rejected(self):
         s, m, sub, a, q = fixtures()
         with self.assertRaisesRegex(RecordError, 'UNKNOWN_ARTIFACT_SUBJECT'):
