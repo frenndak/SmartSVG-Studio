@@ -72,6 +72,26 @@ class ContractsG12Tests(unittest.TestCase):
         self.assertEqual(replace(a, use='basic_cut_svg', file_path='cut.svg', ppi=None).use,
                          'basic_cut_svg')
 
+    def test_artifact_path_rejects_windows_device_names_and_controls(self):
+        _, _, _, artifact, _ = fixtures()
+        bad_paths = (
+            'exports/CON.png', 'exports/con.png', 'exports/AUX.PNG',
+            'exports/NUL.png', 'exports/COM1.png', 'exports/lpt9.png',
+            'CON/out.png', 'exports/folder./out.png',
+            'exports/folder /out.png', 'exports/out?.png',
+            'exports/out*.png', 'exports/out|.png',
+            'exports/out\\x00.png', 'exports/out\\n.png',
+            'exports/out\\x7f.png',
+        )
+        for path in bad_paths:
+            with self.subTest(path=repr(path)), self.assertRaisesRegex(
+                    RecordError, 'INVALID_ARTIFACT_PATH'):
+                replace(artifact, file_path=path)
+        for path in ('exports/étiquette 01.png', 'exports/CONTOUR.png',
+                     'exports/normal.sticker.png'):
+            with self.subTest(path=path):
+                self.assertEqual(replace(artifact, file_path=path).file_path, path)
+
     def test_qa_never_promotes_simulation_to_real(self):
         with self.assertRaisesRegex(RecordError, 'IMPORT_PASS_REQUIRES_REAL_EVIDENCE'):
             QAResult('artifact-01', design_space_import='passed', import_evidence='fixture')
