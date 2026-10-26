@@ -80,8 +80,8 @@ class ContractsG12Tests(unittest.TestCase):
             'CON/out.png', 'exports/folder./out.png',
             'exports/folder /out.png', 'exports/out?.png',
             'exports/out*.png', 'exports/out|.png',
-            'exports/out\${code}.png', 'exports/out\${code}.png',
-            'exports/out\${code}.png',
+            'exports/out\x00.png', 'exports/out\n.png',
+            'exports/out\x7f.png',
         )
         for path in bad_paths:
             with self.subTest(path=repr(path)), self.assertRaisesRegex(
