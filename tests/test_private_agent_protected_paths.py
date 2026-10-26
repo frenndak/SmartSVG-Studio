@@ -59,7 +59,7 @@ class BacklogGateTests(unittest.TestCase):
                 result, output = self._run_gate(count, phase)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 if blocked:
-                    self.assertEqual(output, "proceed=false\\n")
+                    self.assertEqual(output, "proceed=false\n")
                     self.assertNotIn("REACHED_NEXT_STAGE", result.stdout)
                 else:
                     self.assertEqual(output, "")
@@ -78,8 +78,8 @@ class BacklogGateTests(unittest.TestCase):
         end_marker = '          # WIP=1 among autonomous agent branches'
         start = source.index(beginning)
         end = source.index(end_marker, start)
-        snippet = "\\n".join(line[10:] for line in source[start:end].splitlines())
-        script = "set -euo pipefail\\n" + snippet + "\\necho REACHED_NEXT_STAGE\\n"
+        snippet = "\n".join(line[10:] for line in source[start:end].splitlines())
+        script = "set -euo pipefail\n" + snippet + "\necho REACHED_NEXT_STAGE\n"
         if prs_json is None:
             prs_json = json.dumps([
                 {"number": n + 1, "isDraft": True, "headRefName": "feat/test",
