@@ -67,7 +67,12 @@ def _audited(comments, number, head, base_ref, base_sha, diff_sha, approver_logi
                 props[key.strip()] = value.strip()
         if props.get("PR") == str(number) and props.get("HEAD") == head:
             author = (comment.get("user") or {}).get("login")
-            # Latest receipt on the same PR/HEAD supersedes older receipts.
+            # This public issue is a journal, not an authority. Only a
+            # reviewer independently APPROVED on this exact HEAD can revoke
+            # or grant integration eligibility. Ignore other commenters.
+            if author not in approver_logins:
+                continue
+            # Latest authorized receipt on this PR/HEAD supersedes older ones.
             return (props.get("BASE") == f"{base_ref}@{base_sha}"
                     and props.get("DIFF_SHA256") == diff_sha
                     and props.get("VERDICT") == "GO_POUR_REVUE_INTEGRATION"
