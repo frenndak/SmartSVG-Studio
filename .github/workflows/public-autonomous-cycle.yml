@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: "5 * * * *"
     - cron: "50 * * * *"
+  pull_request:
+    paths:
+      - ".github/workflows/public-autonomous-cycle.yml"
+      - "tools/verify_source_integrity.py"
+      - "tests/**"
+      - "docs/ROADMAP_MASTER_v3_2.md"
   workflow_dispatch:
     inputs:
       phase:
@@ -51,4 +57,5 @@ jobs:
           python tools/verify_source_integrity.py --repo . --archive-only
           test -s .automation/READY
           python -m unittest discover -s tests -p 'test_*.py' -q
+          python -m compileall -q engine tools tests
           echo "Free public preflight complete; no paid API, no private dispatch, no merge." >> "$GITHUB_STEP_SUMMARY"
