@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import * as model from '../web/js/smartsvg_editor_model_v216.mjs';
+import * as focusModel from '../web/js/smartsvg_mask_focus_v21156.mjs';
 const base=path.dirname(fileURLToPath(import.meta.url));
 class Context{
  save(){}restore(){}clearRect(){}drawImage(){}beginPath(){}moveTo(){}lineTo(){}stroke(){}arc(){}fill(){}
@@ -31,7 +32,8 @@ async function extension(){
  globalThis.__mockApp={registerExtension(n){ext=n;},graph:{change(){}}};
  globalThis.__mockApi={apiURL(s){return '/proxy/8188'+s;}};
  globalThis.__model=model;
- globalThis.window={location:{href:'https://test.example/proxy/8188/'}};
+ globalThis.__focusModel=focusModel;
+ globalThis.window={location:{href:'https://test.example/proxy/8188/'},addEventListener(){},removeEventListener(){}};
  globalThis.Image=FakeImage;
  let style=null;
  const documentEvents={};
@@ -43,6 +45,7 @@ async function extension(){
  let src=fs.readFileSync(path.join(base,'../web/js/smartsvg_editor_v216.js'),'utf8');
  src=src.replace("import { app } from '../../scripts/app.js';","const app=globalThis.__mockApp;");
  src=src.replace("import { api } from '../../scripts/api.js';","const api=globalThis.__mockApi;");
+ src=src.replace("import { validatedFocus, centerFocusView } from './smartsvg_mask_focus_v21156.mjs';","const {validatedFocus,centerFocusView}=globalThis.__focusModel;");
  src=src.replace(/import \{ normalizeMeta,[\s\S]*?\} from '\.\/smartsvg_editor_model_v216\.mjs';/,
  'const { normalizeMeta, previewUrl, encodeDocument, decodeDocument, LIMITS, fitView, constrainView, zoomView, moveView, viewToUV, strokeSpacing }=globalThis.__model;');
  await import('data:text/javascript;base64,'+Buffer.from(src).toString('base64')+'#'+(++serial));
@@ -103,7 +106,7 @@ test('new editor persists modifications to real workflow widget, and does not se
  node.onExecuted({});
  assert.equal(node._smartsvgV216Editor.trigger.disabled,true);
  // User can explicitly reset corrections even if the image/source changed.
- node.dashboard.root.children[1].fire('click');
+ node.dashboard.root.children[2].fire('click');
  assert.equal(textWidget.value,'');
 });
 test('legacy nodes remain unaffected; browser without DOM widget degrades',async()=>{
