@@ -10,6 +10,7 @@ from dataclasses import asdict, dataclass
 import math
 import re
 from pathlib import PurePosixPath
+import unicodedata
 
 SCHEMA_VERSION = 'smartsvg-contracts/1'
 _MAX_PIXELS = 100_000_000
@@ -210,6 +211,15 @@ def validate_project_records(*, sources, masks, subjects, artifacts, qa_results=
             raise RecordError(f'{name}: DUPLICATE_ID')
         tables.append(index)
     src, msk, sub, art, qa = tables
+    # Artifact names are persisted as portable paths. On case-insensitive file
+    # systems two different artifact IDs can refer to the same output file.
+    # Reject aliases even when their digests match: each artifact owns one path.
+    portable_paths = set()
+    for artifact in art.values():
+        portable_path = unicodedata.normalize('NFC', artifact.file_path).casefold()
+        if portable_path in portable_paths:
+            raise RecordError('artifacts: DUPLICATE_FILE_PATH')
+        portable_paths.add(portable_path)
     for mask in msk.values():
         source = src.get(mask.source_id)
         if source is None or (mask.width_px, mask.height_px) != (source.width_px, source.height_px):
