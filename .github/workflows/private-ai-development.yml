@@ -170,7 +170,7 @@ jobs:
             echo "::error::Daily paid-run admission cap reached; no paid API call."
             exit 1
           fi
-          echo "Budget admission: configured USD ceiling; conservative daily workflow-run quota $total/$MAX_PAID_RUNS_PER_DAY. Billing remains independently capped at the API provider."
+          echo "Budget admission: monthly USD budget declared; conservative daily workflow-run quota $total/$MAX_PAID_RUNS_PER_DAY. Provider-side billing cap is NOT verified by this workflow."
 
       - name: Require the private OpenAI API secret
         if: steps.gate.outputs.proceed == 'true'
