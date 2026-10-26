@@ -32,10 +32,9 @@ def _audited(comments, number, head):
             if "=" in line:
                 key, value = line.split("=", 1)
                 props[key.strip()] = value.strip()
-        if (props.get("PR") == str(number)
-                and props.get("HEAD") == head
-                and props.get("VERDICT") == "GO_POUR_REVUE_INTEGRATION"):
-            return True
+        if props.get("PR") == str(number) and props.get("HEAD") == head:
+            # The newest matching audit supersedes an older positive verdict.
+            return props.get("VERDICT") == "GO_POUR_REVUE_INTEGRATION"
     return False
 
 
@@ -80,9 +79,11 @@ def assess(snapshot):
         blockers.append("WORKFLOWS_MISSING")
     for name in REQUIRED:
         runs = [run for run in workflows
-                if run.get("name") == name and run.get("head_sha") == head]
+                if run.get("name") == name and run.get("head_sha") == head
+                and run.get("event") == "workflow_dispatch"
+                and run.get("head_branch") == (pr.get("head") or {}).get("ref")]
         # A newer failure/pending run on this HEAD supersedes an earlier success.
-        runs.sort(key=lambda r: (str(r.get("created_at", "")),
+        runs.sort(key=lambda r: (str(r.get("run_started_at") or r.get("created_at") or ""),
                                  int(r.get("run_attempt") or 0), int(r.get("id") or 0)))
         if not runs or runs[-1].get("status") != "completed" or runs[-1].get("conclusion") != "success":
             blockers.append("CI_NOT_SUCCESS:" + name)
