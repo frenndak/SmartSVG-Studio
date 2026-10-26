@@ -31,6 +31,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
+          # pull_request defaults to a synthetic merge ref; validate the actual PR HEAD.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@v6
         with:
@@ -40,8 +42,15 @@ jobs:
         env:
           SCHEDULE: ${{ github.event.schedule }}
           REQUESTED_PHASE: ${{ inputs.phase }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
+          actual_head="$(git rev-parse HEAD)"
+          if [[ "$actual_head" != "$EXPECTED_HEAD" ]]; then
+            echo "::error::Checkout SHA mismatch: expected $EXPECTED_HEAD, got $actual_head"
+            exit 1
+          fi
+          echo "Verified checkout HEAD=$actual_head" >> "$GITHUB_STEP_SUMMARY"
           if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
             case "$SCHEDULE" in
               "5 * * * *") phase=develop ;;
