@@ -1,0 +1,77 @@
+name: SmartSVG - Read Only Integration Preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Open PR number to inspect; this workflow never merges"
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+  issues: read
+
+concurrency:
+  group: smartsvg-integration-preflight
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Read trusted main only, never candidate code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Fetch current PR, current main, exact-head CI and review
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]
+          repo="frenndak/SmartSVG-Studio"
+          gh api "repos/$repo/pulls/$PR_NUMBER" > "$RUNNER_TEMP/pr.json"
+          main_sha="$(gh api "repos/$repo/git/ref/heads/main" --jq '.object.sha')"
+          head_sha="$(jq -r '.head.sha' "$RUNNER_TEMP/pr.json")"
+          [[ "$main_sha" =~ ^[0-9a-f]{40}$ && "$head_sha" =~ ^[0-9a-f]{40}$ ]]
+          gh api "repos/$repo/compare/main...$head_sha" > "$RUNNER_TEMP/compare.json"
+          gh api "repos/$repo/actions/runs?head_sha=$head_sha&per_page=100" > "$RUNNER_TEMP/runs.json"
+          test "$(jq -r '.total_count' "$RUNNER_TEMP/runs.json")" -le 100
+          gh api --paginate "repos/$repo/pulls/$PR_NUMBER/reviews?per_page=100" |
+            jq -s 'add' > "$RUNNER_TEMP/reviews.json"
+          gh api --paginate "repos/$repo/issues/29/comments?per_page=100" |
+            jq -s 'add' > "$RUNNER_TEMP/audit.json"
+          checked_head="$(gh api "repos/$repo/pulls/$PR_NUMBER" --jq '.head.sha')"
+          checked_main="$(gh api "repos/$repo/git/ref/heads/main" --jq '.object.sha')"
+          export PR_NUMBER="$PR_NUMBER" MAIN_SHA="$main_sha" CHECKED_HEAD="$checked_head" CHECKED_MAIN="$checked_main"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])
+          def read(name): return json.loads((root / name).read_text())
+          result={
+              "schema": 1, "repo": "frenndak/SmartSVG-Studio",
+              "main_sha": os.environ["MAIN_SHA"],
+              "checked_main_sha": os.environ["CHECKED_MAIN"],
+              "checked_head_sha": os.environ["CHECKED_HEAD"],
+              "pr": read("pr.json"),
+              "comparison": read("compare.json"),
+              "workflow_runs": read("runs.json").get("workflow_runs", []),
+              "reviews": read("reviews.json"),
+              "audit_comments": read("audit.json"),
+          }
+          (root / "integration_snapshot.json").write_text(json.dumps(result), encoding="utf-8")
+          PY
+      - name: Evaluate eligibility without mutations
+        shell: bash
+        run: |
+          python tools/integration_eligibility.py "$RUNNER_TEMP/integration_snapshot.json"
+          echo "Eligibility only: no merge, no draft transition, no branch update."
