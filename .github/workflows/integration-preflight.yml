@@ -43,6 +43,15 @@ jobs:
           head_sha="$(jq -r '.head.sha' "$RUNNER_TEMP/pr.json")"
           [[ "$main_sha" =~ ^[0-9a-f]{40}$ && "$head_sha" =~ ^[0-9a-f]{40}$ ]]
           gh api "repos/$repo/compare/main...$head_sha" > "$RUNNER_TEMP/compare.json"
+          # GitHub compares can omit details for large diffs. Paginate the
+          # authoritative PR files endpoint and verify exact count fail-closed.
+          gh api --paginate "repos/$repo/pulls/$PR_NUMBER/files?per_page=100" |
+            jq -s 'add' > "$RUNNER_TEMP/files.json"
+          expected_files="$(jq -r '.changed_files' "$RUNNER_TEMP/pr.json")"
+          actual_files="$(jq 'length' "$RUNNER_TEMP/files.json")"
+          test "$expected_files" -gt 0
+          test "$expected_files" -eq "$actual_files"
+          test "$actual_files" -le 3000
           gh api "repos/$repo/actions/runs?head_sha=$head_sha&per_page=100" > "$RUNNER_TEMP/runs.json"
           test "$(jq -r '.total_count' "$RUNNER_TEMP/runs.json")" -le 100
           gh api --paginate "repos/$repo/pulls/$PR_NUMBER/reviews?per_page=100" |
@@ -64,6 +73,7 @@ jobs:
               "checked_head_sha": os.environ["CHECKED_HEAD"],
               "pr": read("pr.json"),
               "comparison": read("compare.json"),
+              "changed_files": read("files.json"),
               "workflow_runs": read("runs.json").get("workflow_runs", []),
               "reviews": read("reviews.json"),
               "audit_comments": read("audit.json"),
