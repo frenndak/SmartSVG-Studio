@@ -32,6 +32,18 @@ def policy_violations(source: str) -> list[str]:
     require("runs-on: ubuntu-24.04" in source, "RUNNER_NOT_PINNED")
     require("timeout-minutes: 12" in source, "TIMEOUT_MISSING")
     require("persist-credentials: false" in source, "CHECKOUT_CREDENTIALS_PERSISTED")
+    # The PR event's default github.sha is a synthetic merge commit. Both
+    # checkout and the explicit assertion must use the candidate's HEAD.
+    expected_ref = r"\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\|\|\s*github\.sha\s*\}\}"
+    require(bool(re.search(r"(?m)^\s+ref:\s*" + expected_ref + r"\s*$", source)),
+            "PR_HEAD_NOT_CHECKED_OUT")
+    require(bool(re.search(r"(?m)^\s+EXPECTED_HEAD:\s*" + expected_ref + r"\s*$", source)),
+            "PR_HEAD_EXPECTATION_MISSING")
+    require('actual_head="$(git rev-parse HEAD)"' in source and
+            'if [[ "$actual_head" != "$EXPECTED_HEAD" ]]' in source and
+            'echo "::error::Checkout SHA mismatch:' in source,
+            "EXACT_HEAD_ASSERTION_MISSING")
+
 
     schedules = re.findall(r'(?m)^\s+- cron:\s*"([^"]+)"\s*$', source)
     require(schedules == ["5 * * * *", "50 * * * *"], "SCHEDULE_DRIFT")
@@ -72,6 +84,18 @@ class PublicSingleRepoPreflightTests(unittest.TestCase):
         self.assertIn("GLOBAL_PERMISSIONS_NOT_READ_ONLY", policy_violations(mutated))
         mutated = self.workflow.replace(" --archive-only", "")
         self.assertIn("IMMUTABLE_ARCHIVE_NOT_VERIFIED", policy_violations(mutated))
+
+    def test_requires_exact_pr_head_checkout_and_runtime_assertion(self):
+        for old, new, expected in (
+            ("ref: ${{ github.event.pull_request.head.sha || github.sha }}",
+             "ref: ${{ github.sha }}", "PR_HEAD_NOT_CHECKED_OUT"),
+            ("EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}",
+             "EXPECTED_HEAD: ${{ github.sha }}", "PR_HEAD_EXPECTATION_MISSING"),
+            ('if [[ "$actual_head" != "$EXPECTED_HEAD" ]]',
+             'if [[ "$actual_head" == "$EXPECTED_HEAD" ]]', "EXACT_HEAD_ASSERTION_MISSING"),
+        ):
+            with self.subTest(expected=expected):
+                self.assertIn(expected, policy_violations(self.workflow.replace(old, new)))
 
     def test_rejects_missing_timeout_or_changed_cron(self):
         self.assertIn("TIMEOUT_MISSING", policy_violations(
