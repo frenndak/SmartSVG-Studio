@@ -44,19 +44,27 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 6
     steps:
-      - uses: actions/checkout@v5
-      - name: Verify direct branch checkout
-        if: github.event_name == 'workflow_dispatch'
+      - name: Check out the actual PR HEAD (not GitHub's synthetic merge)
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - name: Assert tested checkout identity
         shell: bash
+        env:
+          EXPECTED_HEAD: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           actual="$(git rev-parse HEAD)"
-          echo "Manual workflow branch: $GITHUB_REF_NAME"
-          echo "Actual checkout SHA: $actual"
-          echo "Triggered SHA: $GITHUB_SHA"
-          test "$actual" = "$GITHUB_SHA"
-          if [[ "$GITHUB_REF_NAME" == "main" ]]; then
-            echo "::notice::This manual run checks main, not pull request #13. For PR #13, choose fix/protect-historical-source-paths in Run workflow."
+          echo "Event: $GITHUB_EVENT_NAME"
+          echo "Checkout SHA: $actual"
+          echo "Expected HEAD: $EXPECTED_HEAD"
+          if [[ "$actual" != "$EXPECTED_HEAD" ]]; then
+            echo "::error::Checkout does not match the actual candidate HEAD"
+            exit 1
+          fi
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && "$GITHUB_REF_NAME" == "main" ]]; then
+            echo "::notice::Manual run validates main. PRs are automatically tested on their exact HEAD by pull_request runs."
           fi
       - name: Set up Python
         uses: actions/setup-python@v6
