@@ -44,6 +44,57 @@ class ProtectedPathGateTests(unittest.TestCase):
 
 
 
+
+
+class ProtectedPathRenameTests(unittest.TestCase):
+    """Exercise the real staged-path check against actual git rename detection."""
+
+    @staticmethod
+    def _run_staged_check(old_path, new_path):
+        source = WORKFLOW.read_text(encoding="utf-8")
+        start = source.index("          while IFS= read -r -d '' path; do")
+        end = source.index("\n", source.index("          done < <(git diff", start))
+        snippet = "\n".join(line[10:] for line in source[start:end].splitlines())
+        script = "set -euo pipefail\n" + snippet + "\necho ADMITTED\n"
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            old_file = root / old_path
+            old_file.parent.mkdir(parents=True, exist_ok=True)
+            old_file.write_text("synthetic test data\n", encoding="utf-8")
+
+            def git(*args):
+                subprocess.run(["git", *args], cwd=tmp, check=True,
+                               capture_output=True, text=True)
+
+            git("init", "-q")
+            git("config", "user.email", "smartsvg-test@example.invalid")
+            git("config", "user.name", "SmartSVG regression test")
+            git("add", ".")
+            git("commit", "-qm", "synthetic baseline")
+            (root / new_path).parent.mkdir(parents=True, exist_ok=True)
+            git("mv", old_path, new_path)
+            return subprocess.run(["bash", "-c", script], cwd=tmp,
+                                  capture_output=True, text=True, check=False)
+
+    def test_protected_source_renamed_into_unprotected_path_is_blocked(self):
+        for protected in (
+            "docs/ROADMAP_MASTER_v3_2.md",
+            "docs/SOURCE_V21_15_2_PROVENANCE.json",
+            "source-releases/source.zip",
+            ".automation/READY",
+        ):
+            with self.subTest(source=protected):
+                result = self._run_staged_check(protected, "engine/renamed.txt")
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn("Protected path edited: " + protected, result.stdout)
+
+    def test_safe_rename_remains_allowed(self):
+        result = self._run_staged_check("engine/old.py", "engine/new.py")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("ADMITTED", result.stdout)
+
+
 class BacklogGateTests(unittest.TestCase):
     """Run the *actual* bash backlog gate extracted from the checked-in workflow."""
 
