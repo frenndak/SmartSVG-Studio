@@ -48,6 +48,15 @@ class SVGContractTests(unittest.TestCase):
         with self.assertRaisesRegex(SVGRejected, "EXPLICIT_MM_REQUIRED"):
             inspect_svg(p)
 
+    def test_non_finite_explicit_mm_rejected(self):
+        # A decimal with hundreds of digits converts to float('inf').
+        huge_mm = "9" * 400 + "mm"
+        for width, height in ((huge_mm, "25mm"), ("20mm", huge_mm)):
+            with self.subTest(width=width[:12], height=height[:12]):
+                p = self.write(self.base('<circle r="8"/>', width=width, height=height))
+                with self.assertRaisesRegex(SVGRejected, "EXPLICIT_MM_REQUIRED"):
+                    inspect_svg(p)
+
     def test_invalid_viewbox(self):
         p = self.write(self.base('<circle r="8"/>', view="0 0 nan 25"))
         with self.assertRaisesRegex(SVGRejected, "INVALID_VIEWBOX"):
