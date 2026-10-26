@@ -31,7 +31,7 @@ free validation.
 
 ## Migration follow-up
 
-1. Review and integrate this free single-repo schedule. Its current `pull_request` checkout uses GitHub's default synthetic merge ref, so the successful PR CI is **not** proof of direct HEAD checkout. Require an explicit exact-HEAD validation before claiming that property; the frozen archive and roadmap checks are separate. Once merged, observe a real scheduled run on `main` before claiming scheduling is active.
+1. Review and integrate this free single-repo schedule. The PR now requests the candidate's `pull_request.head.sha` in `actions/checkout` and explicitly compares `git rev-parse HEAD` with that SHA before testing. **This is a candidate implementation, not evidence until a fresh CI run on the new HEAD succeeds and its checkout logs are inspected.** The frozen archive and roadmap checks remain separate. Once merged, observe a real scheduled run on `main` before claiming scheduling is active.
 2. Replace the legacy private-engineer workflow with a dedicated public-repo
    worker PR that uses scoped credentials, least privilege, budget enforcement
    and non-destructive PR-only changes.
