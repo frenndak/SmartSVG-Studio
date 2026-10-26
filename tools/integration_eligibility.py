@@ -73,19 +73,45 @@ def assess(snapshot):
     if snapshot.get("checked_head_sha") != head or snapshot.get("checked_main_sha") != main:
         blockers.append("STALE_SNAPSHOT")
 
+    # Require an exhaustive GitHub changed-file inventory before deciding which
+    # CI suites apply. A missing/truncated list MUST NOT waive CPU tests.
+    changes = snapshot.get("changed_files")
+    expected_files = pr.get("changed_files")
+    if (not isinstance(changes, list) or not changes or
+            type(expected_files) is not int or expected_files != len(changes)):
+        blockers.append("CHANGESET_UNVERIFIED")
+        needs_cpu = True
+    else:
+        paths = [item.get("filename") if isinstance(item, dict) else None
+                 for item in changes]
+        if (any(not isinstance(path, str) or not path or path.startswith("/")
+                or "\\x00" in path or ".." in path.split("/") for path in paths)
+                or len(set(paths)) != len(paths)):
+            blockers.append("CHANGESET_UNVERIFIED")
+            needs_cpu = True
+        else:
+            needs_cpu = any(path.startswith("engine/") for path in paths)
+
     workflows = snapshot.get("workflow_runs")
     if not isinstance(workflows, list):
         workflows = []
         blockers.append("WORKFLOWS_MISSING")
-    for name in REQUIRED:
-        runs = [run for run in workflows
-                if run.get("name") == name and run.get("head_sha") == head
-                and run.get("event") == "workflow_dispatch"
-                and run.get("head_branch") == (pr.get("head") or {}).get("ref")]
-        # A newer failure/pending run on this HEAD supersedes an earlier success.
-        runs.sort(key=lambda r: (str(r.get("run_started_at") or r.get("created_at") or ""),
-                                 int(r.get("run_attempt") or 0), int(r.get("id") or 0)))
-        if not runs or runs[-1].get("status") != "completed" or runs[-1].get("conclusion") != "success":
+    for name in (REQUIRED if needs_cpu else REQUIRED[:1]):
+        all_runs = [run for run in workflows if isinstance(run, dict)
+                    and run.get("name") == name and run.get("head_sha") == head]
+        # Even a direct-branch success cannot hide a newer failed/pending run
+        # for the same workflow and exact candidate commit.
+        sort_key = lambda r: (str(r.get("run_started_at") or r.get("created_at") or ""),
+                              int(r.get("run_attempt") or 0), int(r.get("id") or 0))
+        all_runs.sort(key=sort_key)
+        direct = [run for run in all_runs
+                  if run.get("event") == "workflow_dispatch"
+                  and run.get("head_branch") == (pr.get("head") or {}).get("ref")]
+        latest_all_ok = (bool(all_runs) and all_runs[-1].get("status") == "completed"
+                         and all_runs[-1].get("conclusion") == "success")
+        direct_ok = (bool(direct) and direct[-1].get("status") == "completed"
+                     and direct[-1].get("conclusion") == "success")
+        if not (latest_all_ok and direct_ok):
             blockers.append("CI_NOT_SUCCESS:" + name)
 
     reviews = snapshot.get("reviews")
