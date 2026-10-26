@@ -7,7 +7,7 @@
 1. **Producteur (:15, Europe/Paris)** — travaille sur la PR racine la plus ancienne ou corrige une régression P0/P1. Tant qu'il existe au moins quatre PR ouvertes, pas de nouvelle PR fonctionnelle. Aucune modification de `main` en direct.
 2. **Auditeur indépendant (:35)** — examine le diff réel, les entrées adversariales, la compatibilité des nœuds et projets, les preuves attachées au HEAD et aux dépendances. Pour une PR purement logicielle G1/G2, les tests L1 CPU pertinents et la revue du diff suffisent *au verdict d'intégration de code* si le risque matériel n'est pas dans son périmètre. L2 (ComfyUI+GPU réel) et L3 (Cricut) restent obligatoires pour tout jalon qui affirme leurs fonctionnalités prouvées, **jamais présumés satisfaits**.
 3. **Qualification en lecture seule** — exécuter le workflow manuel `SmartSVG - Read Only Integration Preflight` sur **`main`** après fusion de la PR #13, avec l'entrée `pr_number`. Il interroge GitHub en direct, puis lance `tools/integration_eligibility.py`.
-4. **Approbation et intégration** — la PR doit être ouverte, non brouillon, basée directement sur `main`, sans conflit ni retard de branche, avec **G0 obligatoirement** et **CPU Smoke si la PR modifie `engine/`**, exécutés avec succès sur le HEAD exact. L'inventaire complet des fichiers modifiés est récupéré via l'API GitHub ; s'il est absent, tronqué, incohérent ou dupliqué, CPU devient obligatoire et la qualification est bloquée. Pour éviter de confondre un test de la référence synthétique `pull/PR/merge` avec celui du code candidat, les deux workflows doivent avoir été lancés sur la **branche candidate** via `workflow_dispatch` (et correspondre à son nom de branche et HEAD). Exiger le commentaire `SMARTSVG_AUDIT_V1` associé au HEAD avec `VERDICT=GO_POUR_REVUE_INTEGRATION`, puis une revue GitHub `APPROVED` par un autre compte utilisateur non bot et non auteur, sur ce même HEAD. Les demandes de changements ouvertes bloquent. Le workflow ne change pas le statut de brouillon, ne merge pas, n'attribue pas d'approbation et ne réécrit aucune branche.
+4. **Approbation et intégration** — la PR doit être ouverte, non brouillon, basée directement sur `main`, sans conflit ni retard de branche, avec **G0 obligatoirement** et **CPU Smoke si la PR modifie `engine/`**, exécutés avec succès sur le HEAD exact. L'inventaire complet des fichiers modifiés est récupéré via l'API GitHub ; s'il est absent, tronqué, incohérent ou dupliqué, CPU devient obligatoire et la qualification est bloquée. Pour éviter de confondre un test de la référence synthétique `pull/PR/merge` avec celui du code candidat, les deux workflows doivent avoir été lancés sur la **branche candidate** via `workflow_dispatch` (et correspondre à son nom de branche et HEAD). Exiger un commentaire `SMARTSVG_AUDIT_V1` lié au **HEAD, à `BASE=main@<SHA>` et à `DIFF_SHA256=<empreinte du diff>`**, avec `VERDICT=GO_POUR_REVUE_INTEGRATION`, écrit par un compte **ayant aussi donné une revue GitHub `APPROVED` indépendante**, non bot et non auteur, sur ce même HEAD. Un commentaire par l'auteur de la PR ne suffit jamais. Les demandes de changements ouvertes bloquent. Le workflow ne change pas le statut de brouillon, ne merge pas, n'attribue pas d'approbation et ne réécrit aucune branche.
 5. **Action mainteneur** — une fois les conditions réunies, le mainteneur vérifie encore `main` et HEAD au moment de la fusion via les mécanismes GitHub de protection / comparaison SHA. La qualification seule ne vaut ni autorisation de fusion automatique ni release du produit.
 6. **Après fusion** — constater le nouveau `main` et le SHA de fusion, puis traiter la PR fille (base à recalculer, réévaluation des conflits, nouveaux checks exact-head), une seule par une.
 
@@ -25,6 +25,25 @@ Au 26/10/2026, 16 PR brouillon : #13 (sécurité), #14→#24 (branche produit em
 Entrée : snapshot JSON `schema=1` (PR, compare main...HEAD, runs, reviews, audit comments, second relevé main/HEAD). Production depuis un checkout `main` avec permissions **lecture seule**. Le contrôle rejette par défaut les données absentes, brouillons, PR sur branche fille, conflits, main obsolète, HEAD changé, CI non terminée/non success, approbation périmée ou par l'auteur, absence d'audit favorable. Il exige des workflows `workflow_dispatch` rattachés à la branche et au SHA attendus ; un échec plus récent pour ce même HEAD annule un ancien succès, même si l'événement plus récent est une PR. Les runs plus récents peuvent invalider d'anciens succès.
 
 Sortie : `BLOCKED` + raisons, ou `ELIGIBLE_FOR_MAINTAINER_MERGE_REVIEW` ; `automatic_merge_allowed=false` dans tous les cas.
+
+### Identité et authenticité du verdict indépendant
+
+Le reçu d'audit est **lié au diff précis**, pas seulement au commit candidat. L'auditeur doit vérifier l'inventaire complet de `pulls/<PR>/files`, puis inscrire :
+
+```text
+SMARTSVG_AUDIT_V1
+PR=<numéro>
+HEAD=<SHA du candidat>
+BASE=main@<SHA exact de main au moment de la revue>
+DIFF_SHA256=<empreinte calculée sur la liste exhaustive des fichiers modifiés>
+VERDICT=GO_POUR_REVUE_INTEGRATION
+```
+
+L'empreinte est `tools.integration_eligibility.diff_identity(files)`, SHA-256 d'un JSON canonique trié par chemin contenant `filename/status/sha/previous_filename/additions/deletions/changes`. Le précontrôle retourne `diff_sha256` pour comparaison, même si la PR est bloquée ; il ne publie ni image ni contenu des patchs. La valeur doit être recalculée après chaque changement de base ou de HEAD. La liste de fichiers et la base de la PR sont relues avant décision afin de limiter les courses concurrentes.
+
+**Provenance :** le champ `user.login` du commentaire GitHub doit correspondre à celui d'un reviewer indépendant avec `APPROVED` valide sur ce HEAD. Une simple chaîne `VERDICT=GO` écrite par le développeur, un bot ou un tiers non approuvé ne constitue pas une contre-expertise. Si l'auditeur utilise le même compte que l'auteur, la qualification reste bloquée et une seconde identité GitHub est requise ; ne jamais contourner cette condition.
+
+
 
 **Pas de fausse preuve :** l'issue de coordination #29 est un journal non autoritaire, pas une signature de validation. Même avec un commentaire `GO_POUR_REVUE_INTEGRATION`, une approbation GitHub indépendante reste nécessaire. Comme le développeur et les tâches opèrent actuellement sur le compte `frenndak`, une revue réellement indépendante par un **autre compte humain** devra être obtenue pour franchir ce garde-fou. S'il n'est pas disponible, laisser `BLOCKED`, ne pas créer de fausse approbation ni contourner ce contrôle.
 
