@@ -123,6 +123,10 @@ class Subject:
         _identifiers(self.accessory_ids, 'accessory_ids', empty_ok=True)
         if self.subject_id in self.accessory_ids:
             raise RecordError('SELF_ACCESSORY')
+        # JSON arrays are accepted at the boundary, but frozen records must
+        # not retain mutable references after validation.
+        object.__setattr__(self, 'bbox_px', tuple(self.bbox_px))
+        object.__setattr__(self, 'accessory_ids', tuple(self.accessory_ids))
 
 
 @dataclass(frozen=True)
@@ -139,6 +143,7 @@ class Artifact:
     def __post_init__(self):
         _identifier(self.artifact_id, 'artifact_id')
         _identifiers(self.subject_ids, 'subject_ids')
+        object.__setattr__(self, 'subject_ids', tuple(self.subject_ids))
         _digest(self.sha256, 'artifact_sha256')
         if self.use not in ('print_then_cut_png', 'basic_cut_svg', 'editable_svg'):
             raise RecordError('INVALID_ARTIFACT_USE')
