@@ -53,6 +53,22 @@ jobs:
           test "$expected_files" -eq "$actual_files"
           test "$actual_files" -le 3000
           gh api "repos/$repo/actions/runs?head_sha=$head_sha&per_page=100" > "$RUNNER_TEMP/runs.json"
+          # A candidate may edit its own workflow into a no-op success.
+          # Compare required workflow blobs against trusted main before
+          # accepting any candidate-branch workflow_dispatch evidence.
+          : > "$RUNNER_TEMP/workflow_provenance.jsonl"
+          while IFS='|' read -r workflow_name workflow_file; do
+            path=".github/workflows/$workflow_file"
+            main_blob="$(gh api "repos/$repo/contents/$path?ref=$main_sha" --jq .sha)"
+            head_blob="$(gh api "repos/$repo/contents/$path?ref=$head_sha" --jq .sha)"
+            workflow_id="$(gh api "repos/$repo/actions/workflows/$workflow_file" --jq .id)"
+            [[ "$main_blob" =~ ^[0-9a-f]{40}$ && "$head_blob" =~ ^[0-9a-f]{40}$ ]]
+            [[ "$workflow_id" =~ ^[1-9][0-9]*$ ]]
+            jq -nc --arg name "$workflow_name" --arg path "$path" --arg main "$main_blob" --arg head "$head_blob" --argjson id "$workflow_id" '{name:$name,path:$path,main_blob_sha:$main,head_blob_sha:$head,workflow_id:$id}' >> "$RUNNER_TEMP/workflow_provenance.jsonl"
+          done <<'WORKFLOWS'
+          SmartSVG G0 - Admission Tests|g0-admission-tests.yml
+          SmartSVG - Live Engine CPU Smoke|engine-cpu-smoke.yml
+          WORKFLOWS
           test "$(jq -r '.total_count' "$RUNNER_TEMP/runs.json")" -le 100
           # Resolve trusted reviewers from GitHub's collaborator permissions,
           # not public author_association or self-declared issue receipts.
@@ -86,6 +102,11 @@ jobs:
               "comparison": read("compare.json"),
               "changed_files": read("files.json"),
               "workflow_runs": read("runs.json").get("workflow_runs", []),
+              "workflow_provenance": {
+                  row["name"]: {k: v for k, v in row.items() if k != "name"}
+                  for row in (json.loads(line) for line in
+                              (root / "workflow_provenance.jsonl").read_text().splitlines())
+              },
               "reviews": read("reviews.json"),
               "trusted_reviewers": sorted({
                   row["login"].casefold()
