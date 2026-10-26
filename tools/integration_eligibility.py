@@ -160,6 +160,10 @@ def assess(snapshot):
             continue
         # Only the latest vote per reviewer counts. Dismissed and stale approvals
         # do not authorize integration.
+        # COMMENTED is non-decisive: it must not revoke an earlier APPROVED
+        # or CHANGES_REQUESTED vote. DISMISSED is decisive and revokes approval.
+        if review.get("state") not in {"APPROVED", "CHANGES_REQUESTED", "DISMISSED"}:
+            continue
         if login not in latest or str(review.get("submitted_at") or "") >= str(latest[login].get("submitted_at") or ""):
             latest[login] = review
     if any(v.get("state") == "CHANGES_REQUESTED" for v in latest.values()):
