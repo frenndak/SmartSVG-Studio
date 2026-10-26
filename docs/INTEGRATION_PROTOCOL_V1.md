@@ -20,6 +20,16 @@ Au 26/10/2026, 16 PR brouillon : #13 (sécurité), #14→#24 (branche produit em
 - Corriger les tests sur les HEAD pertinents ; une CI verte sur une PR fille ne qualifie pas ses parents.
 - Prioriser la réduction de la dette et la stabilisation du graphe de dépendances plutôt que la croissance du nombre de PR.
 
+## Admission budgétaire des appels payants (candidat, non actif sur main)
+
+Avant `openai/codex-action`, le workflow privé impose désormais **trois conditions distinctes** :
+
+- `SMARTSVG_AUTOMATION_ENABLED=true` : activation explicite (variable GitHub Actions déjà prévue).
+- `SMARTSVG_MONTHLY_API_BUDGET_USD` : montant mensuel déclaré strictement positif (ex. `10` ou `12.50`). **Déclaration, pas limite de facturation effectivement appliquée.** Un plafond de dépenses côté fournisseur doit être configuré et vérifié séparément avant activation.
+- `SMARTSVG_MAX_PAID_RUNS_PER_DAY` : nombre entier entre 1 et 24. Le workflow compte tous ses runs créés dans la journée UTC (y compris les runs gratuits et le run courant), et refuse un nouveau cycle payant lorsque ce total dépasse le plafond. En cas d'erreur API, de résultat incomplet ou de variable absente, il refuse l'appel.
+
+Le plafond quotidien est **conservateur** : il borne le nombre de runs susceptibles d'appeler Codex, mais pas leur coût réel. Il ne remplace ni un contrôle de facturation du fournisseur, ni la limitation de backlog `TOTAL_OPEN_PRS >= 4` (qui interdit les nouvelles PR fonctionnelles). Aucune variable ni aucun secret n'a été configuré par ce correctif. La version présente sur `main` ne contient pas encore ces protections tant que la PR #13 reste non fusionnée.
+
 ## Contrat du précontrôle
 
 Entrée : snapshot JSON `schema=1` (PR, compare main...HEAD, runs, reviews, audit comments, second relevé main/HEAD). Production depuis un checkout `main` avec permissions **lecture seule**. Le contrôle rejette par défaut les données absentes, brouillons, PR sur branche fille, conflits, main obsolète, HEAD changé, CI non terminée/non success, approbation périmée ou par l'auteur, absence d'audit favorable. Il exige des workflows `workflow_dispatch` rattachés à la branche et au SHA attendus ; un échec plus récent pour ce même HEAD annule un ancien succès, même si l'événement plus récent est une PR. Les runs plus récents peuvent invalider d'anciens succès.
