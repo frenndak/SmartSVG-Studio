@@ -108,6 +108,17 @@ class ContractsG12Tests(unittest.TestCase):
         path = 'exports/étiquette 01.png'
         self.assertEqual(replace(artifact, file_path=path).file_path, path)
 
+    def test_artifact_path_rejects_invisible_combining_grapheme_joiner(self):
+        # U+034F is default-ignorable despite being category Mn, not Cf.
+        # It must not create a visually indistinguishable output filename.
+        _, _, _, artifact, _ = fixtures()
+        self.assertEqual(artifact.file_path, 'exports/sticker.png')
+        with self.assertRaisesRegex(RecordError, 'INVALID_ARTIFACT_PATH'):
+            replace(artifact, file_path='exports/sticker\\u034f.png')
+        # Ordinary combining accents are valid and remain normalizable.
+        accented = 'exports/cafe\\u0301.png'
+        self.assertEqual(replace(artifact, file_path=accented).file_path, accented)
+
     def test_huge_mm_integer_raises_record_error_not_overflow(self):
         _, _, _, artifact, _ = fixtures()
         for values in (
