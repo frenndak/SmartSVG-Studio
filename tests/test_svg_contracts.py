@@ -68,6 +68,32 @@ class SVGContractTests(unittest.TestCase):
         with self.assertRaisesRegex(SVGRejected, "EVENT_OR_EXTERNAL"):
             inspect_svg(p)
 
+    def test_escaped_css_url_rejected_in_inline_style(self):
+        # CSS consumers decode \72 and \75 to 'r' and 'u' respectively.
+        for css in (
+            r"fill:u\72l(https://example.invalid/x)",
+            r"fill:\75rl(https://example.invalid/x)",
+            r"fill:u\000072l(https://example.invalid/x)",
+        ):
+            with self.subTest(css=css):
+                p = self.write(self.base('<circle r="8" style="' + css + '"/>'))
+                with self.assertRaisesRegex(SVGRejected, "OBFUSCATED_CSS_REFERENCE"):
+                    inspect_svg(p)
+
+    def test_escaped_css_url_rejected_in_presentation_attribute(self):
+        p = self.write(self.base(r'<circle r="8" fill="u\72l(https://example.invalid/x)"/>'))
+        with self.assertRaisesRegex(SVGRejected, "OBFUSCATED_CSS_REFERENCE"):
+            inspect_svg(p)
+
+    def test_css_comment_obfuscation_rejected(self):
+        p = self.write(self.base('<circle r="8" style="fill:u/**/rl(https://example.invalid/x)"/>'))
+        with self.assertRaisesRegex(SVGRejected, "OBFUSCATED_CSS_REFERENCE"):
+            inspect_svg(p)
+
+    def test_safe_inline_css_remains_accepted(self):
+        p = self.write(self.base('<circle r="8" style="fill:#123456;stroke:none;opacity:.5"/>'))
+        self.assertEqual(inspect_svg(p)["vector_elements"], 1)
+
     def test_xml_event_handler(self):
         p = self.write(self.base('<circle r="4" onload="alert(1)"/>'))
         with self.assertRaisesRegex(SVGRejected, "EVENT_OR_EXTERNAL"):
