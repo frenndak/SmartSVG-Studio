@@ -70,13 +70,13 @@ def _audited(comments, number, head, base_ref, base_sha, diff_sha, approver_logi
             # This public issue is a journal, not an authority. Only a
             # reviewer independently APPROVED on this exact HEAD can revoke
             # or grant integration eligibility. Ignore other commenters.
-            if author not in approver_logins:
+            if not isinstance(author, str) or author.casefold() not in approver_logins:
                 continue
             # Latest authorized receipt on this PR/HEAD supersedes older ones.
             return (props.get("BASE") == f"{base_ref}@{base_sha}"
                     and props.get("DIFF_SHA256") == diff_sha
                     and props.get("VERDICT") == "GO_POUR_REVUE_INTEGRATION"
-                    and author in approver_logins)
+                    and author.casefold() in approver_logins)
     return False
 
 def assess(snapshot):
@@ -164,12 +164,24 @@ def assess(snapshot):
     if not isinstance(reviews, list):
         reviews = []
         blockers.append("REVIEWS_MISSING")
+    # GitHub accepts reviews from public visitors. A vote is authoritative
+    # only if the trusted main workflow verified repository write permission.
+    trusted = snapshot.get("trusted_reviewers")
+    if (not isinstance(trusted, list) or
+            any(not isinstance(login, str) or
+                re.fullmatch(r"[A-Za-z0-9-]{1,39}", login) is None
+                for login in trusted)):
+        blockers.append("REVIEWER_PERMISSIONS_UNVERIFIED")
+        trusted_logins = set()
+    else:
+        trusted_logins = {login.casefold() for login in trusted}
     latest = {}
     for review in reviews:
         user = review.get("user") or {}
         login = user.get("login")
-        if not isinstance(login, str):
+        if not isinstance(login, str) or login.casefold() not in trusted_logins:
             continue
+        login = login.casefold()
         # Only the latest vote per reviewer counts. Dismissed and stale approvals
         # do not authorize integration.
         # COMMENTED is non-decisive: it must not revoke an earlier APPROVED
@@ -181,14 +193,14 @@ def assess(snapshot):
     if any(v.get("state") == "CHANGES_REQUESTED" for v in latest.values()):
         blockers.append("UNRESOLVED_CHANGE_REQUEST")
     approvers = [v for login, v in latest.items()
-                 if login != author and not login.endswith("[bot]")
+                 if login != author.casefold() and not login.endswith("[bot]")
                  and (v.get("user") or {}).get("type") == "User"
                  and v.get("state") == "APPROVED" and v.get("commit_id") == head]
     if not approvers:
         blockers.append("INDEPENDENT_GITHUB_APPROVAL_MISSING")
 
     comments = snapshot.get("audit_comments")
-    approved_logins = {v["user"]["login"] for v in approvers}
+    approved_logins = {v["user"]["login"].casefold() for v in approvers}
     if (not isinstance(comments, list) or
             not _audited(comments, number, head, base.get("ref"),
                          base.get("sha"), diff_sha, approved_logins)):

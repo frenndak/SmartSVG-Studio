@@ -44,6 +44,7 @@ def base_snapshot():
              "event": "workflow_dispatch", "head_branch": "feat/g1-2"}
             for name in gate.REQUIRED
         ],
+        "trusted_reviewers": ["independent-reviewer"],
         "reviews": [{
             "state": "APPROVED", "commit_id": HEAD,
             "submitted_at": "2026-10-26T06:10:00Z",
@@ -71,6 +72,28 @@ class IntegrationGateTests(unittest.TestCase):
         decision = gate.assess(self.data)
         self.assertEqual(decision["status"], "ELIGIBLE_FOR_MAINTAINER_MERGE_REVIEW")
         self.assertFalse(decision["automatic_merge_allowed"])
+
+    def test_outsider_approval_and_audit_receipt_never_authorize(self):
+        # A public visitor can submit a GitHub review, but has no write grant.
+        self.data["reviews"][0]["user"]["login"] = "unrelated-public-account"
+        self.data["audit_comments"][0]["user"]["login"] = "unrelated-public-account"
+        self.assertIn("INDEPENDENT_GITHUB_APPROVAL_MISSING", self.blockers())
+        self.assertIn("INDEPENDENT_AUDIT_GO_MISSING", self.blockers())
+
+    def test_outsider_changes_requested_cannot_veto_trusted_approval(self):
+        self.data["reviews"].append({
+            "state": "CHANGES_REQUESTED", "commit_id": HEAD,
+            "submitted_at": "2026-10-26T06:15:00Z",
+            "user": {"login": "unrelated-public-account", "type": "User"},
+        })
+        self.assertEqual(self.blockers(), [])
+
+    def test_unverified_reviewer_permissions_fail_closed(self):
+        del self.data["trusted_reviewers"]
+        self.assertIn("REVIEWER_PERMISSIONS_UNVERIFIED", self.blockers())
+        self.assertIn("INDEPENDENT_GITHUB_APPROVAL_MISSING", self.blockers())
+        self.data["trusted_reviewers"] = ["independent-reviewer", None]
+        self.assertIn("REVIEWER_PERMISSIONS_UNVERIFIED", self.blockers())
 
     def test_draft_never_eligible(self):
         self.data["pr"]["draft"] = True

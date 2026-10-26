@@ -54,6 +54,11 @@ jobs:
           test "$actual_files" -le 3000
           gh api "repos/$repo/actions/runs?head_sha=$head_sha&per_page=100" > "$RUNNER_TEMP/runs.json"
           test "$(jq -r '.total_count' "$RUNNER_TEMP/runs.json")" -le 100
+          # Resolve trusted reviewers from GitHub's collaborator permissions,
+          # not public author_association or self-declared issue receipts.
+          # Any API error stops preflight; no write permission => no authority.
+          gh api --paginate "repos/$repo/collaborators?per_page=100" |
+            jq -s 'add' > "$RUNNER_TEMP/collaborators.json"
           gh api --paginate "repos/$repo/pulls/$PR_NUMBER/reviews?per_page=100" |
             jq -s 'add' > "$RUNNER_TEMP/reviews.json"
           gh api --paginate "repos/$repo/issues/29/comments?per_page=100" |
@@ -82,6 +87,15 @@ jobs:
               "changed_files": read("files.json"),
               "workflow_runs": read("runs.json").get("workflow_runs", []),
               "reviews": read("reviews.json"),
+              "trusted_reviewers": sorted({
+                  row["login"].casefold()
+                  for row in read("collaborators.json")
+                  if isinstance(row, dict)
+                  and isinstance(row.get("login"), str)
+                  and (row.get("permission") in ("write", "admin") or
+                       (isinstance(row.get("permissions"), dict) and
+                        row["permissions"].get("push") is True))
+              }),
               "audit_comments": read("audit.json"),
           }
           (root / "integration_snapshot.json").write_text(json.dumps(result), encoding="utf-8")
