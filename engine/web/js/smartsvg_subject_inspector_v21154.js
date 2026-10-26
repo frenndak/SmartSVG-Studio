@@ -1,5 +1,7 @@
 /** V21.15.5: locate suspicious components; diagnostics only, no mask mutations. */
 import {app} from '../../scripts/app.js';
+const FOCUS_EVENT='smartsvg:mask-focus:v1';
+const SHA=/^[a-f0-9]{64}$/;
 const CLASS='SmartSVGChooseSubjectV21154';
 const LABELS=Object.freeze({
   MASQUE_VIDE:'Masque vide',
@@ -57,9 +59,11 @@ function inspector(node){
  const summary=element('p','Aucune analyse disponible.');
  const layout=element('div');
  layout.style.cssText='display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px';
- root.append(title,hint,summary,layout);
+ const zoneActions=element('div');
+ zoneActions.setAttribute('aria-label','Examiner des fragments dans l’éditeur V21.6');
+ root.append(title,hint,summary,layout,zoneActions);
  function update(data){
-   layout.replaceChildren();
+   layout.replaceChildren();zoneActions.replaceChildren();
    const entry=data?.smartsvg_subjects_v21154?.[0];
    if(!entry||!Array.isArray(entry.sujets)){
      summary.textContent='Aucun diagnostic disponible : utilisez la sélection numérique.';
@@ -67,6 +71,8 @@ function inspector(node){
      return;
    }
    const selected=entry.selection;
+   const safeSource=SHA.test(String(entry.source_sha256||''))&&Number.isInteger(entry.width_px)&&entry.width_px>0&&
+      Number.isInteger(entry.height_px)&&entry.height_px>0&&Number.isInteger(entry.count)&&entry.count>=1&&entry.count<=32;
    let issues=0, shown=0;
    for(const item of entry.sujets.slice(0,32)){
      if(!Number.isInteger(item.numero)||item.numero<1||item.numero>32)continue;
@@ -111,6 +117,23 @@ function inspector(node){
        node.graph?.setDirtyCanvas?.(true,true);
      });
      layout.append(button);shown++;
+     // Explicit keyboard-operable request; never applies a brush stroke.
+     if(safeSource&&item.numero<=entry.count&&zones.length){
+       zoneActions.append(element('strong','Sujet '+item.numero+' — zones à inspecter'));
+       zones.forEach((z,idx)=>{
+         const focus=element('button','Examiner zone '+(idx+1)+' du sujet '+item.numero+' dans V21.6');
+         focus.type='button';
+         focus.style.cssText='display:inline-block;margin:3px;padding:6px;border:1px solid #ffce73;color:#fff;background:#42351b;border-radius:5px;cursor:pointer';
+         focus.addEventListener('click',()=>{
+           const payload={version:1,source_sha256:entry.source_sha256,
+             width_px:entry.width_px,height_px:entry.height_px,
+             subject:item.numero,bbox_source_px:[...z.bbox_source_px]};
+           window.dispatchEvent(new CustomEvent(FOCUS_EVENT,{detail:payload}));
+           hint.textContent='Zone transmise aux éditeurs V21.6 de même image et mêmes masques. Confirmer dans l’éditeur ; aucun trait modifié.';
+         });
+         zoneActions.append(focus);
+       });
+     }
    }
    summary.textContent=`${shown} sujet(s) affiché(s), ${issues} à examiner. Cadres orange = fragments possibles, jamais supprimés. Aucune validation de découpe.`;
    hint.textContent='Cliquer un sujet puis relancer. Un avertissement demande inspection, pas suppression automatique.';
