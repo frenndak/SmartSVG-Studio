@@ -97,5 +97,66 @@ class BacklogGateTests(unittest.TestCase):
 
 
 
+class PaidBudgetGateTests(unittest.TestCase):
+    """Exercise the actual no-cost Bash gate before any paid API step."""
+
+    @staticmethod
+    def _run_gate(budget="10", cap="2", count="1", api_fail=False):
+        source = WORKFLOW.read_text(encoding="utf-8")
+        start = source.index("      - name: Require explicit paid budget and daily run cap")
+        end = source.index("      - name: Require the private OpenAI API secret", start)
+        step = source[start:end]
+        script = "\n".join(
+            line[10:] for line in step.split("        run: |\n", 1)[1].splitlines()
+        ) + "\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            fake_gh = Path(tmp) / "gh"
+            fake_gh.write_text(
+                "#!/usr/bin/env bash\n"
+                '[[ "$1" == "api" ]] || exit 7\n'
+                '[[ "$2" == repos/frenndak/SmartSVG-Studio/actions/workflows/private-ai-development.yml/runs?created=* ]] || exit 7\n'
+                '[[ "${FAKE_API_FAIL:-0}" != 1 ]] || exit 8\n'
+                "printf '{\"total_count\":%s}\\n' \"${FAKE_RUN_COUNT:-1}\"\n"
+            )
+            fake_gh.chmod(0o755)
+            return subprocess.run(
+                ["bash", "-c", script], capture_output=True, text=True,
+                env={**os.environ, "PATH": tmp + os.pathsep + os.environ["PATH"],
+                     "MONTHLY_API_BUDGET_USD": budget,
+                     "MAX_PAID_RUNS_PER_DAY": cap,
+                     "FAKE_RUN_COUNT": count,
+                     "FAKE_API_FAIL": "1" if api_fail else "0"},
+                check=False,
+            )
+
+    def test_configured_budget_and_in_quota_run_pass(self):
+        result = self._run_gate(budget="12.50", cap="2", count="2")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Budget admission", result.stdout)
+
+    def test_missing_invalid_or_zero_budget_fails_closed(self):
+        for budget in ("", "0", "-1", "invalid", "12.999"):
+            with self.subTest(budget=budget):
+                self.assertNotEqual(self._run_gate(budget=budget).returncode, 0)
+
+    def test_missing_invalid_or_excessive_run_cap_fails_closed(self):
+        for cap in ("", "0", "25", "abc", "01"):
+            with self.subTest(cap=cap):
+                self.assertNotEqual(self._run_gate(cap=cap).returncode, 0)
+
+    def test_over_quota_or_unverified_github_count_fails_closed(self):
+        for count in ("3", "101", "null", '"broken"'):
+            with self.subTest(count=count):
+                self.assertNotEqual(self._run_gate(cap="2", count=count).returncode, 0)
+        self.assertNotEqual(self._run_gate(api_fail=True).returncode, 0)
+
+    def test_budget_gate_precedes_secret_and_paid_action(self):
+        source = WORKFLOW.read_text(encoding="utf-8")
+        self.assertLess(source.index("Require explicit paid budget and daily run cap"),
+                        source.index("Require the private OpenAI API secret"))
+        self.assertLess(source.index("Require explicit paid budget and daily run cap"),
+                        source.index("uses: openai/codex-action@v1"))
+
+
 if __name__ == "__main__":
     unittest.main()
