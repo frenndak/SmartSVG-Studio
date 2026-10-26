@@ -14,13 +14,20 @@ HEAD = "a" * 40
 MAIN = "b" * 40
 
 
+def file_info(filename):
+    return {"filename": filename, "status": "modified", "sha": "d" * 40,
+            "additions": 1, "deletions": 0, "changes": 1}
+
+
 def base_snapshot():
-    return {
+    snapshot = {
         "schema": 1,
         "repo": "frenndak/SmartSVG-Studio",
         "main_sha": MAIN,
         "checked_main_sha": MAIN,
         "checked_head_sha": HEAD,
+        "checked_base_ref": "main",
+        "checked_base_sha": MAIN,
         "pr": {
             "number": 14, "state": "open", "draft": False,
             "mergeable": True, "changed_files": 2,
@@ -29,8 +36,8 @@ def base_snapshot():
             "base": {"ref": "main", "sha": MAIN},
         },
         "comparison": {"status": "ahead", "ahead_by": 2, "behind_by": 0},
-        "changed_files": [{"filename": "engine/smartsvg_core/example.py"},
-                          {"filename": "engine/tests/test_example.py"}],
+        "changed_files": [file_info("engine/smartsvg_core/example.py"),
+                          file_info("engine/tests/test_example.py")],
         "workflow_runs": [
             {"id": 10, "name": name, "head_sha": HEAD, "status": "completed",
              "conclusion": "success", "created_at": "2026-10-26T06:00:00Z", "run_attempt": 1,
@@ -42,9 +49,15 @@ def base_snapshot():
             "submitted_at": "2026-10-26T06:10:00Z",
             "user": {"login": "independent-reviewer", "type": "User"},
         }],
-        "audit_comments": [{"body": "SMARTSVG_AUDIT_V1\nPR=14\nHEAD=" + HEAD +
-                            "\nVERDICT=GO_POUR_REVUE_INTEGRATION\n"}],
+        "audit_comments": [{"user": {"login": "independent-reviewer"}, "body": ""}],
     }
+    snapshot["audit_comments"][0]["body"] = (
+        "SMARTSVG_AUDIT_V1\nPR=14\nHEAD=" + HEAD +
+        "\nBASE=main@" + MAIN +
+        "\nDIFF_SHA256=" + gate.diff_identity(snapshot["changed_files"]) +
+        "\nVERDICT=GO_POUR_REVUE_INTEGRATION\n"
+    )
+    return snapshot
 
 
 class IntegrationGateTests(unittest.TestCase):
@@ -85,8 +98,8 @@ class IntegrationGateTests(unittest.TestCase):
 
     def test_workflow_only_change_needs_g0_not_cpu(self):
         self.data["changed_files"] = [
-            {"filename": ".github/workflows/private-ai-development.yml"},
-            {"filename": "tools/integration_eligibility.py"},
+            file_info(".github/workflows/private-ai-development.yml"),
+            file_info("tools/integration_eligibility.py"),
         ]
         self.data["workflow_runs"] = self.data["workflow_runs"][:1]
         self.assertEqual(self.blockers(), [])
@@ -154,6 +167,45 @@ class IntegrationGateTests(unittest.TestCase):
             "SMARTSVG_AUDIT_V1\nPR=14\nHEAD=" + "c" * 40 +
             "\nVERDICT=GO_POUR_REVUE_INTEGRATION")
         self.assertIn("INDEPENDENT_AUDIT_GO_MISSING", self.blockers())
+
+
+    def test_audit_cannot_be_reused_after_retarget_with_same_head(self):
+        receipt = self.data["audit_comments"][0]
+        receipt["body"] = receipt["body"].replace(
+            "BASE=main@" + MAIN, "BASE=feat/unmerged-parent@" + "c" * 40
+        )
+        self.assertIn("INDEPENDENT_AUDIT_GO_MISSING", self.blockers())
+
+    def test_audit_cannot_be_reused_for_changed_file_manifest(self):
+        self.data["changed_files"][0]["sha"] = "e" * 40
+        self.assertIn("INDEPENDENT_AUDIT_GO_MISSING", self.blockers())
+
+    def test_audit_must_be_authored_by_independent_approved_reviewer(self):
+        self.data["audit_comments"][0]["user"]["login"] = "author"
+        self.assertIn("INDEPENDENT_AUDIT_GO_MISSING", self.blockers())
+        self.data["audit_comments"][0]["user"]["login"] = "unknown"
+        self.assertIn("INDEPENDENT_AUDIT_GO_MISSING", self.blockers())
+
+    def test_base_retarget_race_or_stale_base_is_rejected(self):
+        self.data["checked_base_ref"] = "feat/old-parent"
+        self.assertIn("STALE_SNAPSHOT", self.blockers())
+        self.data["checked_base_ref"] = "main"
+        self.data["pr"]["base"]["sha"] = "c" * 40
+        self.assertIn("BASE_SHA_MISMATCH", self.blockers())
+        self.assertIn("STALE_SNAPSHOT", self.blockers())
+
+    def test_nul_and_missing_file_sha_fail_closed(self):
+        self.data["changed_files"][0]["filename"] = "engine/\\x00evil.py"
+        self.assertIn("CHANGESET_UNVERIFIED", self.blockers())
+        self.data["changed_files"][0] = file_info("engine/good.py")
+        self.data["changed_files"][0]["sha"] = None
+        self.assertIn("CHANGESET_UNVERIFIED", self.blockers())
+
+    def test_diff_identity_is_order_independent(self):
+        expected = gate.diff_identity(self.data["changed_files"])
+        self.data["changed_files"].reverse()
+        self.assertEqual(gate.diff_identity(self.data["changed_files"]), expected)
+        self.assertEqual(self.blockers(), [])
 
     def test_stale_snapshot_rejected(self):
         self.data["checked_head_sha"] = "d" * 40
