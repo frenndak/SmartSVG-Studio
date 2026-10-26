@@ -136,12 +136,12 @@ class ContractsG12Tests(unittest.TestCase):
         # U+2028/U+2029 split visual lines in diagnostics and project UIs.
         # They are Zl/Zp, not C0 controls or format characters (Cf).
         _, _, _, artifact, _ = fixtures()
-        for separator in ('\\u2028', '\\u2029'):
+        for separator in ('\u2028', '\u2029'):
             path = f'exports/sticker{separator}.png'
             with self.subTest(codepoint=hex(ord(separator))), self.assertRaisesRegex(
                     RecordError, 'INVALID_ARTIFACT_PATH'):
                 replace(artifact, file_path=path)
-        for path in ('exports/étiquette 01.png', 'exports/cafe\\u0301.png'):
+        for path in ('exports/étiquette 01.png', 'exports/cafe\u0301.png'):
             with self.subTest(path=path):
                 self.assertEqual(replace(artifact, file_path=path).file_path, path)
 
