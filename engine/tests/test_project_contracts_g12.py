@@ -119,6 +119,42 @@ class ContractsG12Tests(unittest.TestCase):
         accented = 'exports/cafe\u0301.png'
         self.assertEqual(replace(artifact, file_path=accented).file_path, accented)
 
+    def test_json_array_records_are_deeply_immutable(self):
+        # Lists from untrusted JSON must not mutate frozen validated records.
+        s, m, original_sub, original_art, q = fixtures()
+        bbox = [10, 5, 65, 70]
+        accessories = []
+        subject_ids = ['subject-01']
+        sub = replace(original_sub, bbox_px=bbox, accessory_ids=accessories)
+        artifact = replace(original_art, subject_ids=subject_ids)
+        self.assertIsInstance(sub.bbox_px, tuple)
+        self.assertIsInstance(sub.accessory_ids, tuple)
+        self.assertIsInstance(artifact.subject_ids, tuple)
+        bbox[2] = 10_000_000
+        accessories.append('missing')
+        subject_ids.append('missing')
+        self.assertEqual(sub.bbox_px, (10, 5, 65, 70))
+        self.assertEqual(sub.accessory_ids, ())
+        self.assertEqual(artifact.subject_ids, ('subject-01',))
+        with self.assertRaises(TypeError):
+            sub.bbox_px[2] = 10_000_000
+        with self.assertRaises(AttributeError):
+            sub.accessory_ids.append('missing')
+        with self.assertRaises(AttributeError):
+            artifact.subject_ids.append('missing')
+        result = self.verify((s, m, sub, artifact, q))
+        self.assertEqual(result['subjects'], 1)
+        # JSON remains list-shaped for project persistence.
+        encoded = json.loads(json.dumps([record_dict(sub), record_dict(artifact)]))
+        self.assertEqual(encoded[0]['bbox_px'], [10, 5, 65, 70])
+        self.assertEqual(encoded[0]['accessory_ids'], [])
+        self.assertEqual(encoded[1]['subject_ids'], ['subject-01'])
+        for record, values in ((sub, {'bbox_px': [0, 0, -1, 5]}),
+                               (sub, {'accessory_ids': ['invalid/id']}),
+                               (artifact, {'subject_ids': ['invalid/id']})):
+            with self.subTest(values=values), self.assertRaises(RecordError):
+                replace(record, **values)
+
     def test_huge_mm_integer_raises_record_error_not_overflow(self):
         _, _, _, artifact, _ = fixtures()
         for values in (
