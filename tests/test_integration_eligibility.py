@@ -23,12 +23,14 @@ def base_snapshot():
         "checked_head_sha": HEAD,
         "pr": {
             "number": 14, "state": "open", "draft": False,
-            "mergeable": True,
+            "mergeable": True, "changed_files": 2,
             "user": {"login": "author"},
             "head": {"sha": HEAD, "ref": "feat/g1-2"},
             "base": {"ref": "main", "sha": MAIN},
         },
         "comparison": {"status": "ahead", "ahead_by": 2, "behind_by": 0},
+        "changed_files": [{"filename": "engine/smartsvg_core/example.py"},
+                          {"filename": "engine/tests/test_example.py"}],
         "workflow_runs": [
             {"id": 10, "name": name, "head_sha": HEAD, "status": "completed",
              "conclusion": "success", "created_at": "2026-10-26T06:00:00Z", "run_attempt": 1,
@@ -77,6 +79,37 @@ class IntegrationGateTests(unittest.TestCase):
             "status": "in_progress", "conclusion": None,
             "created_at": "2026-10-26T06:40:00Z", "run_attempt": 1,
             "event": "workflow_dispatch", "head_branch": "feat/g1-2",
+        })
+        self.assertIn("CI_NOT_SUCCESS:" + gate.REQUIRED[0], self.blockers())
+
+
+    def test_workflow_only_change_needs_g0_not_cpu(self):
+        self.data["changed_files"] = [
+            {"filename": ".github/workflows/private-ai-development.yml"},
+            {"filename": "tools/integration_eligibility.py"},
+        ]
+        self.data["workflow_runs"] = self.data["workflow_runs"][:1]
+        self.assertEqual(self.blockers(), [])
+
+    def test_engine_change_still_requires_cpu(self):
+        self.data["workflow_runs"] = self.data["workflow_runs"][:1]
+        self.assertIn("CI_NOT_SUCCESS:" + gate.REQUIRED[1], self.blockers())
+
+    def test_missing_truncated_or_duplicate_file_list_fails_closed(self):
+        self.data["changed_files"] = []
+        self.assertIn("CHANGESET_UNVERIFIED", self.blockers())
+        self.data["changed_files"] = [{"filename": "tools/helper.py"}]
+        self.assertIn("CHANGESET_UNVERIFIED", self.blockers())
+        self.data["changed_files"] = [{"filename": "tools/helper.py"},
+                                       {"filename": "tools/helper.py"}]
+        self.assertIn("CHANGESET_UNVERIFIED", self.blockers())
+
+    def test_newer_pr_failure_rejects_old_dispatch_success(self):
+        self.data["workflow_runs"].append({
+            "id": 40, "name": gate.REQUIRED[0], "head_sha": HEAD,
+            "status": "completed", "conclusion": "failure",
+            "created_at": "2026-10-26T07:00:00Z",
+            "event": "pull_request", "head_branch": "feat/g1-2",
         })
         self.assertIn("CI_NOT_SUCCESS:" + gate.REQUIRED[0], self.blockers())
 
