@@ -74,7 +74,7 @@ class SVGContractTests(unittest.TestCase):
             inspect_svg(p)
 
     def test_xml_stylesheet_processing_instruction_rejected(self):
-        p = self.write('<?xml version="1.0"?>\\n<?xml-stylesheet href="https://example.invalid/evil.css"?>' +
+        p = self.write('<?xml version="1.0"?>\n<?xml-stylesheet href="https://example.invalid/evil.css"?>' +
                        self.base('<circle r="8"/>'))
         with self.assertRaisesRegex(SVGRejected, "PROCESSING_INSTRUCTION"):
             inspect_svg(p)
