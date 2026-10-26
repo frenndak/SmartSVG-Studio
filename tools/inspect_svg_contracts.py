@@ -69,6 +69,11 @@ def inspect_svg(path: Path, *, profile: str = "cut", max_bytes: int = 2_000_000)
         for attr, val in node.attrib.items():
             local = attr.split("}", 1)[-1]
             lower = val.lower()
+            # CSS escapes (e.g. u\\72l(...)) and comments can disguise active
+            # references from a plain substring scan. This deliberately strict
+            # static preflight cannot safely interpret arbitrary CSS: fail closed.
+            if "\\" in val or "/*" in val or "*/" in val:
+                raise SVGRejected("OBFUSCATED_CSS_REFERENCE")
             if local.lower().startswith("on") or attr.startswith("{" + XLINK_NS + "}"):
                 raise SVGRejected("EVENT_OR_EXTERNAL_REFERENCE")
             if local in ("href", "src") or "url(" in lower or "javascript:" in lower or "data:" in lower:
