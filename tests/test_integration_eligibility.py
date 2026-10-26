@@ -92,8 +92,8 @@ class IntegrationGateTests(unittest.TestCase):
 
     def test_later_no_go_revokes_earlier_go(self):
         self.data["audit_comments"].append({"body": (
-            "SMARTSVG_AUDIT_V1\\nPR=14\\nHEAD=" + HEAD +
-            "\\nVERDICT=NO_GO\\n")})
+            "SMARTSVG_AUDIT_V1\nPR=14\nHEAD=" + HEAD +
+            "\nVERDICT=NO_GO\n")})
         self.assertIn("INDEPENDENT_AUDIT_GO_MISSING", self.blockers())
 
     def test_failure_and_wrong_head_do_not_count_as_success(self):
