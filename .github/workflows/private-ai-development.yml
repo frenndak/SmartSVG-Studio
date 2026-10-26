@@ -90,8 +90,19 @@ jobs:
           assert r.get("archive_sha256")=="9369656f0216cebb6dccce0d0155bffa16d8c384da6a984bf848cdd8aa003c54"
           PY
           open_prs="$(gh pr list --repo frenndak/SmartSVG-Studio --state open --limit 100 --json number,headRefName,isDraft,labels)"
-          # A human/bootstrap PR must not starve autonomous engineering.
-          # Enforce WIP=1 among agent branches only; never repair human branches.
+          # Global backlog protects paid new developments from outrunning review.
+          # The independent hourly ChatGPT producer may still fix/review existing PRs.
+          # Repair of an already-open autonomous PR remains possible with review label.
+          # A hard upper limit prevents misconfigured repository variables from
+          # silently allowing an unlimited paid pipeline.
+          total_open_prs="$(jq 'length' <<< "$open_prs")"
+          max_open_prs=4
+          if [[ "$phase" == "develop" && "$total_open_prs" -ge "$max_open_prs" ]]; then
+            echo "Backlog admission: $total_open_prs open PR(s), threshold $max_open_prs. New paid development deferred."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # WIP=1 among autonomous agent branches; never repair human branches.
           auto_prs="$(jq '[.[] | select(.headRefName | startswith("smartsvg/auto-"))]' <<< "$open_prs")"
           count="$(jq 'length' <<< "$auto_prs")"
           if [[ "$count" == "0" && "$phase" == "develop" ]]; then
