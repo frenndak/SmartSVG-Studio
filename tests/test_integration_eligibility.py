@@ -206,6 +206,8 @@ class IntegrationGateTests(unittest.TestCase):
             "status": "completed", "conclusion": "failure",
             "created_at": "2026-10-26T07:00:00Z",
             "event": "pull_request", "head_branch": "feat/g1-2",
+            "path": gate.REQUIRED_WORKFLOW_FILES[gate.REQUIRED[0]],
+            "workflow_id": 101,
         })
         self.assertIn("CI_NOT_SUCCESS:" + gate.REQUIRED[0], self.blockers())
 
