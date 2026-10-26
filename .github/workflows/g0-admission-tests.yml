@@ -41,12 +41,25 @@ permissions:
 
 jobs:
   admission:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 6
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - name: Verify direct branch checkout
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "Manual workflow branch: $GITHUB_REF_NAME"
+          echo "Actual checkout SHA: $actual"
+          echo "Triggered SHA: $GITHUB_SHA"
+          test "$actual" = "$GITHUB_SHA"
+          if [[ "$GITHUB_REF_NAME" == "main" ]]; then
+            echo "::notice::This manual run checks main, not pull request #13. For PR #13, choose fix/protect-historical-source-paths in Run workflow."
+          fi
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - name: Verify and test admission gate
