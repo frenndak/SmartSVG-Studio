@@ -158,6 +158,39 @@ class IntegrationGateTests(unittest.TestCase):
         self.data["reviews"][0]["user"]["login"] = "author"
         self.assertIn("INDEPENDENT_GITHUB_APPROVAL_MISSING", self.blockers())
 
+    def test_comment_after_approval_does_not_revoke_it(self):
+        reviewer = copy.deepcopy(self.data["reviews"][0]["user"])
+        self.data["reviews"].append({
+            "state": "COMMENTED", "commit_id": HEAD,
+            "user": reviewer, "submitted_at": "2026-10-26T06:15:00Z",
+        })
+        self.assertEqual(self.blockers(), [])
+
+    def test_comment_after_changes_requested_does_not_erase_blocker(self):
+        reviewer = copy.deepcopy(self.data["reviews"][0]["user"])
+        self.data["reviews"].append({
+            "state": "CHANGES_REQUESTED", "commit_id": HEAD,
+            "user": reviewer, "submitted_at": "2026-10-26T06:15:00Z",
+        })
+        self.data["reviews"].append({
+            "state": "COMMENTED", "commit_id": HEAD,
+            "user": reviewer, "submitted_at": "2026-10-26T06:20:00Z",
+        })
+        self.assertIn("UNRESOLVED_CHANGE_REQUEST", self.blockers())
+        self.assertIn("INDEPENDENT_GITHUB_APPROVAL_MISSING", self.blockers())
+
+    def test_dismissed_review_followed_by_comment_stays_unapproved(self):
+        reviewer = copy.deepcopy(self.data["reviews"][0]["user"])
+        self.data["reviews"].append({
+            "state": "DISMISSED", "commit_id": HEAD,
+            "user": reviewer, "submitted_at": "2026-10-26T06:15:00Z",
+        })
+        self.data["reviews"].append({
+            "state": "COMMENTED", "commit_id": HEAD,
+            "user": reviewer, "submitted_at": "2026-10-26T06:20:00Z",
+        })
+        self.assertIn("INDEPENDENT_GITHUB_APPROVAL_MISSING", self.blockers())
+
     def test_changes_requested_supersedes_approval(self):
         reviewer = self.data["reviews"][0]["user"]
         self.data["reviews"].append({
