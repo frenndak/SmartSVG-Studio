@@ -149,7 +149,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          if [[ ! "$MONTHLY_API_BUDGET_USD" =~ ^[1-9][0-9]{0,4}(\\.[0-9]{1,2})?$ ]]; then
+          if [[ ! "$MONTHLY_API_BUDGET_USD" =~ ^[1-9][0-9]{0,4}(\.[0-9]{1,2})?$ ]]; then
             echo "::error::Explicit positive monthly API budget variable is missing or invalid."
             exit 1
           fi
