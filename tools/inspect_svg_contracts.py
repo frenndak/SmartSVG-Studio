@@ -56,9 +56,12 @@ def inspect_svg(path: Path, *, profile: str = "cut", max_bytes: int = 2_000_000)
     sizes = []
     for key in ("width", "height"):
         m = DIMENSION.fullmatch(root.attrib.get(key, ""))
-        if m is None or float(m.group(1)) <= 0:
+        if m is None:
             raise SVGRejected("EXPLICIT_MM_REQUIRED")
-        sizes.append(float(m.group(1)))
+        size_mm = float(m.group(1))
+        if not math.isfinite(size_mm) or size_mm <= 0:
+            raise SVGRejected("EXPLICIT_MM_REQUIRED")
+        sizes.append(size_mm)
     shapes = []
     for node in root.iter():
         if not node.tag.startswith("{" + SVG_NS + "}"):
