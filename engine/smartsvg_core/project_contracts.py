@@ -242,6 +242,25 @@ def validate_project_records(*, sources, masks, subjects, artifacts, qa_results=
             raise RecordError('BBOX_OUT_OF_SOURCE')
         if any(a not in sub or sub[a].source_id != subject.source_id for a in subject.accessory_ids):
             raise RecordError('INVALID_ACCESSORY_LINK')
+    # Accessory references form a directed graph. A reference cycle
+    # (A -> B -> A, or a longer loop) has no meaningful root; future
+    # exporters/inspectors may otherwise traverse forever. Validate the
+    # graph iteratively so long chains cannot overflow Python recursion.
+    incoming = {subject_id: 0 for subject_id in sub}
+    for subject in sub.values():
+        for accessory_id in subject.accessory_ids:
+            incoming[accessory_id] += 1
+    ready = [subject_id for subject_id, degree in incoming.items()
+             if degree == 0]
+    visited = 0
+    for subject_id in ready:
+        visited += 1
+        for accessory_id in sub[subject_id].accessory_ids:
+            incoming[accessory_id] -= 1
+            if incoming[accessory_id] == 0:
+                ready.append(accessory_id)
+    if visited != len(sub):
+        raise RecordError('CYCLIC_ACCESSORY_LINK')
     for artifact in art.values():
         if any(subject_id not in sub for subject_id in artifact.subject_ids):
             raise RecordError('UNKNOWN_ARTIFACT_SUBJECT')
