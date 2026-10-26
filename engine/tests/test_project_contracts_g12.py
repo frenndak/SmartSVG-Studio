@@ -77,6 +77,8 @@ class ContractsG12Tests(unittest.TestCase):
         bad_paths = (
             'exports/CON.png', 'exports/con.png', 'exports/AUX.PNG',
             'exports/NUL.png', 'exports/COM1.png', 'exports/lpt9.png',
+            'exports/COM¹.png', 'exports/com².PNG', 'exports/COM³.png',
+            'exports/LPT¹.png', 'exports/lpt².png', 'exports/LPT³.png',
             'CON/out.png', 'exports/folder./out.png',
             'exports/folder /out.png', 'exports/out?.png',
             'exports/out*.png', 'exports/out|.png',
@@ -91,6 +93,19 @@ class ContractsG12Tests(unittest.TestCase):
                      'exports/normal.sticker.png'):
             with self.subTest(path=path):
                 self.assertEqual(replace(artifact, file_path=path).file_path, path)
+
+    def test_huge_mm_integer_raises_record_error_not_overflow(self):
+        _, _, _, artifact, _ = fixtures()
+        for values in (
+            {'width_mm': 10**400},
+            {'height_mm': 10**400},
+            {'width_mm': -(10**400)},
+            {'height_mm': float('inf')},
+        ):
+            with self.subTest(values=values), self.assertRaisesRegex(
+                    RecordError, 'INVALID_NUMBER'):
+                replace(artifact, **values)
+        self.assertEqual(replace(artifact, width_mm=45).width_mm, 45)
 
     def test_qa_never_promotes_simulation_to_real(self):
         with self.assertRaisesRegex(RecordError, 'IMPORT_PASS_REQUIRES_REAL_EVIDENCE'):
