@@ -162,11 +162,25 @@ class IntegrationGateTests(unittest.TestCase):
         self.data["workflow_runs"][0]["head_branch"] = "main"
         self.assertIn("CI_NOT_SUCCESS:" + gate.REQUIRED[0], self.blockers())
 
-    def test_later_no_go_revokes_earlier_go(self):
-        self.data["audit_comments"].append({"body": (
-            "SMARTSVG_AUDIT_V1\nPR=14\nHEAD=" + HEAD +
-            "\nVERDICT=NO_GO\n")})
+    def test_later_authorized_no_go_revokes_earlier_go(self):
+        self.data["audit_comments"].append({
+            "user": {"login": "independent-reviewer"},
+            "body": (
+                "SMARTSVG_AUDIT_V1\nPR=14\nHEAD=" + HEAD +
+                "\nVERDICT=NO_GO\n"),
+        })
         self.assertIn("INDEPENDENT_AUDIT_GO_MISSING", self.blockers())
+
+    def test_untrusted_public_issue_receipt_cannot_veto_authorized_go(self):
+        # A public comment is journal data, not an integration authority.
+        self.data["audit_comments"].append({
+            "user": {"login": "unrelated-commenter"},
+            "body": (
+                "SMARTSVG_AUDIT_V1\nPR=14\nHEAD=" + HEAD +
+                "\nVERDICT=NO_GO\n"),
+        })
+        self.assertEqual(self.blockers(), [])
+
 
     def test_failure_and_wrong_head_do_not_count_as_success(self):
         self.data["workflow_runs"][1]["head_sha"] = "c" * 40
