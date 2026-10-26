@@ -152,7 +152,7 @@ class PaidBudgetGateTests(unittest.TestCase):
     """Exercise the actual no-cost Bash gate before any paid API step."""
 
     @staticmethod
-    def _run_gate(budget="10", cap="2", count="1", api_fail=False):
+    def _run_gate(budget="10", cap="2", count="1", api_fail=False, attempt="1"):
         source = WORKFLOW.read_text(encoding="utf-8")
         start = source.index("      - name: Require explicit paid budget and daily run cap")
         end = source.index("      - name: Require the private OpenAI API secret", start)
@@ -176,6 +176,7 @@ class PaidBudgetGateTests(unittest.TestCase):
                      "MONTHLY_API_BUDGET_USD": budget,
                      "MAX_PAID_RUNS_PER_DAY": cap,
                      "FAKE_RUN_COUNT": count,
+                     "GITHUB_RUN_ATTEMPT": attempt,
                      "FAKE_API_FAIL": "1" if api_fail else "0"},
                 check=False,
             )
@@ -200,6 +201,16 @@ class PaidBudgetGateTests(unittest.TestCase):
             with self.subTest(count=count):
                 self.assertNotEqual(self._run_gate(cap="2", count=count).returncode, 0)
         self.assertNotEqual(self._run_gate(api_fail=True).returncode, 0)
+
+    def test_paid_workflow_retries_never_consume_extra_api_quota(self):
+        # GitHub reruns increment GITHUB_RUN_ATTEMPT, not total_count.
+        # No attempt other than the first may reach the paid action.
+        for attempt in ("", "2", "3", "01", "not-a-number"):
+            with self.subTest(attempt=attempt):
+                result = self._run_gate(budget="10", cap="24", count="1",
+                                        attempt=attempt)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("Paid workflow reruns are prohibited", result.stdout)
 
     def test_budget_gate_precedes_secret_and_paid_action(self):
         source = WORKFLOW.read_text(encoding="utf-8")
