@@ -73,6 +73,33 @@ class SVGContractTests(unittest.TestCase):
         with self.assertRaisesRegex(SVGRejected, "EVENT_OR_EXTERNAL"):
             inspect_svg(p)
 
+    def test_xml_stylesheet_processing_instruction_rejected(self):
+        p = self.write('<?xml version="1.0"?>\\n<?xml-stylesheet href="https://example.invalid/evil.css"?>' +
+                       self.base('<circle r="8"/>'))
+        with self.assertRaisesRegex(SVGRejected, "PROCESSING_INSTRUCTION"):
+            inspect_svg(p)
+
+    def test_internal_processing_instruction_rejected(self):
+        p = self.write(self.base('<?danger data?><circle r="8"/>'))
+        with self.assertRaisesRegex(SVGRejected, "PROCESSING_INSTRUCTION"):
+            inspect_svg(p)
+
+    def test_style_element_rejected(self):
+        p = self.write(self.base('<style>@import "https://example.invalid/evil.css";</style>' +
+                                 '<circle r="8"/>'))
+        with self.assertRaisesRegex(SVGRejected, "EMBEDDED_RESOURCE"):
+            inspect_svg(p)
+
+    def test_link_element_rejected(self):
+        p = self.write(self.base('<a><circle r="8"/></a>'))
+        with self.assertRaisesRegex(SVGRejected, "EMBEDDED_RESOURCE"):
+            inspect_svg(p)
+
+    def test_xml_declaration_and_comment_still_allowed(self):
+        p = self.write('<?xml version="1.0" encoding="utf-8"?>' +
+                       self.base('<!-- <?not-an-instruction?> --><circle r="8"/>'))
+        self.assertEqual(inspect_svg(p)["vector_elements"], 1)
+
     def test_dtd_rejected(self):
         p = self.write('<!DOCTYPE svg [<!ENTITY x "hi">]>' + self.base('<path d="M1 1"/>'))
         with self.assertRaisesRegex(SVGRejected, "DTD_OR_ENTITY"):
