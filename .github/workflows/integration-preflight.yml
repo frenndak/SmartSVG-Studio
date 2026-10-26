@@ -58,9 +58,13 @@ jobs:
             jq -s 'add' > "$RUNNER_TEMP/reviews.json"
           gh api --paginate "repos/$repo/issues/29/comments?per_page=100" |
             jq -s 'add' > "$RUNNER_TEMP/audit.json"
-          checked_head="$(gh api "repos/$repo/pulls/$PR_NUMBER" --jq '.head.sha')"
+          gh api "repos/$repo/pulls/$PR_NUMBER" > "$RUNNER_TEMP/pr_checked.json"
+          checked_head="$(jq -r '.head.sha' "$RUNNER_TEMP/pr_checked.json")"
+          checked_base_ref="$(jq -r '.base.ref' "$RUNNER_TEMP/pr_checked.json")"
+          checked_base_sha="$(jq -r '.base.sha' "$RUNNER_TEMP/pr_checked.json")"
           checked_main="$(gh api "repos/$repo/git/ref/heads/main" --jq '.object.sha')"
           export PR_NUMBER="$PR_NUMBER" MAIN_SHA="$main_sha" CHECKED_HEAD="$checked_head" CHECKED_MAIN="$checked_main"
+          export CHECKED_BASE_REF="$checked_base_ref" CHECKED_BASE_SHA="$checked_base_sha"
           python - <<'PY'
           import json, os
           from pathlib import Path
@@ -71,6 +75,8 @@ jobs:
               "main_sha": os.environ["MAIN_SHA"],
               "checked_main_sha": os.environ["CHECKED_MAIN"],
               "checked_head_sha": os.environ["CHECKED_HEAD"],
+              "checked_base_ref": os.environ["CHECKED_BASE_REF"],
+              "checked_base_sha": os.environ["CHECKED_BASE_SHA"],
               "pr": read("pr.json"),
               "comparison": read("compare.json"),
               "changed_files": read("files.json"),
