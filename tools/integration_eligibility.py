@@ -124,7 +124,14 @@ def assess(snapshot):
         blockers.append("CHANGESET_UNVERIFIED")
         needs_cpu = True
     else:
-        needs_cpu = any(item["filename"].startswith("engine/") for item in changes)
+        # GitHub describes a rename with its destination in filename and its
+        # source in previous_filename. Removing or moving engine code still
+        # requires a CPU regression check, even if its destination is outside.
+        needs_cpu = any(
+            item["filename"].startswith("engine/")
+            or (item.get("previous_filename") or "").startswith("engine/")
+            for item in changes
+        )
 
     workflows = snapshot.get("workflow_runs")
     if not isinstance(workflows, list):
