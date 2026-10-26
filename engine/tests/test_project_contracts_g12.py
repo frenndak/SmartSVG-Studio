@@ -94,6 +94,20 @@ class ContractsG12Tests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(replace(artifact, file_path=path).file_path, path)
 
+    def test_artifact_path_rejects_unicode_format_controls(self):
+        # Bidi overrides and invisible format characters can misrepresent
+        # an otherwise valid PNG/SVG filename in a UI or project listing.
+        _, _, _, artifact, _ = fixtures()
+        for character in ('\u202e', '\u202a', '\u2066', '\u2069',
+                          '\u200b', '\u200d'):
+            path = f'exports/sticker{character}gnp.png'
+            with self.subTest(codepoint=hex(ord(character))), self.assertRaisesRegex(
+                    RecordError, 'INVALID_ARTIFACT_PATH'):
+                replace(artifact, file_path=path)
+        # Do not reject ordinary Unicode filenames with visible accents.
+        path = 'exports/étiquette 01.png'
+        self.assertEqual(replace(artifact, file_path=path).file_path, path)
+
     def test_huge_mm_integer_raises_record_error_not_overflow(self):
         _, _, _, artifact, _ = fixtures()
         for values in (
