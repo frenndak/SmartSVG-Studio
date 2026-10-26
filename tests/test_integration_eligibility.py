@@ -31,7 +31,8 @@ def base_snapshot():
         "comparison": {"status": "ahead", "ahead_by": 2, "behind_by": 0},
         "workflow_runs": [
             {"id": 10, "name": name, "head_sha": HEAD, "status": "completed",
-             "conclusion": "success", "created_at": "2026-10-26T06:00:00Z", "run_attempt": 1}
+             "conclusion": "success", "created_at": "2026-10-26T06:00:00Z", "run_attempt": 1,
+             "event": "workflow_dispatch", "head_branch": "feat/g1-2"}
             for name in gate.REQUIRED
         ],
         "reviews": [{
@@ -75,8 +76,25 @@ class IntegrationGateTests(unittest.TestCase):
             "id": 20, "name": gate.REQUIRED[0], "head_sha": HEAD,
             "status": "in_progress", "conclusion": None,
             "created_at": "2026-10-26T06:40:00Z", "run_attempt": 1,
+            "event": "workflow_dispatch", "head_branch": "feat/g1-2",
         })
         self.assertIn("CI_NOT_SUCCESS:" + gate.REQUIRED[0], self.blockers())
+
+    def test_pr_merge_ref_ci_is_not_direct_branch_proof(self):
+        for run in self.data["workflow_runs"]:
+            run["event"] = "pull_request"
+        self.assertIn("CI_NOT_SUCCESS:" + gate.REQUIRED[0], self.blockers())
+        self.assertIn("CI_NOT_SUCCESS:" + gate.REQUIRED[1], self.blockers())
+
+    def test_wrong_checked_out_branch_does_not_count(self):
+        self.data["workflow_runs"][0]["head_branch"] = "main"
+        self.assertIn("CI_NOT_SUCCESS:" + gate.REQUIRED[0], self.blockers())
+
+    def test_later_no_go_revokes_earlier_go(self):
+        self.data["audit_comments"].append({"body": (
+            "SMARTSVG_AUDIT_V1\\nPR=14\\nHEAD=" + HEAD +
+            "\\nVERDICT=NO_GO\\n")})
+        self.assertIn("INDEPENDENT_AUDIT_GO_MISSING", self.blockers())
 
     def test_failure_and_wrong_head_do_not_count_as_success(self):
         self.data["workflow_runs"][1]["head_sha"] = "c" * 40
