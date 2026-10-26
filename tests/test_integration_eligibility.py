@@ -41,9 +41,16 @@ def base_snapshot():
         "workflow_runs": [
             {"id": 10, "name": name, "head_sha": HEAD, "status": "completed",
              "conclusion": "success", "created_at": "2026-10-26T06:00:00Z", "run_attempt": 1,
-             "event": "workflow_dispatch", "head_branch": "feat/g1-2"}
-            for name in gate.REQUIRED
+             "event": "workflow_dispatch", "head_branch": "feat/g1-2",
+             "path": gate.REQUIRED_WORKFLOW_FILES[name], "workflow_id": 101 + i}
+            for i, name in enumerate(gate.REQUIRED)
         ],
+        "workflow_provenance": {
+            name: {"path": gate.REQUIRED_WORKFLOW_FILES[name],
+                   "workflow_id": 101 + i,
+                   "main_blob_sha": "1" * 40, "head_blob_sha": "1" * 40}
+            for i, name in enumerate(gate.REQUIRED)
+        },
         "trusted_reviewers": ["independent-reviewer"],
         "reviews": [{
             "state": "APPROVED", "commit_id": HEAD,
@@ -95,6 +102,32 @@ class IntegrationGateTests(unittest.TestCase):
         self.data["trusted_reviewers"] = ["independent-reviewer", None]
         self.assertIn("REVIEWER_PERMISSIONS_UNVERIFIED", self.blockers())
 
+    def test_modified_candidate_workflow_cannot_forge_success(self):
+        # A branch can replace G0 with a no-op success. A green run must not
+        # certify a candidate-controlled workflow definition.
+        name = gate.REQUIRED[0]
+        self.data["workflow_provenance"][name]["head_blob_sha"] = "f" * 40
+        self.assertIn("CI_WORKFLOW_UNTRUSTED:" + name, self.blockers())
+        self.assertIn("CI_NOT_SUCCESS:" + name, self.blockers())
+
+    def test_wrong_workflow_path_or_id_cannot_impersonate_g0(self):
+        name = gate.REQUIRED[0]
+        self.data["workflow_runs"][0]["path"] = ".github/workflows/noop.yml"
+        self.assertIn("CI_NOT_SUCCESS:" + name, self.blockers())
+        self.data["workflow_runs"][0]["path"] = gate.REQUIRED_WORKFLOW_FILES[name]
+        self.data["workflow_runs"][0]["workflow_id"] = 999
+        self.assertIn("CI_NOT_SUCCESS:" + name, self.blockers())
+
+    def test_missing_or_malformed_workflow_provenance_fails_closed(self):
+        name = gate.REQUIRED[0]
+        del self.data["workflow_provenance"]
+        self.assertIn("CI_WORKFLOW_UNTRUSTED:" + name, self.blockers())
+        self.data["workflow_provenance"] = {
+            name: {"path": gate.REQUIRED_WORKFLOW_FILES[name],
+                   "workflow_id": True,
+                   "main_blob_sha": "1" * 40, "head_blob_sha": "1" * 40}}
+        self.assertIn("CI_WORKFLOW_UNTRUSTED:" + name, self.blockers())
+
     def test_draft_never_eligible(self):
         self.data["pr"]["draft"] = True
         self.assertIn("PR_DRAFT", self.blockers())
@@ -115,6 +148,7 @@ class IntegrationGateTests(unittest.TestCase):
             "status": "in_progress", "conclusion": None,
             "created_at": "2026-10-26T06:40:00Z", "run_attempt": 1,
             "event": "workflow_dispatch", "head_branch": "feat/g1-2",
+            "path": gate.REQUIRED_WORKFLOW_FILES[gate.REQUIRED[0]], "workflow_id": 101,
         })
         self.assertIn("CI_NOT_SUCCESS:" + gate.REQUIRED[0], self.blockers())
 
