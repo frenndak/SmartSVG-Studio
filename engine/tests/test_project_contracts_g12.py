@@ -119,6 +119,19 @@ class ContractsG12Tests(unittest.TestCase):
         accented = 'exports/cafe\u0301.png'
         self.assertEqual(replace(artifact, file_path=accented).file_path, accented)
 
+    def test_artifact_path_rejects_default_ignorable_variation_selectors(self):
+        # Variation selectors are Mn (not Cf) but can make distinct paths
+        # visually indistinguishable, bypassing the portable-path alias check.
+        _, _, _, artifact, _ = fixtures()
+        for selector in ('\uFE00', '\uFE0F', '\U000E0100', '\U000E01EF'):
+            path = f'exports/sticker{selector}.png'
+            with self.subTest(codepoint=hex(ord(selector))), self.assertRaisesRegex(
+                    RecordError, 'INVALID_ARTIFACT_PATH'):
+                replace(artifact, file_path=path)
+        # Preserve ordinary combining accents, including decomposed Unicode.
+        accented = 'exports/cafe\u0301.png'
+        self.assertEqual(replace(artifact, file_path=accented).file_path, accented)
+
     def test_json_array_records_are_deeply_immutable(self):
         # Lists from untrusted JSON must not mutate frozen validated records.
         s, m, original_sub, original_art, q = fixtures()
