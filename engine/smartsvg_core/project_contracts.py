@@ -148,7 +148,8 @@ class Artifact:
         if (not self.file_path or p.is_absolute() or '..' in p.parts or '.' in p.parts or
                 p.as_posix() != self.file_path or len(self.file_path) > 512 or
                 any(ord(char) < 32 or ord(char) == 127 or char in _WINDOWS_FORBIDDEN or
-                    unicodedata.category(char) == 'Cf' for char in self.file_path) or
+                    (unicodedata.category(char) == 'Cf' or char == '\u034f')
+                    for char in self.file_path) or
                 any(part.endswith(('.', ' ')) or _WINDOWS_DEVICE.fullmatch(part)
                     for part in p.parts)):
             raise RecordError('INVALID_ARTIFACT_PATH')
