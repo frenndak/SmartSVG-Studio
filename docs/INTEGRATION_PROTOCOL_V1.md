@@ -32,6 +32,13 @@ Le plafond quotidien est **conservateur** : il borne le nombre de runs susceptib
 
 ## Contrat du précontrôle
 
+### Authenticité des workflows de CI
+
+Un résultat GitHub Actions `success` n'est pas une preuve suffisante : un workflow `workflow_dispatch` modifié sur la branche candidate peut réussir sans lancer les tests. Le précontrôle compare donc les **SHA des blobs** des workflows G0 et CPU entre `main` et le HEAD candidat, puis vérifie l'identifiant GitHub et le chemin du workflow de chaque run retenu. Une divergence ou une métadonnée absente bloque la qualification avec `CI_WORKFLOW_UNTRUSTED`, même si la CI affiche SUCCESS. Cette protection concerne l'identité du workflow, pas la qualité de tous les tests ni une certification du code.
+
+**Bootstrap exceptionnel :** la PR #13 modifie elle-même le workflow G0. Tant que cette version n'est pas sur `main`, elle sera volontairement bloquée par son propre garde-fou. Son intégration initiale nécessite une **revue humaine indépendante et des tests L1 ciblés**, en dehors de ce verdict automatisé. Les futures modifications d'un workflow obligatoire exigent la même procédure de revue mainteneur documentée. Ne pas falsifier la provenance, supprimer la protection ou considérer un statut `BLOCKED` comme une autorisation de fusion.
+
+
 Entrée : snapshot JSON `schema=1` (PR, compare main...HEAD, runs, reviews, audit comments, second relevé main/HEAD). Production depuis un checkout `main` avec permissions **lecture seule**. Le contrôle rejette par défaut les données absentes, brouillons, PR sur branche fille, conflits, main obsolète, HEAD changé, CI non terminée/non success, approbation périmée ou par l'auteur, absence d'audit favorable. Il exige des workflows `workflow_dispatch` rattachés à la branche et au SHA attendus ; un échec plus récent pour ce même HEAD annule un ancien succès, même si l'événement plus récent est une PR. Les runs plus récents peuvent invalider d'anciens succès.
 
 Sortie : `BLOCKED` + raisons, ou `ELIGIBLE_FOR_MAINTAINER_MERGE_REVIEW` ; `automatic_merge_allowed=false` dans tous les cas.
