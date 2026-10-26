@@ -149,6 +149,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+          # GitHub's workflow total_count does not increase when a workflow
+          # attempt is rerun. Reject all retries before reaching Codex, even
+          # if the first attempt failed before consuming its allowance.
+          if [[ "${GITHUB_RUN_ATTEMPT:-}" != "1" ]]; then
+            echo "::error::Paid workflow reruns are prohibited; start a new run after fresh admission."
+            exit 1
+          fi
           if [[ ! "$MONTHLY_API_BUDGET_USD" =~ ^[1-9][0-9]{0,4}(\.[0-9]{1,2})?$ ]]; then
             echo "::error::Explicit positive monthly API budget variable is missing or invalid."
             exit 1
