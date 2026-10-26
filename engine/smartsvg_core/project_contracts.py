@@ -176,7 +176,8 @@ class QAResult:
     def __post_init__(self):
         _identifier(self.artifact_id, 'artifact_id')
         for field in ('visual', 'geometry', 'design_space_import', 'physical_cut'):
-            if getattr(self, field) not in _STATUSES:
+            status = getattr(self, field)
+            if not isinstance(status, str) or status not in _STATUSES:
                 raise RecordError(f'{field}: INVALID_STATUS')
         if self.environment not in ('static', 'simulated', 'real'):
             raise RecordError('INVALID_QA_ENVIRONMENT')
