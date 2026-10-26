@@ -132,6 +132,19 @@ class ContractsG12Tests(unittest.TestCase):
         accented = 'exports/cafe\u0301.png'
         self.assertEqual(replace(artifact, file_path=accented).file_path, accented)
 
+    def test_artifact_path_rejects_unicode_line_and_paragraph_separators(self):
+        # U+2028/U+2029 split visual lines in diagnostics and project UIs.
+        # They are Zl/Zp, not C0 controls or format characters (Cf).
+        _, _, _, artifact, _ = fixtures()
+        for separator in ('\\u2028', '\\u2029'):
+            path = f'exports/sticker{separator}.png'
+            with self.subTest(codepoint=hex(ord(separator))), self.assertRaisesRegex(
+                    RecordError, 'INVALID_ARTIFACT_PATH'):
+                replace(artifact, file_path=path)
+        for path in ('exports/étiquette 01.png', 'exports/cafe\\u0301.png'):
+            with self.subTest(path=path):
+                self.assertEqual(replace(artifact, file_path=path).file_path, path)
+
     def test_json_array_records_are_deeply_immutable(self):
         # Lists from untrusted JSON must not mutate frozen validated records.
         s, m, original_sub, original_art, q = fixtures()
