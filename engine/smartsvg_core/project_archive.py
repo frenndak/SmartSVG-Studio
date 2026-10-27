@@ -96,7 +96,7 @@ def _check_json_structure(value, depth=0):
             if not isinstance(key, str) or len(key) > 512:
                 raise ProjectArchiveError('INVALID_JSON_KEY')
             _check_json_structure(item, depth + 1)
-    elif isinstance(value, (list, tuple)):
+    elif isinstance(value, list):
         if len(value) > 50000:
             raise ProjectArchiveError('JSON_TOO_MANY_ITEMS')
         for item in value:
