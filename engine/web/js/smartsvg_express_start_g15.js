@@ -105,7 +105,7 @@ function starter(node){
   // Advanced project tools remain discoverable, but no longer occupy the
   // default 1366×768 workspace or conceal the cutting QA state.
   const projectDetails=e('details','details');
-  const summary=e('summary','', 'Projet .smartsvg · sauvegarder / inspecter / récupérer');
+  const summary=e('summary','', 'Projet local · sauvegardes, retouches et aperçu de découpe SVG');
   projectDetails.appendChild(summary);
   projectDetails.appendChild(createProjectPanel(api,()=> {
     const value=name=>node.widgets?.find(w=>w?.name===name)?.value;
