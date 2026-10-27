@@ -34,6 +34,8 @@ Puis appeler :
 
 Le ZIP est lu en mémoire avec des budgets définis, **jamais extrait**. Les chemins absolus, les .., les fichiers doublons (y compris collision de casse), les symlinks, le chiffrement, les types ZIP non admis et les membres non déclarés sont refusés.
 
+**Compatibilité G1.2 :** les noms portables contenant des espaces et des caractères Unicode visibles sont admis, par exemple `exports/étiquette 01.svg`, et conservés octet par octet lors d’un aller-retour ZIP. Restent interdits les chemins traversants ou absolus, caractères de contrôle et de direction invisibles, noms réservés Windows, séparateurs interdits, composants dépassant 255 octets UTF-8, et alias après normalisation NFC + repli de casse. Les vérifications sont réalisées **en écriture et en lecture** ; aucun chemin n'est extrait vers le système de fichiers.
+
 ## Propriétés de sûreté
 
 - Contrôle des références et bounding-box G1.2 avant sauvegarde/après restauration ;
