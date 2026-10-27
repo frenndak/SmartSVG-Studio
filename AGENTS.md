@@ -1,8 +1,9 @@
 # SmartSVG Agent Contract
 
-Applies to every AI agent working in this private repository.
+Applies to every AI agent working in the intentionally **public** `frenndak/SmartSVG-Studio` repository.
 
 ## Protected reference
+- Public visibility is intentional. Do not commit API keys, private artwork, personal data, commercial model weights or licensed media; do not make this repository private as a routine fix.
 - Governing roadmap: `docs/ROADMAP_MASTER_v3_2.md`, immutable unless a separate human-approved roadmap revision is published.
 - Preserve V21.14.1 historical frozen baseline untouched.
 - The currently available build in the project Library is V21.15.2; import source and validate provenance before allowing autonomous engineering.
@@ -21,4 +22,4 @@ Applies to every AI agent working in this private repository.
 10. Stop and report if current source, roadmap, tool access, or validation evidence is unavailable. Never silently bypass safety checks.
 
 ## Activation
-Automation is disabled until the actual SmartSVG source is imported and a maintainer writes `.automation/READY` after checking the baseline provenance. The marker is necessary but not proof of validation. AI edits go through draft pull requests only; humans must approve merges.
+Automation is disabled until the actual SmartSVG source is imported and a maintainer writes `.automation/READY` after checking the baseline provenance. The marker is necessary but not proof of validation. Scheduled AI agents must submit **draft PRs only** and must not approve or merge them autonomously. In a live, user-directed ChatGPT session, the repository owner may explicitly delegate **the integration decision** to the assistant, conditional on a documented counter-expertise of the actual diff, fresh green relevant CI, a current main/HEAD comparison, a reversible integration plan, and no unresolved blockers. This delegation does not manufacture an independent GitHub APPROVED review, override required GitHub branch protections, or certify Windows/GPU/Cricut performance. Changes to protected governance/workflow files must be handled in a separately documented, deliberately authorized micro-PR; scheduled agents remain prohibited from editing protected paths.
