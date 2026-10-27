@@ -96,7 +96,7 @@ def _check_json_structure(value, depth=0):
             if not isinstance(key, str) or len(key) > 512:
                 raise ProjectArchiveError('INVALID_JSON_KEY')
             _check_json_structure(item, depth + 1)
-    elif isinstance(value, (list, tuple)):
+    elif isinstance(value, list):
         if len(value) > 50000:
             raise ProjectArchiveError('JSON_TOO_MANY_ITEMS')
         for item in value:
@@ -275,6 +275,16 @@ def _validate_bundle(project: LoadedProject):
     _json_bytes(project.document)
     _json_bytes(project.operations)
 
+    # Untrusted LoadedProject instances may be constructed directly by the UI
+    # or an adapter. Reject malformed path/resource mappings with a stable
+    # archive error before accessing .get(), iterating, or writing to disk.
+    if not isinstance(project.source_paths, dict):
+        raise ProjectArchiveError('INVALID_SOURCE_PATH_MAP')
+    if not isinstance(project.mask_paths, dict):
+        raise ProjectArchiveError('INVALID_MASK_PATH_MAP')
+    if not isinstance(project.resources, dict):
+        raise ProjectArchiveError('INVALID_RESOURCE_MAP')
+
     expected = {}
     for source in project.sources:
         path = project.source_paths.get(source.source_id)
@@ -283,6 +293,10 @@ def _validate_bundle(project: LoadedProject):
         _safe_path(path)
         if PurePosixPath(path).suffix.lower() not in ('.png', '.jpg', '.jpeg', '.webp'):
             raise ProjectArchiveError('INVALID_SOURCE_EXTENSION')
+        # Two source IDs sharing one ZIP member would silently overwrite the
+        # earlier expected resource, making the archive identity ambiguous.
+        if path in expected:
+            raise ProjectArchiveError('RESOURCE_PATH_COLLISION')
         expected[path] = ('source', source)
     for mask in project.masks:
         path = project.mask_paths.get(mask.mask_id)
@@ -337,16 +351,31 @@ def _validate_bundle(project: LoadedProject):
         raise ProjectArchiveError('RESOURCES_TOO_LARGE')
 
 
+def _record_json(record):
+    """Encode documented typed tuple fields as JSON arrays, explicitly.
+
+    Scene and operation JSON are stricter: arbitrary tuples are rejected to
+    prevent silent changes after reopening a project.
+    """
+    row = record_dict(record)
+    if isinstance(record, Subject):
+        row['bbox_px'] = list(record.bbox_px)
+        row['accessory_ids'] = list(record.accessory_ids)
+    elif isinstance(record, Artifact):
+        row['subject_ids'] = list(record.subject_ids)
+    return row
+
+
 def _payload(project: LoadedProject):
     _validate_bundle(project)
     files = {
         'document.json': _json_bytes(project.document),
         'operations.json': _json_bytes(project.operations),
-        'sources.json': _json_bytes([record_dict(x) for x in project.sources]),
-        'masks.json': _json_bytes([record_dict(x) for x in project.masks]),
-        'subjects.json': _json_bytes([record_dict(x) for x in project.subjects]),
-        'artifacts.json': _json_bytes([record_dict(x) for x in project.artifacts]),
-        'proofs/qa_results.json': _json_bytes([record_dict(x) for x in project.qa_results]),
+        'sources.json': _json_bytes([_record_json(x) for x in project.sources]),
+        'masks.json': _json_bytes([_record_json(x) for x in project.masks]),
+        'subjects.json': _json_bytes([_record_json(x) for x in project.subjects]),
+        'artifacts.json': _json_bytes([_record_json(x) for x in project.artifacts]),
+        'proofs/qa_results.json': _json_bytes([_record_json(x) for x in project.qa_results]),
     }
     files.update(project.resources)
     if len(files) + 1 > MAX_ENTRIES or sum(map(len, files.values())) > MAX_TOTAL_BYTES:
