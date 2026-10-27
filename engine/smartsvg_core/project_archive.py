@@ -157,40 +157,94 @@ def _png_size(data: bytes, *, grayscale: bool) -> tuple[int, int]:
     return w, h
 
 
+def _jpeg_source_info(data: bytes) -> tuple[tuple[int, int], str]:
+    """Validate bounded JPEG marker structure and infer L/RGB from the frame.
+
+    This checks SOI/SOF/SOS/EOI, segment bounds, and scan marker escaping.
+    It does not entropy-decode pixels or apply EXIF orientation.
+    """
+    if not data.startswith(b'\xff\xd8'):
+        raise ProjectArchiveError('INVALID_JPEG')
+    offset = 2
+    dimensions = None
+    color_mode = None
+    scan_found = False
+    in_scan = False
+    sof_markers = {0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7,
+                   0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf}
+    while offset < len(data):
+        if in_scan:
+            # Compressed data can contain FF00 stuffing and RST0..RST7;
+            # neither is a new JPEG segment. Progressive JPEG may contain
+            # multiple scans with tables between them.
+            while offset < len(data):
+                if data[offset] != 0xff:
+                    offset += 1
+                    continue
+                end = offset + 1
+                while end < len(data) and data[end] == 0xff:
+                    end += 1
+                if end >= len(data):
+                    break
+                marker = data[end]
+                if marker == 0 or 0xd0 <= marker <= 0xd7:
+                    offset = end + 1
+                    continue
+                offset = end - 1
+                in_scan = False
+                break
+            if in_scan:
+                break
+        if data[offset] != 0xff:
+            raise ProjectArchiveError('INVALID_JPEG_MARKER')
+        while offset < len(data) and data[offset] == 0xff:
+            offset += 1
+        if offset >= len(data):
+            break
+        marker = data[offset]
+        offset += 1
+        if marker == 0xd9:  # EOI must finish the file, after real scan data
+            if dimensions and scan_found and offset == len(data):
+                return dimensions, color_mode
+            raise ProjectArchiveError('INVALID_JPEG_END')
+        if marker in (0xd8, 0x00, 0x01) or 0xd0 <= marker <= 0xd7:
+            raise ProjectArchiveError('INVALID_JPEG_MARKER')
+        if offset + 2 > len(data):
+            break
+        segment_size = int.from_bytes(data[offset:offset + 2], 'big')
+        if segment_size < 2 or offset + segment_size > len(data):
+            raise ProjectArchiveError('INVALID_JPEG_SEGMENT')
+        if marker in sof_markers:
+            if dimensions is not None or segment_size < 8:
+                raise ProjectArchiveError('INVALID_JPEG_FRAME')
+            precision = data[offset + 2]
+            height = int.from_bytes(data[offset + 3:offset + 5], 'big')
+            width = int.from_bytes(data[offset + 5:offset + 7], 'big')
+            components = data[offset + 7]
+            # Four-component CMYK and >8-bit JPEG require an explicit
+            # conversion; G1.2 only represents L, RGB or RGBA accurately.
+            if (precision != 8 or not width or not height or
+                    width * height > 100_000_000 or components not in (1, 3) or
+                    segment_size != 8 + 3 * components):
+                raise ProjectArchiveError('UNSUPPORTED_JPEG_FRAME')
+            dimensions = (width, height)
+            color_mode = 'L' if components == 1 else 'RGB'
+        if marker == 0xda:  # Start of Scan
+            if (dimensions is None or segment_size < 6 or
+                    segment_size != 6 + 2 * data[offset + 2]):
+                raise ProjectArchiveError('INVALID_JPEG_SCAN')
+            scan_found = True
+            in_scan = True
+        offset += segment_size
+    raise ProjectArchiveError('INCOMPLETE_JPEG')
+
+
 def _source_dimensions(path: str, data: bytes) -> tuple[int, int]:
     suffix = PurePosixPath(path).suffix.lower()
     if suffix == '.png':
         return _png_size(data, grayscale=False)
     if suffix in ('.jpg', '.jpeg'):
-        if not data.startswith(b'\xff\xd8'):
-            raise ProjectArchiveError('INVALID_JPEG')
-        i = 2
-        while i < len(data) - 9:
-            if data[i] != 0xff:
-                raise ProjectArchiveError('INVALID_JPEG')
-            while i < len(data) and data[i] == 0xff:
-                i += 1
-            if i >= len(data):
-                break
-            marker = data[i]
-            i += 1
-            if marker == 0xd9:
-                break
-            if marker in (0xd8, 0x01, *range(0xd0, 0xd8)):
-                continue
-            if i + 2 > len(data):
-                break
-            segment = struct.unpack('>H', data[i:i + 2])[0]
-            if segment < 2 or i + segment > len(data):
-                raise ProjectArchiveError('INVALID_JPEG')
-            if marker in (0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7,
-                          0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf):
-                if segment < 7:
-                    raise ProjectArchiveError('INVALID_JPEG')
-                h, w = struct.unpack('>HH', data[i + 3:i + 7])
-                return w, h
-            i += segment
-        raise ProjectArchiveError('JPEG_DIMENSIONS_NOT_FOUND')
+        return _jpeg_source_info(data)[0]
     if suffix == '.webp':
         # RIFF is a chunked container. The header alone is not enough: the
         # declared RIFF length must cover the whole resource, every chunk
@@ -432,10 +486,16 @@ def _validate_bundle(project: LoadedProject):
         if _digest(data) != rec.sha256:
             raise ProjectArchiveError('RESOURCE_SHA256_MISMATCH')
         if kind == 'source':
-            dims = _source_dimensions(path, data)
+            suffix = PurePosixPath(path).suffix.lower()
+            if suffix in ('.jpg', '.jpeg'):
+                dims, actual_mode = _jpeg_source_info(data)
+            else:
+                dims, actual_mode = _source_dimensions(path, data), None
             if dims != (rec.width_px, rec.height_px):
                 raise ProjectArchiveError('SOURCE_PIXEL_DIMENSIONS_MISMATCH')
-            if PurePosixPath(path).suffix.lower() == '.png':
+            if actual_mode is not None and rec.color_mode != actual_mode:
+                raise ProjectArchiveError('SOURCE_COLOR_MODE_MISMATCH')
+            if suffix == '.png':
                 # SourceAsset.color_mode is an explicit contract, not a hint:
                 # an RGBA label on opaque/RGB bytes can silently mislead
                 # mask creation and downstream transparency diagnostics.
