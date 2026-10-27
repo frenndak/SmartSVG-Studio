@@ -4,6 +4,7 @@
  */
 import { app } from '../../scripts/app.js';
 import { createEditorProjectControls } from './smartsvg_editor_project_bridge_g23.mjs';
+import { editorDraftStore } from './smartsvg_editor_draft_g28.mjs';
 import { api } from '../../scripts/api.js';
 import { normalizeMeta, previewUrl, encodeDocument, decodeDocument, LIMITS, fitView,
   constrainView, zoomView, moveView, viewToUV, strokeSpacing } from './smartsvg_editor_model_v216.mjs';
@@ -51,6 +52,17 @@ async function openEditor(node,meta){
   const jsonWidget=(node.widgets||[]).find(w=>w.name==='retouches_json');
   if(!jsonWidget)throw new Error('Widget retouches_json introuvable. Installer le nœud V21.6.');
   const saved=decodeDocument(meta,String(jsonWidget.value||''));
+  let draftStorage=null;
+  try{draftStorage=typeof window!=='undefined'?window.localStorage:null;}catch{}
+  const draft=editorDraftStore(draftStorage,meta,node.id);
+  const backup=draft.load();
+  let recovered=null;
+  if(backup && JSON.stringify(backup)!==JSON.stringify(saved)){
+    const approved=typeof window!=='undefined'&&typeof window.confirm==='function'&&
+      window.confirm('Un brouillon automatique de retouches a été retrouvé pour exactement cette image. Le restaurer dans l’éditeur ?');
+    if(approved)recovered=backup;
+    else draft.clear();
+  }else if(backup){draft.clear();}
   const baseImage=await load(meta.image);
   css();
   const backdrop=el('div',null,'ss216-modal');
@@ -61,7 +73,8 @@ async function openEditor(node,meta){
   const controls=el('div',null,'ss216-controls');
   const select=el('select');select.setAttribute('aria-label','Choisir le masque');
   for(let i=0;i<meta.count;i++){const o=el('option',`Sujet ${i+1}`);o.value=String(i);select.appendChild(o);}
-  let current=0,mode='add',radius=.015,history=cloneStrokes(saved),redo=[];
+  let current=0,mode='add',radius=.015,history=cloneStrokes(recovered||saved),redo=[];
+  const saveCrashDraft=()=>draft.save(history);
   let active=null,activePan=null,spaceDown=false,loadedObject=-1,maskLoadToken=0;
   let maskMessage='',revision=0,cacheRevision=-1,cacheObject=-1;
   let destroyed=false;
@@ -125,8 +138,8 @@ async function openEditor(node,meta){
       `Source : ${Math.round(p[0]*(meta.width-1))}, ${Math.round(p[1]*(meta.height-1))} px`:'Position : hors image';
   }
   function setMode(next){mode=next;refreshControls();}
-  function performUndo(){if(history.length){redo.push(history.pop());revision++;render();}}
-  function performRedo(){if(redo.length){history.push(redo.pop());revision++;render();}}
+  function performUndo(){if(history.length){redo.push(history.pop());revision++;saveCrashDraft();render();}}
+  function performRedo(){if(redo.length){history.push(redo.pop());revision++;saveCrashDraft();render();}}
   function refreshControls(){
     modeAdd.classList.toggle('active',mode==='add');modeErase.classList.toggle('active',mode==='erase');modePan.classList.toggle('active',mode==='pan');
     undo.disabled=!history.length;again.disabled=!redo.length;
@@ -181,6 +194,8 @@ async function openEditor(node,meta){
   const buttons=el('div',null,'ss216-controls');
   const close=()=>{
     if(destroyed)return;destroyed=true;maskLoadToken++;
+    // Explicit cancellation is not a crash: discard the uncommitted draft.
+    draft.clear();
     document.removeEventListener('keydown',keyHandler,true);
     document.removeEventListener('keyup',keyUpHandler,true);
     resizeObserver?.disconnect?.();backdrop.remove();
@@ -193,13 +208,18 @@ async function openEditor(node,meta){
       if(active)throw new Error('Terminer le coup de pinceau avant de sauvegarder');
       const value=encodeDocument(meta,history);
       jsonWidget.value=value;jsonWidget.callback?.(value);
+      draft.clear();
       app.graph?.change?.();node.setDirtyCanvas?.(true,true);
       close();
     }catch(error){maskMessage=error.message;refreshControls();}
   });
   buttons.append(save,closeButton);
   const hint=el('div','Molette / boutons : zoom · Déplacer ou maintenir Espace + glisser : navigation · +, −, 0 : zoom · Ctrl+Z / Ctrl+Maj+Z : annuler/rétablir. Les contours sont calculés à la résolution originale après Enregistrer puis relancer.','ss216-note');
-  panel.append(title,controls,toolbar,viewport,status,buttons,hint);backdrop.appendChild(panel);
+  const draftHint=el('div',draft.enabled?
+    (recovered?'Brouillon de retouches récupéré : enregistrer dans le nœud pour le conserver.':
+      'Secours automatique local des coups de pinceau actifs (7 jours). Fermer sans enregistrer efface ce secours.'):
+    'Secours automatique navigateur indisponible : enregistrer régulièrement les retouches.','ss216-note');
+  panel.append(title,controls,toolbar,viewport,status,buttons,hint,draftHint);backdrop.appendChild(panel);
   backdrop.addEventListener('pointerdown',e=>{if(e.target===backdrop)close();});
   panel.addEventListener('pointerdown',e=>e.stopPropagation());
   document.body.appendChild(backdrop);
@@ -265,7 +285,9 @@ async function openEditor(node,meta){
     if(history.reduce((n,s)=>n+s.points.length,0)+stroke.points.length>LIMITS.total){
       maskMessage='12000 points maximum : annuler ou simplifier le dessin';render();return;
     }
-    history.push(stroke);redo=[];revision++;maskMessage='';render();e.preventDefault?.();
+    history.push(stroke);redo=[];revision++;maskMessage='';
+    if(!saveCrashDraft()&&draft.enabled)draftHint.textContent='Secours automatique non disponible : enregistrer dans le nœud.';
+    render();e.preventDefault?.();
   }
   viewport.addEventListener('pointerup',finish);
   viewport.addEventListener('pointercancel',e=>{
@@ -301,7 +323,12 @@ app.registerExtension({
         const field=(node.widgets||[]).find(w=>w.name==='retouches_json');
         if(!field)return;
         if(typeof window.confirm==='function'&&!window.confirm('Effacer toutes les retouches de ce nœud ?'))return;
-        field.value='';field.callback?.('');app.graph?.change?.();node.setDirtyCanvas?.(true,true);
+        field.value='';field.callback?.('');
+        if(node._smartsvgV216Meta){
+          let storage=null;try{storage=typeof window!=='undefined'?window.localStorage:null;}catch{}
+          editorDraftStore(storage,node._smartsvgV216Meta,node.id).clear();
+        }
+        app.graph?.change?.();node.setDirtyCanvas?.(true,true);
         note.textContent='Retouches effacées. Relancer le workflow pour charger la nouvelle image.';
       });
       const projectControls=createEditorProjectControls(api,app,node);
