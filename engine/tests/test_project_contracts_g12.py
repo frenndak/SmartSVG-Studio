@@ -309,6 +309,43 @@ class ContractsG12Tests(unittest.TestCase):
         self.assertEqual(result['artifacts'], 2)
         self.assertEqual(artifact.file_path, 'exports/sticker.png')
 
+    def test_artifact_paths_reject_file_directory_conflicts(self):
+        # Both orders must fail: a validated output file cannot also be a
+        # directory containing another output, including Windows/Unicode
+        # aliases. Use synthetic metadata only; no private artwork is needed.
+        source, mask, subject, original, _ = fixtures()
+
+        def check(paths):
+            artifacts = [
+                replace(original, artifact_id=f'artifact-{i:02d}',
+                        use='basic_cut_svg', file_path=path, ppi=None)
+                for i, path in enumerate(paths)
+            ]
+            return validate_project_records(
+                sources=[source], masks=[mask], subjects=[subject],
+                artifacts=artifacts)
+
+        conflicting_pairs = (
+            ('exports/cut.svg', 'exports/cut.svg/detail.svg'),
+            ('exports/CUT.SVG', 'exports/cut.svg/deep/detail.svg'),
+            ('exports/Étiquette.svg', 'exports/e\\u0301tiquette.svg/detail.svg'),
+        )
+        for first, second in conflicting_pairs:
+            for paths in ((first, second), (second, first)):
+                with self.subTest(paths=paths), self.assertRaisesRegex(
+                        RecordError, 'FILE_DIRECTORY_PATH_CONFLICT'):
+                    check(paths)
+
+        # Common parent directories and similar filename prefixes are safe.
+        valid = (
+            'exports/cut.svg',
+            'exports/cut.svg.bak/detail.svg',
+            'exports/nested/detail.svg',
+            'exports/nested/other.svg',
+        )
+        self.assertEqual(check(valid)['artifacts'], len(valid))
+        self.assertEqual(check(tuple(reversed(valid)))['artifacts'], len(valid))
+
     def test_artifact_paths_unicode_normalization_aliases(self):
         s, m, sub, artifact, qa = fixtures()
         first = replace(artifact, file_path='exports/étiquette.png')
