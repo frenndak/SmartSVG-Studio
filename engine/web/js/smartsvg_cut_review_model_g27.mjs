@@ -43,7 +43,8 @@ function cutPath(d){
   if(typeof d!=='string'||d.length>150000)fail('UNSUPPORTED_PATH');
   const value=d.trim();
   if(!value)fail('UNSUPPORTED_PATH');
-  inspectSvgPathGrammar(value);
+  try{inspectSvgPathGrammar(value);}
+  catch(error){fail(error?.code||'INVALID_PATH_GRAMMAR');}
   return value;
 }
 function safeId(id){
