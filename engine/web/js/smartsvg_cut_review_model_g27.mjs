@@ -129,6 +129,15 @@ export function selectedSvg(review,indices){
   if(Math.abs(width_mm/height_mm-vb[2]/vb[3])/(width_mm/height_mm)>0.02)
     fail('SVG_RATIO_CONFLICT');
   const selected=indices.map(i=>review.paths[i-1]);
+  // The serializer is public and can receive caller-crafted review objects.
+  // Never rely on a previous UI inspection for the physical artboard bounds.
+  const [vx,vy,vw,vh]=vb,tolerance=Math.max(vw,vh)*1e-6;
+  for(const item of selected){
+    const [left,top,right,bottom]=inspectSvgPathGrammar(cutPath(item.d)).bounds;
+    if(left<vx-tolerance||top<vy-tolerance||
+       right>vx+vw+tolerance||bottom>vy+vh+tolerance)
+      fail('PATH_OUTSIDE_VIEWBOX');
+  }
   const paths=selected.map((p,i)=>'  <path id="contour-'+(i+1)+
     '" d="'+cutPath(p.d)+'" fill="none" stroke="#000000"/>').join('\n');
   return '<?xml version="1.0" encoding="UTF-8"?>\n'+
