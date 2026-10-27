@@ -55,6 +55,9 @@ Le ZIP est lu en mémoire avec des budgets définis, **jamais extrait**. Les che
 - Format de schéma smartsvg-project/1 fermé par défaut : versions nouvelles refusées jusqu'à ajout d'un migrateur explicite. Pas de migration silencieuse.
 - Un système de fichiers incapable de garantir la création de lien dur peut refuser la première sauvegarde. Il faut alors une méthode alternative sûre avant prise en charge générale Windows.
 
+
+- Les PNG sources et masques refusent désormais les chunks critiques inconnus, un deuxième `IHDR`, et les segments `IDAT` non contigus, même si les CRC et empreintes SHA-256 sont cohérents. Les chunks auxiliaires sûrs comme `tEXt` avant ou après la séquence IDAT restent admis ; les tests vérifient aussi la préservation de la dernière sauvegarde valide.
+
 ## Tests et acceptation
 
 - tests engine/tests/test_project_archive_g13.py : scénarios synthétiques de sauvegarde et attaques (sans œuvres utilisateur), y compris alias de source, cartes malformées, rejet des incohérences PNG `L/RGB/RGBA`, round-trip conforme pour les trois types, CRC IDAT corrompu, PNG source sans IEND, filtres invalides malgré CRC correct et profondeur 16 bits non déclarable ;
