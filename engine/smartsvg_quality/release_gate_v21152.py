@@ -12,6 +12,25 @@ from ..hd_multisticker_v206 import _save_text
 from ..smartsvg_governance.artifact_qa import audit_project, QAError
 
 
+def _action_for_qa(qa):
+    """Display a user action tied to the actual blocking artifact, not a generic mask error."""
+    if qa['status'] != 'BLOCKED':
+        return 'Vérifier chaque silhouette et la taille dans Design Space avant découpe.'
+    codes = set(qa.get('blocking_codes', []))
+    if codes & {'FICHIER_NON_VERIFIABLE', 'SVG_CHEMINS_INCOHERENTS',
+                'SVG_MANQUANT', 'DIMENSIONS_MM_ABSENTES', 'DIMENSIONS_MM_INCOHERENTES'}:
+        return ('NE PAS DÉCOUPER : contour SVG absent, invalide ou mal dimensionné. '
+                'Consulter CONTROLE_V21_15_2.json puis régénérer le SVG de coupe.')
+    if 'SILHOUETTE_RECTANGULAIRE_NON_FIABLE' in codes:
+        return ('NE PAS DÉCOUPER : la silhouette ressemble à un cadre. '
+                'Corriger le masque ou choisir volontairement le mode carte rectangulaire.')
+    if codes & {'PLANCHE_NON_VERIFIABLE', 'NOMBRE_ILOTS_ALPHAS_20_INCOHERENT'}:
+        return ('NE PAS DÉCOUPER : le nombre de formes détectées sur la planche '
+                'ne correspond pas à la demande. Vérifier les contours un par un.')
+    return ('NE PAS DÉCOUPER : précontrôle incomplet. Lire '
+            'CONTROLE_V21_15_2.json et corriger la cause indiquée.')
+
+
 def run_v21152(pixels, destination, profile='auto', width_mm=40, dpi=300,
                 operation='sticker_contour', grid='6x4', segmentation='desactiver',
                 masks=None,provider=None,gpu=None):
@@ -52,9 +71,7 @@ def run_v21152(pixels, destination, profile='auto', width_mm=40, dpi=300,
         'utilisation_decoupe_sans_verification_autorisee':False,
         'validation_import_design_space':False,
         'validation_physique_explore_5':False,
-        'action_requise':('NE PAS DÉCOUPER : corriger les masques ou choisir une carte rectangulaire.'
-                         if qa['status']=='BLOCKED' else
-                         'Vérifier chaque silhouette et la taille dans Design Space avant découpe.'),
+        'action_requise':_action_for_qa(qa),
         'rapport_detaille':'CONTROLE_V21_15_2.json',
     }
     # QA is an independently inspectable companion, not injected into SVG/PNG.
