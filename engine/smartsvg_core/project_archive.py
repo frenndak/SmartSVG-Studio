@@ -227,7 +227,7 @@ def _source_dimensions(path: str, data: bytes) -> tuple[int, int]:
             return (1 + int.from_bytes(payload[4:7], 'little'),
                     1 + int.from_bytes(payload[7:10], 'little'))
         if mode == b'VP8 ':
-            if len(payload) < 10 or payload[3:6] != b'\\x9d\\x01\\x2a':
+            if len(payload) < 10 or payload[3:6] != b'\x9d\x01\x2a':
                 raise ProjectArchiveError('INVALID_WEBP_FRAME')
             return (int.from_bytes(payload[6:8], 'little') & 0x3fff,
                     int.from_bytes(payload[8:10], 'little') & 0x3fff)
