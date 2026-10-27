@@ -52,7 +52,7 @@ class ProjectPanelBridgeTests(unittest.TestCase):
         self.assertIn('dpi:Number($("realProjectDpi").value)',self.page)
 
     def test_user_actions_preserve_native_project_safety(self):
-        self.assertIn("input.type='file';file.accept='image/png'",self.panel)
+        self.assertIn("file.type='file';file.accept='image/png'",self.panel)
         self.assertIn("method:'POST',headers:{'X-SmartSVG-UI':'1'}",self.panel)
         self.assertIn('expected_sha256:loaded.sha256',self.panel)
         self.assertIn("window.confirm(",self.panel)
