@@ -199,6 +199,69 @@ class ArchiveG13Tests(unittest.TestCase):
                 self.assertEqual(load_project(self.path), project)
                 self.path.unlink()
 
+    def test_invalid_source_png_bytes_cannot_replace_last_good_project(self):
+        # A valid IHDR is not enough. No corrupt or truncated source image
+        # should be persisted, even with an updated matching resource SHA.
+        from dataclasses import replace
+        good = _fixture()
+        save_project(self.path, good)
+        original_archive = self.path.read_bytes()
+        clean = good.resources['sources/source-01.png']
+        corrupted_crc = bytearray(clean)
+        idat_start = corrupted_crc.index(b'IDAT') + 4
+        corrupted_crc[idat_start + 1] ^= 0x20  # IDAT changed; CRC not updated
+        variants = (
+            (bytes(corrupted_crc), 'PNG_CRC_FAILED'),
+            (clean[:-12], 'INCOMPLETE_SOURCE_PNG'),  # missing IEND chunk
+        )
+        for invalid_bytes, error in variants:
+            with self.subTest(error=error):
+                project = _fixture()
+                project.resources['sources/source-01.png'] = invalid_bytes
+                project = replace(project, sources=(
+                    replace(project.sources[0], sha256=_sha(invalid_bytes)),))
+                with self.assertRaisesRegex(ProjectArchiveError, error):
+                    save_project(self.path, project, overwrite=True)
+                self.assertEqual(self.path.read_bytes(), original_archive)
+                self.assertEqual(load_project(self.path), good)
+
+    def test_valid_crc_but_invalid_source_png_scanline_filter_is_rejected(self):
+        # Rebuild IDAT with a valid CRC, but use PNG filter byte 5, which
+        # cannot be decoded. Header and resource SHA remain consistent.
+        from dataclasses import replace
+        valid = _png(16, 12, 6)
+        ihdr = valid[:33]
+        row = bytes([5]) + bytes([100, 120, 140, 255]) * 16
+        compressed = zlib.compress(row * 12)
+        def chunk(name, body):
+            return (struct.pack('>I', len(body)) + name + body +
+                    struct.pack('>I', zlib.crc32(name + body) & 0xffffffff))
+        invalid = ihdr + chunk(b'IDAT', compressed) + chunk(b'IEND', b'')
+        project = _fixture()
+        project.resources['sources/source-01.png'] = invalid
+        project = replace(project, sources=(
+            replace(project.sources[0], sha256=_sha(invalid)),))
+        with self.assertRaisesRegex(ProjectArchiveError, 'INVALID_SOURCE_PNG_FILTER'):
+            save_project(self.path, project)
+        self.assertFalse(self.path.exists())
+
+    def test_unsupported_png_depth_requires_explicit_normalization(self):
+        # G1.2 does not describe 16-bit RGBA pixels. Simply labelling such
+        # bytes RGBA would discard precision in a downstream 8-bit editor.
+        from dataclasses import replace
+        invalid = bytearray(_png(16, 12, 6))
+        invalid[24] = 16  # 16-bit channel depth
+        invalid[29:33] = struct.pack(
+            '>I', zlib.crc32(invalid[12:29]) & 0xffffffff)
+        data = bytes(invalid)
+        project = _fixture()
+        project.resources['sources/source-01.png'] = data
+        project = replace(project, sources=(
+            replace(project.sources[0], sha256=_sha(data)),))
+        with self.assertRaisesRegex(ProjectArchiveError, 'UNSUPPORTED_SOURCE_PNG_LAYOUT'):
+            save_project(self.path, project)
+        self.assertFalse(self.path.exists())
+
     def test_wrong_source_size_blocks_save(self):
         from dataclasses import replace
         project = _fixture()
