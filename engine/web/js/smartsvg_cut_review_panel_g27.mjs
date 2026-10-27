@@ -141,8 +141,11 @@ export function createCutReviewPanel(ownerId='default'){
     if(!review||!transform||canvas.hidden)return;
     const box=canvas.getBoundingClientRect();
     if(box.width<=0||box.height<=0)return;
-    const x=((event.clientX-box.left)*(canvas.width/box.width)-transform.tx)/transform.scale;
-    const y=((event.clientY-box.top)*(canvas.height/box.height)-transform.ty)/transform.scale;
+    // Canvas hit-testing expects canvas pixel coordinates, even with a
+    // transformed current drawing matrix. Inverting the view transform here
+    // would select the wrong subject after fit/zoom.
+    const x=(event.clientX-box.left)*(canvas.width/box.width);
+    const y=(event.clientY-box.top)*(canvas.height/box.height);
     const ctx=canvas.getContext('2d');
     for(let i=paths.length-1;i>=0;i--){
       if(ctx.isPointInStroke?.(paths[i],x,y)||ctx.isPointInPath?.(paths[i],x,y)){
