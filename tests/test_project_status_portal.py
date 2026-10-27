@@ -27,7 +27,7 @@ class ProjectStatusPortalTests(unittest.TestCase):
             self.assertTrue((ROOT/target).is_file(),target)
 
     def test_stage_table_is_truthful_about_fictional_and_real_svg(self):
-        for phrase in ("G3.0/G3.1","12 escargots","fictifs",
+        for phrase in ("G3.0","G3.2","12 escargots","fictifs",
                        "n'effectue pas encore une segmentation IA",
                        "G2.7/G2.9","brouillon"):
             self.assertIn(phrase,self.readme)
