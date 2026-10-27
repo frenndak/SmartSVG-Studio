@@ -225,6 +225,58 @@ class ArchiveG13Tests(unittest.TestCase):
                 self.assertEqual(self.path.read_bytes(), original_archive)
                 self.assertEqual(load_project(self.path), good)
 
+    def test_trns_transparency_cannot_be_stored_as_opaque_png_or_l8_mask(self):
+        # CRC-valid and SHA-consistent tRNS makes an apparently opaque L/RGB
+        # image transparent, and can make white mask pixels invisible.
+        # A previous .smartsvg must survive each rejected overwrite.
+        from dataclasses import replace
+        good = _fixture()
+        save_project(self.path, good)
+        snapshot = self.path.read_bytes()
+
+        def chunk(name, payload):
+            return (struct.pack('>I', len(payload)) + name + payload +
+                    struct.pack('>I', zlib.crc32(name + payload) & 0xffffffff))
+
+        for kind, mode, trns in (
+                ('mask', 0, struct.pack('>H', 100)),
+                ('source', 0, struct.pack('>H', 100)),
+                ('source', 2, struct.pack('>HHH', 100, 120, 140)),
+                ('source', 6, struct.pack('>H', 100))):
+            with self.subTest(kind=kind, mode=mode):
+                project = _fixture()
+                original = _png(16, 12, mode)
+                malformed = original[:33] + chunk(b'tRNS', trns) + original[33:]
+                if kind == 'mask':
+                    path = 'masks/mask-01.png'
+                    project.resources[path] = malformed
+                    project = replace(project, masks=(
+                        replace(project.masks[0], sha256=_sha(malformed)),))
+                else:
+                    path = 'sources/source-01.png'
+                    project.resources[path] = malformed
+                    declared_mode = {0: 'L', 2: 'RGB', 6: 'RGBA'}[mode]
+                    project = replace(project, sources=(
+                        replace(project.sources[0], sha256=_sha(malformed),
+                                color_mode=declared_mode),))
+                with self.assertRaisesRegex(
+                        ProjectArchiveError, 'PNG_UNDECLARED_TRANSPARENCY'):
+                    save_project(self.path, project, overwrite=True)
+                self.assertEqual(self.path.read_bytes(), snapshot)
+                self.assertEqual(load_project(self.path), good)
+
+    def test_plain_l8_mask_and_rgb_source_still_roundtrip(self):
+        # Rejecting tRNS must not invalidate regular grayscale masks or
+        # RGB sources with explicitly opaque pixel bytes.
+        from dataclasses import replace
+        project = _fixture()
+        source = _png(16, 12, 2)
+        project.resources['sources/source-01.png'] = source
+        project = replace(project, sources=(
+            replace(project.sources[0], sha256=_sha(source), color_mode='RGB'),))
+        save_project(self.path, project)
+        self.assertEqual(load_project(self.path), project)
+
     def test_png_chunk_structure_rejected_despite_valid_crc_and_sha(self):
         # IHDR duplication, unknown critical chunks and separated IDATs can
         # have valid per-chunk CRCs yet still violate the PNG file grammar.
