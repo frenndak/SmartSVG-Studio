@@ -146,6 +146,7 @@ function paint(){
   }
  }else{box.hidden=true;$("empty").hidden=true}
  const count=demo?selected.size:0;
+  for(const key of ["all","none","alternate","resetSelect"])$(key).disabled=!demo;
  $("count").textContent=demo?count+" / "+SAMPLE_COUNT:"En attente";
  $("selInfo").innerHTML=demo?"<strong>"+count+" sujets sélectionnés</strong> sur "+SAMPLE_COUNT:"<strong>Image chargée</strong> · sujets non analysés";
  $("stageBadge").textContent=demo?"● "+count+" silhouette(s) de démonstration":"● Source chargée · analyse non réalisée";
@@ -182,7 +183,12 @@ $("all").addEventListener("click",()=>{if(!demo)return notify("Importer un fichi
 $("none").addEventListener("click",()=>{if(!demo)return notify("Aucun contour analysé sur cette image.",true);selected.clear();update()});
 $("alternate").addEventListener("click",()=>{if(!demo)return notify("Aucun contour analysé sur cette image.",true);selected=new Set([1,3,5,7,9,11]);update()});
 function resetDemo(){++fileToken;if(uploadedURL){URL.revokeObjectURL(uploadedURL);uploadedURL=null};$("file").value="";demo=true;selected=new Set(Array.from({length:12},(_,i)=>i+1));$("fileInfo").textContent="Démo chargée : 12 escargots de démonstration.";$("uploaded").removeAttribute("src");view="subjects";zoom=1;updateZoom();update();notify("Démonstration réinitialisée.");}
-$("demo").addEventListener("click",resetDemo);$("resetSelect").addEventListener("click",resetDemo);
+$("demo").addEventListener("click",resetDemo);
+$("resetSelect").addEventListener("click",()=>{
+  if(!demo){notify("Votre image reste affichée : aucun sujet réel n'a encore été détecté.",true);return;}
+  selected=new Set(Array.from({length:SAMPLE_COUNT},(_,i)=>i+1));
+  update();notify("La sélection des sujets de démonstration a été réinitialisée.");
+});
 document.querySelectorAll('input[name="mode"]').forEach(x=>x.addEventListener("change",update));
 $("width").addEventListener("change",()=>{const n=Number($("width").value);if(!Number.isFinite(n)||n<10||n>200){notify("La largeur de l'aperçu doit être comprise entre 10 et 200 mm.",true);$("width").value="40";}update()});
 $("dpi").addEventListener("change",()=>notify("La précision sera appliquée uniquement au moteur connecté. Ici, elle ne change pas les pixels."));
@@ -190,7 +196,7 @@ function updateZoom(){$("artboardWrap").style.setProperty("--zoom",String(zoom))
 $("zoomIn").addEventListener("click",()=>{zoom=Math.min(1.5,Math.round((zoom+.1)*10)/10);updateZoom()});
 $("zoomOut").addEventListener("click",()=>{zoom=Math.max(.6,Math.round((zoom-.1)*10)/10);updateZoom()});
 $("zoomFit").addEventListener("click",()=>{zoom=1;updateZoom()});
-$("next").addEventListener("click",()=>{const steps=["source","clean","subjects","cut","export"];const i=steps.indexOf(view);if(i===steps.length-1){notify("APERÇU UNIQUEMENT : aucun export réel. Ouvrir la version ComfyUI pour préparer les fichiers.",true);return}setView(steps[Math.min(i+1,steps.length-1)])});
+$("next").addEventListener("click",()=>{const steps=["source","clean","subjects","retouch","cut","export"];const i=steps.indexOf(view);if(i===steps.length-1){notify("APERÇU UNIQUEMENT : aucun export réel. Ouvrir la version ComfyUI pour préparer les fichiers.",true);return}setView(steps[Math.min(i+1,steps.length-1)])});
 // G3.2: opt-in same-origin access to existing managed .smartsvg API.
 let realProjectPanel=null,realProjectLoading=false;
 $("realProjectButton").addEventListener("click",async()=>{
@@ -266,16 +272,34 @@ $("realContourButton").addEventListener("click",async()=>{
 });
 $("uploadButton").addEventListener("click",()=>$("file").click());
 function uploadFile(file){
+ // Increment also on invalid selections: a pending older decode must never
+ // replace the newest selection after a delayed onload event.
+ const token=++fileToken;
  const valid=file&&/^image\/(png|jpeg|webp)$/.test(file.type)&&file.size>0&&file.size<=12*1024*1024;
- if(!valid){notify("Choisir un PNG, JPEG ou WebP de moins de 12 Mo.",true);return}
- const token=++fileToken,blob=URL.createObjectURL(file),img=new Image();
- img.onload=()=>{if(token!==fileToken){URL.revokeObjectURL(blob);return}
-   if(uploadedURL)URL.revokeObjectURL(uploadedURL);uploadedURL=blob;demo=false;selected.clear();
+ if(!valid){notify("Choisir un PNG, JPEG ou WebP non vide de 12 Mo maximum.",true);return;}
+ let blob;
+ try{blob=URL.createObjectURL(file);}
+ catch{notify("Impossible de lire ce fichier dans le navigateur.",true);return;}
+ const img=new Image();
+ notify("Lecture locale et vérification de l'image…");
+ img.onload=()=>{
+   if(token!==fileToken){URL.revokeObjectURL(blob);return;}
+   const pixels=img.naturalWidth*img.naturalHeight;
+   if(!Number.isSafeInteger(pixels)||pixels<1||pixels>20_000_000){
+     URL.revokeObjectURL(blob);
+     notify("Image trop grande pour cet aperçu (20 millions de pixels maximum). Aucune image existante n'a été effacée.",true);
+     return;
+   }
+   if(uploadedURL)URL.revokeObjectURL(uploadedURL);
+   uploadedURL=blob;demo=false;selected.clear();
    const el=$("uploaded");el.src=blob;el.hidden=false;$("sheet").hidden=true;
    $("fileInfo").textContent=file.name+" · "+img.naturalWidth+" × "+img.naturalHeight+" px";
    view="source";update();notify("Image affichée localement. Aucun sujet n'a été segmenté ; la vraie analyse nécessite ComfyUI.");
  };
- img.onerror=()=>{URL.revokeObjectURL(blob);notify("Image illisible ou incompatible.",true)};
+ img.onerror=()=>{
+   URL.revokeObjectURL(blob);
+   if(token===fileToken)notify("Image illisible ou incompatible ; votre aperçu précédent est conservé.",true);
+ };
  img.src=blob;
 }
 $("file").addEventListener("change",event=>{const file=event.target.files?.[0];if(file)uploadFile(file)});
