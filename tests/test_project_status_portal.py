@@ -31,7 +31,7 @@ class ProjectStatusPortalTests(unittest.TestCase):
                        "n'effectue pas encore une segmentation IA",
                        "G2.7/G2.9","brouillon"):
             self.assertIn(phrase,self.readme)
-        self.assertIn("aucune",self.readme.lower())
+        self.assertIn("pas de version Cricut certifiée",self.readme)
         self.assertIn("G3.2",self.status)
         self.assertIn("G3.3",self.status)
         self.assertIn("G3.4",self.status)
