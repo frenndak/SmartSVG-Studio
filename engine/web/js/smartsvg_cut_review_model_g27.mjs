@@ -5,7 +5,7 @@
 export const MAX_SVG_BYTES=768*1024;
 export const MAX_CUT_PATHS=64;
 const NS='http://www.w3.org/2000/svg';
-const NUM='[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?';
+const NUM=String.raw`[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?`;
 const D_ALLOWED=/^[0-9eE.+,\-\sMmLlHhVvCcSsQqTtAaZz]+$/;
 const TAGS=new Set(['svg','g','path','title','desc']);
 const ATTRS={
