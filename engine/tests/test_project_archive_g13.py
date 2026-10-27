@@ -168,6 +168,79 @@ class ArchiveG13Tests(unittest.TestCase):
         with self.assertRaisesRegex(ProjectArchiveError, 'MASK_NOT_L8_PNG'):
             save_project(self.path, project)
 
+    def test_g12_portable_unicode_and_space_artifacts_roundtrip(self):
+        # Metadata accepted by G1.2 must also survive G1.3 ZIP save and load.
+        from dataclasses import replace
+        for path in ('exports/étiquette 01.svg',
+                     'exports/etiquette 01.svg',
+                     'exports/Création 🌿.svg',
+                     'exports/souvenir été.svg'):
+            with self.subTest(path=path):
+                project = _fixture()
+                data = project.resources.pop('exports/contour.svg')
+                project.resources[path] = data
+                project = replace(project, artifacts=(
+                    replace(project.artifacts[0], file_path=path),))
+                save_project(self.path, project, overwrite=self.path.exists())
+                self.assertEqual(load_project(self.path), project)
+                with zipfile.ZipFile(self.path) as archive:
+                    self.assertEqual(archive.read(path), data)
+
+    def test_portable_paths_remain_fail_closed_for_malicious_members(self):
+        from smartsvg_core.project_archive import _safe_path
+        forbidden = (
+            '../outside.svg', '/absolute.svg', 'exports//double.svg',
+            'exports/./dot.svg', 'exports/../up.svg', 'exports/',
+            'exports/CON.svg', 'exports/aux.txt', 'exports/LPT1.svg',
+            'exports/file?.svg', 'exports/file*.svg',
+            'exports/back\\\\slash.svg', 'exports/file:stream.svg',
+            'exports/trailing. ', 'exports/hidden\\u202esvg',
+            'exports/surrogate\\ud800.svg',
+            'exports/' + 'é' * 128 + '.svg',
+        )
+        for path in forbidden:
+            with self.subTest(path=ascii(path)):
+                with self.assertRaisesRegex(ProjectArchiveError,
+                                            'UNSAFE_ARCHIVE_PATH'):
+                    _safe_path(path)
+        self.assertEqual(_safe_path('exports/étiquette 01.svg'),
+                         'exports/étiquette 01.svg')
+
+    def test_unicode_normalization_alias_of_source_is_rejected_before_overwrite(self):
+        from dataclasses import replace
+        good = _fixture()
+        save_project(self.path, good)
+        snapshot = self.path.read_bytes()
+        bad = _fixture()
+        raw = bad.resources.pop('sources/source-01.png')
+        first, second = 'sources/étiquette.png', 'sources/e\\u0301tiquette.png'
+        bad.resources[first] = raw
+        bad.resources[second] = raw
+        bad.source_paths['source-01'] = first
+        bad.source_paths['source-02'] = second
+        bad = replace(bad, sources=(
+            bad.sources[0],
+            replace(bad.sources[0], source_id='source-02'),))
+        with self.assertRaisesRegex(ProjectArchiveError,
+                                    'CASE_COLLIDING_RESOURCE_PATHS'):
+            save_project(self.path, bad, overwrite=True)
+        self.assertEqual(self.path.read_bytes(), snapshot)
+        self.assertEqual(load_project(self.path), good)
+
+    def test_unicode_zip_entry_alias_rejected_on_load(self):
+        from dataclasses import replace
+        project = _fixture()
+        path = 'exports/étiquette 01.svg'
+        data = project.resources.pop('exports/contour.svg')
+        project.resources[path] = data
+        project = replace(project, artifacts=(
+            replace(project.artifacts[0], file_path=path),))
+        save_project(self.path, project)
+        with zipfile.ZipFile(self.path, 'a') as archive:
+            archive.writestr('exports/e\\u0301tiquette 01.svg', data)
+        with self.assertRaisesRegex(ProjectArchiveError, 'DUPLICATE_ARCHIVE_PATH'):
+            load_project(self.path)
+
     def test_png_source_color_mode_rejects_mismatched_metadata(self):
         # A project must not advertise alpha transparency when the actual
         # original PNG bytes are RGB or grayscale, nor drop RGBA silently.
