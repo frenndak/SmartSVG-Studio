@@ -6,10 +6,10 @@ Le lot G2.7 acceptait comme « chemin SVG candidat à la découpe » des chaîne
 
 ## Correction candidate
 
-- Analyse déterministe bornée des commandes SVG `M/L/H/V/C/S/Q/T/A/Z`, paramètres obligatoires, nombres finis et limites d'amplitude.
-- Contrôle de fermeture **de chaque sous-tracé**, refus des boucles uniquement linéaires à aire nulle, bornes non dégénérées pour les autres types, vérification des drapeaux d'arcs.
+- Analyse déterministe bornée des commandes SVG `M/L/H/V/C/S/Q/T/A/Z`, paramètres obligatoires, nombres finis et limites d'amplitude. Les arcs de rayon nul sont traités comme des segments droits, conformément à leur effet géométrique ; ils ne doivent pas simuler une forme à surface non nulle.
+- Contrôle de fermeture **de chaque sous-tracé**, refus des boucles uniquement linéaires à aire nulle, rejet des Bézier dont tous les points de contrôle sont collinéaires, bornes non dégénérées pour les autres types, vérification des drapeaux d'arcs.
 - Rejet des chemins dont l'enveloppe géométrique connue dépasse le `viewBox` ; évite un export visuellement tronqué. Pour les courbes, les points de contrôle sont utilisés dans une borne conservative : certains dessins pourtant valides peuvent nécessiter une normalisation manuelle avant d'être acceptés.
-- Le sérialiseur SVG valide à nouveau les tracés des éléments sélectionnés, même s'il est appelé indépendamment de l'inspecteur.
+- Le sérialiseur SVG valide à nouveau les tracés **et les limites du viewBox** des éléments sélectionnés, même s'il est appelé indépendamment de l'inspecteur.
 - Tests de non-régression sur les chemins incomplets/ouverts, les boucles nulles, les formes composites et le clipping.
 - **Pas de certification de géométrie Cricut** : intersections de courbes, épaisseurs physiques, tolérance de la lame, inflexions Bézier et résultats Design Space ne sont pas déduits du parsing statique.
 
