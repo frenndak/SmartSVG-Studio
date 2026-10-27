@@ -3,6 +3,9 @@
  * replay resolution or the serialized V21.6 stroke JSON format.
  */
 import { app } from '../../scripts/app.js';
+import { createEditorProjectControls } from './smartsvg_editor_project_bridge_g23.mjs';
+import { editorDraftStore } from './smartsvg_editor_draft_g28.mjs';
+import { validatedFocus, centerFocusView } from './smartsvg_mask_focus_v21156.mjs';
 import { api } from '../../scripts/api.js';
 import { normalizeMeta, previewUrl, encodeDocument, decodeDocument, LIMITS, fitView,
   constrainView, zoomView, moveView, viewToUV, strokeSpacing } from './smartsvg_editor_model_v216.mjs';
@@ -46,10 +49,21 @@ function load(ref){return new Promise((resolve,reject)=>{
 });}
 function cloneStrokes(items){return items.map(s=>({...s,points:s.points.map(p=>[...p])}));}
 
-async function openEditor(node,meta){
+async function openEditor(node,meta,focus=null){
   const jsonWidget=(node.widgets||[]).find(w=>w.name==='retouches_json');
   if(!jsonWidget)throw new Error('Widget retouches_json introuvable. Installer le nœud V21.6.');
   const saved=decodeDocument(meta,String(jsonWidget.value||''));
+  let draftStorage=null;
+  try{draftStorage=typeof window!=='undefined'?window.localStorage:null;}catch{}
+  const draft=editorDraftStore(draftStorage,meta,node.id);
+  const backup=draft.load();
+  let recovered=null;
+  if(backup && JSON.stringify(backup)!==JSON.stringify(saved)){
+    const approved=typeof window!=='undefined'&&typeof window.confirm==='function'&&
+      window.confirm('Un brouillon automatique de retouches a été retrouvé pour exactement cette image. Le restaurer dans l’éditeur ?');
+    if(approved)recovered=backup;
+    else draft.clear();
+  }else if(backup){draft.clear();}
   const baseImage=await load(meta.image);
   css();
   const backdrop=el('div',null,'ss216-modal');
@@ -60,7 +74,9 @@ async function openEditor(node,meta){
   const controls=el('div',null,'ss216-controls');
   const select=el('select');select.setAttribute('aria-label','Choisir le masque');
   for(let i=0;i<meta.count;i++){const o=el('option',`Sujet ${i+1}`);o.value=String(i);select.appendChild(o);}
-  let current=0,mode='add',radius=.015,history=cloneStrokes(saved),redo=[];
+  let current=focus?focus.subject-1:0,mode=focus?'pan':'add',radius=.015,history=cloneStrokes(recovered||saved),redo=[];
+  select.value=String(current);
+  const saveCrashDraft=()=>draft.save(history);
   let active=null,activePan=null,spaceDown=false,loadedObject=-1,maskLoadToken=0;
   let maskMessage='',revision=0,cacheRevision=-1,cacheObject=-1;
   let destroyed=false;
@@ -124,8 +140,8 @@ async function openEditor(node,meta){
       `Source : ${Math.round(p[0]*(meta.width-1))}, ${Math.round(p[1]*(meta.height-1))} px`:'Position : hors image';
   }
   function setMode(next){mode=next;refreshControls();}
-  function performUndo(){if(history.length){redo.push(history.pop());revision++;render();}}
-  function performRedo(){if(redo.length){history.push(redo.pop());revision++;render();}}
+  function performUndo(){if(history.length){redo.push(history.pop());revision++;saveCrashDraft();render();}}
+  function performRedo(){if(redo.length){history.push(redo.pop());revision++;saveCrashDraft();render();}}
   function refreshControls(){
     modeAdd.classList.toggle('active',mode==='add');modeErase.classList.toggle('active',mode==='erase');modePan.classList.toggle('active',mode==='pan');
     undo.disabled=!history.length;again.disabled=!redo.length;
@@ -174,17 +190,26 @@ async function openEditor(node,meta){
         data.data[k]=226;data.data[k+1]=40;data.data[k+2]=198;data.data[k+3]=Math.round(opacity*148);
       }
       baseCtx.putImageData(data,0,0);
-      loadedObject=index;maskMessage='';cacheObject=-1;render();
+      loadedObject=index;
+      maskMessage=focus&&index===focus.subject-1?
+        'Zone du sujet '+focus.subject+' chargée. Vérifier le dessin : aucune retouche automatique.':'';
+      cacheObject=-1;render();
     }catch(error){if(token===maskLoadToken&&!destroyed){maskMessage=error.message;render();}}
   }
   const buttons=el('div',null,'ss216-controls');
   const close=()=>{
     if(destroyed)return;destroyed=true;maskLoadToken++;
+    // Explicit cancellation is not a crash: discard the uncommitted draft.
+    draft.clear();
     document.removeEventListener('keydown',keyHandler,true);
     document.removeEventListener('keyup',keyUpHandler,true);
     resizeObserver?.disconnect?.();backdrop.remove();
     node._smartsvgV216ModalOpen=false;
-    if(node._smartsvgV216Editor)node._smartsvgV216Editor.trigger.disabled=!node._smartsvgV216Meta;
+    if(node._smartsvgV216Editor){
+      node._smartsvgV216Editor.trigger.disabled=!node._smartsvgV216Meta;
+      const {focusTrigger,getFocus}=node._smartsvgV216Editor;
+      if(focusTrigger)focusTrigger.disabled=!validatedFocus(getFocus?.(),node._smartsvgV216Meta);
+    }
   };
   const closeButton=btn('Fermer sans enregistrer',close);
   const save=btn('Enregistrer les retouches',()=>{
@@ -192,17 +217,34 @@ async function openEditor(node,meta){
       if(active)throw new Error('Terminer le coup de pinceau avant de sauvegarder');
       const value=encodeDocument(meta,history);
       jsonWidget.value=value;jsonWidget.callback?.(value);
+      draft.clear();
       app.graph?.change?.();node.setDirtyCanvas?.(true,true);
       close();
     }catch(error){maskMessage=error.message;refreshControls();}
   });
   buttons.append(save,closeButton);
-  const hint=el('div','Molette / boutons : zoom · Déplacer ou maintenir Espace + glisser : navigation · +, −, 0 : zoom · Ctrl+Z / Ctrl+Maj+Z : annuler/rétablir. Les contours sont calculés à la résolution originale après Enregistrer puis relancer.','ss216-note');
-  panel.append(title,controls,toolbar,viewport,status,buttons,hint);backdrop.appendChild(panel);
+  const hint=el('div',focus ? 'Zone proposée : vérifier visuellement le masque puis sélectionner explicitement Ajouter ou Retirer. Aucune correction automatique.' : 'Molette / boutons : zoom · Déplacer ou maintenir Espace + glisser : navigation · +, −, 0 : zoom · Ctrl+Z / Ctrl+Maj+Z : annuler/rétablir. Les contours sont calculés à la résolution originale après Enregistrer puis relancer.','ss216-note');
+  const draftHint=el('div',draft.enabled?
+    (recovered?'Brouillon de retouches récupéré : enregistrer dans le nœud pour le conserver.':
+      'Secours automatique local des coups de pinceau actifs (7 jours). Fermer sans enregistrer efface ce secours.'):
+    'Secours automatique navigateur indisponible : enregistrer régulièrement les retouches.','ss216-note');
+  panel.append(title,controls,toolbar,viewport,status,buttons,hint,draftHint);backdrop.appendChild(panel);
   backdrop.addEventListener('pointerdown',e=>{if(e.target===backdrop)close();});
   panel.addEventListener('pointerdown',e=>e.stopPropagation());
   document.body.appendChild(backdrop);
-  resetView();select.focus?.();
+  resetView();
+  if(focus){
+    try{
+      const f=frame();
+      const suggested=centerFocusView(focus.box,meta.width,meta.height,
+                                      canvas.width,canvas.height,f.width,f.height);
+      view=constrainView(suggested,canvas.width,canvas.height,f.width,f.height);
+      applyView();
+      maskMessage='Zone du sujet '+focus.subject+' centrée : aucune retouche automatique.';
+      render();
+    }catch(error){maskMessage='Cadrage impossible : '+error.message;render();}
+  }
+  select.focus?.();
   function keyHandler(e){
     if(destroyed)return;
     if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();return;}
@@ -264,7 +306,9 @@ async function openEditor(node,meta){
     if(history.reduce((n,s)=>n+s.points.length,0)+stroke.points.length>LIMITS.total){
       maskMessage='12000 points maximum : annuler ou simplifier le dessin';render();return;
     }
-    history.push(stroke);redo=[];revision++;maskMessage='';render();e.preventDefault?.();
+    history.push(stroke);redo=[];revision++;maskMessage='';
+    if(!saveCrashDraft()&&draft.enabled)draftHint.textContent='Secours automatique non disponible : enregistrer dans le nœud.';
+    render();e.preventDefault?.();
   }
   viewport.addEventListener('pointerup',finish);
   viewport.addEventListener('pointercancel',e=>{
@@ -278,7 +322,7 @@ async function openEditor(node,meta){
     const f=frame();view=constrainView(view,canvas.width,canvas.height,f.width,f.height);applyView();
   }):null;
   resizeObserver?.observe?.(viewport);
-  void loadMask(0);
+  void loadMask(current);
 }
 
 app.registerExtension({
@@ -296,29 +340,72 @@ app.registerExtension({
           note.textContent='Éditeur indisponible : '+e.message;
         });
       });trigger.disabled=true;
+      let pendingFocus=null;
+      const focusTrigger=btn('Examiner la zone signalée (aucune retouche automatique)',()=>{
+        const valid=validatedFocus(pendingFocus,node._smartsvgV216Meta);
+        if(!valid||node._smartsvgV216ModalOpen){focusTrigger.disabled=true;return;}
+        if(typeof window?.confirm==='function'&&
+           !window.confirm('Ouvrir le sujet '+valid.subject+
+             ' ? Vérifier la source et les masques : aucune modification automatique.'))return;
+        node._smartsvgV216ModalOpen=true;
+        trigger.disabled=true;focusTrigger.disabled=true;
+        void openEditor(node,node._smartsvgV216Meta,valid).catch(error=>{
+          node._smartsvgV216ModalOpen=false;
+          trigger.disabled=!node._smartsvgV216Meta;
+          focusTrigger.disabled=!validatedFocus(pendingFocus,node._smartsvgV216Meta);
+          note.textContent='Zone non ouverte : '+error.message;
+        });
+      });
+      focusTrigger.disabled=true;
+      const focusListener=event=>{
+        const valid=validatedFocus(event?.detail,node._smartsvgV216Meta);
+        if(!valid)return;
+        pendingFocus=event.detail;
+        focusTrigger.disabled=!!node._smartsvgV216ModalOpen;
+        note.textContent='Zone suspecte du sujet '+valid.subject+
+          ' reçue. Confirmer pour examiner les retouches à réaliser.';
+      };
+      if(typeof window?.addEventListener==='function')
+        window.addEventListener('smartsvg:mask-focus:v1',focusListener);
       const reset=btn('Effacer les retouches enregistrées',()=>{
         const field=(node.widgets||[]).find(w=>w.name==='retouches_json');
         if(!field)return;
         if(typeof window.confirm==='function'&&!window.confirm('Effacer toutes les retouches de ce nœud ?'))return;
-        field.value='';field.callback?.('');app.graph?.change?.();node.setDirtyCanvas?.(true,true);
+        field.value='';field.callback?.('');
+        if(node._smartsvgV216Meta){
+          let storage=null;try{storage=typeof window!=='undefined'?window.localStorage:null;}catch{}
+          editorDraftStore(storage,node._smartsvgV216Meta,node.id).clear();
+        }
+        app.graph?.change?.();node.setDirtyCanvas?.(true,true);
         note.textContent='Retouches effacées. Relancer le workflow pour charger la nouvelle image.';
       });
-      region.append(trigger,reset,note);
+      const projectControls=createEditorProjectControls(api,app,node);
+      region.append(trigger,focusTrigger,reset,note,projectControls.root);
       const w=node.addDOMWidget('smartsvg_editor_v216','smartsvg_editor',region,{
-        serialize:false,hideOnZoom:true,getMinHeight:()=>85,getMaxHeight:()=>115
+        serialize:false,hideOnZoom:true,getMinHeight:()=>130,getMaxHeight:()=>190
       });
       if(w){w.serialize=false;w.options={...(w.options||{}),serialize:false};}
-      node._smartsvgV216Editor={region,trigger,note};
+      node._smartsvgV216Editor={region,trigger,note,projectControls,focusTrigger,
+        getFocus:()=>pendingFocus};
+      const oldRemoval=node.onRemoved;
+      node.onRemoved=function(){
+        if(typeof window?.removeEventListener==='function')
+          window.removeEventListener('smartsvg:mask-focus:v1',focusListener);
+        oldRemoval?.apply(this,arguments);
+      };
       const original=node.onExecuted;
       node.onExecuted=function(output){
         original?.apply(this,arguments);
         const meta=normalizeMeta(output);node._smartsvgV216Meta=meta;
+        projectControls.refresh(meta);
+        if(!validatedFocus(pendingFocus,meta))pendingFocus=null;
+        focusTrigger.disabled=!pendingFocus||!!node._smartsvgV216ModalOpen;
         trigger.disabled=!meta||!!node._smartsvgV216ModalOpen;
         note.textContent=meta?`${meta.count} sujet(s) chargés · ${meta.width} × ${meta.height} px. Zoom/déplacement et retouches disponibles.`:
           'Aucun aperçu valide : consulter le résultat Python et relancer.';
         node.setDirtyCanvas?.(true,true);
       };
-      node.size=[Math.max(node.size?.[0]||350,350),Math.max(node.size?.[1]||230,315)];
+      node.size=[Math.max(node.size?.[0]||350,430),Math.max(node.size?.[1]||230,470)];
     }catch(e){console.warn('SmartSVG V21.6.1 mask editor disabled',e);}
   }
 });

@@ -48,6 +48,15 @@ class SVGContractTests(unittest.TestCase):
         with self.assertRaisesRegex(SVGRejected, "EXPLICIT_MM_REQUIRED"):
             inspect_svg(p)
 
+    def test_non_finite_explicit_mm_rejected(self):
+        # A decimal with hundreds of digits converts to float('inf').
+        huge_mm = "9" * 400 + "mm"
+        for width, height in ((huge_mm, "25mm"), ("20mm", huge_mm)):
+            with self.subTest(width=width[:12], height=height[:12]):
+                p = self.write(self.base('<circle r="8"/>', width=width, height=height))
+                with self.assertRaisesRegex(SVGRejected, "EXPLICIT_MM_REQUIRED"):
+                    inspect_svg(p)
+
     def test_invalid_viewbox(self):
         p = self.write(self.base('<circle r="8"/>', view="0 0 nan 25"))
         with self.assertRaisesRegex(SVGRejected, "INVALID_VIEWBOX"):
@@ -68,10 +77,63 @@ class SVGContractTests(unittest.TestCase):
         with self.assertRaisesRegex(SVGRejected, "EVENT_OR_EXTERNAL"):
             inspect_svg(p)
 
+    def test_escaped_css_url_rejected_in_inline_style(self):
+        # CSS consumers decode \72 and \75 to 'r' and 'u' respectively.
+        for css in (
+            r"fill:u\72l(https://example.invalid/x)",
+            r"fill:\75rl(https://example.invalid/x)",
+            r"fill:u\000072l(https://example.invalid/x)",
+        ):
+            with self.subTest(css=css):
+                p = self.write(self.base('<circle r="8" style="' + css + '"/>'))
+                with self.assertRaisesRegex(SVGRejected, "OBFUSCATED_CSS_REFERENCE"):
+                    inspect_svg(p)
+
+    def test_escaped_css_url_rejected_in_presentation_attribute(self):
+        p = self.write(self.base(r'<circle r="8" fill="u\72l(https://example.invalid/x)"/>'))
+        with self.assertRaisesRegex(SVGRejected, "OBFUSCATED_CSS_REFERENCE"):
+            inspect_svg(p)
+
+    def test_css_comment_obfuscation_rejected(self):
+        p = self.write(self.base('<circle r="8" style="fill:u/**/rl(https://example.invalid/x)"/>'))
+        with self.assertRaisesRegex(SVGRejected, "OBFUSCATED_CSS_REFERENCE"):
+            inspect_svg(p)
+
+    def test_safe_inline_css_remains_accepted(self):
+        p = self.write(self.base('<circle r="8" style="fill:#123456;stroke:none;opacity:.5"/>'))
+        self.assertEqual(inspect_svg(p)["vector_elements"], 1)
+
     def test_xml_event_handler(self):
         p = self.write(self.base('<circle r="4" onload="alert(1)"/>'))
         with self.assertRaisesRegex(SVGRejected, "EVENT_OR_EXTERNAL"):
             inspect_svg(p)
+
+    def test_xml_stylesheet_processing_instruction_rejected(self):
+        p = self.write('<?xml version="1.0"?>\n<?xml-stylesheet href="https://example.invalid/evil.css"?>' +
+                       self.base('<circle r="8"/>'))
+        with self.assertRaisesRegex(SVGRejected, "PROCESSING_INSTRUCTION"):
+            inspect_svg(p)
+
+    def test_internal_processing_instruction_rejected(self):
+        p = self.write(self.base('<?danger data?><circle r="8"/>'))
+        with self.assertRaisesRegex(SVGRejected, "PROCESSING_INSTRUCTION"):
+            inspect_svg(p)
+
+    def test_style_element_rejected(self):
+        p = self.write(self.base('<style>@import "https://example.invalid/evil.css";</style>' +
+                                 '<circle r="8"/>'))
+        with self.assertRaisesRegex(SVGRejected, "EMBEDDED_RESOURCE"):
+            inspect_svg(p)
+
+    def test_link_element_rejected(self):
+        p = self.write(self.base('<a><circle r="8"/></a>'))
+        with self.assertRaisesRegex(SVGRejected, "EMBEDDED_RESOURCE"):
+            inspect_svg(p)
+
+    def test_xml_declaration_and_comment_still_allowed(self):
+        p = self.write('<?xml version="1.0" encoding="utf-8"?>' +
+                       self.base('<!-- <?not-an-instruction?> --><circle r="8"/>'))
+        self.assertEqual(inspect_svg(p)["vector_elements"], 1)
 
     def test_dtd_rejected(self):
         p = self.write('<!DOCTYPE svg [<!ENTITY x "hi">]>' + self.base('<path d="M1 1"/>'))
@@ -87,6 +149,47 @@ class SVGContractTests(unittest.TestCase):
         p = self.write(self.base('<path d="M1 1 L2 2 Z"/>'))
         with self.assertRaisesRegex(SVGRejected, "INSUFFICIENT_SEPARATE"):
             inspect_svg(p, profile="editable")
+
+    def test_definition_only_svg_is_not_counted_as_cut_geometry(self):
+        # SVG declarations and clip/mask/marker/pattern geometry are not
+        # rendered directly. They cannot qualify an empty cut file.
+        for container in ("defs", "symbol", "clipPath", "mask", "pattern", "marker"):
+            with self.subTest(container=container):
+                body = (f'<{container} id="unused">'
+                        '<path d="M0 0 L10 0 L10 10 Z"/>'
+                        f'</{container}>')
+                p = self.write(self.base(body))
+                with self.assertRaisesRegex(SVGRejected, "NO_VECTOR_GEOMETRY"):
+                    inspect_svg(p)
+
+    def test_visible_shapes_count_excludes_definition_descendants(self):
+        body = ('<defs><g><path d="M0 0 L10 0 L10 10 Z"/></g></defs>'
+                '<g><circle cx="5" cy="5" r="2"/></g>')
+        p = self.write(self.base(body))
+        result = inspect_svg(p)
+        self.assertEqual(result["vector_elements"], 1)
+        self.assertFalse(result["physical_cut_verified"])
+        with self.assertRaisesRegex(SVGRejected, "INSUFFICIENT_SEPARATE"):
+            inspect_svg(p, profile="editable")
+
+    def test_display_none_group_does_not_fake_visible_cut_geometry(self):
+        # A group or the root can hide all descendants, despite valid paths.
+        hidden = (
+            '<g display="none"><circle r="8"/></g>',
+            '<g style="fill:red; display : none !important"><path d="M0 0 L2 0 Z"/></g>',
+            '<path d="M0 0 L2 0 Z" style="display:none;stroke:red"/>',
+        )
+        for body in hidden:
+            with self.subTest(body=body):
+                p = self.write(self.base(body))
+                with self.assertRaisesRegex(SVGRejected, "NO_VECTOR_GEOMETRY"):
+                    inspect_svg(p)
+
+    def test_visible_sibling_is_kept_after_hidden_group(self):
+        p = self.write(self.base(
+            '<g style="display:none"><circle r="4"/></g>'
+            '<g><rect width="5" height="5"/></g>'))
+        self.assertEqual(inspect_svg(p)["vector_elements"], 1)
 
     def test_empty_cut_path(self):
         p = self.write(self.base('<path d=" "/>'))

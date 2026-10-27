@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import * as model from '../web/js/smartsvg_editor_model_v216.mjs';
+import {editorDraftStore} from '../web/js/smartsvg_editor_draft_g28.mjs';
+import {validatedFocus,centerFocusView} from '../web/js/smartsvg_mask_focus_v21156.mjs';
 const base=path.dirname(fileURLToPath(import.meta.url));
 class Context{
  save(){}restore(){}clearRect(){}drawImage(){}beginPath(){}moveTo(){}lineTo(){}stroke(){}arc(){}fill(){}
@@ -31,7 +33,14 @@ async function extension(){
  globalThis.__mockApp={registerExtension(n){ext=n;},graph:{change(){}}};
  globalThis.__mockApi={apiURL(s){return '/proxy/8188'+s;}};
  globalThis.__model=model;
- globalThis.window={location:{href:'https://test.example/proxy/8188/'}};
+ globalThis.__draftModel={editorDraftStore};
+ globalThis.__focusModel={validatedFocus,centerFocusView};
+ globalThis.__g23Bridge={createEditorProjectControls:()=>({root:new Dom('div'),refresh(){}})};
+ const windowEvents={};
+ globalThis.window={location:{href:'https://test.example/proxy/8188/'},
+  events:windowEvents,
+  addEventListener(type,fn){windowEvents[type]=fn;},
+  removeEventListener(type){delete windowEvents[type];}};
  globalThis.Image=FakeImage;
  let style=null;
  const documentEvents={};
@@ -42,6 +51,12 @@ async function extension(){
  globalThis.document=doc;
  let src=fs.readFileSync(path.join(base,'../web/js/smartsvg_editor_v216.js'),'utf8');
  src=src.replace("import { app } from '../../scripts/app.js';","const app=globalThis.__mockApp;");
+ src=src.replace("import { createEditorProjectControls } from './smartsvg_editor_project_bridge_g23.mjs';",
+                 'const {createEditorProjectControls}=globalThis.__g23Bridge;');
+ src=src.replace("import { editorDraftStore } from './smartsvg_editor_draft_g28.mjs';",
+                 'const {editorDraftStore}=globalThis.__draftModel;');
+ src=src.replace("import { validatedFocus, centerFocusView } from './smartsvg_mask_focus_v21156.mjs';",
+                 'const {validatedFocus,centerFocusView}=globalThis.__focusModel;');
  src=src.replace("import { api } from '../../scripts/api.js';","const api=globalThis.__mockApi;");
  src=src.replace(/import \{ normalizeMeta,[\s\S]*?\} from '\.\/smartsvg_editor_model_v216\.mjs';/,
  'const { normalizeMeta, previewUrl, encodeDocument, decodeDocument, LIMITS, fitView, constrainView, zoomView, moveView, viewToUV, strokeSpacing }=globalThis.__model;');
@@ -103,7 +118,7 @@ test('new editor persists modifications to real workflow widget, and does not se
  node.onExecuted({});
  assert.equal(node._smartsvgV216Editor.trigger.disabled,true);
  // User can explicitly reset corrections even if the image/source changed.
- node.dashboard.root.children[1].fire('click');
+ node.dashboard.root.children[2].fire('click');
  assert.equal(textWidget.value,'');
 });
 test('legacy nodes remain unaffected; browser without DOM widget degrades',async()=>{
@@ -170,4 +185,77 @@ test('a cancelled stroke and multi-point pan do not change the saved workflow',a
  viewport.fire('pointerup',{pointerId:3,preventDefault(){}});
  panel.children[5].children[0].fire('click');
  assert.equal(JSON.parse(field.value).strokes.length,0);
+});
+
+test('recovers a completed brush stroke after a simulated browser crash only after confirmation',async()=>{
+ const memory=new Map();
+ const localStorage={
+   getItem:key=>memory.get(key)||null,
+   setItem:(key,value)=>memory.set(key,value),
+   removeItem:key=>memory.delete(key)
+ };
+ const first=await extension();
+ globalThis.window.localStorage=localStorage;
+ const originalField={name:'retouches_json',value:''};
+ const originalNode={comfyClass:'SmartSVGMaskEditorV216',id:44,
+   widgets:[originalField],size:[350,315],
+   addDOMWidget(){return {options:{}};},setDirtyCanvas(){}};
+ first.ext.nodeCreated(originalNode);originalNode.onExecuted(sample);
+ originalNode._smartsvgV216Editor.trigger.fire('click');await tick();await tick();
+ const firstPanel=first.doc.body.children.at(-1).children[0];
+ const viewport=firstPanel.children[3];
+ viewport.fire('pointerdown',{button:0,pointerId:7,clientX:380,clientY:285,preventDefault(){}});
+ viewport.fire('pointerup',{pointerId:7,preventDefault(){}});
+ assert.equal(originalField.value,'','unfinished edit must not mutate ComfyUI widget');
+ assert.equal(memory.size,1,'stroke committed automatically into browser draft');
+ // Simulate a browser restart: new extension/document, same source fingerprint
+ // and persistent localStorage map, no prior editor close handler fired.
+ const second=await extension();
+ globalThis.window.localStorage=localStorage;
+ let confirmations=0;
+ globalThis.window.confirm=()=>{confirmations++;return true;};
+ const recoveredField={name:'retouches_json',value:''};
+ const recoveredNode={comfyClass:'SmartSVGMaskEditorV216',id:44,
+   widgets:[recoveredField],size:[350,315],
+   addDOMWidget(){return {options:{}};},setDirtyCanvas(){}};
+ second.ext.nodeCreated(recoveredNode);recoveredNode.onExecuted(sample);
+ recoveredNode._smartsvgV216Editor.trigger.fire('click');await tick();await tick();
+ assert.equal(confirmations,1);
+ const panel=second.doc.body.children.at(-1).children[0];
+ assert.equal(panel.children[1].children[6].disabled,false,'restored stroke available for undo');
+ assert.equal(recoveredField.value,'','confirmation only restores editor draft, not graph widget');
+ panel.children[5].children[0].fire('click');
+ assert.equal(JSON.parse(recoveredField.value).strokes.length,1);
+ assert.equal(memory.size,0,'successful save clears the browser crash draft');
+});
+
+
+test('G2.6 focused fragment opens correct source without auto-paint and keeps G2.8 support',async()=>{
+ const {ext,doc}=await extension();
+ const widget={name:'retouches_json',value:''};
+ const node={comfyClass:'SmartSVGMaskEditorV216',id:48,
+  widgets:[widget],size:[350,315],
+  addDOMWidget(name,type,root,options){this.dashboard={name,type,root,options};return this.dashboard;},
+  setDirtyCanvas(){}};
+ ext.nodeCreated(node);
+ node.onExecuted(sample);
+ const focusButton=node._smartsvgV216Editor.focusTrigger;
+ assert.equal(focusButton.disabled,true);
+ const event={detail:{version:1,source_sha256:'a'.repeat(64),
+  width_px:760,height_px:570,subject:1,bbox_source_px:[300,220,340,260]}};
+ globalThis.window.events['smartsvg:mask-focus:v1'](event);
+ assert.equal(focusButton.disabled,false);
+ globalThis.window.confirm=()=>true;
+ focusButton.fire('click');
+ await tick();await tick();
+ const overlay=doc.body.children.at(-1),panel=overlay.children[0];
+ assert.equal(node._smartsvgV216ModalOpen,true);
+ assert.equal(panel.children[1].children[4].classList!==undefined,true);
+ assert.equal(widget.value,'','focus event must not edit graph automatically');
+ assert.match(panel.children[4].textContent,/aucune retouche automatique|Aucune correction automatique|Zone du sujet/);
+ panel.children[5].children[1].fire('click'); // explicit cancel
+ assert.equal(node._smartsvgV216ModalOpen,false);
+ assert.equal(focusButton.disabled,false);
+ node.onRemoved();
+ assert.equal(globalThis.window.events['smartsvg:mask-focus:v1'],undefined);
 });

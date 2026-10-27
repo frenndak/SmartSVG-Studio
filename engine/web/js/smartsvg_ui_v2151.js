@@ -7,7 +7,8 @@ import { api } from "../../scripts/api.js";
 import { normalizePayload, normalizePreviews, previewUrl } from "./smartsvg_ui_model_v2151.mjs";
 
 const EXT_NAME = "smartsvg.studio.v2151.dashboard";
-const NODE_IDS = new Set(["SmartSVGExpressV2151", "SmartSVGExpressV21152"]);
+// G2.1 owns V21.15.2, so do not stack two dashboards on one node.
+const NODE_IDS = new Set(["SmartSVGExpressV2151"]);
 
 function addStyles() {
   if (document.getElementById("smartsvg-v2151-style")) return;

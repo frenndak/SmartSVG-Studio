@@ -11,7 +11,7 @@ class Tests(unittest.TestCase):
   if rect:d.rounded_rectangle((20,20,160,130),radius=2,fill=(255,255,255,255))
   else:d.ellipse((40,15,142,136),fill=(200,0,0,255))
   im.save(p/'a.png')
-  (p/'a.svg').write_text('<svg xmlns="http://www.w3.org/2000/svg" width="30mm" height="30mm"><path d="M0 0Z"/></svg>')
+  (p/'a.svg').write_text('<svg xmlns="http://www.w3.org/2000/svg" width="30mm" height="30mm"><path d="M0 0 L30 0 L30 30 L0 30 Z"/></svg>')
   data={'objets':[{'png':str(p/'a.png'),'svg_contour':str(p/'a.svg'),'contour_nombre_chemins':1,'largeur_finale_avec_marge_mm':30}], 'planches_cricut':[]}
   (p/'RAPPORT_V21_1.json').write_text(json.dumps(data))
   return p
