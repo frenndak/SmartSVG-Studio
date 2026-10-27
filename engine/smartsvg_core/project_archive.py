@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 import json
+from io import BytesIO
 import math
 import os
 from pathlib import Path, PurePosixPath
@@ -15,12 +16,14 @@ import re
 import stat
 import struct
 import tempfile
+import unicodedata
 import zipfile
 import zlib
+import xml.etree.ElementTree as ET
 
 from .project_contracts import (
     Artifact, Mask, QAResult, SourceAsset, Subject, RecordError,
-    record_dict, validate_project_records,
+    record_dict, validate_project_records, _WINDOWS_DEVICE, _WINDOWS_FORBIDDEN,
 )
 
 SCHEMA_VERSION = 'smartsvg-project/1'
@@ -31,7 +34,6 @@ MAX_ARCHIVE_BYTES = 280 * 1024 * 1024
 MAX_JSON_BYTES = 4 * 1024 * 1024
 JSON_FILES = ('document.json', 'operations.json', 'sources.json', 'masks.json',
               'subjects.json', 'artifacts.json', 'proofs/qa_results.json')
-SAFE_NAME = re.compile(r'^[A-Za-z0-9_.\-/]+$')
 VALID_ID = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$')
 PNG_MAGIC = b'\x89PNG\r\n\x1a\n'
 
@@ -61,13 +63,26 @@ def _digest(data: bytes) -> str:
 
 
 def _safe_path(path: str) -> str:
-    if (not isinstance(path, str) or len(path) > 512 or not SAFE_NAME.fullmatch(path)
-            or '\\' in path or ':' in path or '//' in path):
+    """Portable path aligned with G1.2: accept safe visible Unicode and spaces.
+
+    Validate on both save and load, without extracting ZIP members to disk.
+    """
+    if (not isinstance(path, str) or not path or len(path) > 512 or
+            '\\' in path or ':' in path):
         raise ProjectArchiveError('UNSAFE_ARCHIVE_PATH')
-    parts = PurePosixPath(path).parts
-    if (not parts or PurePosixPath(path).is_absolute() or
-            any(p in ('.', '..') for p in path.split('/')) or
-            path != PurePosixPath(path).as_posix() or path.endswith('/')):
+    p = PurePosixPath(path)
+    parts = path.split('/')
+    if (p.is_absolute() or p.as_posix() != path or
+            any(part in ('', '.', '..') for part in parts) or
+            any(char in _WINDOWS_FORBIDDEN or
+                unicodedata.category(char) in ('Cc', 'Cf', 'Cs', 'Zl', 'Zp')
+                or char == '\u034f' or
+                0xFE00 <= ord(char) <= 0xFE0F or
+                0xE0100 <= ord(char) <= 0xE01EF
+                for char in path) or
+            any(part.endswith(('.', ' ')) or
+                _WINDOWS_DEVICE.fullmatch(part) or
+                len(part.encode('utf-8')) > 255 for part in parts)):
         raise ProjectArchiveError('UNSAFE_ARCHIVE_PATH')
     return path
 
@@ -144,56 +159,194 @@ def _png_size(data: bytes, *, grayscale: bool) -> tuple[int, int]:
     return w, h
 
 
+def _jpeg_source_info(data: bytes) -> tuple[tuple[int, int], str]:
+    """Validate bounded JPEG marker structure and infer L/RGB from the frame.
+
+    This checks SOI/SOF/SOS/EOI, segment bounds, and scan marker escaping.
+    It does not entropy-decode pixels or apply EXIF orientation.
+    """
+    if not data.startswith(b'\xff\xd8'):
+        raise ProjectArchiveError('INVALID_JPEG')
+    offset = 2
+    dimensions = None
+    color_mode = None
+    scan_found = False
+    in_scan = False
+    sof_markers = {0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7,
+                   0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf}
+    while offset < len(data):
+        if in_scan:
+            # Compressed data can contain FF00 stuffing and RST0..RST7;
+            # neither is a new JPEG segment. Progressive JPEG may contain
+            # multiple scans with tables between them.
+            while offset < len(data):
+                if data[offset] != 0xff:
+                    offset += 1
+                    continue
+                end = offset + 1
+                while end < len(data) and data[end] == 0xff:
+                    end += 1
+                if end >= len(data):
+                    break
+                marker = data[end]
+                if marker == 0 or 0xd0 <= marker <= 0xd7:
+                    offset = end + 1
+                    continue
+                offset = end - 1
+                in_scan = False
+                break
+            if in_scan:
+                break
+        if data[offset] != 0xff:
+            raise ProjectArchiveError('INVALID_JPEG_MARKER')
+        while offset < len(data) and data[offset] == 0xff:
+            offset += 1
+        if offset >= len(data):
+            break
+        marker = data[offset]
+        offset += 1
+        if marker == 0xd9:  # EOI must finish the file, after real scan data
+            if dimensions and scan_found and offset == len(data):
+                return dimensions, color_mode
+            raise ProjectArchiveError('INVALID_JPEG_END')
+        if marker in (0xd8, 0x00, 0x01) or 0xd0 <= marker <= 0xd7:
+            raise ProjectArchiveError('INVALID_JPEG_MARKER')
+        if offset + 2 > len(data):
+            break
+        segment_size = int.from_bytes(data[offset:offset + 2], 'big')
+        if segment_size < 2 or offset + segment_size > len(data):
+            raise ProjectArchiveError('INVALID_JPEG_SEGMENT')
+        if marker in sof_markers:
+            if dimensions is not None or segment_size < 8:
+                raise ProjectArchiveError('INVALID_JPEG_FRAME')
+            precision = data[offset + 2]
+            height = int.from_bytes(data[offset + 3:offset + 5], 'big')
+            width = int.from_bytes(data[offset + 5:offset + 7], 'big')
+            components = data[offset + 7]
+            # Four-component CMYK and >8-bit JPEG require an explicit
+            # conversion; G1.2 only represents L, RGB or RGBA accurately.
+            if (precision != 8 or not width or not height or
+                    width * height > 100_000_000 or components not in (1, 3) or
+                    segment_size != 8 + 3 * components):
+                raise ProjectArchiveError('UNSUPPORTED_JPEG_FRAME')
+            dimensions = (width, height)
+            color_mode = 'L' if components == 1 else 'RGB'
+        if marker == 0xda:  # Start of Scan
+            if (dimensions is None or segment_size < 6 or
+                    segment_size != 6 + 2 * data[offset + 2]):
+                raise ProjectArchiveError('INVALID_JPEG_SCAN')
+            scan_found = True
+            in_scan = True
+        offset += segment_size
+    raise ProjectArchiveError('INCOMPLETE_JPEG')
+
+
 def _source_dimensions(path: str, data: bytes) -> tuple[int, int]:
     suffix = PurePosixPath(path).suffix.lower()
     if suffix == '.png':
         return _png_size(data, grayscale=False)
     if suffix in ('.jpg', '.jpeg'):
-        if not data.startswith(b'\xff\xd8'):
-            raise ProjectArchiveError('INVALID_JPEG')
-        i = 2
-        while i < len(data) - 9:
-            if data[i] != 0xff:
-                raise ProjectArchiveError('INVALID_JPEG')
-            while i < len(data) and data[i] == 0xff:
-                i += 1
-            if i >= len(data):
-                break
-            marker = data[i]
-            i += 1
-            if marker == 0xd9:
-                break
-            if marker in (0xd8, 0x01, *range(0xd0, 0xd8)):
-                continue
-            if i + 2 > len(data):
-                break
-            segment = struct.unpack('>H', data[i:i + 2])[0]
-            if segment < 2 or i + segment > len(data):
-                raise ProjectArchiveError('INVALID_JPEG')
-            if marker in (0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7,
-                          0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf):
-                if segment < 7:
-                    raise ProjectArchiveError('INVALID_JPEG')
-                h, w = struct.unpack('>HH', data[i + 3:i + 7])
-                return w, h
-            i += segment
-        raise ProjectArchiveError('JPEG_DIMENSIONS_NOT_FOUND')
+        return _jpeg_source_info(data)[0]
     if suffix == '.webp':
-        if len(data) < 30 or data[:4] != b'RIFF' or data[8:12] != b'WEBP':
+        # RIFF is a chunked container. The header alone is not enough: the
+        # declared RIFF length must cover the whole resource, every chunk
+        # must fit and static images must contain a frame chunk. This remains
+        # a structural preflight, NOT a compressed-pixel decoder.
+        if (len(data) < 26 or data[:4] != b'RIFF' or data[8:12] != b'WEBP'
+                or int.from_bytes(data[4:8], 'little') != len(data) - 8):
             raise ProjectArchiveError('INVALID_WEBP_HEADER')
-        mode = data[12:16]
+        chunks = []
+        offset = 12
+        while offset < len(data):
+            if len(data) - offset < 8:
+                raise ProjectArchiveError('INVALID_WEBP_CHUNK')
+            kind = data[offset:offset + 4]
+            size = int.from_bytes(data[offset + 4:offset + 8], 'little')
+            end = offset + 8 + size
+            padded_end = end + (size & 1)
+            if size > MAX_MEMBER_BYTES or padded_end > len(data):
+                raise ProjectArchiveError('INVALID_WEBP_CHUNK')
+            if size & 1 and data[end] != 0:
+                raise ProjectArchiveError('INVALID_WEBP_PADDING')
+            chunks.append((kind, data[offset + 8:end]))
+            offset = padded_end
+        if not chunks or offset != len(data):
+            raise ProjectArchiveError('INVALID_WEBP_CHUNK')
+        mode, payload = chunks[0]
+        kinds = [kind for kind, _ in chunks]
+        if b'ANIM' in kinds or b'ANMF' in kinds:
+            raise ProjectArchiveError('ANIMATED_WEBP_UNSUPPORTED')
         if mode == b'VP8X':
-            return (1 + int.from_bytes(data[24:27], 'little'),
-                    1 + int.from_bytes(data[27:30], 'little'))
-        if mode == b'VP8 ' and data[23:26] == b'\x9d\x01\x2a':
-            return (int.from_bytes(data[26:28], 'little') & 0x3fff,
-                    int.from_bytes(data[28:30], 'little') & 0x3fff)
-        if mode == b'VP8L' and data[20] == 0x2f:
-            b0, b1, b2, b3 = data[21:25]
+            if (len(payload) != 10 or
+                    not any(kind in (b'VP8 ', b'VP8L') for kind in kinds[1:])):
+                raise ProjectArchiveError('INVALID_WEBP_FRAME')
+            return (1 + int.from_bytes(payload[4:7], 'little'),
+                    1 + int.from_bytes(payload[7:10], 'little'))
+        if mode == b'VP8 ':
+            if len(payload) < 10 or payload[3:6] != b'\x9d\x01\x2a':
+                raise ProjectArchiveError('INVALID_WEBP_FRAME')
+            return (int.from_bytes(payload[6:8], 'little') & 0x3fff,
+                    int.from_bytes(payload[8:10], 'little') & 0x3fff)
+        if mode == b'VP8L':
+            if len(payload) < 5 or payload[0] != 0x2f or payload[4] & 0xe0:
+                raise ProjectArchiveError('INVALID_WEBP_FRAME')
+            b0, b1, b2, b3 = payload[1:5]
             return (1 + b0 + ((b1 & 0x3f) << 8),
                     1 + (b1 >> 6) + (b2 << 2) + ((b3 & 0x0f) << 10))
         raise ProjectArchiveError('UNSUPPORTED_WEBP_HEADER')
     raise ProjectArchiveError('UNSUPPORTED_SOURCE_IMAGE_TYPE')
+
+
+
+def _webp_color_mode(data: bytes) -> str:
+    """Validate alpha declarations without pretending to decode WebP pixels.
+
+    Called only after _source_dimensions has checked RIFF/chunk bounds.
+    Ambiguous extended containers fail closed pending full pixel decoding.
+    """
+    chunks = []
+    offset = 12
+    while offset < len(data):
+        kind = data[offset:offset + 4]
+        size = int.from_bytes(data[offset + 4:offset + 8], 'little')
+        chunks.append((kind, data[offset + 8:offset + 8 + size]))
+        offset += 8 + size + (size & 1)
+    kind, payload = chunks[0]
+    if kind == b'VP8L':
+        return 'RGBA' if payload[4] & 0x10 else 'RGB'
+    if kind == b'VP8 ':
+        return 'RGB'
+    if kind != b'VP8X':
+        raise ProjectArchiveError('UNSUPPORTED_WEBP_HEADER')
+    flags = payload[0]
+    if flags & ~0x3e or flags & 0x02 or payload[1:4] != bytes(3):
+        raise ProjectArchiveError('UNSUPPORTED_WEBP_EXTENDED_FLAGS')
+    frames = [(name, frame) for name, frame in chunks[1:]
+              if name in (b'VP8 ', b'VP8L')]
+    alpha = [part for name, part in chunks[1:] if name == b'ALPH']
+    if len(frames) != 1 or len(alpha) > 1:
+        raise ProjectArchiveError('INVALID_WEBP_FRAME')
+    frame_kind, frame = frames[0]
+    if frame_kind == b'VP8L':
+        if alpha or len(frame) < 5 or frame[0] != 0x2f or frame[4] & 0xe0:
+            raise ProjectArchiveError('INVALID_WEBP_ALPHA')
+        b0, b1, b2, b3 = frame[1:5]
+        dimensions = (1 + b0 + ((b1 & 0x3f) << 8),
+                      1 + (b1 >> 6) + (b2 << 2) + ((b3 & 0x0f) << 10))
+        frame_has_alpha = bool(frame[4] & 0x10)
+    else:
+        if len(frame) < 10 or frame[3:6] != bytes.fromhex('9d012a'):
+            raise ProjectArchiveError('INVALID_WEBP_FRAME')
+        dimensions = (int.from_bytes(frame[6:8], 'little') & 0x3fff,
+                      int.from_bytes(frame[8:10], 'little') & 0x3fff)
+        frame_has_alpha = bool(alpha)
+    canvas = (1 + int.from_bytes(payload[4:7], 'little'),
+              1 + int.from_bytes(payload[7:10], 'little'))
+    if dimensions != canvas or not all(dimensions):
+        raise ProjectArchiveError('WEBP_FRAME_CANVAS_MISMATCH')
+    if bool(flags & 0x10) != frame_has_alpha:
+        raise ProjectArchiveError('WEBP_ALPHA_FLAG_MISMATCH')
+    return 'RGBA' if frame_has_alpha else 'RGB'
 
 
 def _verify_png_pixels(data: bytes, width: int, height: int, *, grayscale: bool):
@@ -246,6 +399,14 @@ def _verify_png_pixels(data: bytes, width: int, height: int, *, grayscale: bool)
                     size == 0 or size > 768 or size % 3):
                 raise ProjectArchiveError('INVALID_PNG_PLTE')
             seen_plte = True
+        elif kind == b'tRNS':
+            # Transparency in an L8 mask makes its subject-white pixels
+            # semantically ambiguous: grayscale 255 can decode as alpha=0.
+            # Likewise L/RGB sources with tRNS are effectively LA/RGBA
+            # although SourceAsset advertises an opaque color_mode. RGBA
+            # files must not contain tRNS at all under PNG's chunk rules.
+            # Never strip this chunk silently: require explicit conversion.
+            raise ProjectArchiveError('PNG_UNDECLARED_TRANSPARENCY')
         elif kind == b'IDAT':
             if idat_closed or not seen_ihdr:
                 raise ProjectArchiveError('NONCONTIGUOUS_PNG_IDAT')
@@ -276,6 +437,80 @@ def _verify_png_pixels(data: bytes, width: int, height: int, *, grayscale: bool)
         raise ProjectArchiveError('INVALID_' + problem + '_PNG_PIXELS') from exc
     if any(uncompressed[y * row_size] > 4 for y in range(height)):
         raise ProjectArchiveError('INVALID_' + problem + '_PNG_FILTER')
+
+
+
+# Conservative non-executing artifact admission; not a Design Space guarantee.
+_SVG_NS = 'http://www.w3.org/2000/svg'
+_SVG_TAGS = {'svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'polygon',
+             'polyline', 'line', 'defs', 'clipPath', 'mask', 'linearGradient',
+             'radialGradient', 'stop', 'title', 'desc', 'text', 'tspan', 'metadata'}
+_SVG_STYLES = {'fill', 'stroke', 'stroke-width', 'opacity', 'fill-opacity',
+               'stroke-opacity', 'stroke-linecap', 'stroke-linejoin',
+               'stroke-dasharray', 'stroke-dashoffset', 'display', 'visibility',
+               'fill-rule', 'clip-rule'}
+
+
+def _verify_svg_artifact(data: bytes):
+    if len(data) > 4 * 1024 * 1024:
+        raise ProjectArchiveError('SVG_ARTIFACT_TOO_LARGE')
+    if re.search(rb'<!\s*(?:DOCTYPE|ENTITY)\b', data, re.I):
+        raise ProjectArchiveError('SVG_DTD_OR_ENTITY')
+    root, count, depth = None, 0, 0
+    try:
+        for event, node in ET.iterparse(BytesIO(data), events=('start', 'end', 'pi')):
+            if event == 'pi':
+                raise ProjectArchiveError('SVG_PROCESSING_INSTRUCTION')
+            if event == 'end':
+                depth -= 1
+                continue
+            if root is None:
+                root = node
+            count += 1
+            depth += 1
+            if count > 20000 or depth > 64:
+                raise ProjectArchiveError('SVG_COMPLEXITY_LIMIT')
+            if node.tag not in {f'{{{_SVG_NS}}}{tag}' for tag in _SVG_TAGS}:
+                raise ProjectArchiveError('SVG_ACTIVE_OR_FOREIGN_ELEMENT')
+            for key, value in node.attrib.items():
+                name = key.split('}', 1)[-1].lower()
+                if (name.startswith('on') or name in ('href', 'src', 'base')
+                        or (key.startswith('{') and
+                            not key.startswith(f'{{{_SVG_NS}}}') and
+                            key != '{http://www.w3.org/XML/1998/namespace}space')):
+                    raise ProjectArchiveError('SVG_ACTIVE_ATTRIBUTE')
+                low = value.lower()
+                if ('\\' in value or any(x in low for x in
+                        ('url(', 'javascript:', 'data:', '@import', 'expression(',
+                         'http://', 'https://', '/*', '*/'))):
+                    raise ProjectArchiveError('SVG_EXTERNAL_REFERENCE')
+                if name == 'style':
+                    for decl in value.split(';'):
+                        if not decl.strip():
+                            continue
+                        if ':' not in decl:
+                            raise ProjectArchiveError('SVG_UNSUPPORTED_STYLE')
+                        prop, val = decl.split(':', 1)
+                        if (prop.strip().lower() not in _SVG_STYLES or
+                                not re.fullmatch(r'[a-zA-Z0-9#.,+\- %]*', val.strip())):
+                            raise ProjectArchiveError('SVG_UNSUPPORTED_STYLE')
+    except (ET.ParseError, UnicodeError) as exc:
+        raise ProjectArchiveError('INVALID_SVG_XML') from exc
+    if root is None or root.tag != f'{{{_SVG_NS}}}svg':
+        raise ProjectArchiveError('NOT_SVG_ARTIFACT')
+
+
+def _verify_artifact_bytes(data: bytes, artifact: Artifact):
+    if artifact.use == 'print_then_cut_png':
+        width, height = _png_size(data, grayscale=False)
+        if (abs(width - artifact.width_mm * artifact.ppi / 25.4) > 0.51 or
+                abs(height - artifact.height_mm * artifact.ppi / 25.4) > 0.51):
+            raise ProjectArchiveError('PRINT_ARTIFACT_PIXEL_DIMENSIONS_MISMATCH')
+        _verify_png_pixels(data, width, height, grayscale=False)
+    elif artifact.use in ('basic_cut_svg', 'editable_svg'):
+        _verify_svg_artifact(data)
+    else:
+        raise ProjectArchiveError('UNKNOWN_ARTIFACT_USE')
 
 
 def _verify_mask_png(data: bytes, width: int, height: int):
@@ -347,7 +582,12 @@ def _validate_bundle(project: LoadedProject):
         expected[path] = ('source', source)
     for mask in project.masks:
         path = project.mask_paths.get(mask.mask_id)
-        if path != f'masks/{mask.mask_id}.png':
+        # G1.2 mask identifiers are stable logical keys, not ZIP filenames.
+        # Values such as 'mask:01' and 'CON' are valid IDs but unsafe on
+        # Windows. Persist them under independently chosen portable names.
+        if (not isinstance(path, str) or not path.startswith('masks/') or
+                len(path.split('/')) != 2 or not path.endswith('.png') or
+                len(path) <= len('masks/.png')):
             raise ProjectArchiveError('INVALID_MASK_PATH')
         _safe_path(path)
         if path in expected:
@@ -358,26 +598,41 @@ def _validate_bundle(project: LoadedProject):
         if path in expected:
             raise ProjectArchiveError('RESOURCE_PATH_COLLISION')
         expected[path] = ('artifact', artifact)
-    # G2.4 extension: one explicitly declared lossless mask supplement.
-    # Older .smartsvg archives have no such metadata and remain unchanged.
+    # G2.4 backward-compatible attachment: exactly declared full-resolution
+    # mask snapshot supplement, validated before any disk mutation. The
+    # upstream G1.3 security checks must also cover these ZIP resource paths.
     try:
         from .mask_snapshot_g24 import validate_archive_snapshot, MaskSnapshotError
-        mask_extras=validate_archive_snapshot(project)
+        mask_extras = validate_archive_snapshot(project)
     except MaskSnapshotError as exc:
         raise ProjectArchiveError('MASK_SNAPSHOT_INVALID: '+exc.code) from exc
     for snapshot_path in mask_extras:
         _safe_path(snapshot_path)
         if snapshot_path in expected:
             raise ProjectArchiveError('RESOURCE_PATH_COLLISION')
-        expected[snapshot_path]=('snapshot', None)
+        expected[snapshot_path] = ('snapshot', None)
     if set(project.source_paths) != {x.source_id for x in project.sources}:
         raise ProjectArchiveError('UNKNOWN_SOURCE_PATH')
     if set(project.mask_paths) != {x.mask_id for x in project.masks}:
         raise ProjectArchiveError('UNKNOWN_MASK_PATH')
     if set(project.resources) != set(expected):
         raise ProjectArchiveError('RESOURCE_SET_MISMATCH')
-    if len({p.casefold() for p in expected}) != len(expected):
+    portable_resources = [unicodedata.normalize('NFC', p).casefold() for p in expected]
+    if len(set(portable_resources)) != len(expected):
         raise ProjectArchiveError('CASE_COLLIDING_RESOURCE_PATHS')
+    # Prevent file/directory conflicts both among resources and against the
+    # mandatory ZIP metadata. ZIP readers may extract or display these paths
+    # differently on Windows, macOS or case-insensitive filesystems.
+    portable_metadata = {unicodedata.normalize('NFC', p).casefold()
+                         for p in (*JSON_FILES, 'manifest.json')}
+    if portable_metadata.intersection(portable_resources):
+        raise ProjectArchiveError('RESERVED_ARCHIVE_RESOURCE_PATH')
+    portable_all = set(portable_resources) | portable_metadata
+    for path_name in portable_all:
+        segments = path_name.split('/')
+        if any('/'.join(segments[:index]) in portable_all
+               for index in range(1, len(segments))):
+            raise ProjectArchiveError('ARCHIVE_FILE_DIRECTORY_PATH_CONFLICT')
     total = 0
     for path, (kind, rec) in expected.items():
         data = project.resources[path]
@@ -385,13 +640,22 @@ def _validate_bundle(project: LoadedProject):
             raise ProjectArchiveError('INVALID_RESOURCE_BYTES')
         if kind != 'snapshot' and _digest(data) != rec.sha256:
             raise ProjectArchiveError('RESOURCE_SHA256_MISMATCH')
-        # Snapshot bytes and decoded SHA are fully verified by the G2.4
-        # extension above; manifest entry SHA still protects ZIP transport.
+        # G2.4 snapshot compressed bytes + decoded float32 digest are checked
+        # by validate_archive_snapshot; ZIP manifest independently hashes bytes.
         if kind == 'source':
-            dims = _source_dimensions(path, data)
+            suffix = PurePosixPath(path).suffix.lower()
+            if suffix in ('.jpg', '.jpeg'):
+                dims, actual_mode = _jpeg_source_info(data)
+            elif suffix == '.webp':
+                dims = _source_dimensions(path, data)
+                actual_mode = _webp_color_mode(data)
+            else:
+                dims, actual_mode = _source_dimensions(path, data), None
             if dims != (rec.width_px, rec.height_px):
                 raise ProjectArchiveError('SOURCE_PIXEL_DIMENSIONS_MISMATCH')
-            if PurePosixPath(path).suffix.lower() == '.png':
+            if actual_mode is not None and rec.color_mode != actual_mode:
+                raise ProjectArchiveError('SOURCE_COLOR_MODE_MISMATCH')
+            if suffix == '.png':
                 # SourceAsset.color_mode is an explicit contract, not a hint:
                 # an RGBA label on opaque/RGB bytes can silently mislead
                 # mask creation and downstream transparency diagnostics.
@@ -406,6 +670,8 @@ def _validate_bundle(project: LoadedProject):
                                    grayscale=False)
         elif kind == 'mask':
             _verify_mask_png(data, rec.width_px, rec.height_px)
+        elif kind == 'artifact':
+            _verify_artifact_bytes(data, rec)
         total += len(data)
     if total > MAX_TOTAL_BYTES:
         raise ProjectArchiveError('RESOURCES_TOO_LARGE')
@@ -513,9 +779,10 @@ def load_project(path) -> LoadedProject:
             seen, total = set(), 0
             for info in infos:
                 name = _safe_path(info.filename)
-                if name.casefold() in seen:
+                portable_name = unicodedata.normalize('NFC', name).casefold()
+                if portable_name in seen:
                     raise ProjectArchiveError('DUPLICATE_ARCHIVE_PATH')
-                seen.add(name.casefold())
+                seen.add(portable_name)
                 mode = (info.external_attr >> 16) & 0xffff
                 if (info.is_dir() or (stat.S_IFMT(mode) not in (0, stat.S_IFREG)) or
                         info.flag_bits & 1 or info.compress_type not in (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED)):
