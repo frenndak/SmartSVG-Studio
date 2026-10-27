@@ -155,7 +155,7 @@ class Artifact:
         if (not self.file_path or p.is_absolute() or '..' in p.parts or '.' in p.parts or
                 p.as_posix() != self.file_path or len(self.file_path) > 512 or
                 any(char in _WINDOWS_FORBIDDEN or
-                    (unicodedata.category(char) in ('Cc', 'Cf', 'Zl', 'Zp') or char == '\u034f' or
+                    (unicodedata.category(char) in ('Cc', 'Cf', 'Cs', 'Zl', 'Zp') or char == '\u034f' or
                      0xFE00 <= ord(char) <= 0xFE0F or
                      0xE0100 <= ord(char) <= 0xE01EF)
                     for char in self.file_path) or
