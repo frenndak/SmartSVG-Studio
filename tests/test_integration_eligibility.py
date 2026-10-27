@@ -379,7 +379,7 @@ class IntegrationGateTests(unittest.TestCase):
             reviews.append({
                 "state": state, "commit_id": HEAD,
                 "submitted_at": "2026-10-26T06:20:00Z",
-                "user": {"login": "unrelated-public-account-" + state.lower().replace("_", "-"),
+                "user": {"login": "outsider-" + state.lower().replace("_", "-"),
                          "type": "User"},
             })
         seen = []
