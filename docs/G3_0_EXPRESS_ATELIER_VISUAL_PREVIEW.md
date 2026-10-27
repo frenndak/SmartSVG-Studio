@@ -39,4 +39,8 @@ Les visuels d'escargots sont des exemples vectoriels simplifiés, pas une image 
 3. Raccorder l'import réellement normalisé (orientation EXIF, espaces couleur, alpha), le routeur de projets et l'affichage d'inspection G2.6/G2.7 à une UI principale ; conserver les opérations destructrices et GPU explicitement déclenchées.
 4. Recette de bout en bout Windows/ComfyUI puis Design Space/Explore5.
 
-Cette branche se base sur le candidat **PR #38**, qui reste **DRAFT** et non fusionné. La roadmap V3.2 et les 651 hashes historiques sont préservés.
+**État depuis la consolidation :** la PR #38 (socle G1/G2, avec sécurité des sauvegardes P0) a été fusionnée dans `main` au commit `b406bc0c`. La PR G3.0 #39 cible donc désormais directement `main` et reste un prototype visuel à qualifier. La roadmap V3.2 et les 651 hashes historiques sont préservés.
+
+## Recette utilisateur G3.0
+
+Tester les cinq étapes et la sélection 12/12, puis importer un PNG/JPEG/WebP local pour vérifier l'absence de prétendue séparation IA. Tester en mode mobile, clavier et clavier virtuel, zoom et retour aux exemples. **Ne pas tenter d'utiliser ce preview comme un SVG de découpe**. Le panneau Express complet de ComfyUI conserve la validation des vrais artefacts de la pile G1/G2.
