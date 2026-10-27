@@ -43,4 +43,6 @@ L2/L3 sont requis pour revendiquer les capacités correspondantes, mais pas pour
 
 ## Publication responsable
 
+**Licence :** la visibilité publique d'un dépôt n'accorde pas, à elle seule, de droits de réutilisation ou de redistribution. Aucun fichier de licence explicite n'a été trouvé sur `main` ni sur les HEAD des PR ouvertes lors de l'inventaire du 27 octobre 2026. Avant de présenter le projet comme open source, choisir et publier une licence compatible avec les droits sur les sources, les dépendances et les assets, puis vérifier aussi l'historique Git.
+
 Ne pas ajouter de photos utilisateur, de contenus tiers sans licence, de secrets ou de données personnelles. L'historique Git public doit être audité séparément ; supprimer un fichier ne retire pas les copies déjà publiées. Conserver l'archive historique et la roadmap figée intactes.
