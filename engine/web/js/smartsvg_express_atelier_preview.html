@@ -106,7 +106,7 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:.001;overflow:hi
   <section class="real-review" id="realProjectHost" aria-label="Gestion réelle des projets SmartSVG" hidden><h2>Mes projets .smartsvg · G2.2</h2><p>Gestion réelle via ComfyUI local : créer depuis un PNG, inspecter une sauvegarde, modifier les notes ou restaurer un secours après confirmation. Le JPEG/WebP de l'aperçu ne peut pas être utilisé directement ici et aucune opération n'est lancée automatiquement.</p>
 <div class="project-options"><div><label for="realProjectProfile">Type de projet enregistré</label><select id="realProjectProfile"><option value="Planche - 12 images (4x3)">Planche de 12 motifs</option><option value="Sticker - contour du sujet">Autocollant individuel</option><option value="Planche - 24 images (6x4)">Planche de 24 motifs</option><option value="Carte - visuel rectangulaire">Carte rectangulaire</option><option value="Auto - conserver le visuel">Détection prudente</option></select></div><div><label for="realProjectDpi">Précision du projet</label><select id="realProjectDpi"><option value="300">300 ppp</option><option value="450">450 ppp</option></select></div></div>
 <div id="realProjectMount"></div></section>
-  <div class="stats"><span>⚙ <strong id="statePill">12 objets de démonstration</strong></span><span>◇ <strong>Source locale</strong></span><span>↺ <strong>Retouches : module séparé</strong></span><span>✓ <strong>Exports réels : désactivés</strong></span></div>
+  <div class="stats"><span>⚙ <strong id="statePill">12 objets de démonstration</strong></span><span>◇ <strong>Source locale</strong></span><span>↺ <strong>Retouches : module séparé</strong></span><span>✓ <strong>SVG sélectionné : brouillon dans le panneau réel</strong></span></div>
   <div class="footer-actions"><p><strong id="actionTitle">Étape suivante : contrôlez vos sujets</strong><br><span id="actionDesc">Cet aperçu montre le parcours et les commandes, pas une vectorisation réelle.</span></p><div style="display:flex;gap:9px;flex-wrap:wrap"><button class="outline" type="button" id="resetSelect">Réinitialiser</button><button class="primary" type="button" id="next">Continuer vers l'export →</button></div></div>
   <div id="notification" role="status" aria-live="polite"></div>
  </div>
@@ -155,26 +155,27 @@ function paint(){
  $("none").setAttribute("aria-pressed",String(demo&&count===0));
  $("alternate").setAttribute("aria-pressed",String(demo&&count===6&&[1,3,5,7,9,11].every(i=>selected.has(i))));
  const w=Number($("width").value);
- $("sizeNote").textContent="APERÇU · "+(Number.isFinite(w)&&w>=10&&w<=200?w:"?")+" MM PAR SUJET";
+ $("sizeNote").textContent=demo?"APERÇU · "+(Number.isFinite(w)&&w>=10&&w<=200?w:"?")+" MM PAR SUJET":"SOURCE · TAILLE PHYSIQUE NON APPLIQUÉE";
+ $("artboardNote").textContent=demo?"PLAN DE TRAVAIL · DÉMONSTRATION":"SOURCE NON SEGMENTÉE";
 }
 function update(){
  paint();
  $("stageTitle").textContent=({source:"Importer votre image",clean:"Nettoyage des images",subjects:"Ma planche de sujets",retouch:"Retouches des masques",cut:"Contours & découpe",export:"Préparer les exports"})[view]||"Mon atelier";
- $("stageSubtitle").textContent=demo?"Exemple interactif · silhouettes fictives · pas d’IA exécutée":"Image locale · le moteur ComfyUI n'est pas connecté à cet aperçu";
+ $("stageSubtitle").textContent=demo?"Exemple interactif · silhouettes fictives · pas d’IA exécutée":"Image locale · aucun sujet détecté, aucune vectorisation exécutée";
  document.querySelectorAll("[data-step]").forEach(b=>b.setAttribute("aria-current",b.dataset.step===view?"step":"false"));
  document.querySelectorAll("[data-view]").forEach(b=>b.setAttribute("aria-current",b.dataset.view===view?"page":"false"));
  const titles={
  source:["Importez une photo ou une planche","PNG, JPEG et WebP sont affichés localement ; aucune conversion ne s’exécute ici."],
  clean:["Prochaine fonction : détourage assisté","L’IA locale, l’effacement du fond et l’upscale seront raccordés dans ComfyUI."],
  subjects:["Étape suivante : contrôlez vos sujets","Activez ou masquez les 12 exemples pour tester la sélection."],
- retouch:["Retouchez les masques dans SmartSVG","Les pinceaux réels, l’annulation et la restauration des brouillons existent dans l’éditeur ComfyUI V21.6."],
- cut:["Inspectez les chemins de découpe","Le contrôle SVG réel est disponible dans la pile G2.9 ; cette scène est illustrative."],
+ retouch:["Retouchez les masques dans SmartSVG","Les pinceaux réels, l’annulation et les brouillons sont dans l’éditeur ComfyUI V21.6 ; pas encore sur cette planche."],
+ cut:["Inspectez les chemins de découpe","Ouvrez « Examiner un vrai SVG de contours » pour accéder au validateur G2.9 ; aucune machine n’est lancée."],
  export:["Exports en attente de validation","Les fichiers de production doivent être générés par le moteur puis vérifiés dans Design Space."]
  };
  $("actionTitle").textContent=titles[view][0];$("actionDesc").textContent=titles[view][1];
  const mode=document.querySelector('input[name="mode"]:checked').value;
  $("modeHint").textContent=mode==="cut"?"⚠️ Basic Cut : contours externes à vérifier. La planche affichée est une démonstration, sans tracé validé.":mode==="print"?"⚠️ Print Then Cut : images et marges de coupe réelles à générer et contrôler dans Design Space.":"⚠️ SVG éditable : vectorisation des traits intérieurs non réalisée dans cet aperçu.";
- $("next").textContent=view==="export"?"Vérifier l'état de l'export →":"Continuer →";
+ $("next").textContent=view==="export"?"Exports indisponibles dans la maquette":"Étape suivante →";
 }
 function setView(name){if(!Object.prototype.hasOwnProperty.call(C,name))return;view=name;update();notify(view==="export"?"Aucun export de production n'est possible depuis cette maquette.":"Étape affichée : "+C[name]+".");}
 document.querySelectorAll("[data-step]").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.step)));
