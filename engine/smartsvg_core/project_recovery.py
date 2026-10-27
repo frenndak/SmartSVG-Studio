@@ -58,6 +58,9 @@ MESSAGES_FR = {
     'BACKUP_CONFLICT': (
         'Une copie de secours existe déjà mais elle est endommagée ou appartient à un autre projet.',
         'Préserver ce fichier et choisir un nouvel emplacement après vérification.'),
+    'PENDING_BACKUP_REVIEW_REQUIRED': (
+        'Une sauvegarde interrompue conserve une version précédente à examiner.',
+        'Vérifier les projets puis confirmer la finalisation ou la restauration du secours.'),
     'SAVE_FAILED': (
         'La sauvegarde n’a pas pu être terminée.',
         'Vérifier l’espace disponible, les droits du dossier et le fichier de secours.'),
@@ -87,6 +90,11 @@ def _previous(target: Path) -> Path:
     return target.with_name(target.stem + '.previous.smartsvg')
 
 
+def _pending(target: Path) -> Path:
+    """Persistent prior-primary snapshot until the new primary and backup commit."""
+    return target.with_name(target.stem + '.pending-backup.smartsvg')
+
+
 def _lock_file(target: Path) -> Path:
     return target.with_name(target.name + '.lock')
 
@@ -108,7 +116,11 @@ def inspect_project(path) -> RecoveryReport:
     target = _location(path)
     primary, main = _diagnose(target)
     previous, recovered = _diagnose(_previous(target))
-    if primary == 'valid':
+    # Inspection stays read-only: never discard a crash-recovery snapshot here.
+    pending_path = _pending(target)
+    if pending_path.exists() or pending_path.is_symlink():
+        status = 'PENDING_BACKUP_REVIEW_REQUIRED'
+    elif primary == 'valid':
         status = 'PROJECT_HEALTHY'
     elif previous == 'valid':
         status = 'PROJECT_RECOVERABLE'
@@ -209,19 +221,24 @@ def _atomic_copy(source: Path, destination: Path) -> None:
 
 
 def save_with_recovery(path, project: LoadedProject, *, expected_sha256=None) -> dict:
-    """Preserve last valid primary before overwrite; no destructive fallback.
+    """Commit the primary before rotating the previous backup.
 
-    Calling G1.3 save_project (rather than silently overwriting backup files)
-    keeps its validation, readback and atomic replace semantics.
+    The old primary is first staged in a persistent, validated sidecar. If
+    publication fails, the existing previous backup is untouched. If the
+    process stops between primary publication and backup rotation, the staged
+    prior primary survives for an explicit, user-confirmed resolution.
     """
     target = _location(path)
+    pending_path = _pending(target)
     with _project_lock(target):
+        if pending_path.exists() or pending_path.is_symlink():
+            raise RecoveryError('PENDING_BACKUP_REVIEW_REQUIRED')
         primary, current = _diagnose(target)
-        if primary == 'invalid':
-            raise RecoveryError('NO_VALID_RECOVERY_SNAPSHOT')
         if expected_sha256 is not None:
             if primary != 'valid' or _file_sha(target) != expected_sha256:
                 raise RecoveryError('PROJECT_CHANGED_DURING_SAVE')
+        if primary == 'invalid':
+            raise RecoveryError('NO_VALID_RECOVERY_SNAPSHOT')
         if primary == 'valid':
             if current.project_id != project.project_id:
                 raise RecoveryError('PROJECT_CHANGED_DURING_SAVE')
@@ -230,26 +247,87 @@ def save_with_recovery(path, project: LoadedProject, *, expected_sha256=None) ->
                 backup_state == 'valid' and
                 backup_project.project_id != current.project_id
             ):
-                # Never destroy a foreign or potentially salvageable old backup.
                 raise RecoveryError('BACKUP_CONFLICT')
-            # Validate the candidate BEFORE replacing the previous snapshot.
-            # This is essential even when a valid current primary exists:
-            # save_project would reject an invalid new archive only *after*
-            # _atomic_copy overwrote an older known-good .previous backup.
             try:
                 _payload(project)
             except ProjectArchiveError as exc:
                 raise RecoveryError('SAVE_FAILED') from exc
-            _atomic_copy(target, _previous(target))
+            # No existing backup is touched until the new primary is valid.
+            # The sidecar persists across process crashes after publication.
+            _atomic_copy(target, pending_path)
         try:
             saved = save_project(target, project, overwrite=(primary == 'valid'))
-            # Verify actual published file, not only in-memory bytes.
             verified = load_project(target)
             if verified.project_id != project.project_id:
                 raise RecoveryError('PROJECT_CHANGED_DURING_SAVE')
-        except ProjectArchiveError as exc:
+        except (ProjectArchiveError, RecoveryError, OSError) as exc:
+            if primary == 'valid':
+                # If the primary never changed, discard the staging sidecar.
+                # Otherwise preserve it: a partial/committed publication may
+                # require explicit recovery after a process or disk failure.
+                try:
+                    if _file_sha(target) == _file_sha(pending_path):
+                        pending_path.unlink()
+                except OSError:
+                    pass
             raise RecoveryError('SAVE_FAILED') from exc
+        if primary == 'valid':
+            # Publication succeeded; only now rotate the previous snapshot.
+            # On failure the sidecar is retained, never silently discarded.
+            _atomic_copy(pending_path, _previous(target))
+            try:
+                pending_path.unlink()
+            except OSError as exc:
+                raise RecoveryError('SAVE_FAILED') from exc
         return {**saved, 'previous_available': primary == 'valid',
+                'physical_cut_verified': False}
+
+
+def resolve_pending_backup(path, *, confirmed: bool = False) -> dict:
+    """Explicitly finish or roll back an interrupted backup transaction.
+
+    A valid new primary keeps its bytes; the staged prior primary becomes the
+    previous snapshot. An invalid/missing primary can be restored from staging.
+    No pending file is removed without explicit confirmation.
+    """
+    target = _location(path)
+    if not confirmed:
+        raise RecoveryError('RECOVERY_CONFIRMATION_REQUIRED')
+    with _project_lock(target):
+        pending_path = _pending(target)
+        pending_state, staged = _diagnose(pending_path)
+        if pending_state != 'valid':
+            raise RecoveryError('NO_VALID_RECOVERY_SNAPSHOT')
+        primary, current = _diagnose(target)
+        if primary == 'valid':
+            if current.project_id != staged.project_id:
+                raise RecoveryError('PROJECT_CHANGED_DURING_SAVE')
+            previous_path = _previous(target)
+            previous_state, previous_project = _diagnose(previous_path)
+            if previous_state == 'invalid' or (
+                previous_state == 'valid' and
+                previous_project.project_id != staged.project_id
+            ):
+                raise RecoveryError('BACKUP_CONFLICT')
+            if _file_sha(target) != _file_sha(pending_path):
+                if previous_state == 'missing' or (
+                    _file_sha(previous_path) != _file_sha(pending_path)
+                ):
+                    _atomic_copy(pending_path, previous_path)
+                outcome = 'pending_backup_finalized'
+            else:
+                # The new primary was never published; older backup is intact.
+                outcome = 'unpublished_candidate_discarded'
+        else:
+            if target.is_symlink():
+                raise RecoveryError('SAVE_FAILED')
+            _atomic_copy(pending_path, target)
+            outcome = 'staged_primary_restored'
+        try:
+            pending_path.unlink()
+        except OSError as exc:
+            raise RecoveryError('SAVE_FAILED') from exc
+        return {'status': outcome, 'project_id': staged.project_id,
                 'physical_cut_verified': False}
 
 
@@ -259,6 +337,8 @@ def recover_previous(path, *, confirmed: bool = False) -> dict:
     if not confirmed:
         raise RecoveryError('RECOVERY_CONFIRMATION_REQUIRED')
     with _project_lock(target):
+        if _pending(target).exists() or _pending(target).is_symlink():
+            raise RecoveryError('PENDING_BACKUP_REVIEW_REQUIRED')
         primary, _ = _diagnose(target)
         previous_path = _previous(target)
         previous, snapshot = _diagnose(previous_path)
