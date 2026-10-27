@@ -1,3 +1,4 @@
+import { inspectSvgPathGrammar } from './smartsvg_svg_path_grammar_g29.mjs';
 /** G2.7: local, non-executing inspection of an SVG containing cut paths.
  * This is an indicative preview and a sanitizing subset builder, NOT a
  * Cricut Design Space import check or a physical cut qualification.
@@ -37,16 +38,13 @@ function box(value){
   return data;
 }
 function cutPath(d){
-  if(typeof d!=='string'||!d||d.length>150000||!D_ALLOWED.test(d))
-    fail('UNSUPPORTED_PATH');
-  const trimmed=d.trim();
-  if(!/^[Mm]/.test(trimmed)||!/[Zz]\s*$/.test(trimmed)||
-     !/[LlHhVvCcSsQqTtAa]/.test(trimmed))
-    fail('OPEN_OR_EMPTY_CONTOUR');
-  const nums=trimmed.match(new RegExp(NUM,'g'))||[];
-  if(nums.length>50000||nums.some(n=>!Number.isFinite(Number(n))||Math.abs(Number(n))>1e6))
-    fail('INVALID_PATH_COORDINATE');
-  return trimmed;
+  // Syntax, parameter arity, every subpath closure and non-degenerate line
+  // contours are mandatory, not just an M/L/Z prefix heuristic.
+  if(typeof d!=='string'||d.length>150000)fail('UNSUPPORTED_PATH');
+  const value=d.trim();
+  if(!value)fail('UNSUPPORTED_PATH');
+  inspectSvgPathGrammar(value);
+  return value;
 }
 function safeId(id){
   return typeof id==='string'&&/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(id);
@@ -101,6 +99,16 @@ export function inspectCutSvg(source,{parseXml}={}){
   const physicalRatio=width_mm/height_mm,coordinateRatio=viewBox[2]/viewBox[3];
   if(Math.abs(physicalRatio-coordinateRatio)/physicalRatio>0.02)
     fail('SVG_RATIO_CONFLICT');
+  // Reject paths that would be clipped by the target artboard. For complex
+  // curves the control-point bounds are intentionally conservative.
+  const [vx,vy,vw,vh]=viewBox;
+  const tolerance=Math.max(vw,vh)*1e-6;
+  for(const item of paths){
+    const [left,top,right,bottom]=inspectSvgPathGrammar(item.d).bounds;
+    if(left<vx-tolerance||top<vy-tolerance||
+       right>vx+vw+tolerance||bottom>vy+vh+tolerance)
+      fail('PATH_OUTSIDE_VIEWBOX');
+  }
   return Object.freeze({
     width_mm,height_mm,viewBox:Object.freeze(viewBox),
     paths:Object.freeze(paths.map(p=>Object.freeze(p))),
@@ -138,6 +146,9 @@ export const REVIEW_MESSAGES=Object.freeze({
   DUPLICATE_SVG_ID:'Le SVG contient des identifiants d’objets en double.',
   UNSUPPORTED_PATH:'Tracé SVG non pris en charge ou non conforme.',
   OPEN_OR_EMPTY_CONTOUR:'Au moins un contour n’est pas fermé ou ne contient pas de segment.',
+  DEGENERATE_CUT_PATH:'Contour sans surface détectable : corriger la géométrie avant export.',
+  INVALID_PATH_GRAMMAR:'Commande de tracé incomplète ou nombre de coordonnées incorrect.',
+  PATH_OUTSIDE_VIEWBOX:'Un contour dépasse la zone de dessin et serait tronqué à l’export.',
   INVALID_PATH_COORDINATE:'Coordonnée de tracé invalide.',
   NO_CUT_PATHS:'Aucun chemin de découpe SVG trouvé.',
   TOO_MANY_PATHS:'Plus de 64 chemins : regrouper les objets avant le contrôle.',
