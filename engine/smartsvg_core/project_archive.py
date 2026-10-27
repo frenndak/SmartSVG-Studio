@@ -15,12 +15,13 @@ import re
 import stat
 import struct
 import tempfile
+import unicodedata
 import zipfile
 import zlib
 
 from .project_contracts import (
     Artifact, Mask, QAResult, SourceAsset, Subject, RecordError,
-    record_dict, validate_project_records,
+    record_dict, validate_project_records, _WINDOWS_DEVICE, _WINDOWS_FORBIDDEN,
 )
 
 SCHEMA_VERSION = 'smartsvg-project/1'
@@ -31,7 +32,6 @@ MAX_ARCHIVE_BYTES = 280 * 1024 * 1024
 MAX_JSON_BYTES = 4 * 1024 * 1024
 JSON_FILES = ('document.json', 'operations.json', 'sources.json', 'masks.json',
               'subjects.json', 'artifacts.json', 'proofs/qa_results.json')
-SAFE_NAME = re.compile(r'^[A-Za-z0-9_.\-/]+$')
 VALID_ID = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$')
 PNG_MAGIC = b'\x89PNG\r\n\x1a\n'
 
@@ -61,13 +61,26 @@ def _digest(data: bytes) -> str:
 
 
 def _safe_path(path: str) -> str:
-    if (not isinstance(path, str) or len(path) > 512 or not SAFE_NAME.fullmatch(path)
-            or '\\' in path or ':' in path or '//' in path):
+    """Portable path aligned with G1.2: accept safe visible Unicode and spaces.
+
+    Validate on both save and load, without extracting ZIP members to disk.
+    """
+    if (not isinstance(path, str) or not path or len(path) > 512 or
+            '\\' in path or ':' in path):
         raise ProjectArchiveError('UNSAFE_ARCHIVE_PATH')
-    parts = PurePosixPath(path).parts
-    if (not parts or PurePosixPath(path).is_absolute() or
-            any(p in ('.', '..') for p in path.split('/')) or
-            path != PurePosixPath(path).as_posix() or path.endswith('/')):
+    p = PurePosixPath(path)
+    parts = path.split('/')
+    if (p.is_absolute() or p.as_posix() != path or
+            any(part in ('', '.', '..') for part in parts) or
+            any(char in _WINDOWS_FORBIDDEN or
+                unicodedata.category(char) in ('Cc', 'Cf', 'Cs', 'Zl', 'Zp')
+                or char == '\u034f' or
+                0xFE00 <= ord(char) <= 0xFE0F or
+                0xE0100 <= ord(char) <= 0xE01EF
+                for char in path) or
+            any(part.endswith(('.', ' ')) or
+                _WINDOWS_DEVICE.fullmatch(part) or
+                len(part.encode('utf-8')) > 255 for part in parts)):
         raise ProjectArchiveError('UNSAFE_ARCHIVE_PATH')
     return path
 
@@ -372,7 +385,7 @@ def _validate_bundle(project: LoadedProject):
         raise ProjectArchiveError('UNKNOWN_MASK_PATH')
     if set(project.resources) != set(expected):
         raise ProjectArchiveError('RESOURCE_SET_MISMATCH')
-    if len({p.casefold() for p in expected}) != len(expected):
+    if len({unicodedata.normalize('NFC', p).casefold() for p in expected}) != len(expected):
         raise ProjectArchiveError('CASE_COLLIDING_RESOURCE_PATHS')
     total = 0
     for path, (kind, rec) in expected.items():
@@ -507,9 +520,10 @@ def load_project(path) -> LoadedProject:
             seen, total = set(), 0
             for info in infos:
                 name = _safe_path(info.filename)
-                if name.casefold() in seen:
+                portable_name = unicodedata.normalize('NFC', name).casefold()
+                if portable_name in seen:
                     raise ProjectArchiveError('DUPLICATE_ARCHIVE_PATH')
-                seen.add(name.casefold())
+                seen.add(portable_name)
                 mode = (info.external_attr >> 16) & 0xffff
                 if (info.is_dir() or (stat.S_IFMT(mode) not in (0, stat.S_IFREG)) or
                         info.flag_bits & 1 or info.compress_type not in (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED)):
