@@ -6,7 +6,7 @@
 
 | Niveau | Ce qui est prouvé | Ce que cela ne prouve pas |
 | --- | --- | --- |
-| **Code fusionné** | Modules Python/JS, contrats projets, inspecteur SVG, interface Express G3.1 sur `main` | Logiciel complet installé chez l'utilisateur |
+| **Code fusionné** | Modules Python/JS, contrats projets, inspecteur SVG, interface Express G3.1/G3.2 sur `main` | Logiciel complet installé chez l'utilisateur |
 | **CI automatisée** | Gates Python/Node G0/CPU des micro-lots et sécurité des sources ; derniers G3.1 : G0 **264**, HEAD **264**, CPU **4** réussis | Qualité visuelle d'une photographie, compatibilité hardware |
 | **Essai navigateur** | Maquette statique manipulable, fichier HTML disponible dans le dépôt | Fonctionnement du module `.mjs` dans l'installation ComfyUI Windows |
 | **Certification Cricut** | **Aucune** | Pas d'import/marge/dimension/coupe réelle validés sur Explore 5 |
@@ -25,13 +25,14 @@ Les réussites de CI sont des **constats de leurs commits**, pas un compteur glo
 | **G2.8** | Brouillon de traits récupérable après incident navigateur | PR #38 ; ne sauvegarde pas tout le graphe ComfyUI |
 | **G3.0** | Atelier plein écran responsive, mode exemple 12 sujets, image locale | PR #39 ; pas de conversion ni segmentation IA réelle |
 | **G3.1** | Bouton pour charger volontairement l'inspecteur réel G2.9 depuis l'atelier servi par ComfyUI | PR #46 ; route module ES à tester sur ComfyUI installé |
+| **G3.2** | Bouton opt-in vers le **vrai gestionnaire de projets G2.2** dans le grand atelier : création PNG, inspection `.smartsvg`, notes et récupération avec confirmation ; DPI 300/450 natifs | Micro-lot G3.2 ; même origine ComfyUI/route API et UI réelle Windows à vérifier |
 | **CI / gouvernance** | Précontrôle public HEAD, protection de sauvegarde, budgets optionnels et chemins historiques, dépôt public | PR #42–45 ; aucun appel payant nécessaire |
 
 ## Candidats prioritaires
 
 **P0 — Test de terrain nécessaire avant promesse produit :** installer le `main` actuel sur le Windows cible, relever versions ComfyUI/Node/Python/extensions, vérifier que l'Atelier se charge depuis Express et que la PR #46 peut importer un SVG local. Enregistrer preuves écran + fichiers de sortie **dans un emplacement privé** (ne pas publier d'illustrations de l'utilisateur). Cette étape reste **NON FAITE** tant qu'une vérification matérielle n'est pas remontée.
 
-**P1 — G3.2, première vraie intégration du projet dans l'atelier :** réutiliser les routes G2.2 de façon authentifiée et same-origin ; exposer sélection/projets en cours, statuts, source PNG, sans chargement automatique de fichier ni effet serveur à l'ouverture. Ajouter gestion claire des conflits de sauvegarde et tests de sûreté.
+**P1 — G3.2, première intégration de projets :** le panneau natif G2.2 est accessible volontairement dans l'atelier en cours. **À vérifier sur le PC cible** : accès au module ES, disponibilité des routes G2.2 activées, création PNG, lecture `.smartsvg` et récupération de secours. Aucun projet n'est créé ou modifié à l'ouverture du panneau.
 
 **P1 — G3.3, sujets et masques réellement visibles :** raccorder l'inspecteur G2.6 (fragments / zones suspectes) et l'état des masques G2.4 sans conversion destructive ; séparation visuelle des 12 sujets fictifs et des vrais objets.
 
@@ -60,5 +61,6 @@ Le gestionnaire de projets du panneau Express dispose déjà de fonctions réell
 
 - [Roadmap figée](ROADMAP_MASTER_v3_2.md)
 - [Documentation du raccordement G3.1](G3_1_EXPRESS_REAL_SVG_REVIEW.md)
+- [Gestion native des projets dans l'atelier G3.2](G3_2_ATELIER_NATIVE_PROJECTS.md)
 - [Contrat de source figée](SOURCE_V21_15_2_PROVENANCE.json)
 - [Suivi GitHub des anciennes PR](https://github.com/frenndak/SmartSVG-Studio/issues/41)
