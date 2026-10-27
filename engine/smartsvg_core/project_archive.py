@@ -476,8 +476,22 @@ def _validate_bundle(project: LoadedProject):
         raise ProjectArchiveError('UNKNOWN_MASK_PATH')
     if set(project.resources) != set(expected):
         raise ProjectArchiveError('RESOURCE_SET_MISMATCH')
-    if len({unicodedata.normalize('NFC', p).casefold() for p in expected}) != len(expected):
+    portable_resources = [unicodedata.normalize('NFC', p).casefold() for p in expected]
+    if len(set(portable_resources)) != len(expected):
         raise ProjectArchiveError('CASE_COLLIDING_RESOURCE_PATHS')
+    # Prevent file/directory conflicts both among resources and against the
+    # mandatory ZIP metadata. ZIP readers may extract or display these paths
+    # differently on Windows, macOS or case-insensitive filesystems.
+    portable_metadata = {unicodedata.normalize('NFC', p).casefold()
+                         for p in (*JSON_FILES, 'manifest.json')}
+    if portable_metadata.intersection(portable_resources):
+        raise ProjectArchiveError('RESERVED_ARCHIVE_RESOURCE_PATH')
+    portable_all = set(portable_resources) | portable_metadata
+    for path_name in portable_all:
+        segments = path_name.split('/')
+        if any('/'.join(segments[:index]) in portable_all
+               for index in range(1, len(segments))):
+            raise ProjectArchiveError('ARCHIVE_FILE_DIRECTORY_PATH_CONFLICT')
     total = 0
     for path, (kind, rec) in expected.items():
         data = project.resources[path]
