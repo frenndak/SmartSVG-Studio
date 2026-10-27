@@ -225,6 +225,56 @@ class ArchiveG13Tests(unittest.TestCase):
                 self.assertEqual(self.path.read_bytes(), original_archive)
                 self.assertEqual(load_project(self.path), good)
 
+    def test_png_chunk_structure_rejected_despite_valid_crc_and_sha(self):
+        # IHDR duplication, unknown critical chunks and separated IDATs can
+        # have valid per-chunk CRCs yet still violate the PNG file grammar.
+        from dataclasses import replace
+        good = _fixture()
+        save_project(self.path, good)
+        snapshot = self.path.read_bytes()
+        png = _png(16, 12, 6)
+        def chunk(name, body):
+            return (struct.pack('>I', len(body)) + name + body +
+                    struct.pack('>I', zlib.crc32(name + body) & 0xffffffff))
+        compressed = png[41:-16]
+        split = max(1, len(compressed) // 2)
+        bad = (
+            (png[:33] + png[8:33] + png[33:], 'DUPLICATE_PNG_IHDR'),
+            (png[:33] + chunk(b'ABCD', b'') + png[33:],
+             'UNKNOWN_CRITICAL_PNG_CHUNK'),
+            (png[:33] + chunk(b'IDAT', compressed[:split]) +
+             chunk(b'tEXt', b'comment\x00valid') +
+             chunk(b'IDAT', compressed[split:]) + png[-12:],
+             'NONCONTIGUOUS_PNG_IDAT'),
+        )
+        for invalid, code in bad:
+            with self.subTest(code=code):
+                project = _fixture()
+                project.resources['sources/source-01.png'] = invalid
+                project = replace(project, sources=(
+                    replace(project.sources[0], sha256=_sha(invalid)),))
+                with self.assertRaisesRegex(ProjectArchiveError, code):
+                    save_project(self.path, project, overwrite=True)
+                self.assertEqual(self.path.read_bytes(), snapshot)
+                self.assertEqual(load_project(self.path), good)
+
+    def test_safe_ancillary_png_chunks_do_not_break_roundtrip(self):
+        # Optional tEXt chunks are allowed before and after one contiguous
+        # IDAT run. Their position must not invalidate an otherwise valid PNG.
+        from dataclasses import replace
+        png = _png(16, 12, 6)
+        def chunk(name, body):
+            return (struct.pack('>I', len(body)) + name + body +
+                    struct.pack('>I', zlib.crc32(name + body) & 0xffffffff))
+        extra = chunk(b'tEXt', b'key\x00value')
+        annotated = png[:33] + extra + png[33:-12] + extra + png[-12:]
+        project = _fixture()
+        project.resources['sources/source-01.png'] = annotated
+        project = replace(project, sources=(
+            replace(project.sources[0], sha256=_sha(annotated)),))
+        save_project(self.path, project)
+        self.assertEqual(load_project(self.path), project)
+
     def test_valid_crc_but_invalid_source_png_scanline_filter_is_rejected(self):
         # Rebuild IDAT with a valid CRC, but use PNG filter byte 5, which
         # cannot be decoded. Header and resource SHA remain consistent.
