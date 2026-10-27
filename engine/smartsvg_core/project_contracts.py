@@ -152,6 +152,8 @@ class Artifact:
         if not isinstance(self.file_path, str) or '\\' in self.file_path or ':' in self.file_path:
             raise RecordError('INVALID_ARTIFACT_PATH')
         p = PurePosixPath(self.file_path)
+        # Common filesystems reject a single component over 255 UTF-8 bytes,
+        # even when the full relative path is within the metadata limit.
         if (not self.file_path or p.is_absolute() or '..' in p.parts or '.' in p.parts or
                 p.as_posix() != self.file_path or len(self.file_path) > 512 or
                 any(char in _WINDOWS_FORBIDDEN or
@@ -159,8 +161,8 @@ class Artifact:
                      0xFE00 <= ord(char) <= 0xFE0F or
                      0xE0100 <= ord(char) <= 0xE01EF)
                     for char in self.file_path) or
-                any(part.endswith(('.', ' ')) or _WINDOWS_DEVICE.fullmatch(part)
-                    for part in p.parts)):
+                any(part.endswith(('.', ' ')) or _WINDOWS_DEVICE.fullmatch(part) or
+                    len(part.encode('utf-8')) > 255 for part in p.parts)):
             raise RecordError('INVALID_ARTIFACT_PATH')
         if p.suffix.lower() != ('.png' if self.use == 'print_then_cut_png' else '.svg'):
             raise RecordError('ARTIFACT_EXTENSION_MISMATCH')
@@ -239,11 +241,22 @@ def validate_project_records(*, sources, masks, subjects, artifacts, qa_results=
     # systems two different artifact IDs can refer to the same output file.
     # Reject aliases even when their digests match: each artifact owns one path.
     portable_paths = set()
+    required_directories = set()
     for artifact in art.values():
         portable_path = unicodedata.normalize('NFC', artifact.file_path).casefold()
         if portable_path in portable_paths:
             raise RecordError('artifacts: DUPLICATE_FILE_PATH')
+        # An artifact owns a regular file, never a directory. Reject a path
+        # that is a parent of another file (or is inside an existing file),
+        # irrespective of insertion order and portable Unicode/case aliases.
+        parts = portable_path.split('/')
+        parents = ('/'.join(parts[:i]) for i in range(1, len(parts)))
+        if portable_path in required_directories or any(
+                parent in portable_paths for parent in parents):
+            raise RecordError('artifacts: FILE_DIRECTORY_PATH_CONFLICT')
         portable_paths.add(portable_path)
+        required_directories.update(
+            '/'.join(parts[:i]) for i in range(1, len(parts)))
     for mask in msk.values():
         source = src.get(mask.source_id)
         if source is None or (mask.width_px, mask.height_px) != (source.width_px, source.height_px):
