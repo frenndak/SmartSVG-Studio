@@ -236,6 +236,40 @@ class ArchiveG13Tests(unittest.TestCase):
         with self.assertRaisesRegex(ProjectArchiveError, 'JSON_NESTING_TOO_DEEP'):
             load_project(self.path)
 
+    def test_distinct_sources_cannot_share_one_archive_resource(self):
+        from dataclasses import replace
+        project = _fixture()
+        first = project.sources[0]
+        project = replace(project, sources=(
+            first, replace(first, source_id='source-02')))
+        project.source_paths['source-02'] = project.source_paths['source-01']
+        # Both IDs have the same declared hash/dimensions, yet different
+        # logical ownership. Previously the second record replaced the first
+        # entry in the expected-resource dict without any error.
+        with self.assertRaisesRegex(ProjectArchiveError, 'RESOURCE_PATH_COLLISION'):
+            save_project(self.path, project)
+        self.assertFalse(self.path.exists())
+
+    def test_untrusted_resource_maps_fail_as_archive_errors(self):
+        from dataclasses import replace
+        project = _fixture()
+        for field, value, error in (
+            ('source_paths', None, 'INVALID_SOURCE_PATH_MAP'),
+            ('source_paths', [], 'INVALID_SOURCE_PATH_MAP'),
+            ('mask_paths', None, 'INVALID_MASK_PATH_MAP'),
+            ('mask_paths', [], 'INVALID_MASK_PATH_MAP'),
+            ('resources', None, 'INVALID_RESOURCE_MAP'),
+            ('resources', [], 'INVALID_RESOURCE_MAP'),
+        ):
+            with self.subTest(field=field, value=value):
+                damaged = replace(project, **{field: value})
+                with self.assertRaisesRegex(ProjectArchiveError, error):
+                    save_project(self.path, damaged)
+                self.assertFalse(self.path.exists())
+        # A valid object remains serializable after every rejected probe.
+        save_project(self.path, project)
+        self.assertEqual(load_project(self.path), project)
+
     def test_resource_path_escape_and_alias_collision(self):
         from dataclasses import replace
         project = _fixture()
