@@ -52,7 +52,7 @@ class ExpressUXPreinstallTests(unittest.TestCase):
         self.assertNotIn("XMLHttpRequest",self.page)
         self.assertIn('import("./smartsvg_project_panel_g22.mjs")',self.page)
         self.assertIn('import("./smartsvg_cut_review_panel_g27.mjs")',self.page)
-        self.assertIn("Aucun traitement IA",self.page)
+        self.assertIn("aucun traitement IA ni découpe réelle",self.page)
 
     def test_synthetic_dom_events_in_node(self):
         node=shutil.which("node")
