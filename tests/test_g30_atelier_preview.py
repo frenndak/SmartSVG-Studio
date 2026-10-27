@@ -56,7 +56,10 @@ class AtelierPreviewTests(unittest.TestCase):
 
     def test_comfyui_express_link_is_opt_in_and_not_auto_queued(self):
         self.assertIn("new URL('./smartsvg_express_atelier_preview.html',import.meta.url)",self.js)
-        self.assertIn("window?.open?.(url.href,'_blank','noopener,noreferrer')",self.js)
+        self.assertIn("workspacePreview.target='_blank'",self.js)
+        self.assertIn("workspacePreview.rel='noopener noreferrer'",self.js)
+        self.assertIn("workspacePreview.href=url.href",self.js)
+        self.assertNotIn("window?.open?.(",self.js)
         self.assertNotIn('app.queuePrompt',self.js)
         self.assertNotIn('innerHTML',self.js)
 
