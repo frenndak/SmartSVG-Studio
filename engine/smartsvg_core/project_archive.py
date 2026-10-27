@@ -275,6 +275,16 @@ def _validate_bundle(project: LoadedProject):
     _json_bytes(project.document)
     _json_bytes(project.operations)
 
+    # Untrusted LoadedProject instances may be constructed directly by the UI
+    # or an adapter. Reject malformed path/resource mappings with a stable
+    # archive error before accessing .get(), iterating, or writing to disk.
+    if not isinstance(project.source_paths, dict):
+        raise ProjectArchiveError('INVALID_SOURCE_PATH_MAP')
+    if not isinstance(project.mask_paths, dict):
+        raise ProjectArchiveError('INVALID_MASK_PATH_MAP')
+    if not isinstance(project.resources, dict):
+        raise ProjectArchiveError('INVALID_RESOURCE_MAP')
+
     expected = {}
     for source in project.sources:
         path = project.source_paths.get(source.source_id)
@@ -283,6 +293,10 @@ def _validate_bundle(project: LoadedProject):
         _safe_path(path)
         if PurePosixPath(path).suffix.lower() not in ('.png', '.jpg', '.jpeg', '.webp'):
             raise ProjectArchiveError('INVALID_SOURCE_EXTENSION')
+        # Two source IDs sharing one ZIP member would silently overwrite the
+        # earlier expected resource, making the archive identity ambiguous.
+        if path in expected:
+            raise ProjectArchiveError('RESOURCE_PATH_COLLISION')
         expected[path] = ('source', source)
     for mask in project.masks:
         path = project.mask_paths.get(mask.mask_id)
