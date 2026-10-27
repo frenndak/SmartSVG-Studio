@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 import json
+from io import BytesIO
 import math
 import os
 from pathlib import Path, PurePosixPath
@@ -18,6 +19,7 @@ import tempfile
 import unicodedata
 import zipfile
 import zlib
+import xml.etree.ElementTree as ET
 
 from .project_contracts import (
     Artifact, Mask, QAResult, SourceAsset, Subject, RecordError,
@@ -437,6 +439,80 @@ def _verify_png_pixels(data: bytes, width: int, height: int, *, grayscale: bool)
         raise ProjectArchiveError('INVALID_' + problem + '_PNG_FILTER')
 
 
+
+# Conservative non-executing artifact admission; not a Design Space guarantee.
+_SVG_NS = 'http://www.w3.org/2000/svg'
+_SVG_TAGS = {'svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'polygon',
+             'polyline', 'line', 'defs', 'clipPath', 'mask', 'linearGradient',
+             'radialGradient', 'stop', 'title', 'desc', 'text', 'tspan', 'metadata'}
+_SVG_STYLES = {'fill', 'stroke', 'stroke-width', 'opacity', 'fill-opacity',
+               'stroke-opacity', 'stroke-linecap', 'stroke-linejoin',
+               'stroke-dasharray', 'stroke-dashoffset', 'display', 'visibility',
+               'fill-rule', 'clip-rule'}
+
+
+def _verify_svg_artifact(data: bytes):
+    if len(data) > 4 * 1024 * 1024:
+        raise ProjectArchiveError('SVG_ARTIFACT_TOO_LARGE')
+    if re.search(rb'<!\s*(?:DOCTYPE|ENTITY)\b', data, re.I):
+        raise ProjectArchiveError('SVG_DTD_OR_ENTITY')
+    root, count, depth = None, 0, 0
+    try:
+        for event, node in ET.iterparse(BytesIO(data), events=('start', 'end', 'pi')):
+            if event == 'pi':
+                raise ProjectArchiveError('SVG_PROCESSING_INSTRUCTION')
+            if event == 'end':
+                depth -= 1
+                continue
+            if root is None:
+                root = node
+            count += 1
+            depth += 1
+            if count > 20000 or depth > 64:
+                raise ProjectArchiveError('SVG_COMPLEXITY_LIMIT')
+            if node.tag not in {f'{{{_SVG_NS}}}{tag}' for tag in _SVG_TAGS}:
+                raise ProjectArchiveError('SVG_ACTIVE_OR_FOREIGN_ELEMENT')
+            for key, value in node.attrib.items():
+                name = key.split('}', 1)[-1].lower()
+                if (name.startswith('on') or name in ('href', 'src', 'base')
+                        or (key.startswith('{') and
+                            not key.startswith(f'{{{_SVG_NS}}}') and
+                            key != '{http://www.w3.org/XML/1998/namespace}space')):
+                    raise ProjectArchiveError('SVG_ACTIVE_ATTRIBUTE')
+                low = value.lower()
+                if ('\\' in value or any(x in low for x in
+                        ('url(', 'javascript:', 'data:', '@import', 'expression(',
+                         'http://', 'https://', '/*', '*/'))):
+                    raise ProjectArchiveError('SVG_EXTERNAL_REFERENCE')
+                if name == 'style':
+                    for decl in value.split(';'):
+                        if not decl.strip():
+                            continue
+                        if ':' not in decl:
+                            raise ProjectArchiveError('SVG_UNSUPPORTED_STYLE')
+                        prop, val = decl.split(':', 1)
+                        if (prop.strip().lower() not in _SVG_STYLES or
+                                not re.fullmatch(r'[a-zA-Z0-9#.,+\- %]*', val.strip())):
+                            raise ProjectArchiveError('SVG_UNSUPPORTED_STYLE')
+    except (ET.ParseError, UnicodeError) as exc:
+        raise ProjectArchiveError('INVALID_SVG_XML') from exc
+    if root is None or root.tag != f'{{{_SVG_NS}}}svg':
+        raise ProjectArchiveError('NOT_SVG_ARTIFACT')
+
+
+def _verify_artifact_bytes(data: bytes, artifact: Artifact):
+    if artifact.use == 'print_then_cut_png':
+        width, height = _png_size(data, grayscale=False)
+        if (abs(width - artifact.width_mm * artifact.ppi / 25.4) > 0.51 or
+                abs(height - artifact.height_mm * artifact.ppi / 25.4) > 0.51):
+            raise ProjectArchiveError('PRINT_ARTIFACT_PIXEL_DIMENSIONS_MISMATCH')
+        _verify_png_pixels(data, width, height, grayscale=False)
+    elif artifact.use in ('basic_cut_svg', 'editable_svg'):
+        _verify_svg_artifact(data)
+    else:
+        raise ProjectArchiveError('UNKNOWN_ARTIFACT_USE')
+
+
 def _verify_mask_png(data: bytes, width: int, height: int):
     _verify_png_pixels(data, width, height, grayscale=True)
 
@@ -579,6 +655,8 @@ def _validate_bundle(project: LoadedProject):
                                    grayscale=False)
         elif kind == 'mask':
             _verify_mask_png(data, rec.width_px, rec.height_px)
+        elif kind == 'artifact':
+            _verify_artifact_bytes(data, rec)
         total += len(data)
     if total > MAX_TOTAL_BYTES:
         raise ProjectArchiveError('RESOURCES_TOO_LARGE')

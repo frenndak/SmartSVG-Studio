@@ -122,6 +122,96 @@ class ArchiveG13Tests(unittest.TestCase):
                 if name not in dict(rows):
                     out.writestr(name, data)
 
+
+    def test_print_artifact_real_png_and_atomic_rejection(self):
+        from dataclasses import replace
+        original = _fixture()
+        save_project(self.path, original)
+        good = _fixture()
+        png = _png(118, 79, 6)  # 30 x 20 mm at 100 ppi
+        good.resources.pop('exports/contour.svg')
+        good.resources['exports/épreuve-测试.png'] = png
+        good = replace(good, artifacts=(replace(good.artifacts[0],
+            use='print_then_cut_png', file_path='exports/épreuve-测试.png',
+            sha256=_sha(png), ppi=100),))
+        save_project(self.path, good, overwrite=True)
+        self.assertEqual(load_project(self.path), good)
+        snapshot = self.path.read_bytes()
+        for data, error in ((b'NOTPNG', 'INVALID_PNG_HEADER'),
+                            (_png(117, 79, 6), 'PRINT_ARTIFACT_PIXEL_DIMENSIONS_MISMATCH')):
+            bad = _fixture()
+            bad.resources.pop('exports/contour.svg')
+            bad.resources['exports/print.png'] = data
+            bad = replace(bad, artifacts=(replace(bad.artifacts[0],
+                use='print_then_cut_png', file_path='exports/print.png',
+                sha256=_sha(data), ppi=100),))
+            with self.assertRaisesRegex(ProjectArchiveError, error):
+                save_project(self.path, bad, overwrite=True)
+            self.assertEqual(self.path.read_bytes(), snapshot)
+
+    def test_active_svg_rejected_with_rollback(self):
+        from dataclasses import replace
+        original = _fixture()
+        save_project(self.path, original)
+        snapshot = self.path.read_bytes()
+        root = b'<svg xmlns="http://www.w3.org/2000/svg">'
+        for data, error in (
+            (root + b'<script/></svg>', 'SVG_ACTIVE_OR_FOREIGN_ELEMENT'),
+            (root + b'<style/></svg>', 'SVG_ACTIVE_OR_FOREIGN_ELEMENT'),
+            (root + b'<path onload="x()" d="M0 0"/></svg>', 'SVG_ACTIVE_ATTRIBUTE'),
+            (root + b'<path style="fill:url(#x)" d="M0 0"/></svg>', 'SVG_EXTERNAL_REFERENCE'),
+            (b'<?xml-stylesheet href="https://example.invalid"?>' + root +
+             b'<path d="M0 0"/></svg>', 'SVG_PROCESSING_INSTRUCTION'),
+            (b'<!DOCTYPE svg [<!ENTITY x "bad">]>' + root +
+             b'<path d="M0 0"/></svg>', 'SVG_DTD_OR_ENTITY'),
+        ):
+            bad = _fixture()
+            bad.resources['exports/contour.svg'] = data
+            bad = replace(bad, artifacts=(replace(bad.artifacts[0], sha256=_sha(data)),))
+            with self.assertRaisesRegex(ProjectArchiveError, error):
+                save_project(self.path, bad, overwrite=True)
+            self.assertEqual(self.path.read_bytes(), snapshot)
+        self.assertEqual(load_project(self.path), original)
+
+    def test_sha_coherent_active_svg_rejected_on_load(self):
+        save_project(self.path, _fixture())
+        with zipfile.ZipFile(self.path) as z:
+            manifest = json.loads(z.read('manifest.json'))
+            artifacts = json.loads(z.read('artifacts.json'))
+        bad = (b'<svg xmlns="http://www.w3.org/2000/svg">'
+               b'<script/></svg>')
+        artifacts[0]['sha256'] = _sha(bad)
+        records = json.dumps(artifacts).encode()
+        for name, data in (('artifacts.json', records), ('exports/contour.svg', bad)):
+            manifest['entries'][name] = {'sha256': _sha(data), 'size_bytes': len(data)}
+        self._write_zip_from({'artifacts.json': records, 'exports/contour.svg': bad,
+                              'manifest.json': json.dumps(manifest).encode()})
+        with self.assertRaisesRegex(ProjectArchiveError, 'SVG_ACTIVE_OR_FOREIGN_ELEMENT'):
+            load_project(self.path)
+
+    def test_sha_coherent_fake_print_png_rejected_on_load(self):
+        from dataclasses import replace
+        project = _fixture()
+        png = _png(118, 79, 6)
+        project.resources.pop('exports/contour.svg')
+        project.resources['exports/print.png'] = png
+        project = replace(project, artifacts=(replace(project.artifacts[0],
+            use='print_then_cut_png', file_path='exports/print.png',
+            sha256=_sha(png), ppi=100),))
+        save_project(self.path, project)
+        with zipfile.ZipFile(self.path) as z:
+            manifest = json.loads(z.read('manifest.json'))
+            artifacts = json.loads(z.read('artifacts.json'))
+        bad = b'NOTPNG'
+        artifacts[0]['sha256'] = _sha(bad)
+        records = json.dumps(artifacts).encode()
+        for name, data in (('artifacts.json', records), ('exports/print.png', bad)):
+            manifest['entries'][name] = {'sha256': _sha(data), 'size_bytes': len(data)}
+        self._write_zip_from({'artifacts.json': records, 'exports/print.png': bad,
+                              'manifest.json': json.dumps(manifest).encode()})
+        with self.assertRaisesRegex(ProjectArchiveError, 'INVALID_PNG_HEADER'):
+            load_project(self.path)
+
     def test_jpeg_real_baseline_progressive_gray_and_exif_roundtrip(self):
         for jpeg_b64, mode in (
             (JPEG_RGB_BASELINE, 'RGB'),
