@@ -196,11 +196,29 @@ def _source_dimensions(path: str, data: bytes) -> tuple[int, int]:
     raise ProjectArchiveError('UNSUPPORTED_SOURCE_IMAGE_TYPE')
 
 
-def _verify_mask_png(data: bytes, width: int, height: int):
-    if _png_size(data, grayscale=True) != (width, height):
-        raise ProjectArchiveError('MASK_PNG_SIZE_MISMATCH')
-    # Full L8 decompression is bounded, with per-row PNG filter validity.
+def _verify_png_pixels(data: bytes, width: int, height: int, *, grayscale: bool):
+    """Bounded complete scanline validation for both masks and PNG sources.
+
+    Do not trust just IHDR: checksums, IDAT decompression, scanline count and
+    PNG filter bytes must be verified before accepting a durable project.
+    """
+    if _png_size(data, grayscale=grayscale) != (width, height):
+        raise ProjectArchiveError(
+            'MASK_PNG_SIZE_MISMATCH' if grayscale else 'SOURCE_PIXEL_DIMENSIONS_MISMATCH')
+    if grayscale:
+        channels = 1
+        problem = 'MASK'
+    else:
+        # G1.2 records only L/RGB/RGBA. Other PNG layouts (indexed, 16-bit,
+        # interlaced) must be explicitly normalized by the importer.
+        if data[24] != 8 or data[28] != 0 or data[25] not in (0, 2, 6):
+            raise ProjectArchiveError('UNSUPPORTED_SOURCE_PNG_LAYOUT')
+        channels = {0: 1, 2: 3, 6: 4}[data[25]]
+        problem = 'SOURCE'
     pos, idat, got_end = 8, [], False
+    seen_ihdr = False
+    seen_plte = False
+    idat_closed = False
     while pos < len(data):
         if pos + 12 > len(data):
             raise ProjectArchiveError('TRUNCATED_PNG')
@@ -212,27 +230,56 @@ def _verify_mask_png(data: bytes, width: int, height: int):
         crc = struct.unpack('>I', data[pos + 8 + size:pos + 12 + size])[0]
         if zlib.crc32(kind + payload) & 0xffffffff != crc:
             raise ProjectArchiveError('PNG_CRC_FAILED')
+        # PNG chunk names are ASCII letters. Bit 5 of the third byte is
+        # reserved and must be zero; an unknown CRITICAL chunk cannot be
+        # ignored because it may change how pixels should be interpreted.
+        if (any(not (65 <= ch <= 90 or 97 <= ch <= 122) for ch in kind)
+                or not 65 <= kind[2] <= 90):
+            raise ProjectArchiveError('INVALID_PNG_CHUNK_TYPE')
         pos += size + 12
-        if kind == b'IDAT':
+        if kind == b'IHDR':
+            if seen_ihdr or pos != 33:
+                raise ProjectArchiveError('DUPLICATE_PNG_IHDR')
+            seen_ihdr = True
+        elif kind == b'PLTE':
+            if (seen_plte or idat or data[25] == 0 or
+                    size == 0 or size > 768 or size % 3):
+                raise ProjectArchiveError('INVALID_PNG_PLTE')
+            seen_plte = True
+        elif kind == b'IDAT':
+            if idat_closed or not seen_ihdr:
+                raise ProjectArchiveError('NONCONTIGUOUS_PNG_IDAT')
             idat.append(payload)
-        if kind == b'IEND':
+        elif kind == b'IEND':
+            if size != 0:
+                raise ProjectArchiveError('INVALID_PNG_IEND')
             got_end = True
             break
+        else:
+            if idat:
+                idat_closed = True
+            if kind[0] & 0x20 == 0:
+                raise ProjectArchiveError('UNKNOWN_CRITICAL_PNG_CHUNK')
     if not got_end or not idat or pos != len(data):
-        raise ProjectArchiveError('INCOMPLETE_MASK_PNG')
-    expected = height * (width + 1)
+        raise ProjectArchiveError('INCOMPLETE_' + problem + '_PNG')
+    row_size = width * channels + 1
+    expected = height * row_size
     if expected > MAX_TOTAL_BYTES:
-        raise ProjectArchiveError('MASK_DECOMPRESSION_TOO_LARGE')
+        raise ProjectArchiveError(problem + '_DECOMPRESSION_TOO_LARGE')
     try:
         decoder = zlib.decompressobj()
         uncompressed = decoder.decompress(b''.join(idat), expected + 1)
         if (len(uncompressed) != expected or decoder.unconsumed_tail or
                 not decoder.eof or decoder.unused_data):
-            raise ProjectArchiveError('INVALID_MASK_PNG_PIXELS')
+            raise ProjectArchiveError('INVALID_' + problem + '_PNG_PIXELS')
     except zlib.error as exc:
-        raise ProjectArchiveError('INVALID_MASK_PNG_PIXELS') from exc
-    if any(uncompressed[y * (width + 1)] > 4 for y in range(height)):
-        raise ProjectArchiveError('INVALID_MASK_FILTER')
+        raise ProjectArchiveError('INVALID_' + problem + '_PNG_PIXELS') from exc
+    if any(uncompressed[y * row_size] > 4 for y in range(height)):
+        raise ProjectArchiveError('INVALID_' + problem + '_PNG_FILTER')
+
+
+def _verify_mask_png(data: bytes, width: int, height: int):
+    _verify_png_pixels(data, width, height, grayscale=True)
 
 
 def _record_list(data, cls):
@@ -330,6 +377,19 @@ def _validate_bundle(project: LoadedProject):
             dims = _source_dimensions(path, data)
             if dims != (rec.width_px, rec.height_px):
                 raise ProjectArchiveError('SOURCE_PIXEL_DIMENSIONS_MISMATCH')
+            if PurePosixPath(path).suffix.lower() == '.png':
+                # SourceAsset.color_mode is an explicit contract, not a hint:
+                # an RGBA label on opaque/RGB bytes can silently mislead
+                # mask creation and downstream transparency diagnostics.
+                # Indexed and grayscale+alpha PNGs must be normalized before
+                # admission because the G1.2 metadata has no matching mode.
+                actual_mode = {0: 'L', 2: 'RGB', 6: 'RGBA'}.get(data[25])
+                if actual_mode is None:
+                    raise ProjectArchiveError('UNSUPPORTED_SOURCE_PNG_COLOR_TYPE')
+                if rec.color_mode != actual_mode:
+                    raise ProjectArchiveError('SOURCE_COLOR_MODE_MISMATCH')
+                _verify_png_pixels(data, rec.width_px, rec.height_px,
+                                   grayscale=False)
         elif kind == 'mask':
             _verify_mask_png(data, rec.width_px, rec.height_px)
         total += len(data)

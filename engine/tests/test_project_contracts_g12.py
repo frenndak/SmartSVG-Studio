@@ -184,6 +184,20 @@ class ContractsG12Tests(unittest.TestCase):
         path = 'exports/étiquette 01.png'
         self.assertEqual(replace(artifact, file_path=path).file_path, path)
 
+    def test_artifact_path_rejects_unpaired_unicode_surrogates(self):
+        # U+D800..U+DFFF are not Unicode scalar values. Reject both halves
+        # before a path reaches filesystem encoding or export.
+        _, _, _, artifact, _ = fixtures()
+        for codepoint in (0xD800, 0xDBFF, 0xDC00, 0xDFFF):
+            path = 'exports/sticker' + chr(codepoint) + '.png'
+            with self.subTest(codepoint=hex(codepoint)), self.assertRaisesRegex(
+                    RecordError, 'INVALID_ARTIFACT_PATH'):
+                replace(artifact, file_path=path)
+        # Legitimate visible Unicode filenames remain valid.
+        for path in ('exports/étiquette 01.png', 'exports/🌿.png'):
+            with self.subTest(path=path):
+                self.assertEqual(replace(artifact, file_path=path).file_path, path)
+
     def test_artifact_path_rejects_invisible_combining_grapheme_joiner(self):
         # U+034F is default-ignorable despite being category Mn, not Cf.
         # It must not create a visually indistinguishable output filename.
