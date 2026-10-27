@@ -190,7 +190,10 @@ async function openEditor(node,meta,focus=null){
         data.data[k]=226;data.data[k+1]=40;data.data[k+2]=198;data.data[k+3]=Math.round(opacity*148);
       }
       baseCtx.putImageData(data,0,0);
-      loadedObject=index;maskMessage='';cacheObject=-1;render();
+      loadedObject=index;
+      maskMessage=focus&&index===focus.subject-1?
+        'Zone du sujet '+focus.subject+' chargée. Vérifier le dessin : aucune retouche automatique.':'';
+      cacheObject=-1;render();
     }catch(error){if(token===maskLoadToken&&!destroyed){maskMessage=error.message;render();}}
   }
   const buttons=el('div',null,'ss216-controls');
