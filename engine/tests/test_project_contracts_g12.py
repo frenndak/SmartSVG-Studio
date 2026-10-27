@@ -170,6 +170,32 @@ class ContractsG12Tests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(replace(artifact, file_path=path).file_path, path)
 
+    def test_artifact_path_rejects_oversized_utf8_components(self):
+        # Limits apply to each component in bytes, not to Unicode code points
+        # or only the full relative path. No filename is silently truncated.
+        _, _, _, artifact, _ = fixtures()
+        valid = (
+            'exports/' + 'a' * 251 + '.png',  # 255 bytes
+            'a' * 255 + '/sticker.png',
+            'exports/' + 'é' * 125 + 'a.png',  # 255 UTF-8 bytes
+            'exports/' + '🌿' * 62 + 'abc.png',  # 255 UTF-8 bytes
+        )
+        invalid = (
+            'exports/' + 'a' * 252 + '.png',  # 256 bytes
+            'a' * 256 + '/sticker.png',
+            'exports/' + 'é' * 126 + '.png',  # 256 UTF-8 bytes
+            'exports/' + '🌿' * 63 + '.png',  # 256 UTF-8 bytes
+        )
+        for path in valid:
+            with self.subTest(valid=repr(path[:35])):
+                self.assertEqual(max(len(p.encode('utf-8')) for p in path.split('/')), 255)
+                self.assertEqual(replace(artifact, file_path=path).file_path, path)
+        for path in invalid:
+            with self.subTest(invalid=repr(path[:35])):
+                self.assertEqual(max(len(p.encode('utf-8')) for p in path.split('/')), 256)
+                with self.assertRaisesRegex(RecordError, 'INVALID_ARTIFACT_PATH'):
+                    replace(artifact, file_path=path)
+
     def test_artifact_path_rejects_unicode_format_controls(self):
         # Bidi overrides and invisible format characters can misrepresent
         # an otherwise valid PNG/SVG filename in a UI or project listing.
