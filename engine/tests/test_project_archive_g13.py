@@ -236,6 +236,41 @@ class ArchiveG13Tests(unittest.TestCase):
         with self.assertRaisesRegex(ProjectArchiveError, 'JSON_NESTING_TOO_DEEP'):
             load_project(self.path)
 
+    def test_cyclic_accessories_rejected_on_save_and_untrusted_load(self):
+        from dataclasses import replace
+        from smartsvg_core.project_contracts import record_dict
+        original = _fixture()
+        first = replace(original.subjects[0],
+                        accessory_ids=('subject-02',))
+        second = replace(original.subjects[0],
+                         subject_id='subject-02',
+                         accessory_ids=('subject-01',))
+        hostile = replace(original, subjects=(first, second))
+        with self.assertRaisesRegex(
+                ProjectArchiveError, 'RECORDS_INVALID: CYCLIC_ACCESSORY_LINK'):
+            save_project(self.path, hostile)
+        self.assertFalse(self.path.exists())
+
+        # An attacker can supply coherent ZIP CRC and SHA-256 manifests.
+        # The *semantic* reference graph must still fail on reload.
+        save_project(self.path, original)
+        with zipfile.ZipFile(self.path) as z:
+            manifest = json.loads(z.read('manifest.json'))
+        subjects_bytes = json.dumps([
+            record_dict(subject) for subject in (first, second)
+        ], sort_keys=True).encode('utf-8')
+        manifest['entries']['subjects.json'] = {
+            'sha256': _sha(subjects_bytes),
+            'size_bytes': len(subjects_bytes),
+        }
+        self._write_zip_from({
+            'subjects.json': subjects_bytes,
+            'manifest.json': json.dumps(manifest).encode('utf-8'),
+        })
+        with self.assertRaisesRegex(
+                ProjectArchiveError, 'RECORDS_INVALID: CYCLIC_ACCESSORY_LINK'):
+            load_project(self.path)
+
     def test_distinct_sources_cannot_share_one_archive_resource(self):
         from dataclasses import replace
         project = _fixture()
