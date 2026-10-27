@@ -40,6 +40,7 @@ function browser(){
     'zoomIn','zoomOut','zoomFit','fileInfo'];
   for(const id of ids)find(id);
   find('width').value='40';
+  for(const id of ['uploaded','empty','realProjectHost','realContourHost'])find(id).hidden=true;
   const steps=['source','clean','subjects','retouch','cut','export'].map(step=>{
     const el=new Element('button');el.dataset.step=step;return el;
   });
@@ -138,7 +139,7 @@ test('real ComfyUI panels are explicitly unavailable on file:// but UI stays int
   const b=browser();
   await b.find('realProjectButton').fire('click');
   assert.match(b.find('notification').textContent,/page servie depuis ComfyUI/);
-  assert.equal(b.find('realProjectHost').hidden,false); // initially mock false until HTML parsed
+  assert.equal(b.find('realProjectHost').hidden,true);
   await b.find('realContourButton').fire('click');
   assert.match(b.find('notification').textContent,/ComfyUI/);
   await b.find('none').fire('click');
