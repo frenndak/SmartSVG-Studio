@@ -3,6 +3,7 @@
  * claims reopening a .smartsvg restores the editor/IMAGE connection.
  */
 import { projectReadiness } from './smartsvg_express_ux_g25.mjs';
+import { createCutReviewPanel } from './smartsvg_cut_review_panel_g27.mjs';
 
 export const PROJECT_NAME=/^[A-Za-z0-9][A-Za-z0-9_-]{0,47}$/;
 const BYTES_LIMIT=12*1024*1024;
@@ -173,6 +174,7 @@ export function createProjectPanel(api, currentSettings, ownerId='default'){
     discard();details.textContent='';
   });
   root.append(title,label,name,fileLabel,file,noteLabel,notes,
-    actions,status,readiness,details,source,hint);
+    actions,status,readiness,details,source,hint,
+    createCutReviewPanel(ownerId));
   return root;
 }
