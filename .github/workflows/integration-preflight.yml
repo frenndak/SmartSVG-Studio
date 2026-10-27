@@ -70,11 +70,9 @@ jobs:
           SmartSVG - Live Engine CPU Smoke|engine-cpu-smoke.yml
           WORKFLOWS
           test "$(jq -r '.total_count' "$RUNNER_TEMP/runs.json")" -le 100
-          # Resolve trusted reviewers from GitHub's collaborator permissions,
-          # not public author_association or self-declared issue receipts.
-          # Any API error stops preflight; no write permission => no authority.
-          gh api --paginate "repos/$repo/collaborators?per_page=100" |
-            jq -s 'add' > "$RUNNER_TEMP/collaborators.json"
+          # Resolve decisive reviewers individually with read-only GitHub
+          # permission lookups; do not enumerate all repository collaborators.
+          # Any denied or malformed permission response blocks eligibility.
           gh api --paginate "repos/$repo/pulls/$PR_NUMBER/reviews?per_page=100" |
             jq -s 'add' > "$RUNNER_TEMP/reviews.json"
           gh api --paginate "repos/$repo/issues/29/comments?per_page=100" |
@@ -87,10 +85,24 @@ jobs:
           export PR_NUMBER="$PR_NUMBER" MAIN_SHA="$main_sha" CHECKED_HEAD="$checked_head" CHECKED_MAIN="$checked_main"
           export CHECKED_BASE_REF="$checked_base_ref" CHECKED_BASE_SHA="$checked_base_sha"
           python - <<'PY'
-          import json, os
+          import json, os, subprocess, sys
           from pathlib import Path
+          from tools.integration_eligibility import resolve_trusted_reviewers
           root=Path(os.environ["RUNNER_TEMP"])
           def read(name): return json.loads((root / name).read_text())
+          def reviewer_permission(login):
+              # The read-only token is inherited from this step's GH_TOKEN.
+              # No shell interpolation and no exposure of API error bodies.
+              proc = subprocess.run(
+                  ["gh", "api", f"repos/frenndak/SmartSVG-Studio/collaborators/{login}/permission"],
+                  check=True, capture_output=True, text=True,
+              )
+              return json.loads(proc.stdout)
+          try:
+              trusted_reviewers = resolve_trusted_reviewers(read("reviews.json"), reviewer_permission)
+          except (ValueError, TypeError, OSError, subprocess.CalledProcessError):
+              print("::error::REVIEWER_PERMISSIONS_UNVERIFIED: read-only GitHub permission lookup failed", file=sys.stderr)
+              sys.exit(2)
           result={
               "schema": 1, "repo": "frenndak/SmartSVG-Studio",
               "main_sha": os.environ["MAIN_SHA"],
@@ -108,15 +120,7 @@ jobs:
                               (root / "workflow_provenance.jsonl").read_text().splitlines())
               },
               "reviews": read("reviews.json"),
-              "trusted_reviewers": sorted({
-                  row["login"].casefold()
-                  for row in read("collaborators.json")
-                  if isinstance(row, dict)
-                  and isinstance(row.get("login"), str)
-                  and (row.get("permission") in ("write", "admin") or
-                       (isinstance(row.get("permissions"), dict) and
-                        row["permissions"].get("push") is True))
-              }),
+              "trusted_reviewers": trusted_reviewers,
               "audit_comments": read("audit.json"),
           }
           (root / "integration_snapshot.json").write_text(json.dumps(result), encoding="utf-8")

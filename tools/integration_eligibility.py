@@ -83,6 +83,39 @@ def _audited(comments, number, head, base_ref, base_sha, diff_sha, approver_logi
                     and author.casefold() in approver_logins)
     return False
 
+def resolve_trusted_reviewers(reviews, lookup):
+    """Check decisive reviewers via authenticated read-only per-user permissions.
+
+    A missing, denied or inconsistent GitHub response raises; never substitute
+    public author_association or a self-declared audit receipt for authorization.
+    GitHub maps the maintain role to the legacy permission value "write".
+    """
+    if not isinstance(reviews, list):
+        raise ValueError("REVIEWS_MISSING")
+    logins = set()
+    for review in reviews:
+        if not isinstance(review, dict):
+            raise ValueError("REVIEW_INVALID")
+        if review.get("state") not in {"APPROVED", "CHANGES_REQUESTED", "DISMISSED"}:
+            continue
+        user = review.get("user")
+        login = user.get("login") if isinstance(user, dict) else None
+        if not isinstance(login, str) or re.fullmatch(r"[A-Za-z0-9-]{1,39}", login) is None:
+            raise ValueError("REVIEWER_LOGIN_INVALID")
+        logins.add(login.casefold())
+    trusted = []
+    for login in sorted(logins):
+        result = lookup(login)
+        user = result.get("user") if isinstance(result, dict) else None
+        if (not isinstance(user, dict)
+                or not isinstance(user.get("login"), str)
+                or user["login"].casefold() != login
+                or result.get("permission") not in {"admin", "write", "read", "none"}):
+            raise ValueError("REVIEWER_PERMISSION_RESPONSE_INVALID")
+        if result["permission"] in {"admin", "write"}:
+            trusted.append(login)
+    return trusted
+
 def assess(snapshot):
     """Return a deterministic decision with all independent blockers."""
     blockers = []

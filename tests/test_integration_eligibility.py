@@ -354,6 +354,50 @@ class IntegrationGateTests(unittest.TestCase):
         gate.assess(self.data)
         self.assertEqual(self.data, original)
 
+    def test_read_only_reviewer_lookup_only_queries_decisive_votes(self):
+        reviews = [
+            {"state": "COMMENTED", "user": {"login": "comment-only"}},
+            {"state": "APPROVED", "user": {"login": "Trusted-Reviewer"}},
+            {"state": "CHANGES_REQUESTED", "user": {"login": "outsider"}},
+            {"state": "DISMISSED", "user": {"login": "trusted-reviewer"}},
+        ]
+        seen = []
+        def lookup(login):
+            seen.append(login)
+            return {"user": {"login": login},
+                    "permission": "write" if login == "trusted-reviewer" else "read"}
+        self.assertEqual(gate.resolve_trusted_reviewers(reviews, lookup),
+                         ["trusted-reviewer"])
+        self.assertEqual(seen, ["outsider", "trusted-reviewer"])
+        self.assertEqual(gate.resolve_trusted_reviewers(
+            [{"state": "COMMENTED", "user": {"login": "outsider"}}], lookup), [])
+
+    def test_reviewer_permission_denial_never_falls_back_to_public_metadata(self):
+        def denied(_login):
+            raise PermissionError("simulated HTTP 403")
+        reviews = [{"state": "APPROVED", "user": {"login": "reviewer"}}]
+        with self.assertRaises(PermissionError):
+            gate.resolve_trusted_reviewers(reviews, denied)
+        with self.assertRaises(ValueError):
+            gate.resolve_trusted_reviewers(reviews, lambda _: {
+                "user": {"login": "another-user"}, "permission": "admin"})
+        with self.assertRaises(ValueError):
+            gate.resolve_trusted_reviewers(reviews, lambda _: {
+                "user": {"login": "reviewer"}, "permission": "unknown"})
+        with self.assertRaises(ValueError):
+            gate.resolve_trusted_reviewers(
+                [{"state": "APPROVED", "user": {"login": "bad/name"}}],
+                lambda _: {"user": {"login": "bad/name"}, "permission": "admin"})
+
+    def test_preflight_does_not_require_collaborator_enumeration_or_write_token(self):
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/integration-preflight.yml").read_text()
+        self.assertNotIn("collaborators?per_page", workflow)
+        self.assertIn("resolve_trusted_reviewers", workflow)
+        self.assertIn("REVIEWER_PERMISSIONS_UNVERIFIED", workflow)
+        self.assertIn("  contents: read", workflow)
+        self.assertNotIn("  contents: write", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
