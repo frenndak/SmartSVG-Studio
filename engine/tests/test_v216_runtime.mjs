@@ -5,6 +5,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import * as model from '../web/js/smartsvg_editor_model_v216.mjs';
 import {editorDraftStore} from '../web/js/smartsvg_editor_draft_g28.mjs';
+import {validatedFocus,centerFocusView} from '../web/js/smartsvg_mask_focus_v21156.mjs';
 const base=path.dirname(fileURLToPath(import.meta.url));
 class Context{
  save(){}restore(){}clearRect(){}drawImage(){}beginPath(){}moveTo(){}lineTo(){}stroke(){}arc(){}fill(){}
@@ -33,6 +34,7 @@ async function extension(){
  globalThis.__mockApi={apiURL(s){return '/proxy/8188'+s;}};
  globalThis.__model=model;
  globalThis.__draftModel={editorDraftStore};
+ globalThis.__focusModel={validatedFocus,centerFocusView};
  globalThis.__g23Bridge={createEditorProjectControls:()=>({root:new Dom('div'),refresh(){}})};
  globalThis.window={location:{href:'https://test.example/proxy/8188/'}};
  globalThis.Image=FakeImage;
@@ -49,6 +51,8 @@ async function extension(){
                  'const {createEditorProjectControls}=globalThis.__g23Bridge;');
  src=src.replace("import { editorDraftStore } from './smartsvg_editor_draft_g28.mjs';",
                  'const {editorDraftStore}=globalThis.__draftModel;');
+ src=src.replace("import { validatedFocus, centerFocusView } from './smartsvg_mask_focus_v21156.mjs';",
+                 'const {validatedFocus,centerFocusView}=globalThis.__focusModel;');
  src=src.replace("import { api } from '../../scripts/api.js';","const api=globalThis.__mockApi;");
  src=src.replace(/import \{ normalizeMeta,[\s\S]*?\} from '\.\/smartsvg_editor_model_v216\.mjs';/,
  'const { normalizeMeta, previewUrl, encodeDocument, decodeDocument, LIMITS, fitView, constrainView, zoomView, moveView, viewToUV, strokeSpacing }=globalThis.__model;');
