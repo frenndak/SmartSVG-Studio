@@ -1,0 +1,421 @@
+"""G1.2 records: referential integrity, mm/alpha truth and certification hygiene."""
+import hashlib
+import json
+import unittest
+from dataclasses import replace
+
+from smartsvg_core.project_contracts import (
+    Artifact, Mask, QAResult, RecordError, SourceAsset, Subject,
+    SCHEMA_VERSION, record_dict, validate_project_records,
+)
+
+H = hashlib.sha256(b'synthetic fixture').hexdigest()
+
+
+def fixtures():
+    source = SourceAsset('source-01', H, 100, 80)
+    mask = Mask('mask-01', 'source-01', H, 100, 80)
+    subject = Subject('subject-01', 'source-01', 'mask-01', (10, 5, 65, 70))
+    artifact = Artifact('artifact-01', ('subject-01',), 'print_then_cut_png',
+                        'exports/sticker.png', H, 40.0, 32.0, 300)
+    qa = QAResult('artifact-01', visual='passed', geometry='passed')
+    return source, mask, subject, artifact, qa
+
+
+class ContractsG12Tests(unittest.TestCase):
+    def verify(self, items=None):
+        s, m, sub, a, q = fixtures() if items is None else items
+        return validate_project_records(sources=[s], masks=[m], subjects=[sub],
+                                        artifacts=[a], qa_results=[q])
+
+    def test_roundtrip_to_json_and_metadata_summary(self):
+        rows = fixtures()
+        self.assertEqual(self.verify()['schema_version'], SCHEMA_VERSION)
+        self.assertEqual(self.verify()['subjects'], 1)
+        encoded = json.loads(json.dumps([record_dict(v) for v in rows], allow_nan=False))
+        self.assertEqual(encoded[2]['bbox_px'], [10, 5, 65, 70])
+        self.assertEqual(encoded[3]['width_mm'], 40.0)
+        self.assertFalse(encoded[4]['physical_cut'] == 'passed')
+
+    def test_invalid_identity_and_digest(self):
+        s, *_ = fixtures()
+        for values in ({'source_id':'../escape'}, {'sha256':'abcdef'}, {'width_px':True},
+                       {'width_px':100000,'height_px':100000}, {'color_mode':'CMYK'}):
+            with self.subTest(values=values), self.assertRaises(RecordError):
+                replace(s, **values)
+
+    def test_mask_polarity_or_size_cannot_masquerade(self):
+        s, m, sub, a, q = fixtures()
+        with self.assertRaisesRegex(RecordError, 'MASK_MUST_BE_L8'):
+            replace(m, polarity='background_white')
+        with self.assertRaisesRegex(RecordError, 'MASK_SOURCE_MISMATCH'):
+            self.verify((s, replace(m, width_px=99), sub, a, q))
+
+    def test_bbox_and_references(self):
+        s, m, sub, a, q = fixtures()
+        for subject, error in ((replace(sub, bbox_px=(90, 0, 20, 20)), 'BBOX_OUT_OF_SOURCE'),
+                               (replace(sub, mask_id='missing'), 'SUBJECT_SOURCE_MASK_MISMATCH'),
+                               (replace(sub, accessory_ids=('missing',)), 'INVALID_ACCESSORY_LINK')):
+            with self.subTest(error=error), self.assertRaisesRegex(RecordError, error):
+                self.verify((s, m, subject, a, q))
+        with self.assertRaisesRegex(RecordError, 'DUPLICATE_ID'):
+            validate_project_records(sources=[s,s], masks=[m], subjects=[sub], artifacts=[a])
+
+
+    def test_accessory_graph_rejects_direct_and_long_cycles(self):
+        # A link can be individually valid and still create a dependency
+        # cycle. The metadata validator must reject this before exporters
+        # try to resolve nested or attached subjects.
+        source, mask, original, artifact, qa = fixtures()
+        a = replace(original, subject_id='subject-A', accessory_ids=('subject-B',))
+        b = replace(original, subject_id='subject-B', accessory_ids=('subject-A',))
+        for subjects in (
+            [a, b],
+            [replace(a, accessory_ids=('subject-C',)),
+             b, replace(original, subject_id='subject-C',
+                        accessory_ids=('subject-B',))],
+        ):
+            with self.subTest(subjects=[item.subject_id for item in subjects]):
+                with self.assertRaisesRegex(RecordError, 'CYCLIC_ACCESSORY_LINK'):
+                    validate_project_records(
+                        sources=[source], masks=[mask], subjects=subjects,
+                        artifacts=[], qa_results=[])
+
+    def test_accessory_graph_accepts_long_acyclic_chain(self):
+        # Iterative traversal also supports many valid accessories without
+        # depending on the Python recursion limit or mutating frozen records.
+        source, mask, original, _, _ = fixtures()
+        subjects = [
+            replace(original, subject_id=f'subject-{i:04d}',
+                    accessory_ids=((f'subject-{i+1:04d}',) if i < 1499 else ()))
+            for i in range(1500)
+        ]
+        before = subjects[0].accessory_ids
+        result = validate_project_records(
+            sources=[source], masks=[mask], subjects=subjects,
+            artifacts=[], qa_results=[])
+        self.assertEqual(result['subjects'], 1500)
+        self.assertEqual(subjects[0].accessory_ids, before)
+
+    def test_accessory_graph_accepts_branching_and_disconnected_subjects(self):
+        source, mask, original, _, _ = fixtures()
+        subjects = [
+            replace(original, subject_id='main-subject',
+                    accessory_ids=('accessory-1', 'accessory-2')),
+            replace(original, subject_id='accessory-1', accessory_ids=()),
+            replace(original, subject_id='accessory-2', accessory_ids=()),
+            replace(original, subject_id='independent', accessory_ids=()),
+        ]
+        result = validate_project_records(
+            sources=[source], masks=[mask], subjects=subjects, artifacts=[])
+        self.assertEqual(result['subjects'], 4)
+
+    def test_export_path_and_mm(self):
+        _, _, _, a, _ = fixtures()
+        for values in ({'file_path':'../outside.png'}, {'file_path':'C:\\outside.png'},
+                       {'file_path':'/tmp/out.png'}, {'file_path':'out.svg'},
+                       {'width_mm':float('nan')}, {'height_mm':float('inf')},
+                       {'width_mm':True}, {'ppi':0}, {'ppi':None}):
+            with self.subTest(values=values), self.assertRaises(RecordError):
+                replace(a, **values)
+        self.assertEqual(replace(a, use='basic_cut_svg', file_path='cut.svg', ppi=None).use,
+                         'basic_cut_svg')
+
+    def test_physical_mm_and_print_pixel_budget_boundaries(self):
+        _, _, _, artifact, _ = fixtures()
+        # This protects mm→px exporters from unbounded resource requests,
+        # subpixel dimensions and overflow-prone metadata.
+        cases = (
+            ({'width_mm': 1e308}, 'PHYSICAL_SIZE_OUT_OF_RANGE'),
+            ({'height_mm': 1e-300}, 'PHYSICAL_SIZE_OUT_OF_RANGE'),
+            ({'width_mm': 0.009}, 'PHYSICAL_SIZE_OUT_OF_RANGE'),
+            ({'width_mm': 10000.01}, 'PHYSICAL_SIZE_OUT_OF_RANGE'),
+            ({'width_mm': 0.01}, 'PRINT_SIZE_BELOW_ONE_PIXEL'),
+            ({'width_mm': 9999., 'height_mm': 9999., 'ppi': 2400},
+             'PRINT_PIXEL_BUDGET_EXCEEDED'),
+        )
+        for patch, error in cases:
+            with self.subTest(patch=patch), self.assertRaisesRegex(
+                    RecordError, error):
+                replace(artifact, **patch)
+        # Exactly one pixel at declared PPI remains usable.
+        one_pixel_mm = 25.4 / 300
+        self.assertGreater(replace(artifact, width_mm=one_pixel_mm).width_mm, 0)
+        # A tiny vector shape is permitted; no rasterization is claimed.
+        vector = replace(artifact, use='editable_svg', file_path='tiny.svg',
+                         ppi=None, width_mm=0.01, height_mm=0.01)
+        self.assertEqual(vector.width_mm, 0.01)
+        huge_vector = replace(vector, width_mm=10000.0, height_mm=10000.0)
+        self.assertEqual(huge_vector.height_mm, 10000.0)
+
+    def test_artifact_path_rejects_windows_device_names_and_controls(self):
+        _, _, _, artifact, _ = fixtures()
+        bad_paths = (
+            'exports/CON.png', 'exports/con.png', 'exports/AUX.PNG',
+            'exports/NUL.png', 'exports/COM1.png', 'exports/lpt9.png',
+            'exports/COM¹.png', 'exports/com².PNG', 'exports/COM³.png',
+            'exports/LPT¹.png', 'exports/lpt².png', 'exports/LPT³.png',
+            'CON/out.png', 'exports/folder./out.png',
+            'exports/folder /out.png', 'exports/out?.png',
+            'exports/out*.png', 'exports/out|.png',
+            'exports/out\x00.png', 'exports/out\n.png',
+            'exports/out\x7f.png',
+        )
+        for path in bad_paths:
+            with self.subTest(path=repr(path)), self.assertRaisesRegex(
+                    RecordError, 'INVALID_ARTIFACT_PATH'):
+                replace(artifact, file_path=path)
+        for path in ('exports/étiquette 01.png', 'exports/CONTOUR.png',
+                     'exports/normal.sticker.png'):
+            with self.subTest(path=path):
+                self.assertEqual(replace(artifact, file_path=path).file_path, path)
+
+    def test_artifact_path_rejects_oversized_utf8_components(self):
+        # Limits apply to each component in bytes, not to Unicode code points
+        # or only the full relative path. No filename is silently truncated.
+        _, _, _, artifact, _ = fixtures()
+        valid = (
+            'exports/' + 'a' * 251 + '.png',  # 255 bytes
+            'a' * 255 + '/sticker.png',
+            'exports/' + 'é' * 125 + 'a.png',  # 255 UTF-8 bytes
+            'exports/' + '🌿' * 62 + 'abc.png',  # 255 UTF-8 bytes
+        )
+        invalid = (
+            'exports/' + 'a' * 252 + '.png',  # 256 bytes
+            'a' * 256 + '/sticker.png',
+            'exports/' + 'é' * 126 + '.png',  # 256 UTF-8 bytes
+            'exports/' + '🌿' * 63 + '.png',  # 256 UTF-8 bytes
+        )
+        for path in valid:
+            with self.subTest(valid=repr(path[:35])):
+                self.assertEqual(max(len(p.encode('utf-8')) for p in path.split('/')), 255)
+                self.assertEqual(replace(artifact, file_path=path).file_path, path)
+        for path in invalid:
+            with self.subTest(invalid=repr(path[:35])):
+                self.assertEqual(max(len(p.encode('utf-8')) for p in path.split('/')), 256)
+                with self.assertRaisesRegex(RecordError, 'INVALID_ARTIFACT_PATH'):
+                    replace(artifact, file_path=path)
+
+    def test_artifact_path_rejects_unicode_format_controls(self):
+        # Bidi overrides and invisible format characters can misrepresent
+        # an otherwise valid PNG/SVG filename in a UI or project listing.
+        _, _, _, artifact, _ = fixtures()
+        for character in ('\u202e', '\u202a', '\u2066', '\u2069',
+                          '\u200b', '\u200d'):
+            path = f'exports/sticker{character}gnp.png'
+            with self.subTest(codepoint=hex(ord(character))), self.assertRaisesRegex(
+                    RecordError, 'INVALID_ARTIFACT_PATH'):
+                replace(artifact, file_path=path)
+        # Do not reject ordinary Unicode filenames with visible accents.
+        path = 'exports/étiquette 01.png'
+        self.assertEqual(replace(artifact, file_path=path).file_path, path)
+
+    def test_artifact_path_rejects_unpaired_unicode_surrogates(self):
+        # U+D800..U+DFFF are not Unicode scalar values. Reject both halves
+        # before a path reaches filesystem encoding or export.
+        _, _, _, artifact, _ = fixtures()
+        for codepoint in (0xD800, 0xDBFF, 0xDC00, 0xDFFF):
+            path = 'exports/sticker' + chr(codepoint) + '.png'
+            with self.subTest(codepoint=hex(codepoint)), self.assertRaisesRegex(
+                    RecordError, 'INVALID_ARTIFACT_PATH'):
+                replace(artifact, file_path=path)
+        # Legitimate visible Unicode filenames remain valid.
+        for path in ('exports/étiquette 01.png', 'exports/🌿.png'):
+            with self.subTest(path=path):
+                self.assertEqual(replace(artifact, file_path=path).file_path, path)
+
+    def test_artifact_path_rejects_invisible_combining_grapheme_joiner(self):
+        # U+034F is default-ignorable despite being category Mn, not Cf.
+        # It must not create a visually indistinguishable output filename.
+        _, _, _, artifact, _ = fixtures()
+        self.assertEqual(artifact.file_path, 'exports/sticker.png')
+        with self.assertRaisesRegex(RecordError, 'INVALID_ARTIFACT_PATH'):
+            replace(artifact, file_path='exports/sticker\u034f.png')
+        # Ordinary combining accents are valid and remain normalizable.
+        accented = 'exports/cafe\u0301.png'
+        self.assertEqual(replace(artifact, file_path=accented).file_path, accented)
+
+    def test_artifact_path_rejects_default_ignorable_variation_selectors(self):
+        # Variation selectors are Mn (not Cf) but can make distinct paths
+        # visually indistinguishable, bypassing the portable-path alias check.
+        _, _, _, artifact, _ = fixtures()
+        for selector in ('\uFE00', '\uFE0F', '\U000E0100', '\U000E01EF'):
+            path = f'exports/sticker{selector}.png'
+            with self.subTest(codepoint=hex(ord(selector))), self.assertRaisesRegex(
+                    RecordError, 'INVALID_ARTIFACT_PATH'):
+                replace(artifact, file_path=path)
+        # Preserve ordinary combining accents, including decomposed Unicode.
+        accented = 'exports/cafe\u0301.png'
+        self.assertEqual(replace(artifact, file_path=accented).file_path, accented)
+
+    def test_artifact_path_rejects_unicode_line_and_paragraph_separators(self):
+        # C1 controls (including U+0085 NEXT LINE) can split UI/log lines,
+        # just like U+2028/U+2029. Preserve ordinary visible accents.
+        _, _, _, artifact, _ = fixtures()
+        for separator in ('\u0080', '\u0085', '\u009f', '\u2028', '\u2029'):
+            path = f'exports/sticker{separator}.png'
+            with self.subTest(codepoint=hex(ord(separator))), self.assertRaisesRegex(
+                    RecordError, 'INVALID_ARTIFACT_PATH'):
+                replace(artifact, file_path=path)
+        for path in ('exports/étiquette 01.png', 'exports/cafe\u0301.png'):
+            with self.subTest(path=path):
+                self.assertEqual(replace(artifact, file_path=path).file_path, path)
+
+    def test_json_array_records_are_deeply_immutable(self):
+        # Lists from untrusted JSON must not mutate frozen validated records.
+        s, m, original_sub, original_art, q = fixtures()
+        bbox = [10, 5, 65, 70]
+        accessories = []
+        subject_ids = ['subject-01']
+        sub = replace(original_sub, bbox_px=bbox, accessory_ids=accessories)
+        artifact = replace(original_art, subject_ids=subject_ids)
+        self.assertIsInstance(sub.bbox_px, tuple)
+        self.assertIsInstance(sub.accessory_ids, tuple)
+        self.assertIsInstance(artifact.subject_ids, tuple)
+        bbox[2] = 10_000_000
+        accessories.append('missing')
+        subject_ids.append('missing')
+        self.assertEqual(sub.bbox_px, (10, 5, 65, 70))
+        self.assertEqual(sub.accessory_ids, ())
+        self.assertEqual(artifact.subject_ids, ('subject-01',))
+        with self.assertRaises(TypeError):
+            sub.bbox_px[2] = 10_000_000
+        with self.assertRaises(AttributeError):
+            sub.accessory_ids.append('missing')
+        with self.assertRaises(AttributeError):
+            artifact.subject_ids.append('missing')
+        result = self.verify((s, m, sub, artifact, q))
+        self.assertEqual(result['subjects'], 1)
+        # JSON remains list-shaped for project persistence.
+        encoded = json.loads(json.dumps([record_dict(sub), record_dict(artifact)]))
+        self.assertEqual(encoded[0]['bbox_px'], [10, 5, 65, 70])
+        self.assertEqual(encoded[0]['accessory_ids'], [])
+        self.assertEqual(encoded[1]['subject_ids'], ['subject-01'])
+        for record, values in ((sub, {'bbox_px': [0, 0, -1, 5]}),
+                               (sub, {'accessory_ids': ['invalid/id']}),
+                               (artifact, {'subject_ids': ['invalid/id']})):
+            with self.subTest(values=values), self.assertRaises(RecordError):
+                replace(record, **values)
+
+    def test_huge_mm_integer_raises_record_error_not_overflow(self):
+        _, _, _, artifact, _ = fixtures()
+        for values in (
+            {'width_mm': 10**400},
+            {'height_mm': 10**400},
+            {'width_mm': -(10**400)},
+            {'height_mm': float('inf')},
+        ):
+            with self.subTest(values=values), self.assertRaisesRegex(
+                    RecordError, 'INVALID_NUMBER'):
+                replace(artifact, **values)
+        self.assertEqual(replace(artifact, width_mm=45).width_mm, 45)
+
+    def test_artifact_paths_must_be_unique_on_portable_filesystems(self):
+        s, m, sub, artifact, qa = fixtures()
+
+        def validate_pair(second):
+            return validate_project_records(
+                sources=[s], masks=[m], subjects=[sub],
+                artifacts=[artifact, second], qa_results=[qa])
+
+        # A distinct artifact ID must never overwrite another artifact file.
+        with self.assertRaisesRegex(RecordError, 'DUPLICATE_FILE_PATH'):
+            validate_pair(replace(artifact, artifact_id='artifact-02',
+                                  sha256='0' * 64))
+        # Windows aliases paths that differ only by case, including extension.
+        with self.assertRaisesRegex(RecordError, 'DUPLICATE_FILE_PATH'):
+            validate_pair(replace(artifact, artifact_id='artifact-02',
+                                  file_path='EXPORTS/STICKER.PNG'))
+        # Even identical content cannot assign two artifact IDs to one path.
+        with self.assertRaisesRegex(RecordError, 'DUPLICATE_FILE_PATH'):
+            validate_pair(replace(artifact, artifact_id='artifact-02'))
+        # Distinct names remain valid; neither original is modified.
+        result = validate_pair(replace(artifact, artifact_id='artifact-02',
+                                       file_path='exports/sticker_02.png'))
+        self.assertEqual(result['artifacts'], 2)
+        self.assertEqual(artifact.file_path, 'exports/sticker.png')
+
+    def test_artifact_paths_reject_file_directory_conflicts(self):
+        # Both orders must fail: a validated output file cannot also be a
+        # directory containing another output, including Windows/Unicode
+        # aliases. Use synthetic metadata only; no private artwork is needed.
+        source, mask, subject, original, _ = fixtures()
+
+        def check(paths):
+            artifacts = [
+                replace(original, artifact_id=f'artifact-{i:02d}',
+                        use='basic_cut_svg', file_path=path, ppi=None)
+                for i, path in enumerate(paths)
+            ]
+            return validate_project_records(
+                sources=[source], masks=[mask], subjects=[subject],
+                artifacts=artifacts)
+
+        conflicting_pairs = (
+            ('exports/cut.svg', 'exports/cut.svg/detail.svg'),
+            ('exports/CUT.SVG', 'exports/cut.svg/deep/detail.svg'),
+            ('exports/Étiquette.svg', 'exports/e\u0301tiquette.svg/detail.svg'),
+        )
+        for first, second in conflicting_pairs:
+            for paths in ((first, second), (second, first)):
+                with self.subTest(paths=paths), self.assertRaisesRegex(
+                        RecordError, 'FILE_DIRECTORY_PATH_CONFLICT'):
+                    check(paths)
+
+        # Common parent directories and similar filename prefixes are safe.
+        valid = (
+            'exports/cut.svg',
+            'exports/cut.svg.bak/detail.svg',
+            'exports/nested/detail.svg',
+            'exports/nested/other.svg',
+        )
+        self.assertEqual(check(valid)['artifacts'], len(valid))
+        self.assertEqual(check(tuple(reversed(valid)))['artifacts'], len(valid))
+
+    def test_artifact_paths_unicode_normalization_aliases(self):
+        s, m, sub, artifact, qa = fixtures()
+        first = replace(artifact, file_path='exports/étiquette.png')
+        second = replace(artifact, artifact_id='artifact-02',
+                         file_path='exports/e\u0301tiquette.png')
+        with self.assertRaisesRegex(RecordError, 'DUPLICATE_FILE_PATH'):
+            validate_project_records(sources=[s], masks=[m], subjects=[sub],
+                                     artifacts=[first, second], qa_results=[qa])
+
+    def test_qa_never_promotes_simulation_to_real(self):
+        with self.assertRaisesRegex(RecordError, 'IMPORT_PASS_REQUIRES_REAL_EVIDENCE'):
+            QAResult('artifact-01', design_space_import='passed', import_evidence='fixture')
+        with self.assertRaisesRegex(RecordError, 'CUT_PASS_REQUIRES_IMPORT_AND_REAL_EVIDENCE'):
+            QAResult('artifact-01', physical_cut='passed', environment='real', physical_evidence='photo')
+        qa = QAResult('artifact-01', design_space_import='passed', physical_cut='passed',
+                      environment='real', import_evidence='real-import-01', physical_evidence='real-cut-01')
+        self.assertEqual(qa.physical_cut, 'passed')
+
+    def test_qa_status_rejects_unhashable_metadata_with_record_error(self):
+        # Untrusted JSON can contain arrays/objects in fields requiring a status.
+        for field in ('visual', 'geometry', 'design_space_import', 'physical_cut'):
+            for bad in ([], {}, ['passed']):
+                with self.subTest(field=field, bad=bad), self.assertRaisesRegex(
+                        RecordError, f'{field}: INVALID_STATUS'):
+                    QAResult('artifact-01', **{field: bad})
+        # Preserve the supported status values and real-evidence contract.
+        for status in ('not_tested', 'passed', 'failed'):
+            self.assertEqual(QAResult('artifact-01', visual=status).visual, status)
+
+    def test_unknown_artifact_and_subject_rejected(self):
+        s, m, sub, a, q = fixtures()
+        with self.assertRaisesRegex(RecordError, 'UNKNOWN_ARTIFACT_SUBJECT'):
+            self.verify((s, m, sub, replace(a, subject_ids=('unknown',)), q))
+        with self.assertRaisesRegex(RecordError, 'UNKNOWN_QA_ARTIFACT'):
+            self.verify((s, m, sub, a, replace(q, artifact_id='missing')))
+
+    def test_false_qualified_status_and_invalid_record_collection(self):
+        s, m, sub, a, q = fixtures()
+        with self.assertRaises(RecordError):
+            replace(q, geometry='certified')
+        with self.assertRaises(RecordError):
+            validate_project_records(sources=[record_dict(s)], masks=[m],
+                                     subjects=[sub], artifacts=[a])
+
+
+if __name__ == '__main__':
+    unittest.main()
