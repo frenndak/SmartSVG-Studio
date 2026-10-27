@@ -134,6 +134,44 @@ class ArchiveG13Tests(unittest.TestCase):
                 self.assertEqual(self.path.read_bytes(), before)
                 self.assertEqual(load_project(self.path), original)
 
+    def test_archive_resource_paths_cannot_shadow_files_or_metadata(self):
+        # Cross-kind file/directory collisions may survive checks restricted
+        # to artifact-vs-artifact paths and break portable ZIP project readers.
+        from dataclasses import replace
+        original = _fixture()
+        save_project(self.path, original)
+        before = self.path.read_bytes()
+        collisions = (
+            'sources/source-01.png/detail.svg',
+            'SOURCES/SOURCE-01.PNG/detail.svg',  # Windows casefold alias
+            'masks/mask-01.png/detail.svg',
+            'manifest.json/detail.svg',
+            'MANIFEST.JSON/detail.svg',
+            'document.json/detail.svg',
+            'proofs/qa_results.json/detail.svg',
+        )
+        for path in collisions:
+            with self.subTest(path=path):
+                bad = _fixture()
+                payload = bad.resources.pop('exports/contour.svg')
+                bad.resources[path] = payload
+                bad = replace(bad, artifacts=(replace(
+                    bad.artifacts[0], file_path=path),))
+                with self.assertRaisesRegex(
+                        ProjectArchiveError, 'ARCHIVE_FILE_DIRECTORY_PATH_CONFLICT'):
+                    save_project(self.path, bad, overwrite=True)
+                self.assertEqual(self.path.read_bytes(), before)
+                self.assertEqual(load_project(self.path), original)
+        # Similar prefixes that are not parent file paths remain valid.
+        good = _fixture()
+        payload = good.resources.pop('exports/contour.svg')
+        good.resources['sources/source-01.png.backup/detail.svg'] = payload
+        good = replace(good, artifacts=(replace(
+            good.artifacts[0],
+            file_path='sources/source-01.png.backup/detail.svg'),))
+        save_project(self.path, good, overwrite=True)
+        self.assertEqual(load_project(self.path), good)
+
     def test_webp_static_frames_have_consistent_riff_chunks(self):
         # Two tiny RGB pictures generated from original solid-color pixels.
         # The check verifies WebP container integrity, not decoded pixels.
