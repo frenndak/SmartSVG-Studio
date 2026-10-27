@@ -31,3 +31,27 @@ Le lot G2.7 acceptait comme « chemin SVG candidat à la découpe » des chaîne
 **P0** corriger la grammaire des chemins (ce lot) ; qualifier l'exactitude des dimensions/couleurs et refuser les faux « prêts pour découpe ». **P0** intégrer séquentiellement la pile G1.3→G2.8 en distinguant alternatives G2.3/G2.5 ; porter les correctifs indépendants #25/#31 et le scénario d'inspection #26–#28 avec résolution des conflits. **P1** joindre sélection SVG, sujets, masques et retouches par identifiants stables ; améliorer autosave complet, reprise du graphe et parcours Express sans nœuds ; puis recette navigateur et coupe réelle.
 
 Ne pas modifier `docs/ROADMAP_MASTER_v3_2.md` ; tout élargissement de portée relève d'une nouvelle décision de roadmap, pas d'un amendement silencieux.
+
+## Matrice de sévérité et critères GO / NO GO
+
+| Priorité | Constat | Preuve actuelle | Condition d'acceptation |
+| --- | --- | --- | --- |
+| **P0 bloquant export** | Fermeture fictive, commande de tracé malformée, aire nulle ou contour masqué par débordement du viewBox | Défaut G2.7 identifié puis corrections G2.9 + tests ciblés | Nouveau HEAD CI vert, tests négatifs de forme et bornes, revue indépendante |
+| **P0 bloquant intégration** | Décalage de versions G1.3 → G1.4 et chaîne G2 ; alternatives #20/#21 et #23/#24 | `compare_commits` indique G1.4 derrière G1.3 ; 19 PR ouvertes au moment de l'audit | Choix explicite d'une variante par lot, réconciliation sans perte, CI sur pile d'intégration |
+| **P0 fabrication** | Pas de test matériel Design Space/Explore 5 ni Windows ComfyUI RTX 3070 | Les journaux G0/CPU déclarent des tests synthétiques | Matrice réelle : 12 escargots, 24 illustrations, sticker Print Then Cut et SVG Basic Cut, dimensions mm et tolérance de coupe mesurées |
+| **P1 sauvegarde** | G2.8 autoenregistre des coups de pinceau locaux, pas toute l'archive ou les masques | Modules G2.8/G2.4 distincts, reprise du graphe manuelle | Crash-tests rechargement projet source + masques + strokes et reprise des liens ComfyUI |
+| **P1 qualité d'entrée** | Photos JPEG/WebP ne sont pas intégrées au parcours de création de projet Express G2.2 (PNG seul) | Champ de fichier UI `accept='image/png'` | Importer normalisé : EXIF, rotations, alpha, espace couleur, erreurs de décodeur et photos > budget |
+| **P1 UX** | Clic de sélection Canvas et états responsive testés en DOM simulé, pas dans navigateur de production | Tests Node.js, aucun essai interactif attesté sur Windows | Recette souris/clavier/lecteur d'écran, 1366×768 et 1920×1080, 12/24 objets, conflits et erreurs |
+| **P1 performances** | Chaque rafraîchissement de la sélection G2.7 reconstruit actuellement jusqu'à 64 objets Path2D | Lecture `smartsvg_cut_review_panel_g27.mjs` | Cache par signature du fichier, 24/64 chemins sans gel UI, bornage temps/mémoire |
+| **P2 confort** | Dossier de sortie global, import de photos et création non technique de bout en bout restent incomplets | Documents de roadmap et branches Express | Paramètres utilisateur stables, prévisualisation avant exécution et export réellement vérifiable |
+
+### Protocole de contre-vérification
+
+- **Sources et invariants** : comparer les 651 empreintes de l'archive historique, vérifier que les fichiers de roadmap figée et IDs de nœuds n'ont pas changé.
+- **Tests automatiques** : admission Python et JS, scénarios d'attaque XML/SVG, chemins multi-sujets 12/24, défauts de syntaxe, clip et sauvegarde atomique.
+- **Tests d'intégration** : charger la pile réellement réconciliée, vérifier que les cinq expériences coexistent dans une seule installation ComfyUI.
+- **Tests utilisateur** : importer une photo smartphone, reprendre un projet après fermeture imprévue, dessiner/annuler/rétablir, sélectionner une planche, visualiser la découpe.
+- **Essais de fabrication** : mesurer les dimensions réelles A4/Print Then Cut et SVG Basic Cut après import Design Space et découpe Explore 5.
+- **Communication** : ne jamais annoncer « prêt Cricut », « vectorisé intégralement » ou « récupération complète » sans preuves correspondant précisément à la fonctionnalité.
+
+**Aucune fusion ni certification matérielle n'est autorisée par ce rapport.** Le dépôt public SmartSVG-Studio est le choix déclaré de l'utilisateur.
