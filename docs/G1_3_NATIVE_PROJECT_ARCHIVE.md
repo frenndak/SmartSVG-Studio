@@ -37,6 +37,7 @@ Le ZIP est lu en mémoire avec des budgets définis, **jamais extrait**. Les che
 ## Propriétés de sûreté
 
 - Contrôle des références et bounding-box G1.2 avant sauvegarde/après restauration ;
+- Rejet explicite des cartes source/masque/ressources malformées (objet obligatoire), avant toute écriture ; deux identifiants de source ne peuvent pas référencer le même membre ZIP, même si leurs empreintes et dimensions sont identiques (prévention des alias de ressources) ;
 - contrôle SHA-256 **réel sur les octets**, manifestes, dimensions déclarées et en-têtes d'images (PNG/JPEG/WebP) ;
 - masques obligatoirement en PNG L8 sujet blanc, CRC des chunks et décompression vérifiée sans dépasser le budget ;
 - limite d'entrées, taille membre, taille décompressée globale, profondeur JSON (32) et nombre d'éléments ;
@@ -53,7 +54,7 @@ Le ZIP est lu en mémoire avec des budgets définis, **jamais extrait**. Les che
 
 ## Tests et acceptation
 
-- tests engine/tests/test_project_archive_g13.py : 18 scénarios synthétiques de sauvegarde et attaques (sans œuvres utilisateur) ;
+- tests engine/tests/test_project_archive_g13.py : scénarios synthétiques incluant deux nouvelles régressions (alias de source et cartes malformées) de sauvegarde et attaques (sans œuvres utilisateur) ;
 - tests racine tests/test_g13_project_archive.py exécutés automatiquement par la CI privée d'admission ;
 - tests des 8 contrats G1.2 conservés dans la branche parente ;
 - ne pas confondre ces tests avec une exécution GPU RTX 3070, Design Space ou coupe Explore 5.
