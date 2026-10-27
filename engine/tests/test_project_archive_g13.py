@@ -1,4 +1,5 @@
 """G1.3: synthetic, non-copyrighted fixtures and negative ZIP tests."""
+import base64
 import hashlib
 import json
 from pathlib import Path
@@ -70,6 +71,67 @@ class ArchiveG13Tests(unittest.TestCase):
             for name, data in updates.items():
                 if name not in dict(rows):
                     out.writestr(name, data)
+
+    def test_webp_static_frames_have_consistent_riff_chunks(self):
+        # Two tiny RGB pictures generated from original solid-color pixels.
+        # The check verifies WebP container integrity, not decoded pixels.
+        from dataclasses import replace
+        for image in (
+            'UklGRh4AAABXRUJQVlA4TBEAAAAvAUAAAAdQoP4XpP+BiOh/AAA=',
+            'UklGRjwAAABXRUJQVlA4IDAAAADQAQCdASoCAAIAAUAmJaACdLoB+AADsAD+4Ll/8/M7txf1W//CmvhTXwpr/hAgAAA=',
+        ):
+            with self.subTest(image=image[:12]):
+                data = base64.b64decode(image)
+                project = _fixture()
+                del project.resources['sources/source-01.png']
+                project.resources['sources/source-01.webp'] = data
+                project.source_paths['source-01'] = 'sources/source-01.webp'
+                project = replace(project, sources=(replace(
+                    project.sources[0], sha256=_sha(data),
+                    width_px=2, height_px=2, color_mode='RGB'),))
+                # Mask and subject dimensions must match source; use a new
+                # 2x2 L8 mask, preserving the project referential contract.
+                mask = _png(2, 2, 0)
+                project.resources['masks/mask-01.png'] = mask
+                project = replace(
+                    project,
+                    masks=(replace(project.masks[0], sha256=_sha(mask),
+                                   width_px=2, height_px=2),),
+                    subjects=(replace(project.subjects[0], bbox_px=(0, 0, 2, 2)),),
+                )
+                save_project(self.path, project)
+                self.assertEqual(load_project(self.path), project)
+                self.path.unlink()
+
+    def test_webp_truncated_and_forged_riff_rejected_before_overwrite(self):
+        from dataclasses import replace
+        original = _fixture()
+        save_project(self.path, original)
+        backup = self.path.read_bytes()
+        source = base64.b64decode('UklGRh4AAABXRUJQVlA4TBEAAAAvAUAAAAdQoP4XpP+BiOh/AAA=')
+        variants = (
+            (source[:-1], 'INVALID_WEBP_HEADER'),
+            (source[:4] + b'\x00\x00\x00\x00' + source[8:],
+             'INVALID_WEBP_HEADER'),
+            (source[:16] + b'\xff\xff\xff\x7f' + source[20:],
+             'INVALID_WEBP_CHUNK'),
+            (source[:-1] + b'\xff', 'INVALID_WEBP_PADDING'),
+            (b'RIFF' + (22).to_bytes(4, 'little') + b'WEBP' +
+             b'VP8X' + (10).to_bytes(4, 'little') +
+             b'\x00' * 10, 'INVALID_WEBP_FRAME'),
+        )
+        for data, error in variants:
+            with self.subTest(error=error):
+                project = _fixture()
+                del project.resources['sources/source-01.png']
+                project.resources['sources/source-01.webp'] = data
+                project.source_paths['source-01'] = 'sources/source-01.webp'
+                project = replace(project, sources=(replace(
+                    project.sources[0], sha256=_sha(data)),))
+                with self.assertRaisesRegex(ProjectArchiveError, error):
+                    save_project(self.path, project, overwrite=True)
+                self.assertEqual(self.path.read_bytes(), backup)
+                self.assertEqual(load_project(self.path), original)
 
     def test_exact_save_close_open_15_operations_and_3_undo(self):
         initial = _fixture()
