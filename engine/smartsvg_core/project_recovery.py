@@ -13,7 +13,7 @@ from pathlib import Path
 import shutil
 import tempfile
 
-from .project_archive import LoadedProject, ProjectArchiveError, load_project, save_project
+from .project_archive import LoadedProject, ProjectArchiveError, _payload, load_project, save_project
 
 
 class RecoveryError(ValueError):
@@ -229,7 +229,14 @@ def save_with_recovery(path, project: LoadedProject) -> dict:
             ):
                 # Never destroy a foreign or potentially salvageable old backup.
                 raise RecoveryError('BACKUP_CONFLICT')
-            # Preserves the last-known-good primary even if new save fails.
+            # Validate the candidate BEFORE touching the existing backup.
+            # save_project() performs this same bounded payload validation,
+            # but doing it only afterwards would discard an older good backup
+            # when the proposed project is invalid (e.g. a bad resource SHA).
+            try:
+                _payload(project)
+            except ProjectArchiveError as exc:
+                raise RecoveryError('SAVE_FAILED') from exc
             _atomic_copy(target, _previous(target))
         try:
             saved = save_project(target, project, overwrite=(primary == 'valid'))
