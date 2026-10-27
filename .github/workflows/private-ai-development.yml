@@ -126,6 +126,48 @@ jobs:
             echo "proceed=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # This admission check runs before any paid API call. GitHub Actions
+      # counts are a conservative upper bound (free runs also count), NOT
+      # an API billing meter. The USD budget must also be enforced at provider.
+      - name: Require explicit paid budget and daily run cap
+        if: steps.gate.outputs.proceed == 'true'
+        shell: bash
+        env:
+          MONTHLY_API_BUDGET_USD: ${{ vars.SMARTSVG_MONTHLY_API_BUDGET_USD }}
+          MAX_PAID_RUNS_PER_DAY: ${{ vars.SMARTSVG_MAX_PAID_RUNS_PER_DAY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # GitHub's workflow total_count does not increase when a workflow
+          # attempt is rerun. Reject all retries before reaching Codex, even
+          # if the first attempt failed before consuming its allowance.
+          if [[ "${GITHUB_RUN_ATTEMPT:-}" != "1" ]]; then
+            echo "::error::Paid workflow reruns are prohibited; start a new run after fresh admission."
+            exit 1
+          fi
+          if [[ ! "$MONTHLY_API_BUDGET_USD" =~ ^[1-9][0-9]{0,4}(\.[0-9]{1,2})?$ ]]; then
+            echo "::error::Explicit positive monthly API budget variable is missing or invalid."
+            exit 1
+          fi
+          if [[ ! "$MAX_PAID_RUNS_PER_DAY" =~ ^[1-9][0-9]?$ ]] || (( MAX_PAID_RUNS_PER_DAY > 24 )); then
+            echo "::error::Explicit daily paid-run cap must be 1..24."
+            exit 1
+          fi
+          utc_day="$(date -u +%F)"
+          # All runs (including this one and no-cost runs) consume the quota.
+          # Fail closed if API is unavailable or a page could be truncated.
+          runs_json="$(gh api "repos/frenndak/SmartSVG-Studio/actions/workflows/private-ai-development.yml/runs?created=$utc_day&per_page=100")"
+          total="$(jq -er '.total_count' <<< "$runs_json")"
+          if [[ ! "$total" =~ ^[0-9]+$ ]] || (( total < 1 || total > 100 )); then
+            echo "::error::Cannot prove today's complete workflow-run count."
+            exit 1
+          fi
+          if (( total > MAX_PAID_RUNS_PER_DAY )); then
+            echo "::error::Daily paid-run admission cap reached; no paid API call."
+            exit 1
+          fi
+          echo "Budget admission: monthly USD budget declared; conservative daily workflow-run quota $total/$MAX_PAID_RUNS_PER_DAY. Provider-side billing cap is NOT verified by this workflow."
+
       - name: Require the private OpenAI API secret
         if: steps.gate.outputs.proceed == 'true'
         shell: bash
