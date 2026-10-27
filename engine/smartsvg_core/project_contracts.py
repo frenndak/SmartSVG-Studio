@@ -14,6 +14,8 @@ import unicodedata
 
 SCHEMA_VERSION = 'smartsvg-contracts/1'
 _MAX_PIXELS = 100_000_000
+_MIN_PHYSICAL_MM = 0.01
+_MAX_PHYSICAL_MM = 10_000.0
 _ID = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$')
 _SHA = re.compile(r'^[0-9a-f]{64}$')
 _STATUSES = frozenset({'not_tested', 'passed', 'failed'})
@@ -164,10 +166,23 @@ class Artifact:
             raise RecordError('ARTIFACT_EXTENSION_MISMATCH')
         _positive_number(self.width_mm, 'width_mm')
         _positive_number(self.height_mm, 'height_mm')
+        # A metadata contract must not accept an effectively zero-length
+        # or astronomical SVG/print size. This is a generic sanity limit,
+        # not a statement about a particular Cricut model's work area.
+        if (not _MIN_PHYSICAL_MM <= self.width_mm <= _MAX_PHYSICAL_MM or
+                not _MIN_PHYSICAL_MM <= self.height_mm <= _MAX_PHYSICAL_MM):
+            raise RecordError('PHYSICAL_SIZE_OUT_OF_RANGE')
         if self.ppi is not None and (type(self.ppi) is not int or not 72 <= self.ppi <= 2400):
             raise RecordError('INVALID_PPI')
         if self.use == 'print_then_cut_png' and self.ppi is None:
             raise RecordError('PRINT_REQUIRES_EXPLICIT_PPI')
+        if self.use == 'print_then_cut_png' and self.ppi is not None:
+            width_px = self.width_mm * self.ppi / 25.4
+            height_px = self.height_mm * self.ppi / 25.4
+            if width_px < 1 or height_px < 1:
+                raise RecordError('PRINT_SIZE_BELOW_ONE_PIXEL')
+            if width_px * height_px > _MAX_PIXELS:
+                raise RecordError('PRINT_PIXEL_BUDGET_EXCEEDED')
 
 
 @dataclass(frozen=True)
