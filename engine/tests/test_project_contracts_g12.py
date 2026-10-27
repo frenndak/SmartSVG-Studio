@@ -121,6 +121,33 @@ class ContractsG12Tests(unittest.TestCase):
         self.assertEqual(replace(a, use='basic_cut_svg', file_path='cut.svg', ppi=None).use,
                          'basic_cut_svg')
 
+    def test_physical_mm_and_print_pixel_budget_boundaries(self):
+        _, _, _, artifact, _ = fixtures()
+        # This protects mm→px exporters from unbounded resource requests,
+        # subpixel dimensions and overflow-prone metadata.
+        cases = (
+            ({'width_mm': 1e308}, 'PHYSICAL_SIZE_OUT_OF_RANGE'),
+            ({'height_mm': 1e-300}, 'PHYSICAL_SIZE_OUT_OF_RANGE'),
+            ({'width_mm': 0.009}, 'PHYSICAL_SIZE_OUT_OF_RANGE'),
+            ({'width_mm': 10000.01}, 'PHYSICAL_SIZE_OUT_OF_RANGE'),
+            ({'width_mm': 0.01}, 'PRINT_SIZE_BELOW_ONE_PIXEL'),
+            ({'width_mm': 9999., 'height_mm': 9999., 'ppi': 2400},
+             'PRINT_PIXEL_BUDGET_EXCEEDED'),
+        )
+        for patch, error in cases:
+            with self.subTest(patch=patch), self.assertRaisesRegex(
+                    RecordError, error):
+                replace(artifact, **patch)
+        # Exactly one pixel at declared PPI remains usable.
+        one_pixel_mm = 25.4 / 300
+        self.assertGreater(replace(artifact, width_mm=one_pixel_mm).width_mm, 0)
+        # A tiny vector shape is permitted; no rasterization is claimed.
+        vector = replace(artifact, use='editable_svg', file_path='tiny.svg',
+                         ppi=None, width_mm=0.01, height_mm=0.01)
+        self.assertEqual(vector.width_mm, 0.01)
+        huge_vector = replace(vector, width_mm=10000.0, height_mm=10000.0)
+        self.assertEqual(huge_vector.height_mm, 10000.0)
+
     def test_artifact_path_rejects_windows_device_names_and_controls(self):
         _, _, _, artifact, _ = fixtures()
         bad_paths = (

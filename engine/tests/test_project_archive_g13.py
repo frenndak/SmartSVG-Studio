@@ -236,6 +236,26 @@ class ArchiveG13Tests(unittest.TestCase):
         with self.assertRaisesRegex(ProjectArchiveError, 'JSON_NESTING_TOO_DEEP'):
             load_project(self.path)
 
+    def test_json_scene_tuple_rejected_without_damaging_last_good_save(self):
+        # Python tuples look array-like to json.dumps, but are silently
+        # converted to lists on reload. Project scene/operations are JSON-
+        # only: reject rather than save a structure that cannot round-trip.
+        from dataclasses import replace
+        initial = _fixture()
+        save_project(self.path, initial)
+        before = self.path.read_bytes()
+        for field in ('document', 'operations'):
+            broken = _fixture()
+            if field == 'document':
+                broken.document['objects'][0]['coords'] = (1, 2)
+            else:
+                broken.operations[0]['coords'] = (1, 2)
+            with self.subTest(field=field), self.assertRaisesRegex(
+                    ProjectArchiveError, 'INVALID_JSON_TYPE'):
+                save_project(self.path, broken, overwrite=True)
+            self.assertEqual(self.path.read_bytes(), before)
+            self.assertEqual(load_project(self.path), initial)
+
     def test_cyclic_accessories_rejected_on_save_and_untrusted_load(self):
         from dataclasses import replace
         from smartsvg_core.project_contracts import record_dict

@@ -96,7 +96,7 @@ def _check_json_structure(value, depth=0):
             if not isinstance(key, str) or len(key) > 512:
                 raise ProjectArchiveError('INVALID_JSON_KEY')
             _check_json_structure(item, depth + 1)
-    elif isinstance(value, (list, tuple)):
+    elif isinstance(value, list):
         if len(value) > 50000:
             raise ProjectArchiveError('JSON_TOO_MANY_ITEMS')
         for item in value:
@@ -337,16 +337,31 @@ def _validate_bundle(project: LoadedProject):
         raise ProjectArchiveError('RESOURCES_TOO_LARGE')
 
 
+def _record_json(record):
+    """Encode documented typed tuple fields as JSON arrays, explicitly.
+
+    Scene and operation JSON are stricter: arbitrary tuples are rejected to
+    prevent silent changes after reopening a project.
+    """
+    row = record_dict(record)
+    if isinstance(record, Subject):
+        row['bbox_px'] = list(record.bbox_px)
+        row['accessory_ids'] = list(record.accessory_ids)
+    elif isinstance(record, Artifact):
+        row['subject_ids'] = list(record.subject_ids)
+    return row
+
+
 def _payload(project: LoadedProject):
     _validate_bundle(project)
     files = {
         'document.json': _json_bytes(project.document),
         'operations.json': _json_bytes(project.operations),
-        'sources.json': _json_bytes([record_dict(x) for x in project.sources]),
-        'masks.json': _json_bytes([record_dict(x) for x in project.masks]),
-        'subjects.json': _json_bytes([record_dict(x) for x in project.subjects]),
-        'artifacts.json': _json_bytes([record_dict(x) for x in project.artifacts]),
-        'proofs/qa_results.json': _json_bytes([record_dict(x) for x in project.qa_results]),
+        'sources.json': _json_bytes([_record_json(x) for x in project.sources]),
+        'masks.json': _json_bytes([_record_json(x) for x in project.masks]),
+        'subjects.json': _json_bytes([_record_json(x) for x in project.subjects]),
+        'artifacts.json': _json_bytes([_record_json(x) for x in project.artifacts]),
+        'proofs/qa_results.json': _json_bytes([_record_json(x) for x in project.qa_results]),
     }
     files.update(project.resources)
     if len(files) + 1 > MAX_ENTRIES or sum(map(len, files.values())) > MAX_TOTAL_BYTES:
