@@ -42,6 +42,7 @@ Le ZIP est lu en mémoire avec des budgets définis, **jamais extrait**. Les che
 - contrôle SHA-256 **réel sur les octets**, manifestes, dimensions déclarées et en-têtes d'images (PNG/JPEG/WebP) ;
 - masques obligatoirement en PNG L8 sujet blanc, CRC des chunks et décompression vérifiée sans dépasser le budget ;
 - limite d'entrées, taille membre, taille décompressée globale, profondeur JSON (32) et nombre d'éléments ;
+- Dans `document` et `operations`, seules les structures JSON natives sont acceptées (`dict`, `list`, scalaires) : les tuples Python sont rejetés (`INVALID_JSON_TYPE`) au lieu d'être transformés silencieusement en listes. Une tentative de sauvegarde rejetée ne remplace jamais l'ancienne version valide.
 - fichier temporaire dans le même dossier, fsync, réouverture avant publication puis remplacement atomique ;
 - création par lien dur sans écrasement lorsque overwrite=False sur les systèmes où ce mécanisme est pris en charge.
 
