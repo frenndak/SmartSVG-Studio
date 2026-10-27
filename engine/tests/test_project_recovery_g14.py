@@ -13,7 +13,7 @@ from smartsvg_core.project_archive import LoadedProject, ProjectArchiveError, lo
 from smartsvg_core.project_contracts import Mask, SourceAsset, Subject
 from smartsvg_core.project_recovery import (
     RecoveryError, _project_lock, inspect_project, recover_previous,
-    recovery_message, save_with_recovery,
+    recovery_message, save_with_recovery, resolve_pending_backup, _pending,
 )
 
 
@@ -174,10 +174,112 @@ class ProjectRecoveryTests(unittest.TestCase):
             with self.assertRaisesRegex(RecoveryError, 'SAVE_FAILED'):
                 save_with_recovery(self.path, fixture(3))
         self.assertEqual(self.path.read_bytes(), old)
-        self.assertEqual(self.backup.read_bytes(), old)
+        self.assertFalse(self.backup.exists())  # failed publish never creates a backup
+        self.assertFalse(_pending(self.path).exists())
         self.assertEqual(inspect_project(self.path).status, 'PROJECT_HEALTHY')
         save_with_recovery(self.path, fixture(4))
         self.assertEqual(load_project(self.path).document['objects'][0]['x'], 4)
+
+    def test_failed_publish_preserves_existing_older_snapshot(self):
+        save_with_recovery(self.path, fixture(1))
+        save_with_recovery(self.path, fixture(2))
+        main_before, backup_before = self.path.read_bytes(), self.backup.read_bytes()
+        with patch('smartsvg_core.project_recovery.save_project',
+                   side_effect=ProjectArchiveError('simulated-disk-failure')):
+            with self.assertRaisesRegex(RecoveryError, 'SAVE_FAILED'):
+                save_with_recovery(self.path, fixture(3))
+        self.assertEqual(self.path.read_bytes(), main_before)
+        self.assertEqual(self.backup.read_bytes(), backup_before)
+        self.assertFalse(_pending(self.path).exists())
+        self.assertEqual(load_project(self.backup).document['objects'][0]['x'], 1)
+
+    def test_interruption_before_primary_publish_requires_confirmation(self):
+        save_with_recovery(self.path, fixture(1))
+        save_with_recovery(self.path, fixture(2))
+        main_before, backup_before = self.path.read_bytes(), self.backup.read_bytes()
+        with patch('smartsvg_core.project_recovery.save_project',
+                   side_effect=KeyboardInterrupt('simulated-process-stop')):
+            with self.assertRaises(KeyboardInterrupt):
+                save_with_recovery(self.path, fixture(3))
+        self.assertEqual(self.path.read_bytes(), main_before)
+        self.assertEqual(self.backup.read_bytes(), backup_before)
+        self.assertTrue(_pending(self.path).exists())
+        self.assertEqual(inspect_project(self.path).status,
+                         'PENDING_BACKUP_REVIEW_REQUIRED')
+        with self.assertRaisesRegex(RecoveryError, 'PENDING_BACKUP_REVIEW_REQUIRED'):
+            save_with_recovery(self.path, fixture(4))
+        with self.assertRaisesRegex(RecoveryError, 'RECOVERY_CONFIRMATION_REQUIRED'):
+            resolve_pending_backup(self.path)
+        result = resolve_pending_backup(self.path, confirmed=True)
+        self.assertEqual(result['status'], 'unpublished_candidate_discarded')
+        self.assertEqual(self.path.read_bytes(), main_before)
+        self.assertEqual(self.backup.read_bytes(), backup_before)
+        self.assertFalse(_pending(self.path).exists())
+
+    def test_interruption_after_primary_publish_can_finalize_last_backup(self):
+        from smartsvg_core import project_recovery
+        save_with_recovery(self.path, fixture(1))
+        save_with_recovery(self.path, fixture(2))
+        old_main, old_backup = self.path.read_bytes(), self.backup.read_bytes()
+        real_copy = project_recovery._atomic_copy
+        copies = [0]
+        def stop_before_backup_rotation(source, destination):
+            copies[0] += 1
+            if copies[0] == 2:
+                raise KeyboardInterrupt('simulated-process-stop')
+            return real_copy(source, destination)
+        with patch('smartsvg_core.project_recovery._atomic_copy',
+                   side_effect=stop_before_backup_rotation):
+            with self.assertRaises(KeyboardInterrupt):
+                save_with_recovery(self.path, fixture(3))
+        self.assertEqual(load_project(self.path).document['objects'][0]['x'], 3)
+        self.assertEqual(self.backup.read_bytes(), old_backup)
+        self.assertEqual(_pending(self.path).read_bytes(), old_main)
+        self.assertEqual(inspect_project(self.path).status,
+                         'PENDING_BACKUP_REVIEW_REQUIRED')
+        with self.assertRaisesRegex(RecoveryError, 'PENDING_BACKUP_REVIEW_REQUIRED'):
+            recover_previous(self.path, confirmed=True)
+        self.assertEqual(resolve_pending_backup(self.path, confirmed=True)['status'],
+                         'pending_backup_finalized')
+        self.assertEqual(self.backup.read_bytes(), old_main)
+        self.assertFalse(_pending(self.path).exists())
+        self.assertEqual(inspect_project(self.path).status, 'PROJECT_HEALTHY')
+
+    def test_corrupt_primary_after_interruption_can_restore_staged_primary(self):
+        from smartsvg_core import project_recovery
+        save_with_recovery(self.path, fixture(1))
+        save_with_recovery(self.path, fixture(2))
+        old_main, old_backup = self.path.read_bytes(), self.backup.read_bytes()
+        real_copy = project_recovery._atomic_copy
+        copies = [0]
+        def stop_before_backup_rotation(source, destination):
+            copies[0] += 1
+            if copies[0] == 2:
+                raise KeyboardInterrupt('simulated-process-stop')
+            return real_copy(source, destination)
+        with patch('smartsvg_core.project_recovery._atomic_copy',
+                   side_effect=stop_before_backup_rotation):
+            with self.assertRaises(KeyboardInterrupt):
+                save_with_recovery(self.path, fixture(3))
+        self.path.write_bytes(b'simulated-corruption-after-publication')
+        self.assertEqual(resolve_pending_backup(self.path, confirmed=True)['status'],
+                         'staged_primary_restored')
+        self.assertEqual(self.path.read_bytes(), old_main)
+        self.assertEqual(self.backup.read_bytes(), old_backup)
+        self.assertFalse(_pending(self.path).exists())
+
+    def test_expected_sha256_contract_preserved(self):
+        save_with_recovery(self.path, fixture(1))
+        save_with_recovery(self.path, fixture(2))
+        primary_before, previous_before = self.path.read_bytes(), self.backup.read_bytes()
+        with self.assertRaisesRegex(RecoveryError, 'PROJECT_CHANGED_DURING_SAVE'):
+            save_with_recovery(self.path, fixture(3), expected_sha256='0' * 64)
+        self.assertEqual(self.path.read_bytes(), primary_before)
+        self.assertEqual(self.backup.read_bytes(), previous_before)
+        import hashlib
+        result = save_with_recovery(self.path, fixture(3), expected_sha256=hashlib.sha256(primary_before).hexdigest())
+        self.assertTrue(result['previous_available'])
+        self.assertEqual(load_project(self.backup).document['objects'][0]['x'], 2)
 
     def test_failed_backup_copy_preserves_last_good_previous(self):
         save_with_recovery(self.path, fixture(1))
