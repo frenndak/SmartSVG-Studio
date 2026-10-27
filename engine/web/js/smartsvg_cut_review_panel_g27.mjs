@@ -29,9 +29,7 @@ export function createCutReviewPanel(ownerId='default'){
   status.setAttribute('role','status');status.setAttribute('aria-live','polite');
   const canvas=element('canvas');
   canvas.width=720;canvas.height=420;
-  canvas.style.width='100%';canvas.style.height='auto';
-  canvas.style.maxHeight='300px';canvas.style.background='#ffffff';
-  canvas.style.borderRadius='6px';
+  canvas.setAttribute('style','width:100%;height:auto;max-height:300px;background:#ffffff;border-radius:6px');
   canvas.setAttribute('role','img');
   canvas.setAttribute('aria-label','Aperçu non certifié des chemins de découpe SVG');
   canvas.hidden=true;
@@ -82,7 +80,7 @@ export function createCutReviewPanel(ownerId='default'){
     selectors.replaceChildren();
     for(const item of review.paths){
       const row=element('label');
-      row.style.cssText='display:flex;align-items:center;gap:7px;padding:4px;min-height:32px';
+      row.setAttribute('style','display:flex;align-items:center;gap:7px;padding:4px;min-height:32px');
       const check=element('input');check.type='checkbox';check.checked=selected.has(item.index);
       check.addEventListener('change',()=>{
         if(check.checked)selected.add(item.index);else selected.delete(item.index);
