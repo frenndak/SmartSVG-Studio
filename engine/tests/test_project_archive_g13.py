@@ -243,7 +243,7 @@ class ArchiveG13Tests(unittest.TestCase):
             (png[:33] + chunk(b'ABCD', b'') + png[33:],
              'UNKNOWN_CRITICAL_PNG_CHUNK'),
             (png[:33] + chunk(b'IDAT', compressed[:split]) +
-             chunk(b'tEXt', b'comment\\x00valid') +
+             chunk(b'tEXt', b'comment\x00valid') +
              chunk(b'IDAT', compressed[split:]) + png[-12:],
              'NONCONTIGUOUS_PNG_IDAT'),
         )
@@ -266,7 +266,7 @@ class ArchiveG13Tests(unittest.TestCase):
         def chunk(name, body):
             return (struct.pack('>I', len(body)) + name + body +
                     struct.pack('>I', zlib.crc32(name + body) & 0xffffffff))
-        extra = chunk(b'tEXt', b'key\\x00value')
+        extra = chunk(b'tEXt', b'key\x00value')
         annotated = png[:33] + extra + png[33:-12] + extra + png[-12:]
         project = _fixture()
         project.resources['sources/source-01.png'] = annotated
