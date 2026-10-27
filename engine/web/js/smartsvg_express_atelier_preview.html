@@ -38,6 +38,17 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:.001;overflow:hi
 @media(max-width:860px){.workarea{grid-template-columns:1fr}.artboard{width:min(620px,80vw)}.stage{min-height:370px}.workflow{gap:4px}.step{padding:9px;justify-content:center}.step-label{display:none}.step-index{width:29px;height:29px}.inspect{display:grid;grid-template-columns:repeat(2,1fr);gap:0 18px}.inspect-header{grid-column:1/-1}.group{padding-right:5px}.footer-actions{align-items:flex-start;flex-direction:column}}
 @media(max-width:580px){.app{display:block}.side{display:none}.topbar{padding:0 14px;height:60px}.breadcrumb{font-size:11px}.top-actions{gap:5px}.avatar{display:none}.content{padding:21px 12px}.hero{display:block}.hero-btn{margin-top:15px}.workflow{margin:21px 0 12px}.stage{padding:15px 9px;min-height:290px}.artboard{width:min(100%,500px)}.snails{inset:33px 19px 26px;gap:2px}.snail{padding:1px;border-width:1px}.snail-index{width:14px;height:14px;font-size:8px}.surface-header{padding:13px}.surface-title{font-size:12px}.surface-footer{padding:12px}.inspect{display:block}.footer-actions{padding:14px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;animation:none!important}}
+
+/* G3.1: an actual SVG reviewer (distinct from fictional subjects). */
+.real-review{margin-top:18px;padding:18px 20px;background:var(--panel);border:1px solid var(--aqua);border-radius:var(--radius)}
+.real-review>h2{font-size:17px;margin:0 0 5px}.real-review>p{margin:0 0 14px;color:var(--muted);font-size:12px}
+.real-review .details{background:var(--panel2);padding:14px;border-radius:10px}
+.real-review .details input[type=file]{position:static;width:100%;height:auto;opacity:1;margin:9px 0;color:var(--text)}
+.real-review .details label{color:var(--text);font-size:12px}.real-review .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.real-review .toolbar button{min-height:36px;color:#e9f9fc;border:1px solid #436478;background:#173647;padding:8px 11px;border-radius:8px}
+.real-review .details canvas{max-width:100%}.real-review .details [role=group]{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:5px}
+.real-review .details [role=group] label{border:1px solid var(--line);padding:6px;border-radius:6px}
+.real-review .details [role=group] input[type=checkbox]{accent-color:var(--aqua)}
 </style>
 </head>
 <body>
@@ -77,9 +88,10 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:.001;overflow:hi
       <label class="mode"><input name="mode" type="radio" value="edit"><span><b>▤ SVG modifiable</b><span>Plusieurs tracés si l'image le permet.</span></span></label>
     </section>
     <section class="group"><div class="group-title">Dimensions & qualité</div><div class="two-cols"><div><label for="width">Largeur / sujet (mm)</label><input id="width" type="number" min="10" max="200" step="1" value="40"></div><div><label for="dpi">Précision d'aperçu</label><select id="dpi"><option value="300">300 ppp</option><option value="600">600 ppp</option><option value="150">150 ppp</option></select></div></div><p style="font-size:11px;color:var(--muted);margin:10px 0 0">Les dimensions affichées sont indicatives ; vérifiez-les dans Design Space.</p></section>
-    <section class="group"><div class="group-title">Contrôle avant découpe</div><div class="hint" id="modeHint">⚠️ Brouillon visuel uniquement. Aucun contour n'a été vérifié par le moteur et aucune découpe Cricut n'a été testée.</div></section>
+    <section class="group"><div class="group-title">Contrôle avant découpe</div><div class="hint" id="modeHint">⚠️ Brouillon visuel uniquement. Aucun contour n'a été vérifié par le moteur et aucune découpe Cricut n'a été testée.</div><button type="button" class="outline" style="width:100%;margin-top:12px" id="realContourButton" aria-expanded="false" aria-controls="realContourHost">✂ Examiner un vrai SVG de contours</button><p style="color:var(--muted);font-size:11px;margin:8px 0 0">Charge un SVG déjà créé : inspection locale réelle, sans lancer ComfyUI ni valider physiquement Cricut. Disponible lorsque l'atelier est servi par ComfyUI.</p></section>
    </aside>
   </section>
+  <section class="real-review" id="realContourHost" aria-label="Contrôles réels de chemins SVG" hidden><h2>Inspecteur SVG réel · G2.7/G2.9</h2><p>Les 12 escargots ci-dessus restent une démonstration. Ici, l'outil existant examine vos vrais chemins fermés, permet une sélection individuelle et produit seulement un brouillon local à contrôler dans Design Space.</p><div id="realContourMount"></div></section>
   <div class="stats"><span>⚙ <strong id="statePill">12 objets de démonstration</strong></span><span>◇ <strong>Source locale</strong></span><span>↺ <strong>Retouches : module séparé</strong></span><span>✓ <strong>Exports réels : désactivés</strong></span></div>
   <div class="footer-actions"><p><strong id="actionTitle">Étape suivante : contrôlez vos sujets</strong><br><span id="actionDesc">Cet aperçu montre le parcours et les commandes, pas une vectorisation réelle.</span></p><div style="display:flex;gap:9px;flex-wrap:wrap"><button class="outline" type="button" id="resetSelect">Réinitialiser</button><button class="primary" type="button" id="next">Continuer vers l'export →</button></div></div>
   <div id="notification" role="status" aria-live="polite"></div>
@@ -165,6 +177,38 @@ $("zoomIn").addEventListener("click",()=>{zoom=Math.min(1.5,Math.round((zoom+.1)
 $("zoomOut").addEventListener("click",()=>{zoom=Math.max(.6,Math.round((zoom-.1)*10)/10);updateZoom()});
 $("zoomFit").addEventListener("click",()=>{zoom=1;updateZoom()});
 $("next").addEventListener("click",()=>{const steps=["source","clean","subjects","cut","export"];const i=steps.indexOf(view);if(i===steps.length-1){notify("APERÇU UNIQUEMENT : aucun export réel. Ouvrir la version ComfyUI pour préparer les fichiers.",true);return}setView(steps[Math.min(i+1,steps.length-1)])});
+// G3.1: explicit opt-in for the tested G2.9 SVG validator. No GPU/queue.
+let realPanel=null,realPanelLoading=false;
+$("realContourButton").addEventListener("click",async()=>{
+  const host=$("realContourHost"),button=$("realContourButton");
+  if(realPanel){
+    host.hidden=!host.hidden;
+    button.setAttribute("aria-expanded",String(!host.hidden));
+    if(!host.hidden)host.scrollIntoView?.({block:"nearest",behavior:"smooth"});
+    return;
+  }
+  if(realPanelLoading)return;
+  // Browsers generally disallow importing ES modules from file://.
+  if(!["http:","https:"].includes(window.location.protocol)){
+    notify("Le contrôle SVG réel nécessite l'atelier servi depuis ComfyUI (HTTP local). La maquette reste utilisable hors ligne.",true);
+    return;
+  }
+  realPanelLoading=true;button.disabled=true;
+  try{
+    // Same-origin module; SVG files remain local and are NOT embedded in HTML.
+    const {createCutReviewPanel}=await import("./smartsvg_cut_review_panel_g27.mjs");
+    const panel=createCutReviewPanel("atelier-g31");
+    $("realContourMount").replaceChildren(panel);
+    realPanel=panel;host.hidden=false;
+    button.setAttribute("aria-expanded","true");
+    host.scrollIntoView?.({block:"nearest",behavior:"smooth"});
+    setView("cut");
+    notify("Inspecteur G2.9 ouvert. Charger un SVG déjà exporté ; aucun serveur, IA ou découpe réelle n'est exécuté.");
+  }catch(_error){
+    host.hidden=true;button.setAttribute("aria-expanded","false");
+    notify("Module SVG indisponible ici. Ouvrir l'atelier depuis le nœud Express sous ComfyUI.",true);
+  }finally{realPanelLoading=false;button.disabled=false;}
+});
 $("uploadButton").addEventListener("click",()=>$("file").click());
 function uploadFile(file){
  const valid=file&&/^image\/(png|jpeg|webp)$/.test(file.type)&&file.size>0&&file.size<=12*1024*1024;
