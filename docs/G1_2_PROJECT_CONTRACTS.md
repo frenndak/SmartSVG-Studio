@@ -20,7 +20,7 @@ validate_project_records(...) vérifie les références, doublons, dimensions, l
 
 - Il s'agit de la **validation des métadonnées**, pas de l'inspection des pixels, de la fermeture des trajets SVG, de la présence réelle des fichiers ni d'une inspection antivirus des archives.
 - Un champ d'empreinte SHA-256 valide n'établit pas que le fichier original possède cette empreinte : la comparaison des octets sera ajoutée au chargeur de projet G1.3.
-- Les liens d'accessoires identifient des éléments existants sur la même source; le regroupement / la géométrie effective restent à vérifier dans le moteur.
+- Les liens d'accessoires identifient des éléments existants sur la même source; le regroupement / la géométrie effective restent à vérifier dans le moteur. Le graphe d'accessoires doit désormais être **sans cycle** : références directes ou indirectes en boucle rejetées (`CYCLIC_ACCESSORY_LINK`), tandis que chaînes longues, sous-graphes distincts et bifurcations valides sont acceptés sans limite de récursion Python. Contrôle uniquement métadonnées, sans altération des masques ni certification géométrique.
 - L'environnement real et un identifiant de preuve ne certifient **pas** qu'un test a réellement été exécuté. Seul un contrôle de preuves documentées et indépendantes peut valider les assertions physiques.
 - Aucun export n'est automatiquement marqué « compatible Cricut », et aucun changement de comportement des anciens workflows n'est introduit.
 
