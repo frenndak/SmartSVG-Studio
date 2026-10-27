@@ -42,7 +42,7 @@ Le ZIP est lu en mémoire avec des budgets définis, **jamais extrait**. Les che
 - contrôle SHA-256 **réel sur les octets**, manifestes, dimensions déclarées et en-têtes d'images (PNG/JPEG/WebP) ;
 - masques obligatoirement en PNG L8 sujet blanc, CRC des chunks et décompression vérifiée sans dépasser le budget ;
 - limite d'entrées, taille membre, taille décompressée globale, profondeur JSON (32) et nombre d'éléments ;
-- Dans `document` et `operations`, seules les structures JSON natives sont acceptées (`dict`, `list`, scalaires) : les tuples Python sont rejetés (`INVALID_JSON_TYPE`) au lieu d'être transformés silencieusement en listes. Une tentative de sauvegarde rejetée ne remplace jamais l'ancienne version valide.
+- Dans `document` et `operations`, seules les structures JSON natives sont acceptées (`dict`, `list`, scalaires) : les tuples Python sont rejetés (`INVALID_JSON_TYPE`) au lieu d'être transformés silencieusement en listes. Une tentative de sauvegarde rejetée ne remplace jamais l'ancienne version valide. **Exception explicite et bornée :** les champs typés G1.2 `Subject.bbox_px`, `Subject.accessory_ids` et `Artifact.subject_ids`, immuables dans le moteur, sont volontairement encodés comme tableaux JSON à l'export ; les autres tuples arbitraires de la scène restent refusés.
 - fichier temporaire dans le même dossier, fsync, réouverture avant publication puis remplacement atomique ;
 - création par lien dur sans écrasement lorsque overwrite=False sur les systèmes où ce mécanisme est pris en charge.
 
