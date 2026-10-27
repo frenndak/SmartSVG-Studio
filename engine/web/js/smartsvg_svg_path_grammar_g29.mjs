@@ -42,6 +42,7 @@ export function inspectSvgPathGrammar(d){
   let i=0,x=0,y=0,sx=0,sy=0;
   let pathOpen=false,segmentCount=0,closed=0,totalSegments=0;
   let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  let allMinX=Infinity,allMaxX=-Infinity,allMinY=Infinity,allMaxY=-Infinity;
   let polyArea=0,onlyLines=true,needsReview=false;
   const mark=(px,py)=>{
     minX=Math.min(minX,px);maxX=Math.max(maxX,px);
@@ -62,6 +63,10 @@ export function inspectSvgPathGrammar(d){
          (onlyLines&&Math.abs(polyArea)<1e-7))
         fail('DEGENERATE_CUT_PATH');
       closed++;
+      allMinX=Math.min(allMinX,minX);allMaxX=Math.max(allMaxX,maxX);
+      allMinY=Math.min(allMinY,minY);allMaxY=Math.max(allMaxY,maxY);
+      // Every subpath requires its own non-degenerate bounds.
+      minX=Infinity;maxX=-Infinity;minY=Infinity;maxY=-Infinity;
       x=sx;y=sy;pathOpen=false;segmentCount=0;onlyLines=true;polyArea=0;
       continue;
     }
@@ -124,6 +129,6 @@ export function inspectSvgPathGrammar(d){
   if(pathOpen||closed===0)fail('OPEN_OR_EMPTY_CONTOUR');
   return Object.freeze({
     subpaths:closed,segments:totalSegments,needsReview,
-    bounds:Object.freeze([minX,minY,maxX,maxY])
+    bounds:Object.freeze([allMinX,allMinY,allMaxX,allMaxY])
   });
 }
