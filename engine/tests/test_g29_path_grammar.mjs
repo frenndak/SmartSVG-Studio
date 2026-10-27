@@ -88,6 +88,24 @@ test('selected SVG also validates path grammar independently of inspector',()=>{
     e instanceof CutReviewError&&e.code==='PATH_OUTSIDE_VIEWBOX');
 });
 
+
+test('planche 12 or 24 individual subjects remains selectable without combining paths',()=>{
+  for(const count of [12,24]){
+    const art=Array.from({length:count},(_,i)=>{
+      const x=(i%6)*6+1,y=Math.floor(i/6)*4+1;
+      return '<path id="sujet'+(i+1)+'" d="M'+x+' '+y+
+        'L'+(x+2)+' '+y+'L'+(x+2)+' '+(y+2)+'Z"/>';
+    }).join('');
+    const xml='<svg xmlns="'+NS+'" width="40mm" height="20mm" viewBox="0 0 40 20">'+art+'</svg>';
+    const candidate=inspect(xml);
+    assert.equal(candidate.paths.length,count);
+    const onlyOdd=Array.from({length:count},(_,i)=>i+1).filter(i=>i%2===1);
+    const serialized=selectedSvg(candidate,onlyOdd);
+    assert.equal((serialized.match(/<path /g)||[]).length,count/2);
+    assert.equal(candidate.verified,false);
+  }
+});
+
 test('inspection remains a candidate review, not a physical cut proof',()=>{
   const out=inspect(svg('M1 1C1 4 4 9 10 1Z'));
   assert.equal(out.verified,false);
