@@ -10,12 +10,17 @@ from dataclasses import asdict, dataclass
 import math
 import re
 from pathlib import PurePosixPath
+import unicodedata
 
 SCHEMA_VERSION = 'smartsvg-contracts/1'
 _MAX_PIXELS = 100_000_000
 _ID = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$')
 _SHA = re.compile(r'^[0-9a-f]{64}$')
 _STATUSES = frozenset({'not_tested', 'passed', 'failed'})
+# Windows device names are invalid even with a file extension. Project paths
+# must be portable between ComfyUI installations on Windows and POSIX.
+_WINDOWS_DEVICE = re.compile(r'^(?:CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³]|CONIN\$|CONOUT\$)(?:\..*)?$', re.IGNORECASE)
+_WINDOWS_FORBIDDEN = frozenset('<>"|?*')
 
 
 class RecordError(ValueError):
@@ -39,7 +44,15 @@ def _size(width, height):
 
 
 def _positive_number(value, field):
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise RecordError(f'{field}: INVALID_NUMBER')
+    # math.isfinite() converts integers to float and raises OverflowError for
+    # very large integers supplied by an untrusted project metadata record.
+    try:
+        finite = math.isfinite(value)
+    except OverflowError:
+        finite = False
+    if not finite or value <= 0:
         raise RecordError(f'{field}: INVALID_NUMBER')
 
 
@@ -110,6 +123,10 @@ class Subject:
         _identifiers(self.accessory_ids, 'accessory_ids', empty_ok=True)
         if self.subject_id in self.accessory_ids:
             raise RecordError('SELF_ACCESSORY')
+        # JSON arrays are accepted at the boundary, but frozen records must
+        # not retain mutable references after validation.
+        object.__setattr__(self, 'bbox_px', tuple(self.bbox_px))
+        object.__setattr__(self, 'accessory_ids', tuple(self.accessory_ids))
 
 
 @dataclass(frozen=True)
@@ -126,6 +143,7 @@ class Artifact:
     def __post_init__(self):
         _identifier(self.artifact_id, 'artifact_id')
         _identifiers(self.subject_ids, 'subject_ids')
+        object.__setattr__(self, 'subject_ids', tuple(self.subject_ids))
         _digest(self.sha256, 'artifact_sha256')
         if self.use not in ('print_then_cut_png', 'basic_cut_svg', 'editable_svg'):
             raise RecordError('INVALID_ARTIFACT_USE')
@@ -133,7 +151,14 @@ class Artifact:
             raise RecordError('INVALID_ARTIFACT_PATH')
         p = PurePosixPath(self.file_path)
         if (not self.file_path or p.is_absolute() or '..' in p.parts or '.' in p.parts or
-                p.as_posix() != self.file_path or len(self.file_path) > 512):
+                p.as_posix() != self.file_path or len(self.file_path) > 512 or
+                any(char in _WINDOWS_FORBIDDEN or
+                    (unicodedata.category(char) in ('Cc', 'Cf', 'Zl', 'Zp') or char == '\u034f' or
+                     0xFE00 <= ord(char) <= 0xFE0F or
+                     0xE0100 <= ord(char) <= 0xE01EF)
+                    for char in self.file_path) or
+                any(part.endswith(('.', ' ')) or _WINDOWS_DEVICE.fullmatch(part)
+                    for part in p.parts)):
             raise RecordError('INVALID_ARTIFACT_PATH')
         if p.suffix.lower() != ('.png' if self.use == 'print_then_cut_png' else '.svg'):
             raise RecordError('ARTIFACT_EXTENSION_MISMATCH')
@@ -159,7 +184,8 @@ class QAResult:
     def __post_init__(self):
         _identifier(self.artifact_id, 'artifact_id')
         for field in ('visual', 'geometry', 'design_space_import', 'physical_cut'):
-            if getattr(self, field) not in _STATUSES:
+            status = getattr(self, field)
+            if not isinstance(status, str) or status not in _STATUSES:
                 raise RecordError(f'{field}: INVALID_STATUS')
         if self.environment not in ('static', 'simulated', 'real'):
             raise RecordError('INVALID_QA_ENVIRONMENT')
@@ -194,6 +220,15 @@ def validate_project_records(*, sources, masks, subjects, artifacts, qa_results=
             raise RecordError(f'{name}: DUPLICATE_ID')
         tables.append(index)
     src, msk, sub, art, qa = tables
+    # Artifact names are persisted as portable paths. On case-insensitive file
+    # systems two different artifact IDs can refer to the same output file.
+    # Reject aliases even when their digests match: each artifact owns one path.
+    portable_paths = set()
+    for artifact in art.values():
+        portable_path = unicodedata.normalize('NFC', artifact.file_path).casefold()
+        if portable_path in portable_paths:
+            raise RecordError('artifacts: DUPLICATE_FILE_PATH')
+        portable_paths.add(portable_path)
     for mask in msk.values():
         source = src.get(mask.source_id)
         if source is None or (mask.width_px, mask.height_px) != (source.width_px, source.height_px):
@@ -207,6 +242,25 @@ def validate_project_records(*, sources, masks, subjects, artifacts, qa_results=
             raise RecordError('BBOX_OUT_OF_SOURCE')
         if any(a not in sub or sub[a].source_id != subject.source_id for a in subject.accessory_ids):
             raise RecordError('INVALID_ACCESSORY_LINK')
+    # Accessory references form a directed graph. A reference cycle
+    # (A -> B -> A, or a longer loop) has no meaningful root; future
+    # exporters/inspectors may otherwise traverse forever. Validate the
+    # graph iteratively so long chains cannot overflow Python recursion.
+    incoming = {subject_id: 0 for subject_id in sub}
+    for subject in sub.values():
+        for accessory_id in subject.accessory_ids:
+            incoming[accessory_id] += 1
+    ready = [subject_id for subject_id, degree in incoming.items()
+             if degree == 0]
+    visited = 0
+    for subject_id in ready:
+        visited += 1
+        for accessory_id in sub[subject_id].accessory_ids:
+            incoming[accessory_id] -= 1
+            if incoming[accessory_id] == 0:
+                ready.append(accessory_id)
+    if visited != len(sub):
+        raise RecordError('CYCLIC_ACCESSORY_LINK')
     for artifact in art.values():
         if any(subject_id not in sub for subject_id in artifact.subject_ids):
             raise RecordError('UNKNOWN_ARTIFACT_SUBJECT')
