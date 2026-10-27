@@ -13,7 +13,7 @@ from pathlib import Path
 import shutil
 import tempfile
 
-from .project_archive import LoadedProject, ProjectArchiveError, load_project, save_project
+from .project_archive import LoadedProject, ProjectArchiveError, _payload, load_project, save_project
 
 
 class RecoveryError(ValueError):
@@ -232,7 +232,14 @@ def save_with_recovery(path, project: LoadedProject, *, expected_sha256=None) ->
             ):
                 # Never destroy a foreign or potentially salvageable old backup.
                 raise RecoveryError('BACKUP_CONFLICT')
-            # Preserves the last-known-good primary even if new save fails.
+            # Validate the candidate BEFORE replacing the previous snapshot.
+            # This is essential even when a valid current primary exists:
+            # save_project would reject an invalid new archive only *after*
+            # _atomic_copy overwrote an older known-good .previous backup.
+            try:
+                _payload(project)
+            except ProjectArchiveError as exc:
+                raise RecoveryError('SAVE_FAILED') from exc
             _atomic_copy(target, _previous(target))
         try:
             saved = save_project(target, project, overwrite=(primary == 'valid'))
