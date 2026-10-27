@@ -1,4 +1,5 @@
 """G1.3: synthetic, non-copyrighted fixtures and negative ZIP tests."""
+import base64
 import hashlib
 import json
 from pathlib import Path
@@ -55,6 +56,56 @@ def _fixture():
     )
 
 
+# Original 4x3 JPEG fixtures generated from uniform pixels with Pillow once;
+# embedded here so CI tests remain standard-library-only and reproducible.
+JPEG_RGB_BASELINE = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCAADAAQDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDkqKKK948c/9k="
+JPEG_RGB_PROGRESSIVE = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wgARCAADAAQDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUAQEAAAAAAAAAAAAAAAAAAAAE/9oADAMBAAIQAxAAAAGQHj//xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAEFAn//xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAEDAQE/AX//xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAECAQE/AX//xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAY/An//xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAE/IX//2gAMAwEAAgADAAAAEPP/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAEDAQE/EH//xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAECAQE/EH//xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAE/EH//2Q=="
+JPEG_GRAYSCALE = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/wAALCAADAAQBAREA/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/9oACAEBAAA/AOZr/9k="
+
+
+def _fixture_with_jpeg(data, color_mode='RGB'):
+    from dataclasses import replace
+    project = _fixture()
+    del project.resources['sources/source-01.png']
+    project.resources['sources/source-01.jpg'] = data
+    project.source_paths['source-01'] = 'sources/source-01.jpg'
+    project = replace(project, sources=(replace(
+        project.sources[0], sha256=_sha(data), width_px=4, height_px=3,
+        color_mode=color_mode),))
+    mask = _png(4, 3, 0)
+    project.resources['masks/mask-01.png'] = mask
+    return replace(project, masks=(replace(project.masks[0],
+        sha256=_sha(mask), width_px=4, height_px=3),),
+        subjects=(replace(project.subjects[0], bbox_px=(0, 0, 4, 3)),))
+
+
+
+# Original 2x2 solid-pixel WebP fixtures generated once with Pillow.
+# Embedded bytes keep CI dependency-free; no user images are distributed.
+WEBP_RGB_LOSSLESS = 'UklGRh4AAABXRUJQVlA4TBEAAAAvAUAAAAdQo3oUr/+BiOh/AAA='
+WEBP_RGBA_LOSSLESS = 'UklGRhoAAABXRUJQVlA4TA0AAAAvAUAAEAcQERGIiP4HAA=='
+WEBP_RGB_LOSSY = 'UklGRjgAAABXRUJQVlA4ICwAAADQAQCdASoCAAIAAQAcJZgCdLoB+AADsAD++LUX/yz5/DZ1Of/CrcMQ1HAAAA=='
+WEBP_RGBA_EXTENDED = 'UklGRlgAAABXRUJQVlA4WAoAAAAQAAAAAQAAAQAAQUxQSAUAAAAAAAAAAABWUDggLAAAANABAJ0BKgIAAgABABwlmAJ0ugH4AAOwAP74tRf/LPn8NnU5/8KtwxDUcAAA'
+
+
+def _fixture_with_webp(data, mode):
+    from dataclasses import replace
+    project = _fixture()
+    del project.resources['sources/source-01.png']
+    project.resources['sources/source-01.webp'] = data
+    project.source_paths['source-01'] = 'sources/source-01.webp'
+    mask = _png(2, 2, 0)
+    project.resources['masks/mask-01.png'] = mask
+    return replace(
+        project,
+        sources=(replace(project.sources[0], sha256=_sha(data),
+                         width_px=2, height_px=2, color_mode=mode),),
+        masks=(replace(project.masks[0], sha256=_sha(mask),
+                       width_px=2, height_px=2),),
+        subjects=(replace(project.subjects[0], bbox_px=(0, 0, 2, 2)),),
+    )
+
+
 class ArchiveG13Tests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -70,6 +121,291 @@ class ArchiveG13Tests(unittest.TestCase):
             for name, data in updates.items():
                 if name not in dict(rows):
                     out.writestr(name, data)
+
+
+    def test_print_artifact_real_png_and_atomic_rejection(self):
+        from dataclasses import replace
+        original = _fixture()
+        save_project(self.path, original)
+        good = _fixture()
+        png = _png(118, 79, 6)  # 30 x 20 mm at 100 ppi
+        good.resources.pop('exports/contour.svg')
+        good.resources['exports/épreuve-测试.png'] = png
+        good = replace(good, artifacts=(replace(good.artifacts[0],
+            use='print_then_cut_png', file_path='exports/épreuve-测试.png',
+            sha256=_sha(png), ppi=100),))
+        save_project(self.path, good, overwrite=True)
+        self.assertEqual(load_project(self.path), good)
+        snapshot = self.path.read_bytes()
+        for data, error in ((b'NOTPNG', 'INVALID_PNG_HEADER'),
+                            (_png(117, 79, 6), 'PRINT_ARTIFACT_PIXEL_DIMENSIONS_MISMATCH')):
+            bad = _fixture()
+            bad.resources.pop('exports/contour.svg')
+            bad.resources['exports/print.png'] = data
+            bad = replace(bad, artifacts=(replace(bad.artifacts[0],
+                use='print_then_cut_png', file_path='exports/print.png',
+                sha256=_sha(data), ppi=100),))
+            with self.assertRaisesRegex(ProjectArchiveError, error):
+                save_project(self.path, bad, overwrite=True)
+            self.assertEqual(self.path.read_bytes(), snapshot)
+
+    def test_active_svg_rejected_with_rollback(self):
+        from dataclasses import replace
+        original = _fixture()
+        save_project(self.path, original)
+        snapshot = self.path.read_bytes()
+        root = b'<svg xmlns="http://www.w3.org/2000/svg">'
+        for data, error in (
+            (root + b'<script/></svg>', 'SVG_ACTIVE_OR_FOREIGN_ELEMENT'),
+            (root + b'<style/></svg>', 'SVG_ACTIVE_OR_FOREIGN_ELEMENT'),
+            (root + b'<path onload="x()" d="M0 0"/></svg>', 'SVG_ACTIVE_ATTRIBUTE'),
+            (root + b'<path style="fill:url(#x)" d="M0 0"/></svg>', 'SVG_EXTERNAL_REFERENCE'),
+            (b'<?xml-stylesheet href="https://example.invalid"?>' + root +
+             b'<path d="M0 0"/></svg>', 'SVG_PROCESSING_INSTRUCTION'),
+            (b'<!DOCTYPE svg [<!ENTITY x "bad">]>' + root +
+             b'<path d="M0 0"/></svg>', 'SVG_DTD_OR_ENTITY'),
+        ):
+            bad = _fixture()
+            bad.resources['exports/contour.svg'] = data
+            bad = replace(bad, artifacts=(replace(bad.artifacts[0], sha256=_sha(data)),))
+            with self.assertRaisesRegex(ProjectArchiveError, error):
+                save_project(self.path, bad, overwrite=True)
+            self.assertEqual(self.path.read_bytes(), snapshot)
+        self.assertEqual(load_project(self.path), original)
+
+    def test_sha_coherent_active_svg_rejected_on_load(self):
+        save_project(self.path, _fixture())
+        with zipfile.ZipFile(self.path) as z:
+            manifest = json.loads(z.read('manifest.json'))
+            artifacts = json.loads(z.read('artifacts.json'))
+        bad = (b'<svg xmlns="http://www.w3.org/2000/svg">'
+               b'<script/></svg>')
+        artifacts[0]['sha256'] = _sha(bad)
+        records = json.dumps(artifacts).encode()
+        for name, data in (('artifacts.json', records), ('exports/contour.svg', bad)):
+            manifest['entries'][name] = {'sha256': _sha(data), 'size_bytes': len(data)}
+        self._write_zip_from({'artifacts.json': records, 'exports/contour.svg': bad,
+                              'manifest.json': json.dumps(manifest).encode()})
+        with self.assertRaisesRegex(ProjectArchiveError, 'SVG_ACTIVE_OR_FOREIGN_ELEMENT'):
+            load_project(self.path)
+
+    def test_sha_coherent_fake_print_png_rejected_on_load(self):
+        from dataclasses import replace
+        project = _fixture()
+        png = _png(118, 79, 6)
+        project.resources.pop('exports/contour.svg')
+        project.resources['exports/print.png'] = png
+        project = replace(project, artifacts=(replace(project.artifacts[0],
+            use='print_then_cut_png', file_path='exports/print.png',
+            sha256=_sha(png), ppi=100),))
+        save_project(self.path, project)
+        with zipfile.ZipFile(self.path) as z:
+            manifest = json.loads(z.read('manifest.json'))
+            artifacts = json.loads(z.read('artifacts.json'))
+        bad = b'NOTPNG'
+        artifacts[0]['sha256'] = _sha(bad)
+        records = json.dumps(artifacts).encode()
+        for name, data in (('artifacts.json', records), ('exports/print.png', bad)):
+            manifest['entries'][name] = {'sha256': _sha(data), 'size_bytes': len(data)}
+        self._write_zip_from({'artifacts.json': records, 'exports/print.png': bad,
+                              'manifest.json': json.dumps(manifest).encode()})
+        with self.assertRaisesRegex(ProjectArchiveError, 'INVALID_PNG_HEADER'):
+            load_project(self.path)
+
+    def test_jpeg_real_baseline_progressive_gray_and_exif_roundtrip(self):
+        for jpeg_b64, mode in (
+            (JPEG_RGB_BASELINE, 'RGB'),
+            (JPEG_RGB_PROGRESSIVE, 'RGB'),
+            (JPEG_GRAYSCALE, 'L'),
+        ):
+            with self.subTest(color_mode=mode, progressive=jpeg_b64 == JPEG_RGB_PROGRESSIVE):
+                data = base64.b64decode(jpeg_b64)
+                project = _fixture_with_jpeg(data, color_mode=mode)
+                save_project(self.path, project)
+                self.assertEqual(load_project(self.path), project)
+                self.path.unlink()
+        # An APP1 EXIF segment may precede the image frame in smartphone JPEG.
+        data = base64.b64decode(JPEG_RGB_BASELINE)
+        exif = b'Exif\x00\x00synthetic'
+        app1 = b'\xff\xe1' + struct.pack('>H', len(exif) + 2) + exif
+        project = _fixture_with_jpeg(data[:2] + app1 + data[2:])
+        save_project(self.path, project)
+        self.assertEqual(load_project(self.path), project)
+
+    def test_jpeg_truncation_trailing_garbage_and_color_spoof_preserve_save(self):
+        original = _fixture()
+        save_project(self.path, original)
+        before = self.path.read_bytes()
+        good = base64.b64decode(JPEG_RGB_BASELINE)
+        for data, mode, error in (
+            (good[:-2], 'RGB', 'INCOMPLETE_JPEG'),
+            (good + b'junk', 'RGB', 'INVALID_JPEG_END'),
+            (good[:100], 'RGB', 'INVALID_JPEG_SEGMENT'),
+            (good, 'RGBA', 'SOURCE_COLOR_MODE_MISMATCH'),
+            (base64.b64decode(JPEG_GRAYSCALE), 'RGB', 'SOURCE_COLOR_MODE_MISMATCH'),
+        ):
+            with self.subTest(error=error, length=len(data), mode=mode):
+                project = _fixture_with_jpeg(data, color_mode=mode)
+                with self.assertRaisesRegex(ProjectArchiveError, error):
+                    save_project(self.path, project, overwrite=True)
+                self.assertEqual(self.path.read_bytes(), before)
+                self.assertEqual(load_project(self.path), original)
+
+    def test_archive_resource_paths_cannot_shadow_files_or_metadata(self):
+        # Cross-kind file/directory collisions may survive checks restricted
+        # to artifact-vs-artifact paths and break portable ZIP project readers.
+        from dataclasses import replace
+        original = _fixture()
+        save_project(self.path, original)
+        before = self.path.read_bytes()
+        collisions = (
+            'sources/source-01.png/detail.svg',
+            'SOURCES/SOURCE-01.PNG/detail.svg',  # Windows casefold alias
+            'masks/mask-01.png/detail.svg',
+            'manifest.json/detail.svg',
+            'MANIFEST.JSON/detail.svg',
+            'document.json/detail.svg',
+            'proofs/qa_results.json/detail.svg',
+        )
+        for path in collisions:
+            with self.subTest(path=path):
+                bad = _fixture()
+                payload = bad.resources.pop('exports/contour.svg')
+                bad.resources[path] = payload
+                bad = replace(bad, artifacts=(replace(
+                    bad.artifacts[0], file_path=path),))
+                with self.assertRaisesRegex(
+                        ProjectArchiveError, 'ARCHIVE_FILE_DIRECTORY_PATH_CONFLICT'):
+                    save_project(self.path, bad, overwrite=True)
+                self.assertEqual(self.path.read_bytes(), before)
+                self.assertEqual(load_project(self.path), original)
+        # Similar prefixes that are not parent file paths remain valid.
+        good = _fixture()
+        payload = good.resources.pop('exports/contour.svg')
+        good.resources['sources/source-01.png.backup/detail.svg'] = payload
+        good = replace(good, artifacts=(replace(
+            good.artifacts[0],
+            file_path='sources/source-01.png.backup/detail.svg'),))
+        save_project(self.path, good, overwrite=True)
+        self.assertEqual(load_project(self.path), good)
+
+    def test_webp_real_rgb_rgba_lossless_and_extended_roundtrip(self):
+        for encoded, mode in (
+            (WEBP_RGB_LOSSLESS, 'RGB'),
+            (WEBP_RGBA_LOSSLESS, 'RGBA'),
+            (WEBP_RGB_LOSSY, 'RGB'),
+            (WEBP_RGBA_EXTENDED, 'RGBA'),
+        ):
+            with self.subTest(mode=mode, format=encoded[:20]):
+                project = _fixture_with_webp(base64.b64decode(encoded), mode)
+                save_project(self.path, project)
+                self.assertEqual(load_project(self.path), project)
+                self.path.unlink()
+
+    def test_webp_alpha_spoof_and_extended_canvas_preserve_archive(self):
+        good = _fixture()
+        save_project(self.path, good)
+        snapshot = self.path.read_bytes()
+        extended = base64.b64decode(WEBP_RGBA_EXTENDED)
+        wrong_canvas = bytearray(extended)
+        wrong_canvas[24] = 2  # VP8X canvas 3x2, frame remains 2x2
+        missing_alpha = bytearray(extended)
+        missing_alpha[20] &= ~0x10
+        for data, mode, code in (
+            (base64.b64decode(WEBP_RGBA_LOSSLESS), 'RGB',
+             'SOURCE_COLOR_MODE_MISMATCH'),
+            (base64.b64decode(WEBP_RGB_LOSSLESS), 'RGBA',
+             'SOURCE_COLOR_MODE_MISMATCH'),
+            (extended, 'RGB', 'SOURCE_COLOR_MODE_MISMATCH'),
+            (bytes(wrong_canvas), 'RGBA', 'WEBP_FRAME_CANVAS_MISMATCH'),
+            (bytes(missing_alpha), 'RGBA', 'WEBP_ALPHA_FLAG_MISMATCH'),
+        ):
+            with self.subTest(code=code, mode=mode):
+                project = _fixture_with_webp(data, mode)
+                with self.assertRaisesRegex(ProjectArchiveError, code):
+                    save_project(self.path, project, overwrite=True)
+                self.assertEqual(self.path.read_bytes(), snapshot)
+                self.assertEqual(load_project(self.path), good)
+
+    def test_webp_sha_coherent_load_rejects_alpha_metadata_spoof(self):
+        project = _fixture_with_webp(base64.b64decode(WEBP_RGBA_LOSSLESS),
+                                     'RGBA')
+        save_project(self.path, project)
+        with zipfile.ZipFile(self.path) as archive:
+            manifest = json.loads(archive.read('manifest.json'))
+            sources = json.loads(archive.read('sources.json'))
+        sources[0]['color_mode'] = 'RGB'
+        altered = json.dumps(sources).encode('utf-8')
+        manifest['entries']['sources.json'] = {
+            'sha256': _sha(altered), 'size_bytes': len(altered)}
+        self._write_zip_from({
+            'sources.json': altered,
+            'manifest.json': json.dumps(manifest).encode('utf-8'),
+        })
+        with self.assertRaisesRegex(ProjectArchiveError,
+                                    'SOURCE_COLOR_MODE_MISMATCH'):
+            load_project(self.path)
+
+    def test_webp_static_frames_have_consistent_riff_chunks(self):
+        # Two tiny RGB pictures generated from original solid-color pixels.
+        # The check verifies WebP container integrity, not decoded pixels.
+        from dataclasses import replace
+        for image in (
+            'UklGRh4AAABXRUJQVlA4TBEAAAAvAUAAAAdQoP4XpP+BiOh/AAA=',
+            'UklGRjwAAABXRUJQVlA4IDAAAADQAQCdASoCAAIAAUAmJaACdLoB+AADsAD+4Ll/8/M7txf1W//CmvhTXwpr/hAgAAA=',
+        ):
+            with self.subTest(image=image[:12]):
+                data = base64.b64decode(image)
+                project = _fixture()
+                del project.resources['sources/source-01.png']
+                project.resources['sources/source-01.webp'] = data
+                project.source_paths['source-01'] = 'sources/source-01.webp'
+                project = replace(project, sources=(replace(
+                    project.sources[0], sha256=_sha(data),
+                    width_px=2, height_px=2, color_mode='RGB'),))
+                # Mask and subject dimensions must match source; use a new
+                # 2x2 L8 mask, preserving the project referential contract.
+                mask = _png(2, 2, 0)
+                project.resources['masks/mask-01.png'] = mask
+                project = replace(
+                    project,
+                    masks=(replace(project.masks[0], sha256=_sha(mask),
+                                   width_px=2, height_px=2),),
+                    subjects=(replace(project.subjects[0], bbox_px=(0, 0, 2, 2)),),
+                )
+                save_project(self.path, project)
+                self.assertEqual(load_project(self.path), project)
+                self.path.unlink()
+
+    def test_webp_truncated_and_forged_riff_rejected_before_overwrite(self):
+        from dataclasses import replace
+        original = _fixture()
+        save_project(self.path, original)
+        backup = self.path.read_bytes()
+        source = base64.b64decode('UklGRh4AAABXRUJQVlA4TBEAAAAvAUAAAAdQoP4XpP+BiOh/AAA=')
+        variants = (
+            (source[:-1], 'INVALID_WEBP_HEADER'),
+            (source[:4] + b'\x00\x00\x00\x00' + source[8:],
+             'INVALID_WEBP_HEADER'),
+            (source[:16] + b'\xff\xff\xff\x7f' + source[20:],
+             'INVALID_WEBP_CHUNK'),
+            (source[:-1] + b'\xff', 'INVALID_WEBP_PADDING'),
+            (b'RIFF' + (22).to_bytes(4, 'little') + b'WEBP' +
+             b'VP8X' + (10).to_bytes(4, 'little') +
+             b'\x00' * 10, 'INVALID_WEBP_FRAME'),
+        )
+        for data, error in variants:
+            with self.subTest(error=error):
+                project = _fixture()
+                del project.resources['sources/source-01.png']
+                project.resources['sources/source-01.webp'] = data
+                project.source_paths['source-01'] = 'sources/source-01.webp'
+                project = replace(project, sources=(replace(
+                    project.sources[0], sha256=_sha(data)),))
+                with self.assertRaisesRegex(ProjectArchiveError, error):
+                    save_project(self.path, project, overwrite=True)
+                self.assertEqual(self.path.read_bytes(), backup)
+                self.assertEqual(load_project(self.path), original)
 
     def test_exact_save_close_open_15_operations_and_3_undo(self):
         initial = _fixture()
@@ -167,6 +503,147 @@ class ArchiveG13Tests(unittest.TestCase):
         project = replace(project, masks=(replace(project.masks[0], sha256=_sha(invalid)),))
         with self.assertRaisesRegex(ProjectArchiveError, 'MASK_NOT_L8_PNG'):
             save_project(self.path, project)
+
+    def test_g12_valid_mask_ids_roundtrip_with_portable_zip_members(self):
+        # G1.2 IDs are not necessarily safe filesystem names. The archive
+        # mapping must preserve the logical ID without changing the PNG.
+        from dataclasses import replace
+        for mask_id, path in (
+                ('mask:01', 'masks/mask_01.png'),
+                ('CON', 'masks/mask-con.png'),
+                ('mask-01', 'masks/mask-01.png')):
+            with self.subTest(mask_id=mask_id):
+                project = _fixture()
+                data = project.resources.pop('masks/mask-01.png')
+                project.resources[path] = data
+                project.mask_paths.clear()
+                project.mask_paths[mask_id] = path
+                project = replace(
+                    project,
+                    masks=(replace(project.masks[0], mask_id=mask_id),),
+                    subjects=(replace(project.subjects[0], mask_id=mask_id),))
+                save_project(self.path, project, overwrite=self.path.exists())
+                self.assertEqual(load_project(self.path), project)
+                with zipfile.ZipFile(self.path) as archive:
+                    self.assertEqual(archive.read(path), data)
+
+    def test_mask_member_paths_fail_closed_without_losing_last_save(self):
+        from dataclasses import replace
+        good = _fixture()
+        save_project(self.path, good)
+        original = self.path.read_bytes()
+        for path, error in (
+                ('masks/../escape.png', 'INVALID_MASK_PATH'),
+                ('masks/subdir/mask.png', 'INVALID_MASK_PATH'),
+                ('sources/other.png', 'INVALID_MASK_PATH'),
+                ('masks/not-png.svg', 'INVALID_MASK_PATH'),
+                ('masks/.png', 'INVALID_MASK_PATH'),
+                ('masks/CON.png', 'UNSAFE_ARCHIVE_PATH')):
+            with self.subTest(path=path):
+                project = _fixture()
+                data = project.resources.pop('masks/mask-01.png')
+                project.resources[path] = data
+                project.mask_paths['mask-01'] = path
+                with self.assertRaisesRegex(ProjectArchiveError, error):
+                    save_project(self.path, project, overwrite=True)
+                self.assertEqual(self.path.read_bytes(), original)
+                self.assertEqual(load_project(self.path), good)
+
+        # Distinct literal paths can still alias on Windows or after NFC.
+        project = _fixture()
+        data = project.resources['masks/mask-01.png']
+        project.resources.pop('masks/mask-01.png')
+        project.resources['masks/DUP.png'] = data
+        project.resources['masks/dup.png'] = data
+        project.mask_paths['mask-01'] = 'masks/DUP.png'
+        project.mask_paths['mask:02'] = 'masks/dup.png'
+        project = replace(project, masks=(
+            project.masks[0], replace(project.masks[0], mask_id='mask:02')))
+        with self.assertRaisesRegex(ProjectArchiveError,
+                                    'CASE_COLLIDING_RESOURCE_PATHS'):
+            save_project(self.path, project, overwrite=True)
+        self.assertEqual(self.path.read_bytes(), original)
+
+        # A tampered manifest is also rejected on load, not just save.
+        with zipfile.ZipFile(self.path) as archive:
+            manifest = json.loads(archive.read('manifest.json'))
+        manifest['mask_paths']['mask-01'] = 'masks/../escape.png'
+        self._write_zip_from({'manifest.json': json.dumps(manifest).encode()})
+        with self.assertRaisesRegex(ProjectArchiveError, 'INVALID_MASK_PATH'):
+            load_project(self.path)
+
+    def test_g12_portable_unicode_and_space_artifacts_roundtrip(self):
+        # Metadata accepted by G1.2 must also survive G1.3 ZIP save and load.
+        from dataclasses import replace
+        for path in ('exports/étiquette 01.svg',
+                     'exports/etiquette 01.svg',
+                     'exports/Création 🌿.svg',
+                     'exports/souvenir été.svg'):
+            with self.subTest(path=path):
+                project = _fixture()
+                data = project.resources.pop('exports/contour.svg')
+                project.resources[path] = data
+                project = replace(project, artifacts=(
+                    replace(project.artifacts[0], file_path=path),))
+                save_project(self.path, project, overwrite=self.path.exists())
+                self.assertEqual(load_project(self.path), project)
+                with zipfile.ZipFile(self.path) as archive:
+                    self.assertEqual(archive.read(path), data)
+
+    def test_portable_paths_remain_fail_closed_for_malicious_members(self):
+        from smartsvg_core.project_archive import _safe_path
+        forbidden = (
+            '../outside.svg', '/absolute.svg', 'exports//double.svg',
+            'exports/./dot.svg', 'exports/../up.svg', 'exports/',
+            'exports/CON.svg', 'exports/aux.txt', 'exports/LPT1.svg',
+            'exports/file?.svg', 'exports/file*.svg',
+            'exports/back\\\\slash.svg', 'exports/file:stream.svg',
+            'exports/trailing. ', 'exports/hidden\u202esvg',
+            'exports/surrogate\ud800.svg',
+            'exports/' + 'é' * 128 + '.svg',
+        )
+        for path in forbidden:
+            with self.subTest(path=ascii(path)):
+                with self.assertRaisesRegex(ProjectArchiveError,
+                                            'UNSAFE_ARCHIVE_PATH'):
+                    _safe_path(path)
+        self.assertEqual(_safe_path('exports/étiquette 01.svg'),
+                         'exports/étiquette 01.svg')
+
+    def test_unicode_normalization_alias_of_source_is_rejected_before_overwrite(self):
+        from dataclasses import replace
+        good = _fixture()
+        save_project(self.path, good)
+        snapshot = self.path.read_bytes()
+        bad = _fixture()
+        raw = bad.resources.pop('sources/source-01.png')
+        first, second = 'sources/étiquette.png', 'sources/e\u0301tiquette.png'
+        bad.resources[first] = raw
+        bad.resources[second] = raw
+        bad.source_paths['source-01'] = first
+        bad.source_paths['source-02'] = second
+        bad = replace(bad, sources=(
+            bad.sources[0],
+            replace(bad.sources[0], source_id='source-02'),))
+        with self.assertRaisesRegex(ProjectArchiveError,
+                                    'CASE_COLLIDING_RESOURCE_PATHS'):
+            save_project(self.path, bad, overwrite=True)
+        self.assertEqual(self.path.read_bytes(), snapshot)
+        self.assertEqual(load_project(self.path), good)
+
+    def test_unicode_zip_entry_alias_rejected_on_load(self):
+        from dataclasses import replace
+        project = _fixture()
+        path = 'exports/étiquette 01.svg'
+        data = project.resources.pop('exports/contour.svg')
+        project.resources[path] = data
+        project = replace(project, artifacts=(
+            replace(project.artifacts[0], file_path=path),))
+        save_project(self.path, project)
+        with zipfile.ZipFile(self.path, 'a') as archive:
+            archive.writestr('exports/e\u0301tiquette 01.svg', data)
+        with self.assertRaisesRegex(ProjectArchiveError, 'DUPLICATE_ARCHIVE_PATH'):
+            load_project(self.path)
 
     def test_png_source_color_mode_rejects_mismatched_metadata(self):
         # A project must not advertise alpha transparency when the actual
