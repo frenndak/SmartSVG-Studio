@@ -150,6 +150,28 @@ class SVGContractTests(unittest.TestCase):
         with self.assertRaisesRegex(SVGRejected, "INSUFFICIENT_SEPARATE"):
             inspect_svg(p, profile="editable")
 
+    def test_definition_only_svg_is_not_counted_as_cut_geometry(self):
+        # SVG declarations and clip/mask/marker/pattern geometry are not
+        # rendered directly. They cannot qualify an empty cut file.
+        for container in ("defs", "symbol", "clipPath", "mask", "pattern", "marker"):
+            with self.subTest(container=container):
+                body = (f'<{container} id="unused">'
+                        '<path d="M0 0 L10 0 L10 10 Z"/>'
+                        f'</{container}>')
+                p = self.write(self.base(body))
+                with self.assertRaisesRegex(SVGRejected, "NO_VECTOR_GEOMETRY"):
+                    inspect_svg(p)
+
+    def test_visible_shapes_count_excludes_definition_descendants(self):
+        body = ('<defs><g><path d="M0 0 L10 0 L10 10 Z"/></g></defs>'
+                '<g><circle cx="5" cy="5" r="2"/></g>')
+        p = self.write(self.base(body))
+        result = inspect_svg(p)
+        self.assertEqual(result["vector_elements"], 1)
+        self.assertFalse(result["physical_cut_verified"])
+        with self.assertRaisesRegex(SVGRejected, "INSUFFICIENT_SEPARATE"):
+            inspect_svg(p, profile="editable")
+
     def test_empty_cut_path(self):
         p = self.write(self.base('<path d=" "/>'))
         with self.assertRaisesRegex(SVGRejected, "EMPTY_PATH"):
