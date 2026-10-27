@@ -12,6 +12,7 @@ import cv2
 import numpy as np
 from PIL import Image
 import xml.etree.ElementTree as ET
+from .cut_path_preflight import inspect_cut_paths, CutPathError
 
 MAX_REPORT_BYTES=12_000_000
 MAX_ART_BYTES=40_000_000
@@ -63,10 +64,13 @@ def _svg_geom(path:Path)->dict:
     try: root=ET.fromstring(payload)
     except ET.ParseError as e:raise QAError('SVG XML invalide') from e
     if not root.tag.endswith('svg'):raise QAError('racine non SVG')
-    paths=[x for x in root.iter() if x.tag.rsplit('}',1)[-1]=='path']
+    try:
+        checked=inspect_cut_paths(root)
+    except CutPathError as exc:
+        raise QAError(str(exc)) from exc
     length=root.get('width','')
     mm=re.fullmatch(r'\s*(\d+(?:\.\d+)?)\s*mm\s*',length)
-    return {'path_elements':len(paths),'width_mm':float(mm.group(1)) if mm else None,
+    return {**checked, 'width_mm':float(mm.group(1)) if mm else None,
             'embedded_raster':False,'svg_parse_ok':True}
 
 def audit_project(report_path: str | Path, *, requested_intent: str='sticker_contour')->dict[str,Any]:
@@ -95,6 +99,8 @@ def audit_project(report_path: str | Path, *, requested_intent: str='sticker_con
             if obj.get('type_coupe')=='CADRE_RECTANGULAIRE' or m['near_rectangle']:
                 block.append('SILHOUETTE_RECTANGULAIRE_NON_FIABLE')
         if s is None: block.append('SVG_MANQUANT')
+        elif s['width_mm'] is None and obj.get('largeur_finale_avec_marge_mm') is not None:
+            block.append('DIMENSIONS_MM_ABSENTES')
         elif s['path_elements']==0 or (obj.get('contour_nombre_chemins') is not None and obj['contour_nombre_chemins']!=s['path_elements']):
             block.append('SVG_CHEMINS_INCOHERENTS')
         elif s['width_mm'] is not None and obj.get('largeur_finale_avec_marge_mm') is not None:
