@@ -52,6 +52,8 @@ test('rejects false closure, missing parameters, empty, degenerate or open paths
     'M0 0L10 0L10 0Z',
     'M0 0L1 1L2 2Z',
     'M0 0C0 0 0 0 0 0Z',
+    'M1 1C1 1 5 5 10 10Z', // Bezier controls all on one diagonal
+    'M1 1Q5 5 10 10Z',  // quadratic curve is actually a line
     'M0 0L10 0L10 10ZM3 3C3 3 3 3 3 3Z',
     'M0 0A4 4 0 2 0 5 5Z',
     'M0 0A4 4 0 0 3 5 5Z',
