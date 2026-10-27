@@ -18,7 +18,7 @@ from smartsvg_core.project_contracts import (
 
 
 def _png(width, height, color_type):
-    channels = 1 if color_type == 0 else 4
+    channels = {0: 1, 2: 3, 6: 4}[color_type]
     row = bytes([0]) + bytes([100, 120, 140, 255][:channels]) * width
     payload = zlib.compress(row * height)
     def chunk(name, body):
@@ -167,6 +167,150 @@ class ArchiveG13Tests(unittest.TestCase):
         project = replace(project, masks=(replace(project.masks[0], sha256=_sha(invalid)),))
         with self.assertRaisesRegex(ProjectArchiveError, 'MASK_NOT_L8_PNG'):
             save_project(self.path, project)
+
+    def test_png_source_color_mode_rejects_mismatched_metadata(self):
+        # A project must not advertise alpha transparency when the actual
+        # original PNG bytes are RGB or grayscale, nor drop RGBA silently.
+        from dataclasses import replace
+        for png_type, declared in ((6, 'RGB'), (2, 'RGBA'), (0, 'RGBA')):
+            with self.subTest(png_type=png_type, declared=declared):
+                project = _fixture()
+                png = _png(16, 12, png_type)
+                project.resources['sources/source-01.png'] = png
+                project = replace(project, sources=(
+                    replace(project.sources[0], sha256=_sha(png),
+                            color_mode=declared),))
+                with self.assertRaisesRegex(ProjectArchiveError,
+                                            'SOURCE_COLOR_MODE_MISMATCH'):
+                    save_project(self.path, project)
+                self.assertFalse(self.path.exists())
+
+    def test_png_source_color_mode_preserved_on_save_and_reopen(self):
+        from dataclasses import replace
+        for png_type, declared in ((0, 'L'), (2, 'RGB'), (6, 'RGBA')):
+            with self.subTest(png_type=png_type, declared=declared):
+                project = _fixture()
+                png = _png(16, 12, png_type)
+                project.resources['sources/source-01.png'] = png
+                project = replace(project, sources=(
+                    replace(project.sources[0], sha256=_sha(png),
+                            color_mode=declared),))
+                save_project(self.path, project)
+                self.assertEqual(load_project(self.path), project)
+                self.path.unlink()
+
+    def test_invalid_source_png_bytes_cannot_replace_last_good_project(self):
+        # A valid IHDR is not enough. No corrupt or truncated source image
+        # should be persisted, even with an updated matching resource SHA.
+        from dataclasses import replace
+        good = _fixture()
+        save_project(self.path, good)
+        original_archive = self.path.read_bytes()
+        clean = good.resources['sources/source-01.png']
+        corrupted_crc = bytearray(clean)
+        idat_start = corrupted_crc.index(b'IDAT') + 4
+        corrupted_crc[idat_start + 1] ^= 0x20  # IDAT changed; CRC not updated
+        variants = (
+            (bytes(corrupted_crc), 'PNG_CRC_FAILED'),
+            (clean[:-12], 'INCOMPLETE_SOURCE_PNG'),  # missing IEND chunk
+        )
+        for invalid_bytes, error in variants:
+            with self.subTest(error=error):
+                project = _fixture()
+                project.resources['sources/source-01.png'] = invalid_bytes
+                project = replace(project, sources=(
+                    replace(project.sources[0], sha256=_sha(invalid_bytes)),))
+                with self.assertRaisesRegex(ProjectArchiveError, error):
+                    save_project(self.path, project, overwrite=True)
+                self.assertEqual(self.path.read_bytes(), original_archive)
+                self.assertEqual(load_project(self.path), good)
+
+    def test_png_chunk_structure_rejected_despite_valid_crc_and_sha(self):
+        # IHDR duplication, unknown critical chunks and separated IDATs can
+        # have valid per-chunk CRCs yet still violate the PNG file grammar.
+        from dataclasses import replace
+        good = _fixture()
+        save_project(self.path, good)
+        snapshot = self.path.read_bytes()
+        png = _png(16, 12, 6)
+        def chunk(name, body):
+            return (struct.pack('>I', len(body)) + name + body +
+                    struct.pack('>I', zlib.crc32(name + body) & 0xffffffff))
+        compressed = png[41:-16]
+        split = max(1, len(compressed) // 2)
+        bad = (
+            (png[:33] + png[8:33] + png[33:], 'DUPLICATE_PNG_IHDR'),
+            (png[:33] + chunk(b'ABCD', b'') + png[33:],
+             'UNKNOWN_CRITICAL_PNG_CHUNK'),
+            (png[:33] + chunk(b'IDAT', compressed[:split]) +
+             chunk(b'tEXt', b'comment\x00valid') +
+             chunk(b'IDAT', compressed[split:]) + png[-12:],
+             'NONCONTIGUOUS_PNG_IDAT'),
+        )
+        for invalid, code in bad:
+            with self.subTest(code=code):
+                project = _fixture()
+                project.resources['sources/source-01.png'] = invalid
+                project = replace(project, sources=(
+                    replace(project.sources[0], sha256=_sha(invalid)),))
+                with self.assertRaisesRegex(ProjectArchiveError, code):
+                    save_project(self.path, project, overwrite=True)
+                self.assertEqual(self.path.read_bytes(), snapshot)
+                self.assertEqual(load_project(self.path), good)
+
+    def test_safe_ancillary_png_chunks_do_not_break_roundtrip(self):
+        # Optional tEXt chunks are allowed before and after one contiguous
+        # IDAT run. Their position must not invalidate an otherwise valid PNG.
+        from dataclasses import replace
+        png = _png(16, 12, 6)
+        def chunk(name, body):
+            return (struct.pack('>I', len(body)) + name + body +
+                    struct.pack('>I', zlib.crc32(name + body) & 0xffffffff))
+        extra = chunk(b'tEXt', b'key\x00value')
+        annotated = png[:33] + extra + png[33:-12] + extra + png[-12:]
+        project = _fixture()
+        project.resources['sources/source-01.png'] = annotated
+        project = replace(project, sources=(
+            replace(project.sources[0], sha256=_sha(annotated)),))
+        save_project(self.path, project)
+        self.assertEqual(load_project(self.path), project)
+
+    def test_valid_crc_but_invalid_source_png_scanline_filter_is_rejected(self):
+        # Rebuild IDAT with a valid CRC, but use PNG filter byte 5, which
+        # cannot be decoded. Header and resource SHA remain consistent.
+        from dataclasses import replace
+        valid = _png(16, 12, 6)
+        ihdr = valid[:33]
+        row = bytes([5]) + bytes([100, 120, 140, 255]) * 16
+        compressed = zlib.compress(row * 12)
+        def chunk(name, body):
+            return (struct.pack('>I', len(body)) + name + body +
+                    struct.pack('>I', zlib.crc32(name + body) & 0xffffffff))
+        invalid = ihdr + chunk(b'IDAT', compressed) + chunk(b'IEND', b'')
+        project = _fixture()
+        project.resources['sources/source-01.png'] = invalid
+        project = replace(project, sources=(
+            replace(project.sources[0], sha256=_sha(invalid)),))
+        with self.assertRaisesRegex(ProjectArchiveError, 'INVALID_SOURCE_PNG_FILTER'):
+            save_project(self.path, project)
+        self.assertFalse(self.path.exists())
+
+    def test_unsupported_png_depth_requires_explicit_normalization(self):
+        # G1.2 does not describe 16-bit RGBA pixels. Simply labelling such
+        # bytes RGBA would discard precision in a downstream 8-bit editor.
+        from dataclasses import replace
+        invalid = bytearray(_png(16, 12, 6))
+        invalid[24] = 16  # 16-bit channel depth
+        invalid[29:33] = struct.pack(
+            '>I', zlib.crc32(invalid[12:29]) & 0xffffffff)
+        data = bytes(invalid)
+        project = _fixture()
+        project.resources['sources/source-01.png'] = data
+        project = replace(project, sources=(
+            replace(project.sources[0], sha256=_sha(data)),))
+        with self.assertRaisesRegex(ProjectArchiveError, 'UNSUPPORTED_SOURCE_PNG_LAYOUT'):
+            save_project(self.path, project)
+        self.assertFalse(self.path.exists())
 
     def test_wrong_source_size_blocks_save(self):
         from dataclasses import replace
