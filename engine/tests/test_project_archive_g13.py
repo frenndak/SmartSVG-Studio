@@ -168,6 +168,74 @@ class ArchiveG13Tests(unittest.TestCase):
         with self.assertRaisesRegex(ProjectArchiveError, 'MASK_NOT_L8_PNG'):
             save_project(self.path, project)
 
+    def test_g12_valid_mask_ids_roundtrip_with_portable_zip_members(self):
+        # G1.2 IDs are not necessarily safe filesystem names. The archive
+        # mapping must preserve the logical ID without changing the PNG.
+        from dataclasses import replace
+        for mask_id, path in (
+                ('mask:01', 'masks/mask_01.png'),
+                ('CON', 'masks/mask-con.png'),
+                ('mask-01', 'masks/mask-01.png')):
+            with self.subTest(mask_id=mask_id):
+                project = _fixture()
+                data = project.resources.pop('masks/mask-01.png')
+                project.resources[path] = data
+                project.mask_paths.clear()
+                project.mask_paths[mask_id] = path
+                project = replace(
+                    project,
+                    masks=(replace(project.masks[0], mask_id=mask_id),),
+                    subjects=(replace(project.subjects[0], mask_id=mask_id),))
+                save_project(self.path, project, overwrite=self.path.exists())
+                self.assertEqual(load_project(self.path), project)
+                with zipfile.ZipFile(self.path) as archive:
+                    self.assertEqual(archive.read(path), data)
+
+    def test_mask_member_paths_fail_closed_without_losing_last_save(self):
+        from dataclasses import replace
+        good = _fixture()
+        save_project(self.path, good)
+        original = self.path.read_bytes()
+        for path, error in (
+                ('masks/../escape.png', 'INVALID_MASK_PATH'),
+                ('masks/subdir/mask.png', 'INVALID_MASK_PATH'),
+                ('sources/other.png', 'INVALID_MASK_PATH'),
+                ('masks/not-png.svg', 'INVALID_MASK_PATH'),
+                ('masks/.png', 'INVALID_MASK_PATH'),
+                ('masks/CON.png', 'UNSAFE_ARCHIVE_PATH')):
+            with self.subTest(path=path):
+                project = _fixture()
+                data = project.resources.pop('masks/mask-01.png')
+                project.resources[path] = data
+                project.mask_paths['mask-01'] = path
+                with self.assertRaisesRegex(ProjectArchiveError, error):
+                    save_project(self.path, project, overwrite=True)
+                self.assertEqual(self.path.read_bytes(), original)
+                self.assertEqual(load_project(self.path), good)
+
+        # Distinct literal paths can still alias on Windows or after NFC.
+        project = _fixture()
+        data = project.resources['masks/mask-01.png']
+        project.resources.pop('masks/mask-01.png')
+        project.resources['masks/DUP.png'] = data
+        project.resources['masks/dup.png'] = data
+        project.mask_paths['mask-01'] = 'masks/DUP.png'
+        project.mask_paths['mask:02'] = 'masks/dup.png'
+        project = replace(project, masks=(
+            project.masks[0], replace(project.masks[0], mask_id='mask:02')))
+        with self.assertRaisesRegex(ProjectArchiveError,
+                                    'CASE_COLLIDING_RESOURCE_PATHS'):
+            save_project(self.path, project, overwrite=True)
+        self.assertEqual(self.path.read_bytes(), original)
+
+        # A tampered manifest is also rejected on load, not just save.
+        with zipfile.ZipFile(self.path) as archive:
+            manifest = json.loads(archive.read('manifest.json'))
+        manifest['mask_paths']['mask-01'] = 'masks/../escape.png'
+        self._write_zip_from({'manifest.json': json.dumps(manifest).encode()})
+        with self.assertRaisesRegex(ProjectArchiveError, 'INVALID_MASK_PATH'):
+            load_project(self.path)
+
     def test_g12_portable_unicode_and_space_artifacts_roundtrip(self):
         # Metadata accepted by G1.2 must also survive G1.3 ZIP save and load.
         from dataclasses import replace

@@ -368,7 +368,12 @@ def _validate_bundle(project: LoadedProject):
         expected[path] = ('source', source)
     for mask in project.masks:
         path = project.mask_paths.get(mask.mask_id)
-        if path != f'masks/{mask.mask_id}.png':
+        # G1.2 mask identifiers are stable logical keys, not ZIP filenames.
+        # Values such as 'mask:01' and 'CON' are valid IDs but unsafe on
+        # Windows. Persist them under independently chosen portable names.
+        if (not isinstance(path, str) or not path.startswith('masks/') or
+                len(path.split('/')) != 2 or not path.endswith('.png') or
+                len(path) <= len('masks/.png')):
             raise ProjectArchiveError('INVALID_MASK_PATH')
         _safe_path(path)
         if path in expected:
