@@ -43,10 +43,12 @@ export function inspectSvgPathGrammar(d){
   let pathOpen=false,segmentCount=0,closed=0,totalSegments=0;
   let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
   let allMinX=Infinity,allMaxX=-Infinity,allMinY=Infinity,allMaxY=-Infinity;
-  let polyArea=0,onlyLines=true,needsReview=false;
+  let polyArea=0,onlyLines=true,needsReview=false,arcInSubpath=false;
+  let hull=[];
   const mark=(px,py)=>{
     minX=Math.min(minX,px);maxX=Math.max(maxX,px);
     minY=Math.min(minY,py);maxY=Math.max(maxY,py);
+    hull.push([px,py]);
   };
   const addPoint=(px,py,polygon=true)=>{
     if(polygon&&onlyLines)polyArea+=x*py-px*y;
@@ -59,7 +61,15 @@ export function inspectSvgPathGrammar(d){
     if(kind==='Z'){
       if(!pathOpen||segmentCount===0)fail('OPEN_OR_EMPTY_CONTOUR');
       if(onlyLines)polyArea+=x*sy-sx*y;
-      if(!(maxX-minX>1e-7&&maxY-minY>1e-7)||
+      // A Bezier with every anchor/control point collinear only retraces a
+      // line when closed. No enclosed surface: do not present as a cut loop.
+      // For true arc commands, two endpoints alone do not define the arc hull.
+      const p0=hull[0];
+      const p1=hull.find(p=>Math.hypot(p[0]-p0[0],p[1]-p0[1])>1e-7);
+      const collinear=!arcInSubpath && (!p1 || hull.every(p=>
+        Math.abs((p1[0]-p0[0])*(p[1]-p0[1])-
+                 (p1[1]-p0[1])*(p[0]-p0[0])) < 1e-7));
+      if(!(maxX-minX>1e-7&&maxY-minY>1e-7)||collinear||
          (onlyLines&&Math.abs(polyArea)<1e-7))
         fail('DEGENERATE_CUT_PATH');
       closed++;
@@ -67,7 +77,8 @@ export function inspectSvgPathGrammar(d){
       allMinY=Math.min(allMinY,minY);allMaxY=Math.max(allMaxY,maxY);
       // Every subpath requires its own non-degenerate bounds.
       minX=Infinity;maxX=-Infinity;minY=Infinity;maxY=-Infinity;
-      x=sx;y=sy;pathOpen=false;segmentCount=0;onlyLines=true;polyArea=0;
+      x=sx;y=sy;pathOpen=false;segmentCount=0;onlyLines=true;
+      polyArea=0;arcInSubpath=false;hull=[];
       continue;
     }
     if(!pathOpen&&kind!=='M')fail('OPEN_OR_EMPTY_CONTOUR');
@@ -95,7 +106,7 @@ export function inspectSvgPathGrammar(d){
         if(a[0]<0||a[1]<0||!Number.isFinite(a[2])||
            (a[3]!==0&&a[3]!==1)||(a[4]!==0&&a[4]!==1))
           fail('INVALID_PATH_GRAMMAR');
-        needsReview=true;onlyLines=false;
+        needsReview=true;onlyLines=false;arcInSubpath=true;
       } else if(!['L','H','V'].includes(type)){
         needsReview=true;onlyLines=false;
       }
