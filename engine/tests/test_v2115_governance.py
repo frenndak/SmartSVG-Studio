@@ -59,7 +59,9 @@ class G11PreInventoryTests(unittest.TestCase):
         result=inventory(ROOT)
         self.assertEqual(result['workflow_count'],186)
         self.assertEqual(result['workflow_parsed'],186)
-        self.assertEqual(result['node_registration_count'],99)
+        # V21.15.4 registers one new optional inspector; historic 99 remain.
+        self.assertEqual(result['node_registration_count'],100)
+        self.assertIn('SmartSVGChooseSubjectV21154',self.mapping)
         self.assertIn('SmartSVGExpressV21152',self.mapping)
         self.assertEqual(result['unresolved_types'],[])
         self.assertEqual(result['warnings'],[])
