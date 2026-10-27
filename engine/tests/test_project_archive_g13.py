@@ -194,8 +194,8 @@ class ArchiveG13Tests(unittest.TestCase):
             'exports/CON.svg', 'exports/aux.txt', 'exports/LPT1.svg',
             'exports/file?.svg', 'exports/file*.svg',
             'exports/back\\\\slash.svg', 'exports/file:stream.svg',
-            'exports/trailing. ', 'exports/hidden\\u202esvg',
-            'exports/surrogate\\ud800.svg',
+            'exports/trailing. ', 'exports/hidden\u202esvg',
+            'exports/surrogate\ud800.svg',
             'exports/' + 'é' * 128 + '.svg',
         )
         for path in forbidden:
@@ -213,7 +213,7 @@ class ArchiveG13Tests(unittest.TestCase):
         snapshot = self.path.read_bytes()
         bad = _fixture()
         raw = bad.resources.pop('sources/source-01.png')
-        first, second = 'sources/étiquette.png', 'sources/e\\u0301tiquette.png'
+        first, second = 'sources/étiquette.png', 'sources/e\u0301tiquette.png'
         bad.resources[first] = raw
         bad.resources[second] = raw
         bad.source_paths['source-01'] = first
@@ -237,7 +237,7 @@ class ArchiveG13Tests(unittest.TestCase):
             replace(project.artifacts[0], file_path=path),))
         save_project(self.path, project)
         with zipfile.ZipFile(self.path, 'a') as archive:
-            archive.writestr('exports/e\\u0301tiquette 01.svg', data)
+            archive.writestr('exports/e\u0301tiquette 01.svg', data)
         with self.assertRaisesRegex(ProjectArchiveError, 'DUPLICATE_ARCHIVE_PATH'):
             load_project(self.path)
 
