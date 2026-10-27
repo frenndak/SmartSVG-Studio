@@ -40,6 +40,7 @@ Le ZIP est lu en mémoire avec des budgets définis, **jamais extrait**. Les che
 - Après alignement sur G1.2, contrôle **acyclique des relations d'accessoires** à la sauvegarde et au rechargement ; une archive contenant des sujets cycliques est rejetée même lorsque ses entrées et son manifeste SHA-256 sont cohérents. Test d'intégration négatif dédié, sans extraction ou écriture lors du chargement ;
 - Rejet explicite des cartes source/masque/ressources malformées (objet obligatoire), avant toute écriture ; deux identifiants de source ne peuvent pas référencer le même membre ZIP, même si leurs empreintes et dimensions sont identiques (prévention des alias de ressources) ;
 - contrôle SHA-256 **réel sur les octets**, manifestes, dimensions déclarées et en-têtes d'images (PNG/JPEG/WebP) ;
+- Les PNG source déclarés `L`, `RGB` ou `RGBA` sont vérifiés contre le type couleur réel du PNG avant admission et après réouverture. Une déclaration trompeuse de transparence est refusée (`SOURCE_COLOR_MODE_MISMATCH`) ; les types sans équivalent G1.2 (`UNSUPPORTED_SOURCE_PNG_COLOR_TYPE`), les profondeurs autres que 8 bits et les images entrelacées (`UNSUPPORTED_SOURCE_PNG_LAYOUT`) nécessitent une conversion explicite. Le ZIP ne peut conserver un PNG source dont les CRC de chunks, les données IDAT décompressées, les filtres de lignes ou le chunk final IEND sont invalides, même si son SHA-256 déclaré est cohérent ;
 - masques obligatoirement en PNG L8 sujet blanc, CRC des chunks et décompression vérifiée sans dépasser le budget ;
 - limite d'entrées, taille membre, taille décompressée globale, profondeur JSON (32) et nombre d'éléments ;
 - Dans `document` et `operations`, seules les structures JSON natives sont acceptées (`dict`, `list`, scalaires) : les tuples Python sont rejetés (`INVALID_JSON_TYPE`) au lieu d'être transformés silencieusement en listes. Une tentative de sauvegarde rejetée ne remplace jamais l'ancienne version valide. **Exception explicite et bornée :** les champs typés G1.2 `Subject.bbox_px`, `Subject.accessory_ids` et `Artifact.subject_ids`, immuables dans le moteur, sont volontairement encodés comme tableaux JSON à l'export ; les autres tuples arbitraires de la scène restent refusés.
@@ -56,7 +57,7 @@ Le ZIP est lu en mémoire avec des budgets définis, **jamais extrait**. Les che
 
 ## Tests et acceptation
 
-- tests engine/tests/test_project_archive_g13.py : scénarios synthétiques incluant deux nouvelles régressions (alias de source et cartes malformées) de sauvegarde et attaques (sans œuvres utilisateur) ;
+- tests engine/tests/test_project_archive_g13.py : scénarios synthétiques de sauvegarde et attaques (sans œuvres utilisateur), y compris alias de source, cartes malformées, rejet des incohérences PNG `L/RGB/RGBA`, round-trip conforme pour les trois types, CRC IDAT corrompu, PNG source sans IEND, filtres invalides malgré CRC correct et profondeur 16 bits non déclarable ;
 - tests racine tests/test_g13_project_archive.py exécutés automatiquement par la CI privée d'admission ;
 - tests des 8 contrats G1.2 conservés dans la branche parente ;
 - ne pas confondre ces tests avec une exécution GPU RTX 3070, Design Space ou coupe Explore 5.
