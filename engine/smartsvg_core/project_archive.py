@@ -246,6 +246,14 @@ def _verify_png_pixels(data: bytes, width: int, height: int, *, grayscale: bool)
                     size == 0 or size > 768 or size % 3):
                 raise ProjectArchiveError('INVALID_PNG_PLTE')
             seen_plte = True
+        elif kind == b'tRNS':
+            # Transparency in an L8 mask makes its subject-white pixels
+            # semantically ambiguous: grayscale 255 can decode as alpha=0.
+            # Likewise L/RGB sources with tRNS are effectively LA/RGBA
+            # although SourceAsset advertises an opaque color_mode. RGBA
+            # files must not contain tRNS at all under PNG's chunk rules.
+            # Never strip this chunk silently: require explicit conversion.
+            raise ProjectArchiveError('PNG_UNDECLARED_TRANSPARENCY')
         elif kind == b'IDAT':
             if idat_closed or not seen_ihdr:
                 raise ProjectArchiveError('NONCONTIGUOUS_PNG_IDAT')
