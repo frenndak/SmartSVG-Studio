@@ -172,6 +172,25 @@ class SVGContractTests(unittest.TestCase):
         with self.assertRaisesRegex(SVGRejected, "INSUFFICIENT_SEPARATE"):
             inspect_svg(p, profile="editable")
 
+    def test_display_none_group_does_not_fake_visible_cut_geometry(self):
+        # A group or the root can hide all descendants, despite valid paths.
+        hidden = (
+            '<g display="none"><circle r="8"/></g>',
+            '<g style="fill:red; display : none !important"><path d="M0 0 L2 0 Z"/></g>',
+            '<path d="M0 0 L2 0 Z" style="display:none;stroke:red"/>',
+        )
+        for body in hidden:
+            with self.subTest(body=body):
+                p = self.write(self.base(body))
+                with self.assertRaisesRegex(SVGRejected, "NO_VECTOR_GEOMETRY"):
+                    inspect_svg(p)
+
+    def test_visible_sibling_is_kept_after_hidden_group(self):
+        p = self.write(self.base(
+            '<g style="display:none"><circle r="4"/></g>'
+            '<g><rect width="5" height="5"/></g>'))
+        self.assertEqual(inspect_svg(p)["vector_elements"], 1)
+
     def test_empty_cut_path(self):
         p = self.write(self.base('<path d=" "/>'))
         with self.assertRaisesRegex(SVGRejected, "EMPTY_PATH"):
