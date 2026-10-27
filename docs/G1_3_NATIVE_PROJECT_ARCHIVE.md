@@ -37,6 +37,7 @@ Le ZIP est lu en mémoire avec des budgets définis, **jamais extrait**. Les che
 ## Propriétés de sûreté
 
 - Contrôle des références et bounding-box G1.2 avant sauvegarde/après restauration ;
+- Après alignement sur G1.2, contrôle **acyclique des relations d'accessoires** à la sauvegarde et au rechargement ; une archive contenant des sujets cycliques est rejetée même lorsque ses entrées et son manifeste SHA-256 sont cohérents. Test d'intégration négatif dédié, sans extraction ou écriture lors du chargement ;
 - Rejet explicite des cartes source/masque/ressources malformées (objet obligatoire), avant toute écriture ; deux identifiants de source ne peuvent pas référencer le même membre ZIP, même si leurs empreintes et dimensions sont identiques (prévention des alias de ressources) ;
 - contrôle SHA-256 **réel sur les octets**, manifestes, dimensions déclarées et en-têtes d'images (PNG/JPEG/WebP) ;
 - masques obligatoirement en PNG L8 sujet blanc, CRC des chunks et décompression vérifiée sans dépasser le budget ;
