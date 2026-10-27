@@ -81,6 +81,9 @@ test('selected SVG also validates path grammar independently of inspector',()=>{
   assert.match(exported,/d="M1 1L10 1L10 10Z"/);
   const poisoned={...review,paths:[{d:'M1 1L10 1ZL20 20Z'}]};
   assert.throws(()=>selectedSvg(poisoned,[1]),CutReviewError);
+  const clipped={...review,paths:[{d:'M30 1L50 1L50 10Z'}]};
+  assert.throws(()=>selectedSvg(clipped,[1]),e=>
+    e instanceof CutReviewError&&e.code==='PATH_OUTSIDE_VIEWBOX');
 });
 
 test('inspection remains a candidate review, not a physical cut proof',()=>{
