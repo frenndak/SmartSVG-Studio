@@ -328,7 +328,7 @@ class ContractsG12Tests(unittest.TestCase):
         conflicting_pairs = (
             ('exports/cut.svg', 'exports/cut.svg/detail.svg'),
             ('exports/CUT.SVG', 'exports/cut.svg/deep/detail.svg'),
-            ('exports/Étiquette.svg', 'exports/e\\u0301tiquette.svg/detail.svg'),
+            ('exports/Étiquette.svg', 'exports/e\u0301tiquette.svg/detail.svg'),
         )
         for first, second in conflicting_pairs:
             for paths in ((first, second), (second, first)):
