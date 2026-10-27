@@ -295,6 +295,58 @@ def _source_dimensions(path: str, data: bytes) -> tuple[int, int]:
     raise ProjectArchiveError('UNSUPPORTED_SOURCE_IMAGE_TYPE')
 
 
+
+def _webp_color_mode(data: bytes) -> str:
+    """Validate alpha declarations without pretending to decode WebP pixels.
+
+    Called only after _source_dimensions has checked RIFF/chunk bounds.
+    Ambiguous extended containers fail closed pending full pixel decoding.
+    """
+    chunks = []
+    offset = 12
+    while offset < len(data):
+        kind = data[offset:offset + 4]
+        size = int.from_bytes(data[offset + 4:offset + 8], 'little')
+        chunks.append((kind, data[offset + 8:offset + 8 + size]))
+        offset += 8 + size + (size & 1)
+    kind, payload = chunks[0]
+    if kind == b'VP8L':
+        return 'RGBA' if payload[4] & 0x10 else 'RGB'
+    if kind == b'VP8 ':
+        return 'RGB'
+    if kind != b'VP8X':
+        raise ProjectArchiveError('UNSUPPORTED_WEBP_HEADER')
+    flags = payload[0]
+    if flags & ~0x3e or flags & 0x02 or payload[1:4] != bytes(3):
+        raise ProjectArchiveError('UNSUPPORTED_WEBP_EXTENDED_FLAGS')
+    frames = [(name, frame) for name, frame in chunks[1:]
+              if name in (b'VP8 ', b'VP8L')]
+    alpha = [part for name, part in chunks[1:] if name == b'ALPH']
+    if len(frames) != 1 or len(alpha) > 1:
+        raise ProjectArchiveError('INVALID_WEBP_FRAME')
+    frame_kind, frame = frames[0]
+    if frame_kind == b'VP8L':
+        if alpha or len(frame) < 5 or frame[0] != 0x2f or frame[4] & 0xe0:
+            raise ProjectArchiveError('INVALID_WEBP_ALPHA')
+        b0, b1, b2, b3 = frame[1:5]
+        dimensions = (1 + b0 + ((b1 & 0x3f) << 8),
+                      1 + (b1 >> 6) + (b2 << 2) + ((b3 & 0x0f) << 10))
+        frame_has_alpha = bool(frame[4] & 0x10)
+    else:
+        if len(frame) < 10 or frame[3:6] != bytes.fromhex('9d012a'):
+            raise ProjectArchiveError('INVALID_WEBP_FRAME')
+        dimensions = (int.from_bytes(frame[6:8], 'little') & 0x3fff,
+                      int.from_bytes(frame[8:10], 'little') & 0x3fff)
+        frame_has_alpha = bool(alpha)
+    canvas = (1 + int.from_bytes(payload[4:7], 'little'),
+              1 + int.from_bytes(payload[7:10], 'little'))
+    if dimensions != canvas or not all(dimensions):
+        raise ProjectArchiveError('WEBP_FRAME_CANVAS_MISMATCH')
+    if bool(flags & 0x10) != frame_has_alpha:
+        raise ProjectArchiveError('WEBP_ALPHA_FLAG_MISMATCH')
+    return 'RGBA' if frame_has_alpha else 'RGB'
+
+
 def _verify_png_pixels(data: bytes, width: int, height: int, *, grayscale: bool):
     """Bounded complete scanline validation for both masks and PNG sources.
 
@@ -503,6 +555,9 @@ def _validate_bundle(project: LoadedProject):
             suffix = PurePosixPath(path).suffix.lower()
             if suffix in ('.jpg', '.jpeg'):
                 dims, actual_mode = _jpeg_source_info(data)
+            elif suffix == '.webp':
+                dims = _source_dimensions(path, data)
+                actual_mode = _webp_color_mode(data)
             else:
                 dims, actual_mode = _source_dimensions(path, data), None
             if dims != (rec.width_px, rec.height_px):

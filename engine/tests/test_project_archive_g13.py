@@ -79,6 +79,33 @@ def _fixture_with_jpeg(data, color_mode='RGB'):
         subjects=(replace(project.subjects[0], bbox_px=(0, 0, 4, 3)),))
 
 
+
+# Original 2x2 solid-pixel WebP fixtures generated once with Pillow.
+# Embedded bytes keep CI dependency-free; no user images are distributed.
+WEBP_RGB_LOSSLESS = 'UklGRh4AAABXRUJQVlA4TBEAAAAvAUAAAAdQo3oUr/+BiOh/AAA='
+WEBP_RGBA_LOSSLESS = 'UklGRhoAAABXRUJQVlA4TA0AAAAvAUAAEAcQERGIiP4HAA=='
+WEBP_RGB_LOSSY = 'UklGRjgAAABXRUJQVlA4ICwAAADQAQCdASoCAAIAAQAcJZgCdLoB+AADsAD++LUX/yz5/DZ1Of/CrcMQ1HAAAA=='
+WEBP_RGBA_EXTENDED = 'UklGRlgAAABXRUJQVlA4WAoAAAAQAAAAAQAAAQAAQUxQSAUAAAAAAAAAAABWUDggLAAAANABAJ0BKgIAAgABABwlmAJ0ugH4AAOwAP74tRf/LPn8NnU5/8KtwxDUcAAA'
+
+
+def _fixture_with_webp(data, mode):
+    from dataclasses import replace
+    project = _fixture()
+    del project.resources['sources/source-01.png']
+    project.resources['sources/source-01.webp'] = data
+    project.source_paths['source-01'] = 'sources/source-01.webp'
+    mask = _png(2, 2, 0)
+    project.resources['masks/mask-01.png'] = mask
+    return replace(
+        project,
+        sources=(replace(project.sources[0], sha256=_sha(data),
+                         width_px=2, height_px=2, color_mode=mode),),
+        masks=(replace(project.masks[0], sha256=_sha(mask),
+                       width_px=2, height_px=2),),
+        subjects=(replace(project.subjects[0], bbox_px=(0, 0, 2, 2)),),
+    )
+
+
 class ArchiveG13Tests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -171,6 +198,63 @@ class ArchiveG13Tests(unittest.TestCase):
             file_path='sources/source-01.png.backup/detail.svg'),))
         save_project(self.path, good, overwrite=True)
         self.assertEqual(load_project(self.path), good)
+
+    def test_webp_real_rgb_rgba_lossless_and_extended_roundtrip(self):
+        for encoded, mode in (
+            (WEBP_RGB_LOSSLESS, 'RGB'),
+            (WEBP_RGBA_LOSSLESS, 'RGBA'),
+            (WEBP_RGB_LOSSY, 'RGB'),
+            (WEBP_RGBA_EXTENDED, 'RGBA'),
+        ):
+            with self.subTest(mode=mode, format=encoded[:20]):
+                project = _fixture_with_webp(base64.b64decode(encoded), mode)
+                save_project(self.path, project)
+                self.assertEqual(load_project(self.path), project)
+                self.path.unlink()
+
+    def test_webp_alpha_spoof_and_extended_canvas_preserve_archive(self):
+        good = _fixture()
+        save_project(self.path, good)
+        snapshot = self.path.read_bytes()
+        extended = base64.b64decode(WEBP_RGBA_EXTENDED)
+        wrong_canvas = bytearray(extended)
+        wrong_canvas[24] = 2  # VP8X canvas 3x2, frame remains 2x2
+        missing_alpha = bytearray(extended)
+        missing_alpha[20] &= ~0x10
+        for data, mode, code in (
+            (base64.b64decode(WEBP_RGBA_LOSSLESS), 'RGB',
+             'SOURCE_COLOR_MODE_MISMATCH'),
+            (base64.b64decode(WEBP_RGB_LOSSLESS), 'RGBA',
+             'SOURCE_COLOR_MODE_MISMATCH'),
+            (extended, 'RGB', 'SOURCE_COLOR_MODE_MISMATCH'),
+            (bytes(wrong_canvas), 'RGBA', 'WEBP_FRAME_CANVAS_MISMATCH'),
+            (bytes(missing_alpha), 'RGBA', 'WEBP_ALPHA_FLAG_MISMATCH'),
+        ):
+            with self.subTest(code=code, mode=mode):
+                project = _fixture_with_webp(data, mode)
+                with self.assertRaisesRegex(ProjectArchiveError, code):
+                    save_project(self.path, project, overwrite=True)
+                self.assertEqual(self.path.read_bytes(), snapshot)
+                self.assertEqual(load_project(self.path), good)
+
+    def test_webp_sha_coherent_load_rejects_alpha_metadata_spoof(self):
+        project = _fixture_with_webp(base64.b64decode(WEBP_RGBA_LOSSLESS),
+                                     'RGBA')
+        save_project(self.path, project)
+        with zipfile.ZipFile(self.path) as archive:
+            manifest = json.loads(archive.read('manifest.json'))
+            sources = json.loads(archive.read('sources.json'))
+        sources[0]['color_mode'] = 'RGB'
+        altered = json.dumps(sources).encode('utf-8')
+        manifest['entries']['sources.json'] = {
+            'sha256': _sha(altered), 'size_bytes': len(altered)}
+        self._write_zip_from({
+            'sources.json': altered,
+            'manifest.json': json.dumps(manifest).encode('utf-8'),
+        })
+        with self.assertRaisesRegex(ProjectArchiveError,
+                                    'SOURCE_COLOR_MODE_MISMATCH'):
+            load_project(self.path)
 
     def test_webp_static_frames_have_consistent_riff_chunks(self):
         # Two tiny RGB pictures generated from original solid-color pixels.
