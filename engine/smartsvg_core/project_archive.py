@@ -330,6 +330,17 @@ def _validate_bundle(project: LoadedProject):
             dims = _source_dimensions(path, data)
             if dims != (rec.width_px, rec.height_px):
                 raise ProjectArchiveError('SOURCE_PIXEL_DIMENSIONS_MISMATCH')
+            if PurePosixPath(path).suffix.lower() == '.png':
+                # SourceAsset.color_mode is an explicit contract, not a hint:
+                # an RGBA label on opaque/RGB bytes can silently mislead
+                # mask creation and downstream transparency diagnostics.
+                # Indexed and grayscale+alpha PNGs must be normalized before
+                # admission because the G1.2 metadata has no matching mode.
+                actual_mode = {0: 'L', 2: 'RGB', 6: 'RGBA'}.get(data[25])
+                if actual_mode is None:
+                    raise ProjectArchiveError('UNSUPPORTED_SOURCE_PNG_COLOR_TYPE')
+                if rec.color_mode != actual_mode:
+                    raise ProjectArchiveError('SOURCE_COLOR_MODE_MISMATCH')
         elif kind == 'mask':
             _verify_mask_png(data, rec.width_px, rec.height_px)
         total += len(data)
