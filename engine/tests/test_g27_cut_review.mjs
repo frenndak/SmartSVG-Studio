@@ -19,7 +19,8 @@ function xmlDocument(src){
     return {localName:tag,namespaceURI:NS,attributes:at,children:[],
       getAttribute:name=>at.find(a=>a.name===name)?.value||null};
   };
-  const paths=Array.from(src.matchAll(/<(path|script|g|image)\b([^>]*)\/?>/g),m=>obj(m[1],m[2]));
+  const paths=Array.from(src.matchAll(/<([A-Za-z][A-Za-z0-9:-]*)\b([^>]*)\/?>/g),m=>obj(m[1],m[2]))
+    .filter(el=>el.localName!=='svg');
   const root=obj('svg',rootTag);
   root.getElementsByTagName=()=>paths;
   return {documentElement:root};
