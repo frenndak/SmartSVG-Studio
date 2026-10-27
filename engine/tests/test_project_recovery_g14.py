@@ -151,6 +151,21 @@ class ProjectRecoveryTests(unittest.TestCase):
         self.assertEqual(self.backup.read_bytes(), backup_bytes)
         self.assertEqual(load_project(self.path).document['objects'][0]['x'], 1)
 
+    def test_invalid_new_project_preserves_older_backup(self):
+        save_with_recovery(self.path, fixture(1))
+        save_with_recovery(self.path, fixture(2))
+        old_main = self.path.read_bytes()
+        old_backup = self.backup.read_bytes()
+        candidate = fixture(3)
+        bad_resources = dict(candidate.resources)
+        bad_resources['sources/source-a.png'] = b'invalid-image-sha'
+        candidate = replace(candidate, resources=bad_resources)
+        with self.assertRaisesRegex(RecoveryError, 'SAVE_FAILED'):
+            save_with_recovery(self.path, candidate)
+        self.assertEqual(self.path.read_bytes(), old_main)
+        self.assertEqual(self.backup.read_bytes(), old_backup)
+        self.assertEqual(load_project(self.backup).document['objects'][0]['x'], 1)
+
     def test_failed_publish_keeps_good_main_and_snapshot(self):
         save_with_recovery(self.path, fixture(2))
         old = self.path.read_bytes()
