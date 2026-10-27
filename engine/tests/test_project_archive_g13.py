@@ -56,6 +56,29 @@ def _fixture():
     )
 
 
+# Original 4x3 JPEG fixtures generated from uniform pixels with Pillow once;
+# embedded here so CI tests remain standard-library-only and reproducible.
+JPEG_RGB_BASELINE = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCAADAAQDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDkqKKK948c/9k="
+JPEG_RGB_PROGRESSIVE = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wgARCAADAAQDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUAQEAAAAAAAAAAAAAAAAAAAAE/9oADAMBAAIQAxAAAAGQHj//xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAEFAn//xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAEDAQE/AX//xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAECAQE/AX//xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAY/An//xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAE/IX//2gAMAwEAAgADAAAAEPP/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAEDAQE/EH//xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAECAQE/EH//xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAE/EH//2Q=="
+JPEG_GRAYSCALE = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/wAALCAADAAQBAREA/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/9oACAEBAAA/AOZr/9k="
+
+
+def _fixture_with_jpeg(data, color_mode='RGB'):
+    from dataclasses import replace
+    project = _fixture()
+    del project.resources['sources/source-01.png']
+    project.resources['sources/source-01.jpg'] = data
+    project.source_paths['source-01'] = 'sources/source-01.jpg'
+    project = replace(project, sources=(replace(
+        project.sources[0], sha256=_sha(data), width_px=4, height_px=3,
+        color_mode=color_mode),))
+    mask = _png(4, 3, 0)
+    project.resources['masks/mask-01.png'] = mask
+    return replace(project, masks=(replace(project.masks[0],
+        sha256=_sha(mask), width_px=4, height_px=3),),
+        subjects=(replace(project.subjects[0], bbox_px=(0, 0, 4, 3)),))
+
+
 class ArchiveG13Tests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -71,6 +94,45 @@ class ArchiveG13Tests(unittest.TestCase):
             for name, data in updates.items():
                 if name not in dict(rows):
                     out.writestr(name, data)
+
+    def test_jpeg_real_baseline_progressive_gray_and_exif_roundtrip(self):
+        for jpeg_b64, mode in (
+            (JPEG_RGB_BASELINE, 'RGB'),
+            (JPEG_RGB_PROGRESSIVE, 'RGB'),
+            (JPEG_GRAYSCALE, 'L'),
+        ):
+            with self.subTest(color_mode=mode, progressive=jpeg_b64 == JPEG_RGB_PROGRESSIVE):
+                data = base64.b64decode(jpeg_b64)
+                project = _fixture_with_jpeg(data, color_mode=mode)
+                save_project(self.path, project)
+                self.assertEqual(load_project(self.path), project)
+                self.path.unlink()
+        # An APP1 EXIF segment may precede the image frame in smartphone JPEG.
+        data = base64.b64decode(JPEG_RGB_BASELINE)
+        exif = b'Exif\x00\x00synthetic'
+        app1 = b'\xff\xe1' + struct.pack('>H', len(exif) + 2) + exif
+        project = _fixture_with_jpeg(data[:2] + app1 + data[2:])
+        save_project(self.path, project)
+        self.assertEqual(load_project(self.path), project)
+
+    def test_jpeg_truncation_trailing_garbage_and_color_spoof_preserve_save(self):
+        original = _fixture()
+        save_project(self.path, original)
+        before = self.path.read_bytes()
+        good = base64.b64decode(JPEG_RGB_BASELINE)
+        for data, mode, error in (
+            (good[:-2], 'RGB', 'INCOMPLETE_JPEG'),
+            (good + b'junk', 'RGB', 'INVALID_JPEG_END'),
+            (good[:100], 'RGB', 'INVALID_JPEG_SEGMENT'),
+            (good, 'RGBA', 'SOURCE_COLOR_MODE_MISMATCH'),
+            (base64.b64decode(JPEG_GRAYSCALE), 'RGB', 'SOURCE_COLOR_MODE_MISMATCH'),
+        ):
+            with self.subTest(error=error, length=len(data), mode=mode):
+                project = _fixture_with_jpeg(data, color_mode=mode)
+                with self.assertRaisesRegex(ProjectArchiveError, error):
+                    save_project(self.path, project, overwrite=True)
+                self.assertEqual(self.path.read_bytes(), before)
+                self.assertEqual(load_project(self.path), original)
 
     def test_webp_static_frames_have_consistent_riff_chunks(self):
         # Two tiny RGB pictures generated from original solid-color pixels.
