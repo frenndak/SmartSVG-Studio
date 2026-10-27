@@ -5,6 +5,7 @@
 import { app } from '../../scripts/app.js';
 import { createEditorProjectControls } from './smartsvg_editor_project_bridge_g23.mjs';
 import { editorDraftStore } from './smartsvg_editor_draft_g28.mjs';
+import { validatedFocus, centerFocusView } from './smartsvg_mask_focus_v21156.mjs';
 import { api } from '../../scripts/api.js';
 import { normalizeMeta, previewUrl, encodeDocument, decodeDocument, LIMITS, fitView,
   constrainView, zoomView, moveView, viewToUV, strokeSpacing } from './smartsvg_editor_model_v216.mjs';
@@ -48,7 +49,7 @@ function load(ref){return new Promise((resolve,reject)=>{
 });}
 function cloneStrokes(items){return items.map(s=>({...s,points:s.points.map(p=>[...p])}));}
 
-async function openEditor(node,meta){
+async function openEditor(node,meta,focus=null){
   const jsonWidget=(node.widgets||[]).find(w=>w.name==='retouches_json');
   if(!jsonWidget)throw new Error('Widget retouches_json introuvable. Installer le nœud V21.6.');
   const saved=decodeDocument(meta,String(jsonWidget.value||''));
@@ -73,7 +74,8 @@ async function openEditor(node,meta){
   const controls=el('div',null,'ss216-controls');
   const select=el('select');select.setAttribute('aria-label','Choisir le masque');
   for(let i=0;i<meta.count;i++){const o=el('option',`Sujet ${i+1}`);o.value=String(i);select.appendChild(o);}
-  let current=0,mode='add',radius=.015,history=cloneStrokes(recovered||saved),redo=[];
+  let current=focus?focus.subject-1:0,mode=focus?'pan':'add',radius=.015,history=cloneStrokes(recovered||saved),redo=[];
+  select.value=String(current);
   const saveCrashDraft=()=>draft.save(history);
   let active=null,activePan=null,spaceDown=false,loadedObject=-1,maskLoadToken=0;
   let maskMessage='',revision=0,cacheRevision=-1,cacheObject=-1;
@@ -200,7 +202,11 @@ async function openEditor(node,meta){
     document.removeEventListener('keyup',keyUpHandler,true);
     resizeObserver?.disconnect?.();backdrop.remove();
     node._smartsvgV216ModalOpen=false;
-    if(node._smartsvgV216Editor)node._smartsvgV216Editor.trigger.disabled=!node._smartsvgV216Meta;
+    if(node._smartsvgV216Editor){
+      node._smartsvgV216Editor.trigger.disabled=!node._smartsvgV216Meta;
+      const {focusTrigger,getFocus}=node._smartsvgV216Editor;
+      if(focusTrigger)focusTrigger.disabled=!validatedFocus(getFocus?.(),node._smartsvgV216Meta);
+    }
   };
   const closeButton=btn('Fermer sans enregistrer',close);
   const save=btn('Enregistrer les retouches',()=>{
@@ -214,7 +220,7 @@ async function openEditor(node,meta){
     }catch(error){maskMessage=error.message;refreshControls();}
   });
   buttons.append(save,closeButton);
-  const hint=el('div','Molette / boutons : zoom · Déplacer ou maintenir Espace + glisser : navigation · +, −, 0 : zoom · Ctrl+Z / Ctrl+Maj+Z : annuler/rétablir. Les contours sont calculés à la résolution originale après Enregistrer puis relancer.','ss216-note');
+  const hint=el('div',focus ? 'Zone proposée : vérifier visuellement le masque puis sélectionner explicitement Ajouter ou Retirer. Aucune correction automatique.' : 'Molette / boutons : zoom · Déplacer ou maintenir Espace + glisser : navigation · +, −, 0 : zoom · Ctrl+Z / Ctrl+Maj+Z : annuler/rétablir. Les contours sont calculés à la résolution originale après Enregistrer puis relancer.','ss216-note');
   const draftHint=el('div',draft.enabled?
     (recovered?'Brouillon de retouches récupéré : enregistrer dans le nœud pour le conserver.':
       'Secours automatique local des coups de pinceau actifs (7 jours). Fermer sans enregistrer efface ce secours.'):
@@ -223,7 +229,19 @@ async function openEditor(node,meta){
   backdrop.addEventListener('pointerdown',e=>{if(e.target===backdrop)close();});
   panel.addEventListener('pointerdown',e=>e.stopPropagation());
   document.body.appendChild(backdrop);
-  resetView();select.focus?.();
+  resetView();
+  if(focus){
+    try{
+      const f=frame();
+      const suggested=centerFocusView(focus.box,meta.width,meta.height,
+                                      canvas.width,canvas.height,f.width,f.height);
+      view=constrainView(suggested,canvas.width,canvas.height,f.width,f.height);
+      applyView();
+      maskMessage='Zone du sujet '+focus.subject+' centrée : aucune retouche automatique.';
+      render();
+    }catch(error){maskMessage='Cadrage impossible : '+error.message;render();}
+  }
+  select.focus?.();
   function keyHandler(e){
     if(destroyed)return;
     if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();return;}
@@ -301,7 +319,7 @@ async function openEditor(node,meta){
     const f=frame();view=constrainView(view,canvas.width,canvas.height,f.width,f.height);applyView();
   }):null;
   resizeObserver?.observe?.(viewport);
-  void loadMask(0);
+  void loadMask(current);
 }
 
 app.registerExtension({
@@ -319,6 +337,33 @@ app.registerExtension({
           note.textContent='Éditeur indisponible : '+e.message;
         });
       });trigger.disabled=true;
+      let pendingFocus=null;
+      const focusTrigger=btn('Examiner la zone signalée (aucune retouche automatique)',()=>{
+        const valid=validatedFocus(pendingFocus,node._smartsvgV216Meta);
+        if(!valid||node._smartsvgV216ModalOpen){focusTrigger.disabled=true;return;}
+        if(typeof window?.confirm==='function'&&
+           !window.confirm('Ouvrir le sujet '+valid.subject+
+             ' ? Vérifier la source et les masques : aucune modification automatique.'))return;
+        node._smartsvgV216ModalOpen=true;
+        trigger.disabled=true;focusTrigger.disabled=true;
+        void openEditor(node,node._smartsvgV216Meta,valid).catch(error=>{
+          node._smartsvgV216ModalOpen=false;
+          trigger.disabled=!node._smartsvgV216Meta;
+          focusTrigger.disabled=!validatedFocus(pendingFocus,node._smartsvgV216Meta);
+          note.textContent='Zone non ouverte : '+error.message;
+        });
+      });
+      focusTrigger.disabled=true;
+      const focusListener=event=>{
+        const valid=validatedFocus(event?.detail,node._smartsvgV216Meta);
+        if(!valid)return;
+        pendingFocus=event.detail;
+        focusTrigger.disabled=!!node._smartsvgV216ModalOpen;
+        note.textContent='Zone suspecte du sujet '+valid.subject+
+          ' reçue. Confirmer pour examiner les retouches à réaliser.';
+      };
+      if(typeof window?.addEventListener==='function')
+        window.addEventListener('smartsvg:mask-focus:v1',focusListener);
       const reset=btn('Effacer les retouches enregistrées',()=>{
         const field=(node.widgets||[]).find(w=>w.name==='retouches_json');
         if(!field)return;
@@ -332,23 +377,32 @@ app.registerExtension({
         note.textContent='Retouches effacées. Relancer le workflow pour charger la nouvelle image.';
       });
       const projectControls=createEditorProjectControls(api,app,node);
-      region.append(trigger,reset,note,projectControls.root);
+      region.append(trigger,focusTrigger,reset,note,projectControls.root);
       const w=node.addDOMWidget('smartsvg_editor_v216','smartsvg_editor',region,{
-        serialize:false,hideOnZoom:true,getMinHeight:()=>85,getMaxHeight:()=>115
+        serialize:false,hideOnZoom:true,getMinHeight:()=>130,getMaxHeight:()=>190
       });
       if(w){w.serialize=false;w.options={...(w.options||{}),serialize:false};}
-      node._smartsvgV216Editor={region,trigger,note,projectControls};
+      node._smartsvgV216Editor={region,trigger,note,projectControls,focusTrigger,
+        getFocus:()=>pendingFocus};
+      const oldRemoval=node.onRemoved;
+      node.onRemoved=function(){
+        if(typeof window?.removeEventListener==='function')
+          window.removeEventListener('smartsvg:mask-focus:v1',focusListener);
+        oldRemoval?.apply(this,arguments);
+      };
       const original=node.onExecuted;
       node.onExecuted=function(output){
         original?.apply(this,arguments);
         const meta=normalizeMeta(output);node._smartsvgV216Meta=meta;
         projectControls.refresh(meta);
+        if(!validatedFocus(pendingFocus,meta))pendingFocus=null;
+        focusTrigger.disabled=!pendingFocus||!!node._smartsvgV216ModalOpen;
         trigger.disabled=!meta||!!node._smartsvgV216ModalOpen;
         note.textContent=meta?`${meta.count} sujet(s) chargés · ${meta.width} × ${meta.height} px. Zoom/déplacement et retouches disponibles.`:
           'Aucun aperçu valide : consulter le résultat Python et relancer.';
         node.setDirtyCanvas?.(true,true);
       };
-      node.size=[Math.max(node.size?.[0]||350,410),Math.max(node.size?.[1]||230,435)];
+      node.size=[Math.max(node.size?.[0]||350,430),Math.max(node.size?.[1]||230,470)];
     }catch(e){console.warn('SmartSVG V21.6.1 mask editor disabled',e);}
   }
 });
