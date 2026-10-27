@@ -42,6 +42,7 @@ Le ZIP est lu en mémoire avec des budgets définis, **jamais extrait**. Les che
 - Après alignement sur G1.2, contrôle **acyclique des relations d'accessoires** à la sauvegarde et au rechargement ; une archive contenant des sujets cycliques est rejetée même lorsque ses entrées et son manifeste SHA-256 sont cohérents. Test d'intégration négatif dédié, sans extraction ou écriture lors du chargement ;
 - Rejet explicite des cartes source/masque/ressources malformées (objet obligatoire), avant toute écriture ; deux identifiants de source ne peuvent pas référencer le même membre ZIP, même si leurs empreintes et dimensions sont identiques (prévention des alias de ressources) ;
 - contrôle SHA-256 **réel sur les octets**, manifestes, dimensions déclarées et en-têtes d'images (PNG/JPEG/WebP) ;
+- validation structurelle renforcée des fichiers WebP statiques : longueur RIFF exacte, intégrité des bornes de chunks et du padding, et présence d'un chunk image. Un VP8X sans image, un fichier tronqué ou une animation sont refusés avant tout écrasement du projet précédent. Les pixels compressés WebP ne sont pas décodés par ce contrôle ;
 - Les PNG source déclarés `L`, `RGB` ou `RGBA` sont vérifiés contre le type couleur réel du PNG avant admission et après réouverture. Une déclaration trompeuse de transparence est refusée (`SOURCE_COLOR_MODE_MISMATCH`) ; les types sans équivalent G1.2 (`UNSUPPORTED_SOURCE_PNG_COLOR_TYPE`), les profondeurs autres que 8 bits et les images entrelacées (`UNSUPPORTED_SOURCE_PNG_LAYOUT`) nécessitent une conversion explicite. Le ZIP ne peut conserver un PNG source dont les CRC de chunks, les données IDAT décompressées, les filtres de lignes ou le chunk final IEND sont invalides, même si son SHA-256 déclaré est cohérent ;
 - masques obligatoirement en PNG L8 sujet blanc, CRC des chunks et décompression vérifiée sans dépasser le budget ;
 - les PNG source `L/RGB/RGBA` et les masques L8 refusent tout chunk de transparence `tRNS` (`PNG_UNDECLARED_TRANSPARENCY`) : ce chunk peut rendre transparents des pixels annoncés opaques et contredire les contrats G1.2. Conversion explicite vers un format alpha compatible requise ; jamais de suppression silencieuse. Le rejet intervient avant l'écriture et protège le dernier projet valide ;
@@ -64,11 +65,11 @@ Le ZIP est lu en mémoire avec des budgets définis, **jamais extrait**. Les che
 ## Tests et acceptation
 
 - tests engine/tests/test_project_archive_g13.py : scénarios synthétiques de sauvegarde et attaques (sans œuvres utilisateur), y compris alias de source, cartes malformées, rejet des incohérences PNG `L/RGB/RGBA`, round-trip conforme pour les trois types, CRC IDAT corrompu, PNG source sans IEND, filtres invalides malgré CRC correct et profondeur 16 bits non déclarable ;
-- tests racine tests/test_g13_project_archive.py exécutés automatiquement par la CI privée d'admission ;
+- tests racine tests/test_g13_project_archive.py exécutés automatiquement par la CI d'admission du dépôt **public** ;
 - tests des 8 contrats G1.2 conservés dans la branche parente ;
 - ne pas confondre ces tests avec une exécution GPU RTX 3070, Design Space ou coupe Explore 5.
 
-Décision à prendre après publication des logs CI exact-HEAD. Cette PR cible la branche G1.2 pour respecter WIP 1+1 et éviter toute fusion prématurée.
+G1.2 est désormais intégré à `main` ; cette PR G1.3 reste candidate jusqu'à qualification du HEAD, revue indépendante et intégration contrôlée. Un succès sur fusion synthétique de pull request ne prouve pas un checkout direct de la branche.
 
 ## Lot suivant après G1.3
 
