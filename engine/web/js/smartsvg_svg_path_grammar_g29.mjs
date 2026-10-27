@@ -102,11 +102,14 @@ export function inspectSvgPathGrammar(d){
       // Additional pairs after M are implicit L commands.
       const type=kind==='M'?'L':mode;
       const oldX=x,oldY=y;
+      const straightArc=type==='A'&&(a[0]===0||a[1]===0);
       if(type==='A'){
         if(a[0]<0||a[1]<0||!Number.isFinite(a[2])||
            (a[3]!==0&&a[3]!==1)||(a[4]!==0&&a[4]!==1))
           fail('INVALID_PATH_GRAMMAR');
-        needsReview=true;onlyLines=false;arcInSubpath=true;
+        // An elliptical arc with either radius zero is a straight line
+        // under SVG path semantics: don't let it fake a filled contour.
+        if(!straightArc){needsReview=true;onlyLines=false;arcInSubpath=true;}
       } else if(!['L','H','V'].includes(type)){
         needsReview=true;onlyLines=false;
       }
@@ -128,7 +131,7 @@ export function inspectSvgPathGrammar(d){
           // geometric analysis. Export remains a human-review draft.
           mark(nx,ny);
         }
-        addPoint(nx,ny,type==='L');
+        addPoint(nx,ny,type==='L'||straightArc);
       }
       segmentCount++;totalSegments++;
       if(totalSegments>MAX_TOKENS)fail('UNSUPPORTED_PATH');
