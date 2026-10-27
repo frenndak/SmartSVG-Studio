@@ -73,7 +73,12 @@ test('project names never permit traversal, separators, or reserved names',()=>{
 });
 test('creation uses chosen local PNG, historical settings and custom CSRF header',async()=>{
   const h=harness();
-  assert.equal(h.buttons.length,4);
+  // Four original .smartsvg project actions must remain in their original
+  // order, followed by three strictly local SVG review controls (G2.7).
+  assert.equal(h.buttons.length,7);
+  assert.deepEqual(h.buttons.slice(0,4).map(x=>x.textContent),
+    ['Créer projet depuis PNG','Ouvrir et inspecter','Enregistrer les notes','Restaurer le secours']);
+  assert.equal(h.buttons[6].disabled,true,'local SVG export disabled without reviewed paths');
   assert.equal(h.buttons[2].disabled,true);
   assert.equal(h.buttons[3].disabled,true);
   h.name.value='snails';
