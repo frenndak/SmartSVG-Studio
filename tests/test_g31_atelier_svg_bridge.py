@@ -37,7 +37,7 @@ class AtelierSVGBridgeTests(unittest.TestCase):
         self.assertIn("inspectSvgPathGrammar",MODEL.read_text())
         self.assertIn("createCutReviewPanel",PANEL.read_text())
         self.assertIn("selectedSvg",PANEL.read_text())
-        self.assertIn("File",PANEL.read_text() if "File" in PANEL.read_text() else "File")
+        self.assertIn("await file.text()",PANEL.read_text())
         # No actual SVG data goes into the 12 fictitious button HTML.
         self.assertNotIn("queuePrompt",self.text)
         self.assertNotIn("fetch(",self.text)
