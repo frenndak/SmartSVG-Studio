@@ -119,7 +119,7 @@ function starter(node){
   root.appendChild(projectDetails);
   // First look at the future full-screen studio without starting any GPU
   // computation. The HTML is shipped as a local static resource, not a SaaS.
-  // Use a native link: window.open(...,'noopener') may return null even
+  // Use a native link: popup APIs with noopener may return null even
   // after successfully opening a new tab in Chromium/Firefox.
   const workspacePreview=e('a','smartsvg-g30-preview-launch',
     '◧ Découvrir l’atelier complet · SVG et projets');
