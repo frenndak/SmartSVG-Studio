@@ -18,6 +18,9 @@ from pathlib import Path
 SVG_NS = "http://www.w3.org/2000/svg"
 XLINK_NS = "http://www.w3.org/1999/xlink"
 VECTOR_ELEMENTS = {"path", "rect", "circle", "ellipse", "polygon", "polyline", "line"}
+# Geometry inside these SVG containers is not directly rendered. Counting it
+# would falsely pass a file containing definitions but no visible cut shapes.
+NON_RENDERING_CONTAINERS = {"defs", "symbol", "clipPath", "mask", "pattern", "marker"}
 FORBIDDEN = {"script", "style", "a", "foreignObject", "image", "use", "animate", "animateMotion",
              "animateTransform", "set", "filter", "feImage", "textPath"}
 DIMENSION = re.compile(r"^(\d+(?:\.\d+)?)mm$")
@@ -63,12 +66,18 @@ def inspect_svg(path: Path, *, profile: str = "cut", max_bytes: int = 2_000_000)
             raise SVGRejected("EXPLICIT_MM_REQUIRED")
         sizes.append(size_mm)
     shapes = []
-    for node in root.iter():
+    # An iterative traversal tracks non-rendering ancestors without relying on
+    # ElementTree parent pointers (and avoids unbounded Python recursion).
+    pending = [(root, False)]
+    while pending:
+        node, inside_definition = pending.pop()
         if not node.tag.startswith("{" + SVG_NS + "}"):
             raise SVGRejected("FOREIGN_XML_ELEMENT")
         tag = node.tag.split("}", 1)[1]
         if tag in FORBIDDEN:
             raise SVGRejected("EMBEDDED_RESOURCE_OR_ACTIVE_CONTENT")
+        inside_definition = inside_definition or tag in NON_RENDERING_CONTAINERS
+        pending.extend((child, inside_definition) for child in reversed(node))
         for attr, val in node.attrib.items():
             local = attr.split("}", 1)[-1]
             lower = val.lower()
@@ -84,7 +93,8 @@ def inspect_svg(path: Path, *, profile: str = "cut", max_bytes: int = 2_000_000)
         if tag in VECTOR_ELEMENTS:
             if tag == "path" and not node.attrib.get("d", "").strip():
                 raise SVGRejected("EMPTY_PATH")
-            shapes.append(tag)
+            if not inside_definition:
+                shapes.append(tag)
     if not shapes:
         raise SVGRejected("NO_VECTOR_GEOMETRY")
     if profile == "editable" and len(shapes) < 2:
