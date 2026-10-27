@@ -114,6 +114,23 @@ function starter(node){
       dpi:Number(value('qualite_ppp')??300)};
   },node.id));
   root.appendChild(projectDetails);
+  // First look at the future full-screen studio without starting any GPU
+  // computation. The HTML is shipped as a local static resource, not a SaaS.
+  const workspacePreview=button('◧ Découvrir l’atelier complet (aperçu interactif)',()=>{
+    try{
+      const url=new URL('./smartsvg_express_atelier_preview.html',import.meta.url);
+      if(url.protocol!=='http:'&&url.protocol!=='https:')throw Error('PREVIEW_URL_UNAVAILABLE');
+      const opened=window?.open?.(url.href,'_blank','noopener,noreferrer');
+      state.textContent=opened===null?
+        'Fenêtre bloquée : autoriser l’ouverture du nouvel onglet depuis ComfyUI.':
+        'Atelier de démonstration ouvert : aucune découpe réelle lancée.';
+    }catch{
+      state.textContent='Aperçu indisponible depuis ce chargement. Ouvrir le fichier HTML fourni avec SmartSVG.';
+    }
+  });
+  workspacePreview.className='smartsvg-g30-preview-launch';
+  workspacePreview.title='Aperçu visuel hors moteur : import local et sujets fictifs uniquement';
+  root.appendChild(workspacePreview);
 
   let latest=emptyState(),projectAtRun=null,hasRun=false,staleSinceRun=false,lastSeenSignature=null;
 
