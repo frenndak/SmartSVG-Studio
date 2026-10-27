@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>SmartSVG Studio — Atelier Express (aperçu interactif)</title>
+<style>
+:root{--bg:#0b111b;--side:#101a28;--panel:#141f2f;--panel2:#1b2a3b;--line:#2b3b50;--line2:#42556c;--text:#edf5fb;--muted:#9bafc3;--aqua:#54d9c4;--aqua2:#153e46;--orange:#ffb880;--warning:#eed08f;--shadow:0 18px 60px #03060c70;--radius:16px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--aqua);outline-offset:2px}button:disabled{opacity:.45;cursor:not-allowed}a{color:var(--aqua)}
+.app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100dvh}
+.side{background:linear-gradient(165deg,#121f31,#0f1724);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:24px;padding:27px 16px 20px}
+.brand{display:flex;align-items:center;gap:12px;padding:0 12px}.brand-logo{display:grid;place-items:center;width:39px;height:39px;border-radius:13px;background:var(--aqua);color:#10232a;font-size:21px;font-weight:900;box-shadow:0 0 25px #54d9c436}.brand strong{display:block;font-size:16px;line-height:1.25}.brand span{display:block;color:var(--muted);font-size:11px;letter-spacing:.07em}
+.nav-heading{color:#7e95ae;text-transform:uppercase;letter-spacing:.13em;font-size:10px;font-weight:800;padding:0 13px;margin-bottom:8px}.nav{display:flex;flex-direction:column;gap:4px}.nav button{display:flex;gap:12px;align-items:center;background:transparent;color:#b8c9d8;border:1px solid transparent;border-radius:10px;padding:11px 12px;text-align:left}.nav button:hover,.nav button[aria-current=page]{background:#193647;color:var(--text);border-color:#2c6470}.nav-icon{font-size:17px;width:22px;text-align:center}.nav b{font-size:12px;font-weight:600}
+.side-bottom{margin-top:auto}.mini-status{display:flex;gap:10px;padding:14px;border:1px solid #375662;background:#152734;border-radius:13px;font-size:11px}.mini-dot{width:9px;height:9px;background:var(--aqua);border-radius:50%;margin-top:4px;box-shadow:0 0 13px var(--aqua);flex:none}.mini-status b{display:block;font-size:12px}.mini-status span{color:var(--muted)}
+.main{min-width:0}.topbar{height:71px;display:flex;align-items:center;justify-content:space-between;padding:0 31px;border-bottom:1px solid var(--line);gap:15px;background:#0e1622}
+.breadcrumb{color:#9db3c8;font-size:12px}.breadcrumb strong{color:#f4f9ff;font-weight:650}.top-actions{display:flex;align-items:center;gap:12px}.pill{border:1px solid #3a4b60;border-radius:30px;padding:7px 12px;font-weight:650;font-size:11px;letter-spacing:.02em;background:#1b2a38}.pill.warning{color:#f4d8a5;border-color:#735b37;background:#302820}.avatar{width:34px;height:34px;display:grid;place-items:center;background:#244758;border-radius:50%;font-size:12px;font-weight:750}
+.content{max-width:1740px;margin:auto;padding:31px 31px 46px}.hero{display:flex;align-items:center;justify-content:space-between;gap:20px}.kicker{color:var(--aqua);font-weight:750;text-transform:uppercase;letter-spacing:.15em;font-size:10px}.hero h1{margin:4px 0 5px;font-size:clamp(24px,2.4vw,32px);line-height:1.25;letter-spacing:-.04em}.hero p{color:var(--muted);margin:0;max-width:730px;font-size:13px}.hero-btn{flex:none}
+.primary{border:1px solid #7debd8;border-radius:10px;background:var(--aqua);color:#0d2830;font-weight:800;padding:11px 17px;box-shadow:0 4px 25px #54d9c418}.primary:hover{background:#78edda}.outline{border:1px solid var(--line2);background:#1a293a;color:var(--text);font-weight:700;border-radius:10px;padding:10px 15px}.outline:hover{background:#25394e}.subtle{border:1px solid #365467;background:#1a3440;color:#bcfbef;border-radius:8px;padding:8px 13px;font-weight:700;font-size:12px}.plain{border:0;background:transparent;color:var(--muted);padding:8px 10px}.plain:hover{color:white}
+.workflow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin:26px 0 18px}.step{border:1px solid var(--line);background:#131f2d;border-radius:12px;padding:12px 13px;display:flex;align-items:center;gap:10px;text-align:left;color:var(--muted);min-width:0}.step[aria-current=step]{border-color:var(--aqua);background:#15323b;color:var(--text);box-shadow:inset 0 0 0 1px #54d9c42e}.step-index{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:#26394b;color:#c9dbe9;flex:none;font-size:12px;font-weight:800}.step[aria-current=step] .step-index{background:var(--aqua);color:#12313a}.step-label{font-size:12px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.workarea{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:stretch}.surface,.inspect{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);min-width:0}.surface{overflow:hidden}.surface-header{display:flex;align-items:center;justify-content:space-between;padding:17px 20px;border-bottom:1px solid var(--line);gap:10px}.surface-title{font-weight:800;font-size:14px;letter-spacing:-.01em}.surface-sub{display:block;color:var(--muted);font-size:11px;font-weight:400}.toolbar{display:flex;align-items:center;gap:6px}.tool{min-width:35px;height:34px;border:1px solid #3b4f63;border-radius:8px;background:#203044;color:var(--text);font-size:16px;font-weight:700}.tool:hover{background:#2d4660}.zoom-label{min-width:44px;text-align:center;font-size:11px;color:var(--muted)}
+.stage{padding:27px 25px;min-height:458px;display:grid;place-items:center;position:relative;overflow:hidden;background-color:#101927;background-image:radial-gradient(#304153 1px,transparent 1px);background-size:21px 21px}
+.artboard-wrap{transform:scale(var(--zoom,1));transform-origin:center;transition:transform .2s}.artboard{width:min(620px,58vw);aspect-ratio:1.41;background:#fff;box-shadow:0 14px 55px #0008,0 0 0 1px #ffffff24;border-radius:4px;position:relative;overflow:hidden;color:#4c5363;display:grid;place-items:center}
+.artboard:before{content:"";position:absolute;inset:14px;border:1px dashed #dfe5e8;pointer-events:none}
+.artboard-note{position:absolute;left:18px;top:19px;color:#a2aeb6;font-size:9px;letter-spacing:.13em;font-weight:800}.artboard-size{position:absolute;right:18px;bottom:15px;color:#84939f;font-size:10px}
+.snails{position:absolute;inset:43px 40px 34px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:6px 7px}.snail{position:relative;display:grid;place-items:center;border:2px solid transparent;border-radius:9px;min-width:0;min-height:0;background:transparent;padding:4px}.snail:hover{border-color:#9bd6ee;background:#dff3f9}.snail[aria-pressed=true]{border-color:#30b9ba;background:#ecfaf8}.snail[aria-pressed=false]{opacity:.26;filter:grayscale(1)}.snail svg{display:block;width:min(100%,112px);height:100%;max-height:95px;filter:drop-shadow(0 3px 2px #2d48551d)}.snail-index{position:absolute;top:2px;left:4px;display:grid;place-items:center;color:#177f8c;background:#fff;font-size:9px;width:19px;height:19px;border-radius:50%;border:1px solid #b5dcdf;font-weight:800}
+.noimage{display:flex;flex-direction:column;align-items:center;gap:11px;color:#6c7f90;text-align:center;padding:40px 20px}.noimage strong{color:#456278;font-size:17px}.noimage span{font-size:12px;max-width:300px}.uploaded{max-width:100%;max-height:95%;object-fit:contain;position:relative;z-index:1}
+.stage-badge{position:absolute;left:20px;bottom:17px;border:1px solid #51707c;background:#162d39d9;color:#daeeee;border-radius:9px;padding:6px 10px;font-size:11px;font-weight:650}
+.surface-footer{display:flex;align-items:center;justify-content:space-between;padding:12px 19px;gap:10px;border-top:1px solid var(--line);color:var(--muted);font-size:11px}.surface-footer strong{color:var(--text)}
+.inspect{padding:0 19px 18px}.inspect-header{padding:19px 1px 15px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}.inspect-header h2{font-size:15px;margin:0}.tiny-tag{color:var(--aqua);font-size:10px;font-weight:750;background:#14343c;padding:5px 8px;border-radius:20px}
+.group{padding:18px 0 17px;border-bottom:1px solid var(--line)}.group:last-child{border:0;padding-bottom:0}.group-title{display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:12px}.group-title small{font-size:10px;color:var(--muted);font-weight:500}.group label{display:block;color:#bfd0dd;font-size:11px;font-weight:600;margin:10px 0 5px}.group select,.group input[type=number],.group input[type=text]{width:100%;border:1px solid #385068;border-radius:8px;background:#1b2a3d;color:#f1f8ff;padding:9px 10px;min-height:39px}.two-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}.segment{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.segment button{border-radius:8px;border:1px solid #3b4f65;background:#1b2a3a;color:var(--muted);padding:8px 0;font-size:12px}.segment button[aria-pressed=true]{background:var(--aqua2);border-color:var(--aqua);color:var(--aqua);font-weight:800}
+.mode{display:flex;align-items:flex-start;gap:10px;padding:10px 9px;border:1px solid #33485d;border-radius:10px;margin:7px 0;cursor:pointer}.mode:has(input:checked){border-color:#4fafa8;background:#183641}.mode input{margin-top:4px;accent-color:var(--aqua)}.mode b{display:block;font-size:12px;color:var(--text)}.mode span{display:block;color:var(--muted);font-size:10px;line-height:1.4}
+.hint{background:#233241;border-left:3px solid var(--warning);border-radius:7px;padding:10px 11px;color:#e8d6b2;font-size:11px}.danger{color:#f6a9a2}.stats{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.stats span{padding:7px 12px;border:1px solid var(--line);background:#111c2a;border-radius:9px;color:var(--muted);font-size:11px}.stats strong{color:#e9f5f9}.footer-actions{margin-top:20px;display:flex;align-items:center;justify-content:space-between;gap:15px;background:#152232;border:1px solid var(--line);padding:15px 17px;border-radius:13px}.footer-actions p{color:var(--muted);margin:0;font-size:12px}.footer-actions strong{color:#eef7ff}
+#notification{min-height:20px;margin-top:11px;color:#c6e5e4;font-size:12px}
+input[type=file]{position:absolute;width:1px;height:1px;opacity:.001;overflow:hidden}
+@media(max-width:1170px){.app{grid-template-columns:78px minmax(0,1fr)}.side{padding-left:10px;padding-right:10px}.brand{padding:0;justify-content:center}.brand>div:last-child,.nav-heading,.nav b,.side-bottom{display:none}.nav button{justify-content:center;padding:12px}.nav-icon{font-size:20px}.workarea{grid-template-columns:minmax(0,1fr) 288px}.content{padding:24px 18px}}
+@media(max-width:860px){.workarea{grid-template-columns:1fr}.artboard{width:min(620px,80vw)}.stage{min-height:370px}.workflow{gap:4px}.step{padding:9px;justify-content:center}.step-label{display:none}.step-index{width:29px;height:29px}.inspect{display:grid;grid-template-columns:repeat(2,1fr);gap:0 18px}.inspect-header{grid-column:1/-1}.group{padding-right:5px}.footer-actions{align-items:flex-start;flex-direction:column}}
+@media(max-width:580px){.app{display:block}.side{display:none}.topbar{padding:0 14px;height:60px}.breadcrumb{font-size:11px}.top-actions{gap:5px}.avatar{display:none}.content{padding:21px 12px}.hero{display:block}.hero-btn{margin-top:15px}.workflow{margin:21px 0 12px}.stage{padding:15px 9px;min-height:290px}.artboard{width:min(100%,500px)}.snails{inset:33px 19px 26px;gap:2px}.snail{padding:1px;border-width:1px}.snail-index{width:14px;height:14px;font-size:8px}.surface-header{padding:13px}.surface-title{font-size:12px}.surface-footer{padding:12px}.inspect{display:block}.footer-actions{padding:14px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="side" aria-label="Navigation de l'atelier">
+  <div class="brand"><div class="brand-logo" aria-hidden="true">S</div><div><strong>SmartSVG</strong><span>STUDIO · V3</span></div></div>
+  <div><div class="nav-heading">ATELIER</div><nav class="nav" id="navigation">
+    <button type="button" data-view="source"><span class="nav-icon" aria-hidden="true">▧</span><b>Importer une image</b></button>
+    <button type="button" data-view="subjects" aria-current="page"><span class="nav-icon" aria-hidden="true">◈</span><b>Mes sujets</b></button>
+    <button type="button" data-view="retouch"><span class="nav-icon" aria-hidden="true">✎</span><b>Retouches</b></button>
+    <button type="button" data-view="cut"><span class="nav-icon" aria-hidden="true">✂</span><b>Contour & découpe</b></button>
+    <button type="button" data-view="export"><span class="nav-icon" aria-hidden="true">⇧</span><b>Exporter</b></button>
+  </nav></div>
+  <div class="side-bottom"><div class="mini-status"><span class="mini-dot"></span><div><b>Mode aperçu local</b><span>Interface interactive · aucun traitement IA ni découpe réelle.</span></div></div></div>
+</aside>
+<main class="main">
+ <header class="topbar"><div class="breadcrumb">Atelier <span aria-hidden="true">/</span> <strong>Projet escargots</strong> <span style="color:#658199">/ Interface de démonstration</span></div><div class="top-actions"><span class="pill warning">● APERÇU NON CERTIFIÉ</span><span class="avatar" aria-hidden="true">SS</span></div></header>
+ <div class="content">
+  <section class="hero" aria-label="En-tête du projet"><div><div class="kicker">CRÉER · AFFINER · DÉCOUPER</div><h1>Votre atelier de création, en plus simple.</h1><p>Préparez vos images et vos planches dans un espace unique. Cette démonstration permet de tester l'interface ; les moteurs ComfyUI et Cricut ne sont pas connectés.</p></div><button class="outline hero-btn" type="button" id="demo">↻ Recharger la démo</button></section>
+  <nav class="workflow" aria-label="Étapes de création" id="steps"><button class="step" data-step="source" type="button"><span class="step-index">1</span><span class="step-label">Importer</span></button><button class="step" data-step="clean" type="button"><span class="step-index">2</span><span class="step-label">Nettoyer</span></button><button class="step" data-step="subjects" type="button" aria-current="step"><span class="step-index">3</span><span class="step-label">Sélectionner</span></button><button class="step" data-step="cut" type="button"><span class="step-index">4</span><span class="step-label">Découpe</span></button><button class="step" data-step="export" type="button"><span class="step-index">5</span><span class="step-label">Exporter</span></button></nav>
+  <section class="workarea" aria-label="Éditeur de l'atelier">
+   <div class="surface">
+    <div class="surface-header"><div><span class="surface-title" id="stageTitle">Ma planche de sujets</span><span class="surface-sub" id="stageSubtitle">Exemple interactif · 12 escargots · aucune IA exécutée</span></div><div class="toolbar" aria-label="Zoom"><button class="tool" type="button" id="zoomOut" aria-label="Dézoomer">−</button><span class="zoom-label" id="zoomLabel">100 %</span><button class="tool" type="button" id="zoomIn" aria-label="Zoomer">+</button><button class="tool" type="button" id="zoomFit" aria-label="Réinitialiser le zoom">⤢</button></div></div>
+    <div class="stage" id="dropZone" aria-label="Zone de prévisualisation, déposer une image PNG ou JPEG ici">
+      <div class="artboard-wrap" id="artboardWrap"><div class="artboard" id="artboard"><div class="artboard-note" id="artboardNote">PLAN DE TRAVAIL · DÉMONSTRATION</div><div class="snails" id="sheet" role="group" aria-label="Sujets de démonstration sélectionnables"></div><img class="uploaded" id="uploaded" alt="Aperçu local de l'image choisie" hidden><div class="noimage" id="empty" hidden><strong>Votre image est chargée.</strong><span>L'analyse des sujets sera disponible dans l'atelier connecté à ComfyUI.</span></div><div class="artboard-size" id="sizeNote">APERÇU · 40 × 28 mm PAR SUJET</div></div></div>
+      <div class="stage-badge" id="stageBadge">● 12 silhouettes de démonstration</div>
+    </div>
+    <div class="surface-footer"><span id="selInfo"><strong>12 sujets sélectionnés</strong> sur 12</span><span>Vérification Cricut : <strong style="color:var(--warning)">non réalisée</strong></span></div>
+   </div>
+   <aside class="inspect" aria-label="Réglages du projet">
+    <div class="inspect-header"><h2>Réglages de création</h2><span class="tiny-tag">Express</span></div>
+    <section class="group"><div class="group-title">Image d'origine <small>Locale · sans envoi</small></div><button class="outline" style="width:100%" type="button" id="uploadButton">＋ Choisir une image</button><input id="file" type="file" accept="image/png,image/jpeg,image/webp" aria-label="Importer un PNG, JPEG ou WebP"><p style="font-size:11px;color:var(--muted);margin:8px 0 0" id="fileInfo">Démo chargée : 12 escargots de démonstration.</p></section>
+    <section class="group"><div class="group-title">Sélection des sujets <small id="count">12 / 12</small></div><div class="segment"><button type="button" id="all" aria-pressed="true">Tous</button><button type="button" id="none" aria-pressed="false">Aucun</button><button type="button" id="alternate" aria-pressed="false">1 sur 2</button></div><p style="font-size:11px;color:var(--muted);margin:10px 0 0">Cliquez sur un sujet dans la planche pour le conserver ou l'écarter.</p></section>
+    <section class="group"><div class="group-title">Sortie souhaitée</div>
+      <label class="mode"><input name="mode" type="radio" value="cut" checked><span><b>✂ Découpe contour</b><span>Un chemin externe par sujet · Basic Cut.</span></span></label>
+      <label class="mode"><input name="mode" type="radio" value="print"><span><b>◩ Imprimer puis découper</b><span>Image couleur et ligne de coupe.</span></span></label>
+      <label class="mode"><input name="mode" type="radio" value="edit"><span><b>▤ SVG modifiable</b><span>Plusieurs tracés si l'image le permet.</span></span></label>
+    </section>
+    <section class="group"><div class="group-title">Dimensions & qualité</div><div class="two-cols"><div><label for="width">Largeur / sujet (mm)</label><input id="width" type="number" min="10" max="200" step="1" value="40"></div><div><label for="dpi">Précision d'aperçu</label><select id="dpi"><option value="300">300 ppp</option><option value="600">600 ppp</option><option value="150">150 ppp</option></select></div></div><p style="font-size:11px;color:var(--muted);margin:10px 0 0">Les dimensions affichées sont indicatives ; vérifiez-les dans Design Space.</p></section>
+    <section class="group"><div class="group-title">Contrôle avant découpe</div><div class="hint" id="modeHint">⚠️ Brouillon visuel uniquement. Aucun contour n'a été vérifié par le moteur et aucune découpe Cricut n'a été testée.</div></section>
+   </aside>
+  </section>
+  <div class="stats"><span>⚙ <strong id="statePill">12 objets de démonstration</strong></span><span>◇ <strong>Source locale</strong></span><span>↺ <strong>Retouches : module séparé</strong></span><span>✓ <strong>Exports réels : désactivés</strong></span></div>
+  <div class="footer-actions"><p><strong id="actionTitle">Étape suivante : contrôlez vos sujets</strong><br><span id="actionDesc">Cet aperçu montre le parcours et les commandes, pas une vectorisation réelle.</span></p><div style="display:flex;gap:9px;flex-wrap:wrap"><button class="outline" type="button" id="resetSelect">Réinitialiser</button><button class="primary" type="button" id="next">Continuer vers l'export →</button></div></div>
+  <div id="notification" role="status" aria-live="polite"></div>
+ </div>
+</main>
+</div>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const SAMPLE_COUNT=12;
+const C={source:"Importer",clean:"Nettoyer",subjects:"Sélectionner",retouch:"Retouches",cut:"Découpe",export:"Exporter"};
+let uploadedURL=null,view="subjects",zoom=1,demo=true,selected=new Set(Array.from({length:SAMPLE_COUNT},(_,i)=>i+1)),fileToken=0;
+const shellColors=["#edaa73","#f1c18e","#f4a56d","#dc9e8b"];
+const bodyColors=["#6db3a2","#6bbeb4","#7cba9f","#75c6c0"];
+function snailSvg(i){
+ const c=shellColors[i%4],b=bodyColors[i%4];
+ return '<svg viewBox="0 0 120 94" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'+
+ '<path d="M16 65Q10 52 17 42Q20 26 26 21Q30 21 32 35L41 45Q54 57 84 58Q98 58 104 68Q107 78 96 82H26Q10 82 16 65Z" fill="'+b+'" stroke="#315f60" stroke-width="2.1"/>'+
+ '<path d="M26 44Q18 29 19 18M39 46Q38 28 40 20" stroke="#315f60" stroke-width="3" stroke-linecap="round" fill="none"/>'+
+ '<ellipse cx="20" cy="16" rx="4" ry="5" fill="#315f60"/><ellipse cx="40" cy="18" rx="4" ry="5" fill="#315f60"/>'+
+ '<circle cx="71" cy="50" r="31" fill="'+c+'" stroke="#855e56" stroke-width="2.2"/>'+
+ '<path d="M86 35Q68 23 58 40Q46 61 68 69Q88 76 94 54Q100 34 77 29Q63 28 56 44Q48 59 65 64Q78 67 83 55Q88 44 77 39Q66 35 64 48Q63 56 72 55" fill="none" stroke="#855e56" stroke-width="3" stroke-linecap="round"/>'+
+ '<path d="M17 67Q27 74 40 69" fill="none" stroke="#315f60" stroke-width="2"/></svg>';
+}
+function notify(message,error=false){const n=$("notification");n.textContent=message;n.style.color=error?"#ffa99f":"#bfeee7";}
+function paint(){
+ const box=$("sheet");box.replaceChildren();
+ if(demo){
+  box.hidden=false;$("uploaded").hidden=true;$("empty").hidden=true;
+  for(let i=1;i<=SAMPLE_COUNT;i++){
+   const btn=document.createElement("button");btn.type="button";btn.className="snail";btn.dataset.subject=String(i);
+   btn.setAttribute("aria-pressed",String(selected.has(i)));btn.setAttribute("aria-label","Sujet "+i+(selected.has(i)?" sélectionné":" non sélectionné"));
+   btn.innerHTML=snailSvg(i);
+   const tag=document.createElement("span");tag.className="snail-index";tag.textContent=String(i);btn.appendChild(tag);
+   btn.addEventListener("click",()=>{if(selected.has(i))selected.delete(i);else selected.add(i);update()});
+   box.appendChild(btn);
+  }
+ }else{box.hidden=true;$("empty").hidden=true}
+ const count=demo?selected.size:0;
+ $("count").textContent=demo?count+" / "+SAMPLE_COUNT:"En attente";
+ $("selInfo").innerHTML=demo?"<strong>"+count+" sujets sélectionnés</strong> sur "+SAMPLE_COUNT:"<strong>Image chargée</strong> · sujets non analysés";
+ $("stageBadge").textContent=demo?"● "+count+" silhouette(s) de démonstration":"● Source chargée · analyse non réalisée";
+ $("statePill").textContent=demo?SAMPLE_COUNT+" objets de démonstration":"Image locale · aucune segmentation";
+ $("all").setAttribute("aria-pressed",String(demo&&count===SAMPLE_COUNT));
+ $("none").setAttribute("aria-pressed",String(demo&&count===0));
+ $("alternate").setAttribute("aria-pressed",String(demo&&count===6&&[1,3,5,7,9,11].every(i=>selected.has(i))));
+ const w=Number($("width").value);
+ $("sizeNote").textContent="APERÇU · "+(Number.isFinite(w)&&w>=10&&w<=200?w:"?")+" MM PAR SUJET";
+}
+function update(){
+ paint();
+ $("stageTitle").textContent=({source:"Importer votre image",clean:"Nettoyage des images",subjects:"Ma planche de sujets",retouch:"Retouches des masques",cut:"Contours & découpe",export:"Préparer les exports"})[view]||"Mon atelier";
+ $("stageSubtitle").textContent=demo?"Exemple interactif · silhouettes fictives · pas d’IA exécutée":"Image locale · le moteur ComfyUI n'est pas connecté à cet aperçu";
+ document.querySelectorAll("[data-step]").forEach(b=>b.setAttribute("aria-current",b.dataset.step===view?"step":"false"));
+ document.querySelectorAll("[data-view]").forEach(b=>b.setAttribute("aria-current",b.dataset.view===view?"page":"false"));
+ const titles={
+ source:["Importez une photo ou une planche","PNG, JPEG et WebP sont affichés localement ; aucune conversion ne s’exécute ici."],
+ clean:["Prochaine fonction : détourage assisté","L’IA locale, l’effacement du fond et l’upscale seront raccordés dans ComfyUI."],
+ subjects:["Étape suivante : contrôlez vos sujets","Activez ou masquez les 12 exemples pour tester la sélection."],
+ retouch:["Retouchez les masques dans SmartSVG","Les pinceaux réels, l’annulation et la restauration des brouillons existent dans l’éditeur ComfyUI V21.6."],
+ cut:["Inspectez les chemins de découpe","Le contrôle SVG réel est disponible dans la pile G2.9 ; cette scène est illustrative."],
+ export:["Exports en attente de validation","Les fichiers de production doivent être générés par le moteur puis vérifiés dans Design Space."]
+ };
+ $("actionTitle").textContent=titles[view][0];$("actionDesc").textContent=titles[view][1];
+ const mode=document.querySelector('input[name="mode"]:checked').value;
+ $("modeHint").textContent=mode==="cut"?"⚠️ Basic Cut : contours externes à vérifier. La planche affichée est une démonstration, sans tracé validé.":mode==="print"?"⚠️ Print Then Cut : images et marges de coupe réelles à générer et contrôler dans Design Space.":"⚠️ SVG éditable : vectorisation des traits intérieurs non réalisée dans cet aperçu.";
+ $("next").textContent=view==="export"?"Vérifier l'état de l'export →":"Continuer →";
+}
+function setView(name){if(!Object.prototype.hasOwnProperty.call(C,name))return;view=name;update();notify(view==="export"?"Aucun export de production n'est possible depuis cette maquette.":"Étape affichée : "+C[name]+".");}
+document.querySelectorAll("[data-step]").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.step)));
+document.querySelectorAll("[data-view]").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.view)));
+$("all").addEventListener("click",()=>{if(!demo)return notify("Importer un fichier ne crée pas automatiquement des sujets.",true);selected=new Set(Array.from({length:12},(_,i)=>i+1));update()});
+$("none").addEventListener("click",()=>{if(!demo)return notify("Aucun contour analysé sur cette image.",true);selected.clear();update()});
+$("alternate").addEventListener("click",()=>{if(!demo)return notify("Aucun contour analysé sur cette image.",true);selected=new Set([1,3,5,7,9,11]);update()});
+function resetDemo(){++fileToken;if(uploadedURL){URL.revokeObjectURL(uploadedURL);uploadedURL=null};$("file").value="";demo=true;selected=new Set(Array.from({length:12},(_,i)=>i+1));$("fileInfo").textContent="Démo chargée : 12 escargots de démonstration.";$("uploaded").removeAttribute("src");view="subjects";zoom=1;updateZoom();update();notify("Démonstration réinitialisée.");}
+$("demo").addEventListener("click",resetDemo);$("resetSelect").addEventListener("click",resetDemo);
+document.querySelectorAll('input[name="mode"]').forEach(x=>x.addEventListener("change",update));
+$("width").addEventListener("change",()=>{const n=Number($("width").value);if(!Number.isFinite(n)||n<10||n>200){notify("La largeur de l'aperçu doit être comprise entre 10 et 200 mm.",true);$("width").value="40";}update()});
+$("dpi").addEventListener("change",()=>notify("La précision sera appliquée uniquement au moteur connecté. Ici, elle ne change pas les pixels."));
+function updateZoom(){$("artboardWrap").style.setProperty("--zoom",String(zoom));$("zoomLabel").textContent=Math.round(zoom*100)+" %";}
+$("zoomIn").addEventListener("click",()=>{zoom=Math.min(1.5,Math.round((zoom+.1)*10)/10);updateZoom()});
+$("zoomOut").addEventListener("click",()=>{zoom=Math.max(.6,Math.round((zoom-.1)*10)/10);updateZoom()});
+$("zoomFit").addEventListener("click",()=>{zoom=1;updateZoom()});
+$("next").addEventListener("click",()=>{const steps=["source","clean","subjects","cut","export"];const i=steps.indexOf(view);if(i===steps.length-1){notify("APERÇU UNIQUEMENT : aucun export réel. Ouvrir la version ComfyUI pour préparer les fichiers.",true);return}setView(steps[Math.min(i+1,steps.length-1)])});
+$("uploadButton").addEventListener("click",()=>$("file").click());
+function uploadFile(file){
+ const valid=file&&/^image\/(png|jpeg|webp)$/.test(file.type)&&file.size>0&&file.size<=12*1024*1024;
+ if(!valid){notify("Choisir un PNG, JPEG ou WebP de moins de 12 Mo.",true);return}
+ const token=++fileToken,blob=URL.createObjectURL(file),img=new Image();
+ img.onload=()=>{if(token!==fileToken){URL.revokeObjectURL(blob);return}
+   if(uploadedURL)URL.revokeObjectURL(uploadedURL);uploadedURL=blob;demo=false;selected.clear();
+   const el=$("uploaded");el.src=blob;el.hidden=false;$("sheet").hidden=true;
+   $("fileInfo").textContent=file.name+" · "+img.naturalWidth+" × "+img.naturalHeight+" px";
+   view="source";update();notify("Image affichée localement. Aucun sujet n'a été segmenté ; la vraie analyse nécessite ComfyUI.");
+ };
+ img.onerror=()=>{URL.revokeObjectURL(blob);notify("Image illisible ou incompatible.",true)};
+ img.src=blob;
+}
+$("file").addEventListener("change",event=>{const file=event.target.files?.[0];if(file)uploadFile(file)});
+const dz=$("dropZone");dz.addEventListener("dragover",event=>{event.preventDefault();dz.style.boxShadow="inset 0 0 0 3px #54d9c4"});
+dz.addEventListener("dragleave",()=>{dz.style.boxShadow=""});
+dz.addEventListener("drop",event=>{event.preventDefault();dz.style.boxShadow="";if(event.dataTransfer?.files?.[0])uploadFile(event.dataTransfer.files[0])});
+updateZoom();update();
+})();
+</script>
+</body></html>
