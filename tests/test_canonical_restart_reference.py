@@ -63,7 +63,7 @@ class CanonicalRestartReferenceTests(unittest.TestCase):
         self.assertIn("9/9 cas T", content)
         self.assertIn("L2", content)
         self.assertIn("L3", content)
-        self.assertIn("NON VALIDÉ", content)
+        self.assertIn("BLOQUÉ PAR VÉRITÉ TERRAIN HUMAINE", content)
 
 
 if __name__ == "__main__":
