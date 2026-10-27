@@ -216,6 +216,9 @@ def _verify_png_pixels(data: bytes, width: int, height: int, *, grayscale: bool)
         channels = {0: 1, 2: 3, 6: 4}[data[25]]
         problem = 'SOURCE'
     pos, idat, got_end = 8, [], False
+    seen_ihdr = False
+    seen_plte = False
+    idat_closed = False
     while pos < len(data):
         if pos + 12 > len(data):
             raise ProjectArchiveError('TRUNCATED_PNG')
@@ -227,14 +230,36 @@ def _verify_png_pixels(data: bytes, width: int, height: int, *, grayscale: bool)
         crc = struct.unpack('>I', data[pos + 8 + size:pos + 12 + size])[0]
         if zlib.crc32(kind + payload) & 0xffffffff != crc:
             raise ProjectArchiveError('PNG_CRC_FAILED')
+        # PNG chunk names are ASCII letters. Bit 5 of the third byte is
+        # reserved and must be zero; an unknown CRITICAL chunk cannot be
+        # ignored because it may change how pixels should be interpreted.
+        if (any(not (65 <= ch <= 90 or 97 <= ch <= 122) for ch in kind)
+                or not 65 <= kind[2] <= 90):
+            raise ProjectArchiveError('INVALID_PNG_CHUNK_TYPE')
         pos += size + 12
-        if kind == b'IDAT':
+        if kind == b'IHDR':
+            if seen_ihdr or pos != 33:
+                raise ProjectArchiveError('DUPLICATE_PNG_IHDR')
+            seen_ihdr = True
+        elif kind == b'PLTE':
+            if (seen_plte or idat or data[25] == 0 or
+                    size == 0 or size > 768 or size % 3):
+                raise ProjectArchiveError('INVALID_PNG_PLTE')
+            seen_plte = True
+        elif kind == b'IDAT':
+            if idat_closed or not seen_ihdr:
+                raise ProjectArchiveError('NONCONTIGUOUS_PNG_IDAT')
             idat.append(payload)
-        if kind == b'IEND':
+        elif kind == b'IEND':
             if size != 0:
                 raise ProjectArchiveError('INVALID_PNG_IEND')
             got_end = True
             break
+        else:
+            if idat:
+                idat_closed = True
+            if kind[0] & 0x20 == 0:
+                raise ProjectArchiveError('UNKNOWN_CRITICAL_PNG_CHUNK')
     if not got_end or not idat or pos != len(data):
         raise ProjectArchiveError('INCOMPLETE_' + problem + '_PNG')
     row_size = width * channels + 1
