@@ -170,6 +170,32 @@ class ContractsG12Tests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(replace(artifact, file_path=path).file_path, path)
 
+    def test_artifact_path_rejects_oversized_utf8_components(self):
+        # Limits apply to each component in bytes, not to Unicode code points
+        # or only the full relative path. No filename is silently truncated.
+        _, _, _, artifact, _ = fixtures()
+        valid = (
+            'exports/' + 'a' * 251 + '.png',  # 255 bytes
+            'a' * 255 + '/sticker.png',
+            'exports/' + 'é' * 125 + 'a.png',  # 255 UTF-8 bytes
+            'exports/' + '🌿' * 62 + 'abc.png',  # 255 UTF-8 bytes
+        )
+        invalid = (
+            'exports/' + 'a' * 252 + '.png',  # 256 bytes
+            'a' * 256 + '/sticker.png',
+            'exports/' + 'é' * 126 + '.png',  # 256 UTF-8 bytes
+            'exports/' + '🌿' * 63 + '.png',  # 256 UTF-8 bytes
+        )
+        for path in valid:
+            with self.subTest(valid=repr(path[:35])):
+                self.assertEqual(max(len(p.encode('utf-8')) for p in path.split('/')), 255)
+                self.assertEqual(replace(artifact, file_path=path).file_path, path)
+        for path in invalid:
+            with self.subTest(invalid=repr(path[:35])):
+                self.assertEqual(max(len(p.encode('utf-8')) for p in path.split('/')), 256)
+                with self.assertRaisesRegex(RecordError, 'INVALID_ARTIFACT_PATH'):
+                    replace(artifact, file_path=path)
+
     def test_artifact_path_rejects_unicode_format_controls(self):
         # Bidi overrides and invisible format characters can misrepresent
         # an otherwise valid PNG/SVG filename in a UI or project listing.
@@ -308,6 +334,43 @@ class ContractsG12Tests(unittest.TestCase):
                                        file_path='exports/sticker_02.png'))
         self.assertEqual(result['artifacts'], 2)
         self.assertEqual(artifact.file_path, 'exports/sticker.png')
+
+    def test_artifact_paths_reject_file_directory_conflicts(self):
+        # Both orders must fail: a validated output file cannot also be a
+        # directory containing another output, including Windows/Unicode
+        # aliases. Use synthetic metadata only; no private artwork is needed.
+        source, mask, subject, original, _ = fixtures()
+
+        def check(paths):
+            artifacts = [
+                replace(original, artifact_id=f'artifact-{i:02d}',
+                        use='basic_cut_svg', file_path=path, ppi=None)
+                for i, path in enumerate(paths)
+            ]
+            return validate_project_records(
+                sources=[source], masks=[mask], subjects=[subject],
+                artifacts=artifacts)
+
+        conflicting_pairs = (
+            ('exports/cut.svg', 'exports/cut.svg/detail.svg'),
+            ('exports/CUT.SVG', 'exports/cut.svg/deep/detail.svg'),
+            ('exports/Étiquette.svg', 'exports/e\u0301tiquette.svg/detail.svg'),
+        )
+        for first, second in conflicting_pairs:
+            for paths in ((first, second), (second, first)):
+                with self.subTest(paths=paths), self.assertRaisesRegex(
+                        RecordError, 'FILE_DIRECTORY_PATH_CONFLICT'):
+                    check(paths)
+
+        # Common parent directories and similar filename prefixes are safe.
+        valid = (
+            'exports/cut.svg',
+            'exports/cut.svg.bak/detail.svg',
+            'exports/nested/detail.svg',
+            'exports/nested/other.svg',
+        )
+        self.assertEqual(check(valid)['artifacts'], len(valid))
+        self.assertEqual(check(tuple(reversed(valid)))['artifacts'], len(valid))
 
     def test_artifact_paths_unicode_normalization_aliases(self):
         s, m, sub, artifact, qa = fixtures()
