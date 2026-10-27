@@ -1,0 +1,54 @@
+name: SmartSVG - Public read-only preflight
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+      - "engine/**"
+      - "tools/**"
+      - "tests/**"
+      - "source-releases/**"
+      - ".automation/READY"
+      - "AGENTS.md"
+      - "README.md"
+      - "docs/ROADMAP_MASTER_v3_2.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smartsvg-public-readonly-preflight-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  free-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # pull_request defaults to a synthetic merge ref; validate the actual PR HEAD.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Verify exact checkout, immutable baseline and regression tests
+        shell: bash
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual_head="$(git rev-parse HEAD)"
+          if [[ "$actual_head" != "$EXPECTED_HEAD" ]]; then
+            echo "::error::Checkout SHA mismatch: expected $EXPECTED_HEAD, got $actual_head"
+            exit 1
+          fi
+          echo "Verified checkout HEAD=$actual_head" >> "$GITHUB_STEP_SUMMARY"
+          echo '0e503a55fa622d7acea44d8e742205fb6a71119262c309a0b5a2bd48f0ab28a3  docs/ROADMAP_MASTER_v3_2.md' | sha256sum -c
+          python tools/verify_source_integrity.py --repo . --archive-only
+          test -s .automation/READY
+          python -m unittest discover -s tests -p 'test_*.py' -q
+          python -m compileall -q engine tools tests
+          echo "Public read-only preflight complete; no schedule, no paid API, no private dispatch, no merge." >> "$GITHUB_STEP_SUMMARY"
