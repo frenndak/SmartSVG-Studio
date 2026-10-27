@@ -57,6 +57,9 @@ function styles() {
     '.smartsvg-g15 .preview{width:100%;max-height:135px;object-fit:contain;background:white;border-radius:5px}',
     '.smartsvg-g15 .toolbar{display:flex;flex-wrap:wrap;gap:5px}',
     '.smartsvg-g15 .toolbar button{width:auto;flex:1 1 120px}',
+    '.smartsvg-g15 a.smartsvg-g30-preview-launch{display:block;text-align:center;min-height:35px;padding:9px;border-radius:7px;background:#265b77;color:#f6f9ff;text-decoration:none;border:1px solid #8499b2;font-weight:700}',
+    '.smartsvg-g15 a.smartsvg-g30-preview-launch:focus-visible{outline:2px solid #c5edff;outline-offset:2px}',
+    '.smartsvg-g15 a.smartsvg-g30-preview-launch[aria-disabled=true]{opacity:.6;pointer-events:none}',
     '.smartsvg-g15 .compact{margin:2px 0}',
     '@media(max-width:420px){.smartsvg-g15{min-width:220px;padding:8px}}',
   ].join('\n');
@@ -116,20 +119,22 @@ function starter(node){
   root.appendChild(projectDetails);
   // First look at the future full-screen studio without starting any GPU
   // computation. The HTML is shipped as a local static resource, not a SaaS.
-  const workspacePreview=button('◧ Découvrir l’atelier complet (aperçu interactif)',()=>{
-    try{
-      const url=new URL('./smartsvg_express_atelier_preview.html',import.meta.url);
-      if(url.protocol!=='http:'&&url.protocol!=='https:')throw Error('PREVIEW_URL_UNAVAILABLE');
-      const opened=window?.open?.(url.href,'_blank','noopener,noreferrer');
-      state.textContent=opened===null?
-        'Fenêtre bloquée : autoriser l’ouverture du nouvel onglet depuis ComfyUI.':
-        'Atelier de démonstration ouvert : aucune découpe réelle lancée.';
-    }catch{
-      state.textContent='Aperçu indisponible depuis ce chargement. Ouvrir le fichier HTML fourni avec SmartSVG.';
-    }
-  });
-  workspacePreview.className='smartsvg-g30-preview-launch';
-  workspacePreview.title='Aperçu visuel hors moteur : import local et sujets fictifs uniquement';
+  // Use a native link: window.open(...,'noopener') may return null even
+  // after successfully opening a new tab in Chromium/Firefox.
+  const workspacePreview=e('a','smartsvg-g30-preview-launch',
+    '◧ Découvrir l’atelier complet · SVG et projets');
+  workspacePreview.target='_blank';
+  workspacePreview.rel='noopener noreferrer';
+  workspacePreview.title='Atelier expérimental : contrôles SVG/projets réels sous ComfyUI, sujets fictifs dans la démo';
+  try{
+    const url=new URL('./smartsvg_express_atelier_preview.html',import.meta.url);
+    if(!['http:','https:'].includes(url.protocol))throw Error('PREVIEW_URL_UNAVAILABLE');
+    workspacePreview.href=url.href;
+  }catch{
+    workspacePreview.removeAttribute('href');
+    workspacePreview.setAttribute('aria-disabled','true');
+    state.textContent='Aperçu indisponible à cette adresse ; consulter le fichier HTML SmartSVG.';
+  }
   root.appendChild(workspacePreview);
 
   let latest=emptyState(),projectAtRun=null,hasRun=false,staleSinceRun=false,lastSeenSignature=null;
