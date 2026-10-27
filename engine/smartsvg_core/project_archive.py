@@ -192,17 +192,49 @@ def _source_dimensions(path: str, data: bytes) -> tuple[int, int]:
             i += segment
         raise ProjectArchiveError('JPEG_DIMENSIONS_NOT_FOUND')
     if suffix == '.webp':
-        if len(data) < 30 or data[:4] != b'RIFF' or data[8:12] != b'WEBP':
+        # RIFF is a chunked container. The header alone is not enough: the
+        # declared RIFF length must cover the whole resource, every chunk
+        # must fit and static images must contain a frame chunk. This remains
+        # a structural preflight, NOT a compressed-pixel decoder.
+        if (len(data) < 26 or data[:4] != b'RIFF' or data[8:12] != b'WEBP'
+                or int.from_bytes(data[4:8], 'little') != len(data) - 8):
             raise ProjectArchiveError('INVALID_WEBP_HEADER')
-        mode = data[12:16]
+        chunks = []
+        offset = 12
+        while offset < len(data):
+            if len(data) - offset < 8:
+                raise ProjectArchiveError('INVALID_WEBP_CHUNK')
+            kind = data[offset:offset + 4]
+            size = int.from_bytes(data[offset + 4:offset + 8], 'little')
+            end = offset + 8 + size
+            padded_end = end + (size & 1)
+            if size > MAX_MEMBER_BYTES or padded_end > len(data):
+                raise ProjectArchiveError('INVALID_WEBP_CHUNK')
+            if size & 1 and data[end] != 0:
+                raise ProjectArchiveError('INVALID_WEBP_PADDING')
+            chunks.append((kind, data[offset + 8:end]))
+            offset = padded_end
+        if not chunks or offset != len(data):
+            raise ProjectArchiveError('INVALID_WEBP_CHUNK')
+        mode, payload = chunks[0]
+        kinds = [kind for kind, _ in chunks]
+        if b'ANIM' in kinds or b'ANMF' in kinds:
+            raise ProjectArchiveError('ANIMATED_WEBP_UNSUPPORTED')
         if mode == b'VP8X':
-            return (1 + int.from_bytes(data[24:27], 'little'),
-                    1 + int.from_bytes(data[27:30], 'little'))
-        if mode == b'VP8 ' and data[23:26] == b'\x9d\x01\x2a':
-            return (int.from_bytes(data[26:28], 'little') & 0x3fff,
-                    int.from_bytes(data[28:30], 'little') & 0x3fff)
-        if mode == b'VP8L' and data[20] == 0x2f:
-            b0, b1, b2, b3 = data[21:25]
+            if (len(payload) != 10 or
+                    not any(kind in (b'VP8 ', b'VP8L') for kind in kinds[1:])):
+                raise ProjectArchiveError('INVALID_WEBP_FRAME')
+            return (1 + int.from_bytes(payload[4:7], 'little'),
+                    1 + int.from_bytes(payload[7:10], 'little'))
+        if mode == b'VP8 ':
+            if len(payload) < 10 or payload[3:6] != b'\\x9d\\x01\\x2a':
+                raise ProjectArchiveError('INVALID_WEBP_FRAME')
+            return (int.from_bytes(payload[6:8], 'little') & 0x3fff,
+                    int.from_bytes(payload[8:10], 'little') & 0x3fff)
+        if mode == b'VP8L':
+            if len(payload) < 5 or payload[0] != 0x2f or payload[4] & 0xe0:
+                raise ProjectArchiveError('INVALID_WEBP_FRAME')
+            b0, b1, b2, b3 = payload[1:5]
             return (1 + b0 + ((b1 & 0x3f) << 8),
                     1 + (b1 >> 6) + (b2 << 2) + ((b3 & 0x0f) << 10))
         raise ProjectArchiveError('UNSUPPORTED_WEBP_HEADER')
