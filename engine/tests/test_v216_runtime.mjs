@@ -36,7 +36,11 @@ async function extension(){
  globalThis.__draftModel={editorDraftStore};
  globalThis.__focusModel={validatedFocus,centerFocusView};
  globalThis.__g23Bridge={createEditorProjectControls:()=>({root:new Dom('div'),refresh(){}})};
- globalThis.window={location:{href:'https://test.example/proxy/8188/'}};
+ const windowEvents={};
+ globalThis.window={location:{href:'https://test.example/proxy/8188/'},
+  events:windowEvents,
+  addEventListener(type,fn){windowEvents[type]=fn;},
+  removeEventListener(type){delete windowEvents[type];}};
  globalThis.Image=FakeImage;
  let style=null;
  const documentEvents={};
@@ -114,7 +118,7 @@ test('new editor persists modifications to real workflow widget, and does not se
  node.onExecuted({});
  assert.equal(node._smartsvgV216Editor.trigger.disabled,true);
  // User can explicitly reset corrections even if the image/source changed.
- node.dashboard.root.children[1].fire('click');
+ node.dashboard.root.children[2].fire('click');
  assert.equal(textWidget.value,'');
 });
 test('legacy nodes remain unaffected; browser without DOM widget degrades',async()=>{
@@ -223,4 +227,35 @@ test('recovers a completed brush stroke after a simulated browser crash only aft
  panel.children[5].children[0].fire('click');
  assert.equal(JSON.parse(recoveredField.value).strokes.length,1);
  assert.equal(memory.size,0,'successful save clears the browser crash draft');
+});
+
+
+test('G2.6 focused fragment opens correct source without auto-paint and keeps G2.8 support',async()=>{
+ const {ext,doc}=await extension();
+ const widget={name:'retouches_json',value:''};
+ const node={comfyClass:'SmartSVGMaskEditorV216',id:48,
+  widgets:[widget],size:[350,315],
+  addDOMWidget(name,type,root,options){this.dashboard={name,type,root,options};return this.dashboard;},
+  setDirtyCanvas(){}};
+ ext.nodeCreated(node);
+ node.onExecuted(sample);
+ const focusButton=node._smartsvgV216Editor.focusTrigger;
+ assert.equal(focusButton.disabled,true);
+ const event={detail:{version:1,source_sha256:'a'.repeat(64),
+  width_px:760,height_px:570,subject:1,bbox_source_px:[300,220,340,260]}};
+ globalThis.window.events['smartsvg:mask-focus:v1'](event);
+ assert.equal(focusButton.disabled,false);
+ globalThis.window.confirm=()=>true;
+ focusButton.fire('click');
+ await tick();await tick();
+ const overlay=doc.body.children.at(-1),panel=overlay.children[0];
+ assert.equal(node._smartsvgV216ModalOpen,true);
+ assert.equal(panel.children[1].children[4].classList!==undefined,true);
+ assert.equal(widget.value,'','focus event must not edit graph automatically');
+ assert.match(panel.children[4].textContent,/aucune retouche automatique|Aucune correction automatique|Zone du sujet/);
+ panel.children[5].children[1].fire('click'); // explicit cancel
+ assert.equal(node._smartsvgV216ModalOpen,false);
+ assert.equal(focusButton.disabled,false);
+ node.onRemoved();
+ assert.equal(globalThis.window.events['smartsvg:mask-focus:v1'],undefined);
 });
