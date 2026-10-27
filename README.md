@@ -1,42 +1,49 @@
-# SmartSVG Studio — source privée
+# SmartSVG Studio — atelier créatif local pour Cricut
 
-## Statut : V21.15.2 importée et vérifiée
+**Dépôt public de développement**, basé sur le moteur ComfyUI SmartSVG. Objectif : passer d'une image à une planche de sujets et à des fichiers de découpe / impression préparés pour être vérifiés dans Cricut Design Space.
 
-- Archive binaire authentique : `source-releases/ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip`.
-- Moteur extrait : `engine/` (**652 fichiers**, vérifiés octet pour octet contre le ZIP).
-- SHA-256 de l'archive : `9369656f0216cebb6dccce0d0155bffa16d8c384da6a984bf848cdd8aa003c54`.
-- Manifeste : `INSTALLATION_MANIFEST_V21_15_2.json`, 651 empreintes internes conformes.
-- GitHub : PR #6 fusionnée dans `main`, vérification G0 CI réussie.
-- Régressions exécutées localement : **876 tests Python** (Python 3.13.5), **12 scripts de tests JavaScript** (Node 22.16.0), tous passés dans l'environnement contrôlé.
-- Référence produit : `docs/ROADMAP_MASTER_v3_2.md`, figée avec SHA-256.
-- Preuves et limites : `docs/IMPORT_V21_15_2.json` et `docs/SOURCE_V21_15_2_PROVENANCE.json`.
+> **Statut au 27 octobre 2026 : prototype logiciel consolidé, pas de version Cricut certifiée.** Les bibliothèques, interfaces et tests G1/G2/G3.1 sont présents dans `main`. La qualité du détourage IA sur les images de référence, la compatibilité Windows/RTX 3070 et la découpe physique Explore 5 attendent une recette réelle.
 
-Ces tests ne prouvent pas une exécution des modèles IA sur RTX 3070, ni une ouverture réelle dans ComfyUI/Design Space, ni une découpe physique Cricut Explore 5.
+📋 **[Voir l'état précis des fonctions et les prochaines étapes](docs/ETAT_ACTUEL_SMARTSVG.md)** · 🗺️ **[Roadmap master V3.2 figée](docs/ROADMAP_MASTER_v3_2.md)** · 🧪 **[État du regroupement G1/G2 (archive historique du processus)](docs/INTEGRATION_CANDIDATE_2026_10_27.md)**
 
-## Développement contrôlé
+## Ce qui est disponible dans le code
 
-Le marqueur `.automation/READY` atteste uniquement l'admission du code pour **proposer des pull requests de développement**. L'agent ne doit pas fusionner de PR ni déclarer des jalons de fabrication validés.
+| Domaine | Implémentation intégrée | Validation restant à faire |
+| --- | --- | --- |
+| Projets `.smartsvg` (G1.3–G2.4) | Contrats, archives durcies, sauvegarde atomique avec secours, session d'édition et snapshots de masques float32 | E2E du panneau dans ComfyUI Windows, gros projets/photos |
+| Express guidé (G1.5–G2.5) | Choix du mode, panneaux de projets, état de traitement, garde-fous avant export | Vérifier le parcours complet pour novice |
+| Masques / retouches (G2.6–G2.8) | Inspecteur de fragments, focus dans l'éditeur, brouillons locaux récupérables | Ergonomie navigateur et inférence réelle |
+| Contrôle SVG (G2.7/G2.9) | Grammaire des chemins, filtrage XML, contrôle mm/viewBox, sélection de chemins et **brouillon SVG local** | Vérifier les cas géométriques complexes et l'import Design Space |
+| Atelier plein écran (G3.0/G3.1) | Interface responsive avec 12 escargots **fictifs** ; accès volontaire au véritable inspecteur SVG lorsque l'interface est servie par ComfyUI | Raccorder sujets, projets, détourage, retouches et exports dans un seul écran ; valider le chargement du module |
+| Qualité et intégration | Tests G0, CPU, précontrôle de PR en lecture seule, vérification des sources d'origine | Recette Windows/GPU/Explore 5 et mesures de découpe |
 
-L'orchestration publique est dans `frenndak/SmartSVG-Automation` ; elle ne récupère plus les sources et ne fait que déclencher un événement. Le travail Codex se fait **dans ce dépôt privé** au moyen de `.github/workflows/private-ai-development.yml`.
+**Important :** la planche de 12 escargots dans le nouvel atelier est une démonstration d'ergonomie. Importer un PNG/JPEG/WebP dans ce prototype **n'effectue pas encore une segmentation IA** et **n'exporte pas de résultat vectorisé**. Le bouton G3.1 ouvre un contrôleur SVG réel **pour un fichier déjà existant**.
 
-Pour que l'automatisation effectue effectivement des changements, il faut encore, dans GitHub Settings :
-1. Déposer `OPENAI_API_KEY` comme secret Actions **sur ce dépôt privé uniquement** (utilisation API facturée séparément).
-2. Configurer la variable Actions privée `SMARTSVG_AUTOMATION_ENABLED=true`.
-3. Configurer sur le dépôt public son jeton **SMARTSVG_DISPATCH_TOKEN** limité au dépôt privé et sa propre variable d'activation.
-4. Lancer un cycle manuel de contrôle et relire les PRs privées générées avant de maintenir les déclenchements réguliers.
+## Voir l'interface
 
-Tant que ces paramètres ne sont pas renseignés, les tâches GitHub de développement IA ne sont pas effectives. La revue GPT horaire est indépendante de l'exécution API de GitHub.
+Ouvrir `engine/web/js/smartsvg_express_atelier_preview.html` dans un navigateur pour tester la **maquette locale** sans GPU. On peut y naviguer, sélectionner les 12 exemples et prévisualiser un PNG/JPEG/WebP sans envoi.
+
+Pour **inspecter réellement un SVG**, utiliser l'installation ComfyUI et ouvrir l'Atelier depuis le panneau Express, puis sélectionner « Examiner un vrai SVG de contours ». Le navigateur doit charger les modules de l'extension depuis le même serveur HTTP ; ce chargement **n'est pas garanti en `file://` ou via un proxy HTML tiers**. Voir [la procédure et les limites G3.1](docs/G3_1_EXPRESS_REAL_SVG_REVIEW.md). Ne pas importer de fichiers personnels dans des visualiseurs publics.
+
+## Source historique vérifiée
+
+- Archive figée : `source-releases/ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip`.
+- SHA-256 attendu : `9369656f0216cebb6dccce0d0155bffa16d8c384da6a984bf848cdd8aa003c54`.
+- Manifeste V21.15.2 : **651 empreintes internes**, conservées et testées par CI.
+- La roadmap `docs/ROADMAP_MASTER_v3_2.md` est **figée**. Elle exprime l'objectif du produit, **pas la liste de fonctions déjà achevées**.
 
 ## Vérifications reproductibles
 
 ```bash
-python tools/verify_source_integrity.py --repo .
+python tools/verify_source_integrity.py --repo . --archive-only
 python -m unittest discover -s tests -p 'test_*.py' -q
-cd engine
-python -m unittest discover -s tests -p 'test_*.py' -q
-for f in tests/*.mjs; do node "$f"; done
+node --test engine/tests/test_g27_cut_review.mjs engine/tests/test_g29_path_grammar.mjs
 ```
 
-Les tests applicatifs historiques peuvent nécessiter du temps et des dépendances variables suivant la machine ; conserver les journaux, versions et limites.
+Les contrôles historiques Python, JavaScript et dépendances CPU/GPU complètes peuvent demander une installation supplémentaire. Les CI de PR Linux valident du **code**, pas la fiabilité d'une fabrication réelle.
 
-**Ne pas supprimer l'archive originale ni la roadmap figée.**
+## Automatisation et sécurité
+
+Les GitHub Actions publiques incluent des contrôles **lecture seule**. La tâche Codex optionnelle nécessiterait des variables et un secret API renseignés volontairement, ainsi qu'un budget déclaré et un plafond quotidien ; **aucun appel payant n'est une condition pour consulter le dépôt ou ouvrir l'aperçu**. Les tâches autonomes ne fusionnent pas de PR ; dans une session explicitement autorisée par le propriétaire, l'assistant peut fusionner uniquement après contre-expertise documentée et tests pertinents.
+
+Ne jamais commiter de clé API, image personnelle, poids de modèle soumis à restriction ou artefact de fabrication confidentiel dans ce dépôt public.
