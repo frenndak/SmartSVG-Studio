@@ -105,6 +105,34 @@ test('local panel handles 2 subjects and never uploads a SVG or auto-queues Comf
   assert.equal(panel.attrs['aria-label'],'Aperçu et choix manuel des chemins de découpe');
   assert.match(walk(panel).map(x=>x.textContent).join(' '),/aucune certification de découpe/);
 });
+test('clicking a scaled canvas picks the displayed subject using canvas pixels',async()=>{
+  globalThis.document={createElement:tag=>new Element(tag)};
+  globalThis.Path2D=class{constructor(d){this.d=d;}};
+  globalThis.DOMParser=class{parseFromString(xml){return xmlDocument(xml);}};
+  const panel=createCutReviewPanel('pixel-hit');
+  const nodes=walk(panel),input=nodes.find(e=>e.type==='file');
+  input.files=[{name:'cut.svg',size:sample().length,text:async()=>sample()}];
+  await input.fire('change');
+  const canvas=nodes.find(e=>e.tagName==='canvas');
+  const observed=[];
+  canvas.getBoundingClientRect=()=>({left:10,top:20,width:360,height:210});
+  canvas.getContext=()=>({
+    isPointInStroke:(path,x,y)=>{
+      observed.push([x,y]);
+      return path.d.includes('M20 2');
+    },
+    isPointInPath:()=>false,
+    setTransform(){},clearRect(){},fillRect(){},stroke(){},
+    set fillStyle(x){},set strokeStyle(x){},set lineWidth(x){}
+  });
+  await canvas.fire('click',{clientX:100,clientY:72.5});
+  assert.deepEqual(observed[0],[180,105]);
+  const checks=walk(panel).filter(e=>e.type==='checkbox');
+  assert.equal(checks.filter(e=>e.checked).length,1);
+  assert.equal(checks[0].checked,true);
+  assert.equal(checks[1].checked,false);
+});
+
 test('older async SVG read cannot overwrite a newer file choice',async()=>{
   globalThis.document={createElement:tag=>new Element(tag)};
   globalThis.DOMParser=class{parseFromString(xml){return xmlDocument(xml);}};
