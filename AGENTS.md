@@ -1,8 +1,9 @@
 # SmartSVG Agent Contract
 
-Applies to every AI agent working in this private repository.
+Applies to every AI agent working in the **public** `frenndak/SmartSVG-Studio` repository.
 
 ## Protected reference
+- Public repository visibility is intentional for GitHub Actions compatibility. Never propose privatizing it as a routine fix; keep credentials, personal artwork, licensed test media and proprietary model weights out of commits, logs and history.
 - Governing roadmap: `docs/ROADMAP_MASTER_v3_2.md`, immutable unless a separate human-approved roadmap revision is published.
 - Preserve V21.14.1 historical frozen baseline untouched.
 - The currently available build in the project Library is V21.15.2; import source and validate provenance before allowing autonomous engineering.
