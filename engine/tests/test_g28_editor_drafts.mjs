@@ -26,7 +26,8 @@ test('crash reopens identical source and object slots from an automatic draft',(
   assert.deepEqual(reader.load(),[stroke(),stroke({object:1,mode:'erase'})]);
   assert.ok(writer.key.includes(meta.source));
   const raw=storage.getItem(writer.key);
-  assert.equal(raw.includes('"points"'),true);
+  const envelope=JSON.parse(raw);
+  assert.equal(envelope.document.includes('"points"'),true);
   assert.equal(raw.includes('"image"'),false,'do not store image bytes or output URL');
 });
 
