@@ -610,7 +610,7 @@ def _validate_bundle(project: LoadedProject):
         _safe_path(snapshot_path)
         if snapshot_path in expected:
             raise ProjectArchiveError('RESOURCE_PATH_COLLISION')
-        expected[snapshot_path] = ('snapshot', None)
+        expected[snapshot_path]=('snapshot', None)
     if set(project.source_paths) != {x.source_id for x in project.sources}:
         raise ProjectArchiveError('UNKNOWN_SOURCE_PATH')
     if set(project.mask_paths) != {x.mask_id for x in project.masks}:
