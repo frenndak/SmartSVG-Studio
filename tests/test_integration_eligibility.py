@@ -365,12 +365,57 @@ class IntegrationGateTests(unittest.TestCase):
         def lookup(login):
             seen.append(login)
             return {"user": {"login": login},
-                    "permission": "write" if login == "trusted-reviewer" else "read"}
+                    "permission": ("admin" if login == "frenndak" else
+                                   "write" if login == "trusted-reviewer" else "read")}
         self.assertEqual(gate.resolve_trusted_reviewers(reviews, lookup),
                          ["trusted-reviewer"])
-        self.assertEqual(seen, ["outsider", "trusted-reviewer"])
+        self.assertEqual(seen, ["frenndak", "outsider", "trusted-reviewer"])
         self.assertEqual(gate.resolve_trusted_reviewers(
             [{"state": "COMMENTED", "user": {"login": "outsider"}}], lookup), [])
+
+    def test_public_outsider_404_never_vetoes_or_approves_trusted_vote(self):
+        reviews = copy.deepcopy(self.data["reviews"])
+        for state in ("CHANGES_REQUESTED", "APPROVED"):
+            reviews.append({
+                "state": state, "commit_id": HEAD,
+                "submitted_at": "2026-10-26T06:20:00Z",
+                "user": {"login": "unrelated-public-account-" + state.lower().replace("_", "-"),
+                         "type": "User"},
+            })
+        seen = []
+        def lookup(login):
+            seen.append(login)
+            if login == "frenndak":
+                return {"user": {"login": login}, "permission": "admin"}
+            if login == "independent-reviewer":
+                return {"user": {"login": login}, "permission": "write"}
+            raise gate.ReviewerNotCollaborator("simulated verified HTTP 404")
+        self.data["trusted_reviewers"] = gate.resolve_trusted_reviewers(reviews, lookup)
+        self.data["reviews"] = reviews
+        self.assertEqual(self.data["trusted_reviewers"], ["independent-reviewer"])
+        self.assertIn("frenndak", seen)
+        self.assertEqual(self.blockers(), [])
+
+    def test_public_reviewer_403_and_5xx_remain_fail_closed(self):
+        reviews = [{"state": "APPROVED", "user": {"login": "outsider"}}]
+        for error in (PermissionError("simulated HTTP 403"),
+                      ConnectionError("simulated HTTP 503")):
+            def lookup(login):
+                if login == "frenndak":
+                    return {"user": {"login": login}, "permission": "admin"}
+                raise error
+            with self.subTest(error=type(error).__name__):
+                with self.assertRaises(type(error)):
+                    gate.resolve_trusted_reviewers(reviews, lookup)
+
+    def test_404_owner_probe_or_unprivileged_probe_fails_closed(self):
+        reviews = [{"state": "APPROVED", "user": {"login": "outsider"}}]
+        with self.assertRaises(ValueError):
+            gate.resolve_trusted_reviewers(reviews, lambda _: (
+                (_ for _ in ()).throw(gate.ReviewerNotCollaborator("owner 404"))))
+        with self.assertRaises(ValueError):
+            gate.resolve_trusted_reviewers(reviews, lambda login: {
+                "user": {"login": login}, "permission": "read"})
 
     def test_reviewer_permission_denial_never_falls_back_to_public_metadata(self):
         def denied(_login):

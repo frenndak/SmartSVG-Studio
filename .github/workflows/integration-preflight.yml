@@ -72,7 +72,8 @@ jobs:
           test "$(jq -r '.total_count' "$RUNNER_TEMP/runs.json")" -le 100
           # Resolve decisive reviewers individually with read-only GitHub
           # permission lookups; do not enumerate all repository collaborators.
-          # Any denied or malformed permission response blocks eligibility.
+          # An outsider's verified 404 is ignored only after an owner/admin
+          # permission probe succeeds; 403, 5xx and ambiguous errors block.
           gh api --paginate "repos/$repo/pulls/$PR_NUMBER/reviews?per_page=100" |
             jq -s 'add' > "$RUNNER_TEMP/reviews.json"
           gh api --paginate "repos/$repo/issues/29/comments?per_page=100" |
@@ -85,23 +86,37 @@ jobs:
           export PR_NUMBER="$PR_NUMBER" MAIN_SHA="$main_sha" CHECKED_HEAD="$checked_head" CHECKED_MAIN="$checked_main"
           export CHECKED_BASE_REF="$checked_base_ref" CHECKED_BASE_SHA="$checked_base_sha"
           python - <<'PY'
-          import json, os, subprocess, sys
+          import json, os, sys, urllib.error, urllib.request
           from pathlib import Path
-          from tools.integration_eligibility import resolve_trusted_reviewers
+          from tools.integration_eligibility import ReviewerNotCollaborator, resolve_trusted_reviewers
           root=Path(os.environ["RUNNER_TEMP"])
           def read(name): return json.loads((root / name).read_text())
           def reviewer_permission(login):
-              # The read-only token is inherited from this step's GH_TOKEN.
-              # No shell interpolation and no exposure of API error bodies.
-              proc = subprocess.run(
-                  ["gh", "api", f"repos/frenndak/SmartSVG-Studio/collaborators/{login}/permission"],
-                  check=True, capture_output=True, text=True,
+              # Never log the token or API response body. A 404 only becomes
+              # an outsider after resolve_trusted_reviewers confirms owner/admin
+              # access with this same token; all other errors fail closed.
+              token = os.environ.get("GH_TOKEN")
+              if not token:
+                  raise ValueError("GITHUB_TOKEN_MISSING")
+              request = urllib.request.Request(
+                  f"https://api.github.com/repos/frenndak/SmartSVG-Studio/collaborators/{login}/permission",
+                  headers={"Accept": "application/vnd.github+json",
+                           "Authorization": f"Bearer {token}",
+                           "X-GitHub-Api-Version": "2022-11-28"},
               )
-              return json.loads(proc.stdout)
+              try:
+                  with urllib.request.urlopen(request, timeout=15) as response:
+                      if response.status != 200:
+                          raise ValueError("REVIEWER_PERMISSION_HTTP_STATUS_INVALID")
+                      return json.load(response)
+              except urllib.error.HTTPError as exc:
+                  if exc.code == 404:
+                      raise ReviewerNotCollaborator() from None
+                  raise
           try:
               trusted_reviewers = resolve_trusted_reviewers(read("reviews.json"), reviewer_permission)
-          except (ValueError, TypeError, OSError, subprocess.CalledProcessError):
-              print("::error::REVIEWER_PERMISSIONS_UNVERIFIED: read-only GitHub permission lookup failed", file=sys.stderr)
+          except (ValueError, TypeError, OSError):
+              print("::error::REVIEWER_PERMISSIONS_UNVERIFIED: authenticated permission lookup failed", file=sys.stderr)
               sys.exit(2)
           result={
               "schema": 1, "repo": "frenndak/SmartSVG-Studio",

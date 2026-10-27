@@ -83,12 +83,16 @@ def _audited(comments, number, head, base_ref, base_sha, diff_sha, approver_logi
                     and author.casefold() in approver_logins)
     return False
 
-def resolve_trusted_reviewers(reviews, lookup):
-    """Check decisive reviewers via authenticated read-only per-user permissions.
+class ReviewerNotCollaborator(LookupError):
+    """Only a verified HTTP 404 from the collaborator-permission endpoint."""
 
-    A missing, denied or inconsistent GitHub response raises; never substitute
-    public author_association or a self-declared audit receipt for authorization.
-    GitHub maps the maintain role to the legacy permission value "write".
+
+def resolve_trusted_reviewers(reviews, lookup):
+    """Resolve decisive reviewers, excluding public outsiders without a veto.
+
+    A GitHub 404 is interpreted as an outsider ONLY after the same credential
+    successfully confirms the repository owner's admin permission. All other
+    HTTP errors, malformed responses and failed owner probes remain fatal.
     """
     if not isinstance(reviews, list):
         raise ValueError("REVIEWS_MISSING")
@@ -103,16 +107,39 @@ def resolve_trusted_reviewers(reviews, lookup):
         if not isinstance(login, str) or re.fullmatch(r"[A-Za-z0-9-]{1,39}", login) is None:
             raise ValueError("REVIEWER_LOGIN_INVALID")
         logins.add(login.casefold())
-    trusted = []
-    for login in sorted(logins):
-        result = lookup(login)
+    if not logins:
+        return []
+
+    def checked_permission(login, result):
         user = result.get("user") if isinstance(result, dict) else None
         if (not isinstance(user, dict)
                 or not isinstance(user.get("login"), str)
                 or user["login"].casefold() != login
                 or result.get("permission") not in {"admin", "write", "read", "none"}):
             raise ValueError("REVIEWER_PERMISSION_RESPONSE_INVALID")
-        if result["permission"] in {"admin", "write"}:
+        return result["permission"]
+
+    # Verify the credential can actually read collaborator permissions before
+    # interpreting 404 for an arbitrary public reviewer as non-collaboration.
+    owner = EXPECTED_REPO.split("/", 1)[0].casefold()
+    try:
+        owner_permission = checked_permission(owner, lookup(owner))
+    except ReviewerNotCollaborator as exc:
+        raise ValueError("REVIEWER_PERMISSION_AUTHORITY_UNVERIFIED") from exc
+    if owner_permission != "admin":
+        raise ValueError("REVIEWER_PERMISSION_AUTHORITY_UNVERIFIED")
+
+    trusted = []
+    for login in sorted(logins):
+        if login == owner:
+            permission = owner_permission
+        else:
+            try:
+                permission = checked_permission(login, lookup(login))
+            except ReviewerNotCollaborator:
+                # A non-collaborator's public review is not an approval or veto.
+                continue
+        if permission in {"admin", "write"}:
             trusted.append(login)
     return trusted
 
