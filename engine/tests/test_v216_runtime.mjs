@@ -178,3 +178,45 @@ test('a cancelled stroke and multi-point pan do not change the saved workflow',a
  panel.children[5].children[0].fire('click');
  assert.equal(JSON.parse(field.value).strokes.length,0);
 });
+
+test('recovers a completed brush stroke after a simulated browser crash only after confirmation',async()=>{
+ const memory=new Map();
+ const localStorage={
+   getItem:key=>memory.get(key)||null,
+   setItem:(key,value)=>memory.set(key,value),
+   removeItem:key=>memory.delete(key)
+ };
+ const first=await extension();
+ globalThis.window.localStorage=localStorage;
+ const originalField={name:'retouches_json',value:''};
+ const originalNode={comfyClass:'SmartSVGMaskEditorV216',id:44,
+   widgets:[originalField],size:[350,315],
+   addDOMWidget(){return {options:{}};},setDirtyCanvas(){}};
+ first.ext.nodeCreated(originalNode);originalNode.onExecuted(sample);
+ originalNode._smartsvgV216Editor.trigger.fire('click');await tick();await tick();
+ const firstPanel=first.doc.body.children.at(-1).children[0];
+ const viewport=firstPanel.children[3];
+ viewport.fire('pointerdown',{button:0,pointerId:7,clientX:380,clientY:285,preventDefault(){}});
+ viewport.fire('pointerup',{pointerId:7,preventDefault(){}});
+ assert.equal(originalField.value,'','unfinished edit must not mutate ComfyUI widget');
+ assert.equal(memory.size,1,'stroke committed automatically into browser draft');
+ // Simulate a browser restart: new extension/document, same source fingerprint
+ // and persistent localStorage map, no prior editor close handler fired.
+ const second=await extension();
+ globalThis.window.localStorage=localStorage;
+ let confirmations=0;
+ globalThis.window.confirm=()=>{confirmations++;return true;};
+ const recoveredField={name:'retouches_json',value:''};
+ const recoveredNode={comfyClass:'SmartSVGMaskEditorV216',id:44,
+   widgets:[recoveredField],size:[350,315],
+   addDOMWidget(){return {options:{}};},setDirtyCanvas(){}};
+ second.ext.nodeCreated(recoveredNode);recoveredNode.onExecuted(sample);
+ recoveredNode._smartsvgV216Editor.trigger.fire('click');await tick();await tick();
+ assert.equal(confirmations,1);
+ const panel=second.doc.body.children.at(-1).children[0];
+ assert.equal(panel.children[1].children[6].disabled,false,'restored stroke available for undo');
+ assert.equal(recoveredField.value,'','confirmation only restores editor draft, not graph widget');
+ panel.children[5].children[0].fire('click');
+ assert.equal(JSON.parse(recoveredField.value).strokes.length,1);
+ assert.equal(memory.size,0,'successful save clears the browser crash draft');
+});
