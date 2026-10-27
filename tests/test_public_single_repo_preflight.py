@@ -47,15 +47,15 @@ def policy_violations(source: str) -> list[str]:
 
     schedules = re.findall(r'(?m)^\s+- cron:\s*"([^"]+)"\s*$', source)
     require(schedules == ["5 * * * *", "50 * * * *"], "SCHEDULE_DRIFT")
-    # Every change capable of altering SmartSVG's engine, source admission
-    # or automation policy must trigger this independent free PR preflight.
+    # Engine and admission changes must trigger the independent free PR check.
     required_pr_paths = (
         ".github/workflows/**", "engine/**", "tools/**", "tests/**",
         "source-releases/**", ".automation/READY", "AGENTS.md", "README.md",
         "docs/ROADMAP_MASTER_v3_2.md",
     )
-    match = re.search(r"(?ms)^  pull_request:\\s*\\n    paths:\\s*\\n((?:      - [^\\n]+\\n)+)", source)
-    configured_paths = set(re.findall(r'^      - "([^"]+)"
+    match = re.search(r'(?m)^  pull_request:\s*\n    paths:\s*\n((?:      - [^\n]+\n)+)', source)
+    configured_paths = set(re.findall(r'^      - "([^"]+)"$', match.group(1), re.M)) if match else set()
+    require(set(required_pr_paths) <= configured_paths, "PR_PATH_COVERAGE_MISSING")
     require('*) echo "::error::Unknown schedule"; exit 1' in source,
             "UNKNOWN_SCHEDULE_NOT_REJECTED")
     require("test -s .automation/READY" in source, "ADMISSION_MARKER_MISSING")
@@ -110,7 +110,7 @@ class PublicSingleRepoPreflightTests(unittest.TestCase):
         for path in ("engine/**", "source-releases/**", "AGENTS.md",
                      ".github/workflows/**"):
             with self.subTest(path=path):
-                modified = self.workflow.replace(f'      - "{path}"\\n', "")
+                modified = self.workflow.replace(f'      - "{path}"\n', "")
                 self.assertIn("PR_PATH_COVERAGE_MISSING", policy_violations(modified))
 
     def test_rejects_missing_timeout_or_changed_cron(self):
