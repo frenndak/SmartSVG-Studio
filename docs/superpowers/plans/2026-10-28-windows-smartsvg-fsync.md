@@ -37,30 +37,30 @@
 - Consumes: `save_project(path, project, overwrite=False)` and the existing atomic-write sequence.
 - Produces: the same return dictionary and archive format, with a writable descriptor passed to `os.fsync()`.
 
-- [ ] **Step 1: Write the failing regression test**
+- [x] **Step 1: Write the failing regression test**
 
-Add `test_temporary_archive_is_fsynced_through_writable_descriptor`. Wrap the real `os.fsync`; on its first call, perform a zero-byte `os.write(fd, b'')` before delegating. Call `save_project` and assert the archive still round-trips. The current `rb` descriptor must fail before publication.
+Add `test_temporary_archive_is_fsynced_through_writable_descriptor`. Observe the real temporary archive handle and require both mode `r+b` and `handle.writable()`. Call `save_project` and assert the archive still round-trips. Add injected-fsync creation/overwrite regressions plus an event-order check proving readback precedes publication.
 
-- [ ] **Step 2: Verify the regression is red**
+- [x] **Step 2: Verify the regression is red**
 
 Run: `$env:PYTHONPATH='engine'; python engine/tests/test_project_archive_g13.py ArchiveG13Tests.test_temporary_archive_is_fsynced_through_writable_descriptor -v`
 
 Expected: error `PROJECT_SAVE_FAILED` caused by a bad/read-only file descriptor.
 
-- [ ] **Step 3: Implement the minimal durability fix**
+- [x] **Step 3: Implement the minimal durability fix**
 
 Open the already-written temporary ZIP with mode `r+b` for the file `fsync`; do not change validation, readback, link/replace, or directory sync logic.
 
-- [ ] **Step 4: Verify targeted green behavior**
+- [x] **Step 4: Verify targeted green behavior**
 
 Run the new regression plus `test_exact_save_close_open_15_operations_and_3_undo`, `test_no_overwrite_by_default_and_atomic_overwrite`, and `test_bad_write_never_destroys_last_good_snapshot`.
 
 Expected: all selected tests pass on Windows Python 3.14.
 
-- [ ] **Step 5: Verify proportional suites and inspect the diff**
+- [x] **Step 5: Verify proportional suites and inspect the diff**
 
 Run the full G1.3 archive test file, the wrapper suite `tests/test_g13_project_archive.py` if present, source-integrity check, then the repository test commands with UTF-8 mode. Classify unrelated environment failures explicitly.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Commit only the plan, regression test, minimal implementation, and any narrowly necessary operational status update after fresh verification.
