@@ -69,13 +69,15 @@ function inspector(node){
  confirm.style.cssText='margin-top:8px;padding:9px;border:2px solid #ffce73;background:#42351b;color:white;border-radius:7px';
  let latest=null,selectionModule=null,selectionBinding=null,selectionChannel=null;
  let selectionTimer=null,pendingSelection=null,widgetAtProposal=null;
+ let confirmationInFlight=false;
  function stopSelection(){
    if(selectionTimer!==null){clearTimeout(selectionTimer);selectionTimer=null;}
    selectionChannel?.close();selectionChannel=null;
    selectionBinding=null;pendingSelection=null;widgetAtProposal=null;
    confirm.hidden=true;confirm.disabled=true;
  }
- confirm.addEventListener('click',()=>{
+ confirm.addEventListener('click',async()=>{
+   if(confirmationInFlight)return; // ignore double clicks while a callback is pending
    const widget=node.widgets?.find(w=>w.name==='numero_sujet');
    const subject=selectionModule?.validateSelectionProposal(
      pendingSelection,selectionBinding,node,latest);
@@ -85,15 +87,33 @@ function inspector(node){
      stopSelection();return;
    }
    const previous=widget.value;
+   const reportAtConfirm=latest,bindingAtConfirm=selectionBinding;
+   const proposalAtConfirm=pendingSelection;
+   confirmationInFlight=true;confirm.disabled=true;
    try{
-     widget.value=subject;widget.callback?.(subject);
+     widget.value=subject;
+     // ComfyUI widgets are usually synchronous, but a Promise rejection must
+     // never be mistaken for a successful subject change.
+     await widget.callback?.(subject);
+     if(latest!==reportAtConfirm||selectionBinding!==bindingAtConfirm||
+        pendingSelection!==proposalAtConfirm||
+        node.widgets?.find(w=>w.name==='numero_sujet')!==widget||
+        widget.value!==subject||
+        selectionModule.validateSelectionProposal(
+          proposalAtConfirm,bindingAtConfirm,node,reportAtConfirm)!==subject){
+       if(widget.value===subject)widget.value=previous;
+       hint.textContent='Proposition périmée pendant la confirmation ; valeur précédente restaurée si inchangée.';
+       return;
+     }
      node.setDirtyCanvas?.(true,true);
      node.graph?.setDirtyCanvas?.(true,true);
      hint.textContent='Sujet '+subject+' confirmé dans le nœud. Relancer manuellement le workflow ; masques float32 et fragments conservés.';
    }catch{
-     widget.value=previous;
-     hint.textContent='Échec du changement de sujet ; valeur précédente restaurée.';
-   }finally{stopSelection();}
+     if(widget.value===subject)widget.value=previous;
+     hint.textContent='Échec du changement de sujet ; valeur précédente restaurée si inchangée.';
+   }finally{
+     confirmationInFlight=false;stopSelection();
+   }
  });
  // Deliberately NOT connected to onExecuted: user action is mandatory.
  share.addEventListener('click',async()=>{
@@ -121,6 +141,7 @@ function inspector(node){
      if(binding){
        selectionChannel=channel;
        channel.onmessage=event=>{
+         if(confirmationInFlight)return;
          const subject=selectionModule.validateSelectionProposal(
            event.data,selectionBinding,node,latest);
          if(subject===null)return;
