@@ -111,6 +111,11 @@ function inspector(node){
          project_sha256:bindingAtConfirm.project_sha256}:null;
      if(projectAtConfirm){
        const current=await readProjectRevision(api,projectAtConfirm.project_name);
+       // The awaited GET creates a race with a user's newer widget choice.
+       // Never overwrite that choice (or a replacement widget) after returning.
+       if(node.widgets?.find(w=>w.name==='numero_sujet')!==widget||
+          widget.value!==previous)
+         throw Error('SELECTION_CHANGED');
        if(!matchesProjectLock(projectAtConfirm,current,reportAtConfirm)||
           projectName.value.trim()!==projectAtConfirm.project_name||
           selectionBinding!==bindingAtConfirm||
@@ -143,8 +148,10 @@ function inspector(node){
      hint.textContent='Sujet '+subject+' confirmé dans le nœud. Relancer manuellement le workflow ; masques float32 et fragments conservés.';
    }catch(error){
      if(widget.value===subject)widget.value=previous;
-     hint.textContent=error?.message==='PROJECT_CHANGED'
-       ?'Projet .smartsvg modifié ou incompatible : proposition refusée, valeur précédente restaurée.'
+     hint.textContent=error?.message==='SELECTION_CHANGED'
+       ?'Sélection modifiée pendant la vérification du projet : proposition refusée, votre nouveau choix est conservé.'
+       :error?.message==='PROJECT_CHANGED'
+       ?'Projet .smartsvg modifié ou incompatible : proposition refusée, valeur précédente restaurée si inchangée.'
        :'Échec du changement de sujet ou de la vérification du projet ; valeur précédente restaurée si inchangée.';
    }finally{
      confirmationInFlight=false;stopSelection();share.disabled=!latest;
