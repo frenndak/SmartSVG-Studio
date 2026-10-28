@@ -4,7 +4,7 @@
 
 > **Statut au 27 octobre 2026 : prototype logiciel consolidé, pas de version Cricut certifiée.** Les bibliothèques, interfaces et tests G1/G2/G3.1/G3.2 sont présents dans `main`. La qualité du détourage IA sur les images de référence, la compatibilité Windows/RTX 3070 et la découpe physique Explore 5 attendent une recette réelle.
 
-📋 **[Voir l'état précis des fonctions et les prochaines étapes](docs/ETAT_ACTUEL_SMARTSVG.md)** · 🗺️ **[Roadmap master V3.2 figée](docs/ROADMAP_MASTER_v3_2.md)** · 🧪 **[État du regroupement G1/G2 (archive historique du processus)](docs/INTEGRATION_CANDIDATE_2026_10_27.md)**
+📋 **[Voir l'état précis des fonctions et les prochaines étapes](docs/ETAT_ACTUEL_SMARTSVG.md)** · 🗺️ **[Roadmap maître V3.3 active](docs/ROADMAP_MASTER_v3_3.md)** · 📦 [V3.2 historique](docs/ROADMAP_MASTER_v3_2.md) · 🧪 **[État du regroupement G1/G2 (archive historique du processus)](docs/INTEGRATION_CANDIDATE_2026_10_27.md)**
 
 ## Ce qui est disponible dans le code
 
@@ -30,7 +30,7 @@ Pour **inspecter réellement un SVG**, utiliser l'installation ComfyUI et ouvrir
 - Archive figée : `source-releases/ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip`.
 - SHA-256 attendu : `9369656f0216cebb6dccce0d0155bffa16d8c384da6a984bf848cdd8aa003c54`.
 - Manifeste V21.15.2 : **651 empreintes internes**, conservées et testées par CI.
-- La roadmap `docs/ROADMAP_MASTER_v3_2.md` est **figée**. Elle exprime l'objectif du produit, **pas la liste de fonctions déjà achevées**.
+- La roadmap **active** est `docs/ROADMAP_MASTER_v3_3.md` (141 exigences, [traçabilité](docs/ROADMAP_TRACEABILITY_v3_3.md) et [couverture](docs/ROADMAP_COVERAGE_v3_3.md)). La V3.2 originale reste **figée et archivée** ; une roadmap décrit l'objectif, **pas la liste de fonctions déjà achevées**.
 
 ## Vérifications reproductibles
 
