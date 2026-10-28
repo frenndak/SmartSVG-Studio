@@ -148,3 +148,32 @@ test('async widget resolution on unchanged source completes normally',async()=>{
  assert.match(s.hint.textContent,/Relancer manuellement/);
  assert.equal(channel.closed,true);
 });
+
+test('re-share during async confirmation cannot close a later fresh channel',async()=>{
+ const s=setup();s.node.onExecuted(report());await s.share.fire('click');
+ const first=s.channels[0];
+ first.receive(selection.makeSelectionProposal(first.sent[0],2));
+ let resolveLater;
+ s.node.widgets[0].callback=()=>new Promise(resolve=>{resolveLater=resolve;});
+ const attempt=s.confirm.fire('click');
+ assert.equal(s.share.disabled,true,'re-share button locked while callback pending');
+ await s.share.fire('click'); // force handler despite disabled, as stale DOM events can be queued
+ assert.equal(s.channels.length,1,'reentrant share must not replace channel');
+ assert.equal(first.closed,false,'old confirmation retains its channel');
+ s.node.onExecuted(report()); // a fresh report arrives while old callback is unresolved
+ await s.share.fire('click'); // update() may re-enable button, handler must still reject
+ assert.equal(s.channels.length,1,'fresh execution cannot bypass confirmation guard');
+ resolveLater();await attempt;
+ assert.equal(s.node.widgets[0].value,1,'stale old confirmation rolled back');
+ assert.equal(first.closed,true);
+ assert.equal(s.share.disabled,false,'sharing re-enabled after old callback settles');
+ await s.share.fire('click');
+ assert.equal(s.channels.length,2,'fresh share works after pending confirmation');
+ const second=s.channels[1];
+ assert.equal(second.closed,false,'new channel remains open');
+ second.receive(selection.makeSelectionProposal(second.sent[0],2));
+ s.node.widgets[0].callback=async()=>{};
+ await s.confirm.fire('click');
+ assert.equal(s.node.widgets[0].value,2,'fresh proposal can be confirmed');
+ assert.equal(second.closed,true);
+});
