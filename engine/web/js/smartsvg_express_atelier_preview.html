@@ -60,6 +60,23 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:.001;overflow:hi
 .real-review .project-options{display:grid;grid-template-columns:minmax(0,2fr) minmax(110px,1fr);gap:10px;margin-bottom:13px}
 .real-review .project-options label{display:block;color:var(--text);font-size:12px;margin:0 0 5px}
 @media(max-width:580px){.real-review .project-options{grid-template-columns:1fr}}
+
+/* G3.3b: real, local subject diagnostics, never mixed with demo selection. */
+.subjects-live{margin:18px 0;padding:20px;background:var(--panel);border:1px solid #4b9b8a;border-radius:var(--radius)}
+.subjects-live h2{margin:0;font-size:18px}.subjects-live p{color:var(--muted);font-size:12px}
+.subjects-live .subject-actions{display:flex;flex-wrap:wrap;gap:9px;margin:12px 0}
+.subjects-live .subject-actions button{min-height:40px}
+.subjects-live .subject-meta{padding:12px;background:var(--panel2);border-radius:9px;overflow-wrap:anywhere}
+.subjects-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:11px;margin-top:14px}
+.subject-card{border:1px solid #41566c;background:#19293a;padding:12px;border-radius:12px;min-width:0}
+.subject-card h3{font-size:14px;margin:0 0 8px}.subject-card p{margin:6px 0}
+.subject-card img{width:112px;height:112px;object-fit:contain;display:block}
+.subject-card .thumb-wrap{width:112px;height:112px;background:#fafafa;border-radius:6px;position:relative;margin:0 0 9px}
+.subject-card .zone-ring{position:absolute;pointer-events:none;outline:2px solid #f3b146;background:#f7b53a35}
+.subject-card button{margin-top:7px;min-height:38px;background:#193b42;border:1px solid #4c9b8a;border-radius:8px;padding:7px;color:#eaf8f5}
+.subject-card button[aria-pressed=false]{background:#35404b;border-color:#657283;color:#c5ced9}
+.subject-card details{font-size:11px;color:#c7d5e1;overflow-wrap:anywhere}
+@media(max-width:580px){.subjects-live{padding:14px}.subjects-grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}}
 </style>
 </head>
 <body>
@@ -102,7 +119,15 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:.001;overflow:hi
     <section class="group"><div class="group-title">Contrôle avant découpe</div><div class="hint" id="modeHint">⚠️ Brouillon visuel uniquement. Aucun contour n'a été vérifié par le moteur et aucune découpe Cricut n'a été testée.</div><button type="button" class="outline" style="width:100%;margin-top:12px" id="realContourButton" aria-expanded="false" aria-controls="realContourHost">✂ Examiner un vrai SVG de contours</button><p style="color:var(--muted);font-size:11px;margin:8px 0 0">Charge un SVG déjà créé : inspection locale réelle, sans lancer ComfyUI ni valider physiquement Cricut. Disponible lorsque l'atelier est servi par ComfyUI.</p></section>
    </aside>
   </section>
-  <section class="real-review" id="realContourHost" aria-label="Contrôles réels de chemins SVG" hidden><h2>Inspecteur SVG réel · G2.7/G2.9</h2><p>Les 12 escargots ci-dessus restent une démonstration. Ici, l'outil existant examine vos vrais chemins fermés, permet une sélection individuelle et produit seulement un brouillon local à contrôler dans Design Space.</p><div id="realContourMount"></div></section>
+  <section class="subjects-live" id="realSubjectsHost" aria-label="Diagnostic des vrais sujets G2.6">
+<h2>◈ Mes vrais sujets · inspection G2.6</h2>
+<p>Les 12 escargots du canevas restent un exemple. Pour voir vos vrais sujets ici, exécutez le nœud « Inspecter et choisir les silhouettes V21.15.4 » dans ComfyUI, puis transmettez explicitement son dernier diagnostic. Aucune segmentation ni découpe n’est déclenchée.</p>
+<div class="subject-actions"><button class="outline" type="button" id="receiveSubjects" aria-controls="realSubjectsGrid">↳ Recevoir une inspection (90 s)</button><button class="plain" type="button" id="clearSubjects" disabled>Effacer l’inspection reçue</button></div>
+<p class="subject-meta" id="realSubjectsStatus" role="status" aria-live="polite">Aucun diagnostic réel reçu. Les exemples et les projets restent indépendants.</p>
+<div class="subjects-grid" id="realSubjectsGrid" aria-live="off"></div>
+<p id="realSubjectsSelection" aria-live="polite"></p>
+</section>
+   <section class="real-review" id="realContourHost" aria-label="Contrôles réels de chemins SVG" hidden><h2>Inspecteur SVG réel · G2.7/G2.9</h2><p>Les 12 escargots ci-dessus restent une démonstration. Ici, l'outil existant examine vos vrais chemins fermés, permet une sélection individuelle et produit seulement un brouillon local à contrôler dans Design Space.</p><div id="realContourMount"></div></section>
   <section class="real-review" id="realProjectHost" aria-label="Gestion réelle des projets SmartSVG" hidden><h2>Mes projets .smartsvg · G2.2</h2><p>Gestion réelle via ComfyUI local : créer depuis un PNG, inspecter une sauvegarde, modifier les notes ou restaurer un secours après confirmation. Le JPEG/WebP de l'aperçu ne peut pas être utilisé directement ici et aucune opération n'est lancée automatiquement.</p>
 <div class="project-options"><div><label for="realProjectProfile">Type de projet enregistré</label><select id="realProjectProfile"><option value="Planche - 12 images (4x3)">Planche de 12 motifs</option><option value="Sticker - contour du sujet">Autocollant individuel</option><option value="Planche - 24 images (6x4)">Planche de 24 motifs</option><option value="Carte - visuel rectangulaire">Carte rectangulaire</option><option value="Auto - conserver le visuel">Détection prudente</option></select></div><div><label for="realProjectDpi">Précision du projet</label><select id="realProjectDpi"><option value="300">300 ppp</option><option value="450">450 ppp</option></select></div></div>
 <div id="realProjectMount"></div></section>
@@ -198,6 +223,123 @@ $("zoomIn").addEventListener("click",()=>{zoom=Math.min(1.5,Math.round((zoom+.1)
 $("zoomOut").addEventListener("click",()=>{zoom=Math.max(.6,Math.round((zoom-.1)*10)/10);updateZoom()});
 $("zoomFit").addEventListener("click",()=>{zoom=1;updateZoom()});
 $("next").addEventListener("click",()=>{const steps=["source","clean","subjects","retouch","cut","export"];const i=steps.indexOf(view);if(i===steps.length-1){notify("APERÇU UNIQUEMENT : aucun export réel. Ouvrir la version ComfyUI pour préparer les fichiers.",true);return}setView(steps[Math.min(i+1,steps.length-1)])});
+// G3.3b: opt-in, RAM-only transport of actual G2.6 node results.
+// The channel is opened only on request. Importing an image here never
+// triggers inference and demo selections never alter a real mask or node.
+let realSubjectsChannel=null,realSubjectsTimer=null,realSubjectsData=null;
+let subjectModule=null,chosenRealSubjects=new Set();
+function stopSubjectReceive(){
+  if(realSubjectsTimer!==null){clearTimeout(realSubjectsTimer);realSubjectsTimer=null;}
+  if(realSubjectsChannel){realSubjectsChannel.close();realSubjectsChannel=null;}
+  $("receiveSubjects").disabled=false;
+}
+function paintRealSubjects(){
+  const grid=$("realSubjectsGrid");grid.replaceChildren();
+  $("clearSubjects").disabled=!realSubjectsData;
+  if(!realSubjectsData){$("realSubjectsSelection").textContent="";return;}
+  const count=realSubjectsData.count,shown=chosenRealSubjects.size;
+  $("realSubjectsSelection").textContent=shown+" / "+count+" sujets présélectionnés pour revue (cette sélection ne modifie pas le workflow ni les masques).";
+  for(const item of realSubjectsData.sujets){
+    const card=document.createElement("article");card.className="subject-card";
+    const name=document.createElement("h3");name.textContent="Sujet "+item.numero;card.appendChild(name);
+    if(item.image_data){
+      const wrap=document.createElement("div");wrap.className="thumb-wrap";
+      const img=document.createElement("img");img.src=item.image_data;
+      img.alt="Vignette réelle du masque du sujet "+item.numero;
+      img.loading="lazy";wrap.appendChild(img);
+      for(const zone of item.zones_a_examiner){
+        const b=zone.bbox_apercu_88px,ring=document.createElement("span");
+        ring.className="zone-ring";ring.setAttribute("aria-hidden","true");
+        ring.style.left=(b[0]*112/88)+"px";ring.style.top=(b[1]*112/88)+"px";
+        ring.style.width=Math.max(2,(b[2]-b[0])*112/88)+"px";
+        ring.style.height=Math.max(2,(b[3]-b[1])*112/88)+"px";
+        wrap.appendChild(ring);
+      }
+      card.appendChild(wrap);
+    }else{
+      const noPreview=document.createElement("p");
+      noPreview.textContent="Aucune vignette disponible";card.appendChild(noPreview);
+    }
+    const warnings=document.createElement("p");
+    warnings.textContent=item.codes.length
+       ?item.codes.map(code=>subjectModule.SUBJECT_WARNING_LABELS[code]).join(" · ")
+       :"Inspection visuelle encore nécessaire";
+    card.appendChild(warnings);
+    const button=document.createElement("button");button.type="button";
+    button.disabled=item.codes.includes("MASQUE_VIDE");
+    const refresh=()=>{
+      const active=chosenRealSubjects.has(item.numero);
+      button.setAttribute("aria-pressed",String(active));
+      button.textContent=active?"✓ Sujet présélectionné":"Présélectionner le sujet";
+    };
+    refresh();
+    button.addEventListener("click",()=>{
+      if(chosenRealSubjects.has(item.numero))chosenRealSubjects.delete(item.numero);
+      else chosenRealSubjects.add(item.numero);
+      refresh();
+      $("realSubjectsSelection").textContent=chosenRealSubjects.size+" / "+count+
+        " sujets présélectionnés pour revue (aucune modification du nœud).";
+    });
+    card.appendChild(button);
+    const details=document.createElement("details");
+    const summary=document.createElement("summary");summary.textContent="Zones à examiner ("+
+      (item.zones_a_examiner.length+item.zones_non_affichees)+")";
+    details.appendChild(summary);
+    for(const z of item.zones_a_examiner){
+      const info=document.createElement("p");info.textContent=
+        (z.type==="MICRO_FRAGMENT"?"Micro-fragment":"Fragment séparé")+
+        " · pixels source ["+z.bbox_source_px.join(", ")+"]";
+      details.appendChild(info);
+    }
+    if(item.zones_non_affichees){
+      const more=document.createElement("p");more.textContent=
+        item.zones_non_affichees+" zone(s) supplémentaires non représentées";
+      details.appendChild(more);
+    }
+    card.appendChild(details);grid.appendChild(card);
+  }
+}
+$("receiveSubjects").addEventListener("click",async()=>{
+  if(!["http:","https:"].includes(window.location.protocol)||
+     typeof BroadcastChannel==="undefined"){
+    $("realSubjectsStatus").textContent="Réception indisponible : ouvrir l’Atelier depuis ComfyUI sous HTTP local.";
+    return;
+  }
+  stopSubjectReceive();$("receiveSubjects").disabled=true;
+  try{
+    subjectModule=await import("./smartsvg_subject_handoff_g33.mjs");
+    const channel=new BroadcastChannel(subjectModule.SUBJECT_HANDOFF_CHANNEL);
+    realSubjectsChannel=channel;
+    channel.onmessage=event=>{
+      const value=subjectModule.normalizeSubjectInspection(event.data);
+      if(!value)return;
+      stopSubjectReceive();
+      realSubjectsData=value;
+      chosenRealSubjects=new Set(value.sujets.filter(x=>!x.codes.includes("MASQUE_VIDE")).map(x=>x.numero));
+      $("realSubjectsStatus").textContent="Diagnostic G2.6 reçu · "+value.count+
+        " sujet(s) · source "+value.width_px+"×"+value.height_px+
+        " px · empreinte "+value.source_sha256.slice(0,12)+"… "+
+        "Inspection seulement ; aucun export ni masque modifié.";
+      paintRealSubjects();
+      $("realSubjectsHost").scrollIntoView?.({block:"nearest",behavior:"smooth"});
+    };
+    realSubjectsTimer=setTimeout(()=>{
+      stopSubjectReceive();
+      $("realSubjectsStatus").textContent="Aucun diagnostic reçu : relancer la réception, puis cliquer « Envoyer » dans le nœud inspecteur ComfyUI.";
+    },90000);
+    $("realSubjectsStatus").textContent="Réception active pendant 90 secondes : dans l’onglet ComfyUI, cliquer « Envoyer le dernier diagnostic vers l’Atelier ».";
+  }catch{
+    stopSubjectReceive();
+    $("realSubjectsStatus").textContent="Le module de réception G3.3b n’est pas disponible depuis cette page.";
+  }
+});
+$("clearSubjects").addEventListener("click",()=>{
+  stopSubjectReceive();realSubjectsData=null;chosenRealSubjects.clear();
+  $("realSubjectsStatus").textContent="Inspection effacée de la mémoire de cet onglet. Aucun masque ni projet modifié.";
+  paintRealSubjects();
+});
+window.addEventListener?.("pagehide",stopSubjectReceive);
+
 // G3.2: opt-in same-origin access to existing managed .smartsvg API.
 let realProjectPanel=null,realProjectLoading=false;
 $("realProjectButton").addEventListener("click",async()=>{
