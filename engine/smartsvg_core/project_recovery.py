@@ -61,6 +61,9 @@ MESSAGES_FR = {
     'PENDING_BACKUP_REVIEW_REQUIRED': (
         'Une sauvegarde interrompue conserve une version précédente à examiner.',
         'Vérifier les projets puis confirmer la finalisation ou la restauration du secours.'),
+    'RECOVERY_SNAPSHOT_CHANGED': (
+        'La sauvegarde ou le projet a changé depuis l’inspection.',
+        'Réinspecter les trois versions avant de confirmer.'),
     'SAVE_FAILED': (
         'La sauvegarde n’a pas pu être terminée.',
         'Vérifier l’espace disponible, les droits du dossier et le fichier de secours.'),
@@ -283,7 +286,10 @@ def save_with_recovery(path, project: LoadedProject, *, expected_sha256=None) ->
                 'physical_cut_verified': False}
 
 
-def resolve_pending_backup(path, *, confirmed: bool = False) -> dict:
+def resolve_pending_backup(path, *, confirmed: bool = False,
+                           expected_pending_sha256=None,
+                           expected_primary_sha256=None,
+                           expected_previous_sha256=None) -> dict:
     """Explicitly finish or roll back an interrupted backup transaction.
 
     A valid new primary keeps its bytes; the staged prior primary becomes the
@@ -298,6 +304,20 @@ def resolve_pending_backup(path, *, confirmed: bool = False) -> dict:
         pending_state, staged = _diagnose(pending_path)
         if pending_state != 'valid':
             raise RecoveryError('NO_VALID_RECOVERY_SNAPSHOT')
+        # Compare all three inspected revisions UNDER the project lock before
+        # touching any file. None retains compatibility for direct Python users;
+        # the managed HTTP workspace always supplies all three fingerprints.
+        for expected, candidate in (
+            (expected_pending_sha256, pending_path),
+            (expected_primary_sha256, target),
+            (expected_previous_sha256, _previous(target)),
+        ):
+            if expected is not None:
+                if candidate.is_symlink():
+                    raise RecoveryError('RECOVERY_SNAPSHOT_CHANGED')
+                actual = _file_sha(candidate) if candidate.exists() else 'missing'
+                if actual != expected:
+                    raise RecoveryError('RECOVERY_SNAPSHOT_CHANGED')
         primary, current = _diagnose(target)
         if primary == 'valid':
             if current.project_id != staged.project_id:
