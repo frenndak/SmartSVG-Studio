@@ -41,3 +41,9 @@
 La PR [#61](https://github.com/frenndak/SmartSVG-Studio/pull/61) a été **fusionnée** sur `main` au commit `96d90180d5528d12a4aa43bd4775ad5f87488f74`. Elle apporte le workflow isolé `.github/workflows/roadmap-v3-3-gate.yml` pour les chemins documentaires V3.3. Son propre preflight était **SUCCESS** sur HEAD `622bde14280ad6087b22e24127f8ec58a35ee0fd` ; l'étape de validation des documents V3.3 y était **SKIPPED**, car ceux-ci ne figuraient pas dans #61.
 
 Le présent commit sur #60 vise à déclencher le nouveau workflow pour les **vrais documents V3.3**. Tant que le contrôle n'a pas abouti au SHA exact, la décision de fusion de #60 reste **NO-GO**. Les résultats doivent être consignés séparément, puis le `main` courant et les protections doivent être vérifiés.
+
+## Correction du périmètre du validateur (28 octobre 2026)
+
+La PR [#62](https://github.com/frenndak/SmartSVG-Studio/pull/62) a été **fusionnée** au commit `a1c7bf5f5f7240b1e95c8f8dc79024e00f93381a`, avec un preflight GitHub **SUCCESS** au SHA source `8857def003467c28d0fee6a5d3d12a230dab5e3f`. Elle a corrigé le faux doublon causé par les mentions de synthèse S-076 et S-085 : l'exhaustivité et l'unicité restent strictes dans les dossiers canoniques.
+
+Cette modification de #60 redéclenche la validation CI documentaire corrigée. Aucun PASS pour les documents V3.3 ne doit être déclaré avant lecture du résultat GitHub sur le nouveau HEAD.
