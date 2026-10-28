@@ -69,7 +69,7 @@ function inspector(node){
  confirm.style.cssText='margin-top:8px;padding:9px;border:2px solid #ffce73;background:#42351b;color:white;border-radius:7px';
  let latest=null,selectionModule=null,selectionBinding=null,selectionChannel=null;
  let selectionTimer=null,pendingSelection=null,widgetAtProposal=null;
- let confirmationInFlight=false;
+ let confirmationInFlight=false,shareInFlight=false;
  function stopSelection(){
    if(selectionTimer!==null){clearTimeout(selectionTimer);selectionTimer=null;}
    selectionChannel?.close();selectionChannel=null;
@@ -119,8 +119,8 @@ function inspector(node){
  share.addEventListener('click',async()=>{
    // A pending widget callback owns the current channel until it settles.
    // Do not replace it: its finally block would otherwise close a new channel.
-   if(confirmationInFlight){
-     hint.textContent='Confirmation en cours : attendre sa fin avant de renvoyer le diagnostic.';
+   if(confirmationInFlight||shareInFlight){
+     hint.textContent='Transfert ou confirmation en cours : attendre sa fin avant de renvoyer le diagnostic.';
      return;
    }
    if(!latest)return;
@@ -129,6 +129,7 @@ function inspector(node){
      hint.textContent='Transfert indisponible : ouvrir ComfyUI et l’Atelier sur la même origine HTTP.';
      return;
    }
+   shareInFlight=true;share.disabled=true;
    stopSelection();
    const sourceAtSend=latest;
    try{
@@ -141,6 +142,7 @@ function inspector(node){
      const binding=selectionModule.createSelectionBinding(node,msg);
      if(binding){
        msg.node_id=binding.node_id;msg.session_id=binding.session_id;
+       msg.expires_at_ms=binding.expires_at_ms;
        selectionBinding=binding;
      }
      const channel=new BroadcastChannel(SUBJECT_HANDOFF_CHANNEL);
@@ -174,6 +176,9 @@ function inspector(node){
    }catch{
      stopSelection();
      hint.textContent='Transfert indisponible ; utiliser l’inspecteur du nœud ComfyUI.';
+   }finally{
+     shareInFlight=false;
+     share.disabled=confirmationInFlight||!latest;
    }
  });
  root.append(title,hint,summary,layout,zoneActions,share,confirm);
