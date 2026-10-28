@@ -301,20 +301,27 @@ class PersistentSubjectIdentityTests(unittest.TestCase):
         self.assertEqual(len(load_project(self.path).subjects), 1)
 
     def test_pending_recovery_and_save_failure_never_report_success(self):
-        before = self.workspace.inspect("subjects")
+        before, item, source_id = self.binding(0)
+        arguments = dict(
+            mask_index=0, mask_id=item["mask_id"],
+            mask_sha256_float32=item["mask_sha256_float32"],
+            source_id=source_id, source_sha256=self.source_fingerprint,
+            expected_sha256=before["sha256"], confirmed=True,
+            expires_at_ms=int(time.time() * 1000) + 60_000)
         pending = self.path.with_name("subjects.pending-backup.smartsvg")
         pending.write_bytes(self.path.read_bytes())
         with self.assertRaisesRegex(
                 WorkspaceError, "PENDING_BACKUP_REVIEW_REQUIRED"):
-            self.register(expected_sha256=before["sha256"])
-        self.assertEqual(self.workspace.inspect("subjects")["sha256"], before["sha256"])
+            self.workspace.register_subject_identity("subjects", **arguments)
+        self.assertEqual(
+            sha256(self.path.read_bytes()).hexdigest(), before["sha256"])
         pending.unlink()
 
         with mock.patch(
                 "smartsvg_core.project_workspace_g22.save_with_recovery",
                 side_effect=RecoveryError("SAVE_FAILED")):
             with self.assertRaisesRegex(WorkspaceError, "SAVE_FAILED"):
-                self.register(expected_sha256=before["sha256"])
+                self.workspace.register_subject_identity("subjects", **arguments)
         self.assertEqual(self.workspace.inspect("subjects")["sha256"], before["sha256"])
 
     def test_idempotent_recognition_preserves_accessories(self):
