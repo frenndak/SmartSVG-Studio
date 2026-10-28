@@ -64,7 +64,37 @@ function inspector(node){
  const share=element('button','Envoyer le dernier diagnostic vers l’Atelier');
  share.type='button';share.disabled=true;
  share.style.cssText='display:block;margin-top:10px;padding:9px;border:1px solid #68aa9c;background:#12423e;color:white;border-radius:7px;cursor:pointer';
- let latest=null;
+ const confirm=element('button','Confirmer le sujet proposé depuis l’Atelier');
+ confirm.type='button';confirm.hidden=true;confirm.disabled=true;
+ confirm.style.cssText='margin-top:8px;padding:9px;border:2px solid #ffce73;background:#42351b;color:white;border-radius:7px';
+ let latest=null,selectionModule=null,selectionBinding=null,selectionChannel=null;
+ let selectionTimer=null,pendingSelection=null,widgetAtProposal=null;
+ function stopSelection(){
+   if(selectionTimer!==null){clearTimeout(selectionTimer);selectionTimer=null;}
+   selectionChannel?.close();selectionChannel=null;
+   selectionBinding=null;pendingSelection=null;widgetAtProposal=null;
+   confirm.hidden=true;confirm.disabled=true;
+ }
+ confirm.addEventListener('click',()=>{
+   const widget=node.widgets?.find(w=>w.name==='numero_sujet');
+   const subject=selectionModule?.validateSelectionProposal(
+     pendingSelection,selectionBinding,node,latest);
+   if(!widget||subject===null||subject===undefined||
+      widget.value!==widgetAtProposal){
+     hint.textContent='Proposition périmée : nœud, source, liens ou choix modifiés. Relancer le nœud et renvoyer le diagnostic.';
+     stopSelection();return;
+   }
+   const previous=widget.value;
+   try{
+     widget.value=subject;widget.callback?.(subject);
+     node.setDirtyCanvas?.(true,true);
+     node.graph?.setDirtyCanvas?.(true,true);
+     hint.textContent='Sujet '+subject+' confirmé dans le nœud. Relancer manuellement le workflow ; masques float32 et fragments conservés.';
+   }catch{
+     widget.value=previous;
+     hint.textContent='Échec du changement de sujet ; valeur précédente restaurée.';
+   }finally{stopSelection();}
+ });
  // Deliberately NOT connected to onExecuted: user action is mandatory.
  share.addEventListener('click',async()=>{
    if(!latest)return;
@@ -73,21 +103,55 @@ function inspector(node){
      hint.textContent='Transfert indisponible : ouvrir ComfyUI et l’Atelier sur la même origine HTTP.';
      return;
    }
+   stopSelection();
+   const sourceAtSend=latest;
    try{
      const {normalizeSubjectInspection,SUBJECT_HANDOFF_CHANNEL}=
        await import('./smartsvg_subject_handoff_g33.mjs');
+     selectionModule=await import('./smartsvg_subject_selection_g33c.mjs');
+     if(latest!==sourceAtSend)return; // onExecuted replaced the report during import
      const msg=normalizeSubjectInspection(latest);
      if(!msg){hint.textContent='Diagnostic incomplet ou trop volumineux : relancer le nœud et réessayer.';return;}
+     const binding=selectionModule.createSelectionBinding(node,msg);
+     if(binding){
+       msg.node_id=binding.node_id;msg.session_id=binding.session_id;
+       selectionBinding=binding;
+     }
      const channel=new BroadcastChannel(SUBJECT_HANDOFF_CHANNEL);
-     try{channel.postMessage(msg);}finally{channel.close();}
-     hint.textContent='Diagnostic envoyé localement. Dans l’Atelier, vérifier que la réception est active et que l’empreinte correspond. Aucun masque modifié.';
+     if(binding){
+       selectionChannel=channel;
+       channel.onmessage=event=>{
+         const subject=selectionModule.validateSelectionProposal(
+           event.data,selectionBinding,node,latest);
+         if(subject===null)return;
+         const widget=node.widgets?.find(w=>w.name==='numero_sujet');
+         if(!widget){
+           hint.textContent='Champ numero_sujet introuvable : proposition refusée.';
+           stopSelection();return;
+         }
+         pendingSelection=event.data;widgetAtProposal=widget.value;
+         confirm.hidden=false;confirm.disabled=false;
+         hint.textContent='L’Atelier propose le sujet '+subject+
+           '. Vérifier les accessoires puis cliquer « Confirmer » ici. Aucun calcul automatique.';
+       };
+       selectionTimer=setTimeout(()=>{
+         stopSelection();
+         hint.textContent='Proposition expirée (90 s) : renvoyer le diagnostic si nécessaire.';
+       },90000);
+     }
+     try{channel.postMessage(msg);}catch(error){stopSelection();throw error;}
+     if(!binding)channel.close();
+     hint.textContent=binding
+       ?'Diagnostic envoyé. Choisir un sujet dans l’Atelier, puis confirmer ici dans les 90 s. Aucune modification automatique.'
+       :'Diagnostic envoyé en lecture seule. Liaison indisponible : connecter IMAGE/MASK, identifier le nœud et utiliser un navigateur avec crypto.';
    }catch{
+     stopSelection();
      hint.textContent='Transfert indisponible ; utiliser l’inspecteur du nœud ComfyUI.';
    }
  });
- root.append(title,hint,summary,layout,zoneActions,share);
+ root.append(title,hint,summary,layout,zoneActions,share,confirm);
  function update(data){
-   latest=null;share.disabled=true;
+   stopSelection();latest=null;share.disabled=true;
    layout.replaceChildren();zoneActions.replaceChildren();
    const entry=data?.smartsvg_subjects_v21154?.[0];
    if(!entry||!Array.isArray(entry.sujets)){
