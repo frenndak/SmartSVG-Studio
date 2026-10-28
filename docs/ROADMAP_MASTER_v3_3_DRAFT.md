@@ -7,9 +7,11 @@
 **Document précédent :** `ROADMAP_MASTER_v3_2.md`, conservé intégralement et inchangé
 **Objet :** restructurer et détailler la planification sans retirer, réduire ni repousser silencieusement une ambition approuvée
 
-La V3.3 hérite de toutes les exigences, familles F01 à F15, jalons G0 à G9, tickets S-001 à S-101, scénarios, risques et gates de la V3.2. Une exigence V3.2 non recopiée mot pour mot dans ce document reste applicable. La V3.3 ajoute une structure de traçabilité, des obligations transversales et des critères de preuve sous les identifiants `R33-001` à `R33-040`.
+La V3.3 reprend toutes les exigences, familles F01 à F15, jalons G0 à G9, tickets S-001 à S-101, scénarios, risques et gates historiques. L'[annexe normative V3.3](ROADMAP_HERITAGE_v3_3.md) contient la copie intégrale des obligations V3.2 ; le [registre V3.3](ROADMAP_TRACEABILITY_v3_3.md) contient les 101 exigences historiques individualisées, pour permettre l'application de V3.3 sans revenir au fichier gelé V3.2. Les nouvelles obligations sous `R33-001` à `R33-040` complètent sans déclasser cet héritage.
 
 Cette révision ne certifie ni installation Windows, ni inférence GPU RTX 3070, ni import Design Space, ni découpe Cricut Explore 5. Elle décrit comment obtenir et distinguer ces preuves.
+
+**Navigation V3.3 :** [Registre de traçabilité](ROADMAP_TRACEABILITY_v3_3.md) · [Matrices de couverture](ROADMAP_COVERAGE_v3_3.md) · [Annexe historique normative](ROADMAP_HERITAGE_v3_3.md). Après fusion, ce document devient l'unique maître actif ; la V3.2 originale reste une archive protégée.
 
 ## 1 Vision produit conservée
 
@@ -444,10 +446,10 @@ Un lot est terminé uniquement lorsque le code est raccordé au parcours réel, 
 
 ## 12 Documents compagnons
 
-- `ROADMAP_TRACEABILITY_v3_3.md` définit la conservation des tickets historiques, les statuts et les liens vers les preuves.
-- `ROADMAP_COVERAGE_v3_3.md` fournit les matrices à compléter pour chaque lot et chaque recette.
+- [Registre de traçabilité](ROADMAP_TRACEABILITY_v3_3.md) définit la conservation des tickets historiques, les statuts et les liens vers les preuves.
+- [Matrices de couverture](ROADMAP_COVERAGE_v3_3.md) fournissent les matrices à compléter pour chaque lot et chaque recette.
 - `ETAT_ACTUEL_SMARTSVG.md` reste un constat opérationnel vivant et ne remplace ni les exigences ni leurs gates.
 
-## 13 Décision attendue
+## 13 Décision de publication
 
-Après revue humaine, cette proposition peut devenir la roadmap directrice V3.3 par un acte de publication séparé. Tant que cette décision n'est pas prise, la V3.2 demeure la référence normative et la V3.3 reste un brouillon de structuration sans certification implicite.
+Cette PR propose de promouvoir V3.3 en roadmap directrice après contre-expertise, vérification de la CI et fusion autorisée. Avant fusion, la V3.2 reste la référence opérationnelle. Après fusion, V3.3 devient le seul document maître actif ; la V3.2 originale et son manifeste demeurent intacts, en archive. Les automatismes et le contrat AGENTS.md devront être basculés dans un micro-lot de gouvernance distinct et vérifié avant d'annoncer la migration opérationnelle achevée.
