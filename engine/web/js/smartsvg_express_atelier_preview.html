@@ -348,9 +348,9 @@ function paintRealSubjects(){
             ["PROJECT_CHANGED","PROJECT_CHANGED_DURING_SAVE"].includes(error?.message)
             ?"Projet modifié dans un autre onglet : recharger le projet et relancer le diagnostic, sans écraser les changements."
             :error?.message==="SUBJECT_IDENTITY_TIMEOUT"
-            ?"Délai de sauvegarde dépassé : vérifier le projet avant de réessayer."
+            ?"Délai dépassé : état du projet à vérifier en relançant le diagnostic avant toute nouvelle tentative."
             :error?.message==="SUBJECT_IDENTITY_ABORTED"
-            ?"Enregistrement annulé : aucune identité confirmée."
+            ?"Demande annulée dans cette interface : état du projet à vérifier, car le serveur peut avoir terminé la sauvegarde."
             :"Identité non enregistrée : vérifier le projet, le masque et la session puis réessayer.";
         }finally{
           identityPending=false;
