@@ -4,7 +4,9 @@
 
 Ce registre relie les exigences de la roadmap aux familles, parcours, lots, implémentations, tests et preuves. Il empêche trois erreurs : perdre une exigence lors d'une révision, confondre code et fonctionnalité raccordée, ou transformer une preuve partielle en validation générale.
 
-La source normative historique reste `ROADMAP_MASTER_v3_2.md` tant que la V3.3 n'est pas publiée. Le présent registre conserve explicitement S-001 à S-101 et ajoute R33-001 à R33-040.
+À la publication, [la roadmap directrice V3.3](ROADMAP_MASTER_v3_3.md) devient l'unique point d'entrée normatif. L'[annexe d'héritage V3.3](ROADMAP_HERITAGE_v3_3.md) reproduit intégralement les engagements antérieurs, y compris les critères non répétés dans la synthèse. Le présent registre reprend individuellement S-001 à S-101 et ajoute R33-001 à R33-040 ; le document historique V3.2 reste conservé à titre d'archive gelée.
+
+**Navigation :** [Maître V3.3](ROADMAP_MASTER_v3_3.md) · [Couverture V3.3](ROADMAP_COVERAGE_v3_3.md) · [Annexe d'héritage](ROADMAP_HERITAGE_v3_3.md).
 
 ## 2 Schéma d'un enregistrement
 
@@ -50,7 +52,7 @@ Les axes `preuve_auto`, `preuve_windows`, `preuve_design_space` et `preuve_physi
 
 ## 4 Conservation exhaustive des tickets S-001 à S-101
 
-Les intitulés, priorités, dépendances et preuves originales restent ceux de la V3.2. Les tableaux ci-dessous ajoutent une vue de raccordement ; ils ne réécrivent pas les exigences historiques.
+Les intitulés, priorités, dépendances et preuves originales restent ceux de l'[annexe normative d'héritage](ROADMAP_HERITAGE_v3_3.md) ; les dossiers individuels ci-dessous les reprennent pour permettre une utilisation directe de V3.3.
 
 ### S-001 à S-022 fondations historiques
 
@@ -139,7 +141,7 @@ Index individuel :
 
 ## 6 Dossiers individuels des exigences
 
-Chaque ligne ci-dessous est un dossier individuel initial. `H` signifie que l'intitulé, la priorité, les dépendances et la preuve attendue sont hérités verbatim de la ligne canonique portant le même ID dans la V3.2 ; cette référence constitue le champ individuel correspondant sans dupliquer ni altérer le texte gelé. `A/W/D/P` représente dans l'ordre `preuve_auto`, `preuve_windows`, `preuve_design_space` et `preuve_physique`. Dans les dossiers, `N` signifie `NON_EXECUTE`. Les quatre axes sont initialisés à `N/N/N/N` : leur reconstruction exige des preuves liées à des SHA et environnements exacts.
+Chaque ligne ci-dessous est un dossier individuel initial. La deuxième colonne réintègre la priorité, le jalon lorsqu'il existe, l'intitulé, les dépendances lorsqu'elles existent et le critère canonique relevé dans la V3.2 ; l'[annexe historique intégrale](ROADMAP_HERITAGE_v3_3.md) reste l'autorité pour les détails de contexte. Les valeurs historiques ne sont pas réécrites dans leur archive gelée. `A/W/D/P` représente dans l'ordre `preuve_auto`, `preuve_windows`, `preuve_design_space` et `preuve_physique`. Dans les dossiers, `N` signifie `NON_EXECUTE`. Les quatre axes sont initialisés à `N/N/N/N` : leur reconstruction exige des preuves liées à des SHA et environnements exacts.
 
 Codes d'autorité : `SRC` source et provenance ; `PRJ` cœur projet ; `UI` commandes applicatives ; `IA` fournisseur et ComfyUI ; `GEO` géométrie et export ; `FAB` Design Space et machine ; `JOB` gestionnaire de jobs ; `LIB` bibliothèque ; `TYPE` polices et texte ; `SEC` sécurité ; `OPS` installation et exploitation.
 
@@ -151,112 +153,112 @@ Les colonnes `Impl/tests` restent `A_RECONSTRUIRE` jusqu'à un audit séparé de
 
 | ID | Intitulé/source/dépendances | Couverture F/P/G | Autorité | statut_implementation | Impl/tests | A/W/D/P | Risque/rollback | Décision |
 |---|---|---|---|---|---|---|---|---|
-| S-001 | V3.2 ligne S-001 H | F15/P10/G0 | SRC | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B | NON_VERIFIE |
-| S-002 | V3.2 ligne S-002 H | F05-F07/P01-P02-P06/G1 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E | NON_VERIFIE |
-| S-003 | V3.2 ligne S-003 H | F10/P07-P10/G1 | PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | P | NON_VERIFIE |
-| S-004 | V3.2 ligne S-004 H | F10-F14/P01-P02/G1-G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
-| S-005 | V3.2 ligne S-005 H | F02/P03/G3 | IA | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | I | NON_VERIFIE |
-| S-006 | V3.2 ligne S-006 H | F02/P03/G0 | SRC | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B | NON_VERIFIE |
-| S-007 | V3.2 ligne S-007 H | F02/P03/G3 | IA | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | I | NON_VERIFIE |
-| S-008 | V3.2 ligne S-008 H | F03/P03/G2 | UI-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-P | NON_VERIFIE |
-| S-009 | V3.2 ligne S-009 H | F06-F07/P01-P02/G4 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E-F | NON_VERIFIE |
-| S-010 | V3.2 ligne S-010 H | F07/P01-P02/G4 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | F | NON_VERIFIE |
-| S-011 | V3.2 ligne S-011 H | F05/P06/G5 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E | NON_VERIFIE |
-| S-012 | V3.2 ligne S-012 H | F06-F13/P02-P09/G4-G5 | GEO-FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E-F | NON_VERIFIE |
-| S-013 | V3.2 ligne S-013 H | F14/P01/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
-| S-014 | V3.2 ligne S-014 H | F02/P03/G3 | IA | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | I | NON_VERIFIE |
-| S-015 | V3.2 ligne S-015 H | F03-F07/P01-P02/G2-G4 | GEO-UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-E | NON_VERIFIE |
-| S-016 | V3.2 ligne S-016 H | F04/P01/G2 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E | NON_VERIFIE |
-| S-017 | V3.2 ligne S-017 H | F10/P07/G1 | PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | P | NON_VERIFIE |
-| S-018 | V3.2 ligne S-018 H | F12/P04-P08/G7 | JOB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | J | NON_VERIFIE |
-| S-019 | V3.2 ligne S-019 H | F15/P01-P02/G8 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B-F | NON_VERIFIE |
-| S-020 | V3.2 ligne S-020 H | F13/P09/G9 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | X-F | NON_VERIFIE |
-| S-021 | V3.2 ligne S-021 H | F09/P05/G9 | TYPE | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | T-X | NON_VERIFIE |
-| S-022 | V3.2 ligne S-022 H | F14/P10/G9 | OPS | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | X | NON_VERIFIE |
-| S-023 | V3.2 ligne S-023 H | F10/P03-P07/G1 | PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | P | NON_VERIFIE |
-| S-024 | V3.2 ligne S-024 H | F10/P07-P10/G1 | PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | P | NON_VERIFIE |
-| S-025 | V3.2 ligne S-025 H | F14/P01/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
-| S-026 | V3.2 ligne S-026 H | F03/P03-P05/G2 | UI-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-P | NON_VERIFIE |
-| S-027 | V3.2 ligne S-027 H | F02/P03/G3 | IA | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | I | NON_VERIFIE |
-| S-028 | V3.2 ligne S-028 H | F02/P03/G3 | IA-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | I-P | NON_VERIFIE |
-| S-029 | V3.2 ligne S-029 H | F07/P01/G4 | GEO-FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E-F | NON_VERIFIE |
-| S-030 | V3.2 ligne S-030 H | F06/P02/G4 | GEO-FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E-F | NON_VERIFIE |
-| S-031 | V3.2 ligne S-031 H | F07/P01-P02/G4 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | F | NON_VERIFIE |
-| S-032 | V3.2 ligne S-032 H | F05-F06/P02-P06/G5 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E | NON_VERIFIE |
-| S-033 | V3.2 ligne S-033 H | F05/P06/G5 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E | NON_VERIFIE |
-| S-034 | V3.2 ligne S-034 H | F05-F06/P06/G5 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E | NON_VERIFIE |
-| S-035 | V3.2 ligne S-035 H | F08/P05/G6 | UI-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-P | NON_VERIFIE |
-| S-036 | V3.2 ligne S-036 H | F09/P05/G6 | TYPE-GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | T-E | NON_VERIFIE |
-| S-037 | V3.2 ligne S-037 H | F08-F09/P05/G6 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
-| S-038 | V3.2 ligne S-038 H | F12/P04-P08/G7 | JOB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | J | NON_VERIFIE |
-| S-039 | V3.2 ligne S-039 H | F09-F12/P08/G7 | JOB-TYPE | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | J-T | NON_VERIFIE |
-| S-040 | V3.2 ligne S-040 H | F11/P04/G7 | GEO-JOB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | J-E | NON_VERIFIE |
-| S-041 | V3.2 ligne S-041 H | F10/P07/G7 | LIB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | L | NON_VERIFIE |
-| S-042 | V3.2 ligne S-042 H | F15/P10/G8 | SEC | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B-P | NON_VERIFIE |
-| S-043 | V3.2 ligne S-043 H | F15/P01-P02/G8 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B-F | NON_VERIFIE |
-| S-044 | V3.2 ligne S-044 H | F13/P09/G9 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | X-F | NON_VERIFIE |
-| S-045 | V3.2 ligne S-045 H | F05-F06-F13/P09/G9 | GEO-FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | X-F | NON_VERIFIE |
-| S-046 | V3.2 ligne S-046 H | F14/P10/G9 | OPS | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | X | NON_VERIFIE |
-| S-047 | V3.2 ligne S-047 H | F09/P05/G9 | TYPE | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | T-X | NON_VERIFIE |
-| S-048 | V3.2 ligne S-048 H | F04/P01/G9 | IA-GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | I-X | NON_VERIFIE |
-| S-049 | V3.2 ligne S-049 H | F15/TRANSVERSE/G0 | SRC | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B | NON_VERIFIE |
-| S-050 | V3.2 ligne S-050 H | F02/TRANSVERSE/G0 | SRC | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B | NON_VERIFIE |
+| S-001 | **P0** · G0-G9 (cf. V3.2) · Geler archive V21.14.1 et corpus ; dépendances : non détaillées ; critère : SHA + manifeste ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F15/P10/G0 | SRC | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B | NON_VERIFIE |
+| S-002 | **P0** · G0-G9 (cf. V3.2) · Spécifier les trois contrats de sortie ; dépendances : non détaillées ; critère : exemples importables ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F05-F07/P01-P02-P06/G1 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E | NON_VERIFIE |
+| S-003 | **P0** · G0-G9 (cf. V3.2) · Définir modèle de projet/retouches sérialisables ; dépendances : non détaillées ; critère : ouverture/reprise identique ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F10/P07-P10/G1 | PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | P | NON_VERIFIE |
+| S-004 | **P0** · G0-G9 (cf. V3.2) · Réduire la complexité visible, conserver anciens IDs ; dépendances : non détaillées ; critère : anciens workflows ouvrables ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F10-F14/P01-P02/G1-G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
+| S-005 | **P0** · G0-G9 (cf. V3.2) · Test réel RMBG/SAM2/BiRefNet RTX 3070 ; dépendances : non détaillées ; critère : logs et masques réels ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F02/P03/G3 | IA | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | I | NON_VERIFIE |
+| S-006 | **P0** · G0-G9 (cf. V3.2) · Créer masques de référence des neuf images ; dépendances : non détaillées ; critère : vérité terrain annotée ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F02/P03/G0 | SRC | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B | NON_VERIFIE |
+| S-007 | **P0** · G0-G9 (cf. V3.2) · Validation sémantique du sujet désiré ; dépendances : non détaillées ; critère : rejet des faux sujets ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F02/P03/G3 | IA | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | I | NON_VERIFIE |
+| S-008 | **P0** · G0-G9 (cf. V3.2) · Éditeur pinceaux/undo/reload vérifié sur frontend ; dépendances : non détaillées ; critère : aucun trait perdu ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F03/P03/G2 | UI-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-P | NON_VERIFIE |
+| S-009 | **P0** · G0-G9 (cf. V3.2) · Assurance qualité Cricut par format ; dépendances : non détaillées ; critère : dimensions/trajets précontrôlés ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F06-F07/P01-P02/G4 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E-F | NON_VERIFIE |
+| S-010 | **P0** · G0-G9 (cf. V3.2) · Couper physiquement des exemplaires Explore 5 ; dépendances : non détaillées ; critère : photos et mesures ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F07/P01-P02/G4 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | F | NON_VERIFIE |
+| S-011 | **P0** · G0-G9 (cf. V3.2) · Fidélité SVG multicouche et analyse des formes ; dépendances : non détaillées ; critère : mesures render standard ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F05/P06/G5 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E | NON_VERIFIE |
+| S-012 | **P0** · G0-G9 (cf. V3.2) · Chemins SVG utilisables avec matériau choisi ; dépendances : non détaillées ; critère : découpes testées ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F06-F13/P02-P09/G4-G5 | GEO-FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E-F | NON_VERIFIE |
+| S-013 | **P1** · G0-G9 (cf. V3.2) · Écran Express unifié ; dépendances : non détaillées ; critère : test utilisateur ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F14/P01/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
+| S-014 | **P1** · G0-G9 (cf. V3.2) · Segmentation objets et fragments associés ; dépendances : non détaillées ; critère : suites multiobjets ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F02/P03/G3 | IA | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | I | NON_VERIFIE |
+| S-015 | **P1** · G0-G9 (cf. V3.2) · Nettoyage des halos / découpe et offset ; dépendances : non détaillées ; critère : comparatifs zoom ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F03-F07/P01-P02/G2-G4 | GEO-UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-E | NON_VERIFIE |
+| S-016 | **P1** · G0-G9 (cf. V3.2) · HD conditionnelle + diagnostic d'artefacts ; dépendances : non détaillées ; critère : avant/après objectif ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F04/P01/G2 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E | NON_VERIFIE |
+| S-017 | **P1** · G0-G9 (cf. V3.2) · Packaging « projet SmartSVG » ; dépendances : non détaillées ; critère : relecture multi-version ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F10/P07/G1 | PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | P | NON_VERIFIE |
+| S-018 | **P1** · G0-G9 (cf. V3.2) · Queue/batch/cache avec reprise ; dépendances : non détaillées ; critère : lot interrompu/repris ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F12/P04-P08/G7 | JOB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | J | NON_VERIFIE |
+| S-019 | **P1** · G0-G9 (cf. V3.2) · Benchmark Canva/Design Space sur corpus identique ; dépendances : non détaillées ; critère : rapport chronométré ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F15/P01-P02/G8 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B-F | NON_VERIFIE |
+| S-020 | **P2** · G0-G9 (cf. V3.2) · Papier découpé multicouche / dioramas ; dépendances : non détaillées ; critère : prototype assemblé ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F13/P09/G9 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | X-F | NON_VERIFIE |
+| S-021 | **P2** · G0-G9 (cf. V3.2) · OCR et gestion du texte sur affiches ; dépendances : non détaillées ; critère : texte préservé / averti ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F09/P05/G9 | TYPE | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | T-X | NON_VERIFIE |
+| S-022 | **P2** · G0-G9 (cf. V3.2) · App autonome hors ComfyUI, si justifiée ; dépendances : non détaillées ; critère : décision architecture chiffrée ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F14/P10/G9 | OPS | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | X | NON_VERIFIE |
+| S-023 | **P0** · G1.2 · Identité de sujet stable ; dépendances : S-003 ; critère : Identité persistante après retouche et export ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F10/P03-P07/G1 | PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | P | NON_VERIFIE |
+| S-024 | **P0** · G1.3 · Projet `.smartsvg` v1 ; dépendances : S-003 ; critère : Chargement exact des masques, sources et actions ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F10/P07-P10/G1 | PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | P | NON_VERIFIE |
+| S-025 | **P0** · G2.1 · Écran Express métier ; dépendances : S-004 ; critère : Sticker simple sans graphe ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F14/P01/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
+| S-026 | **P0** · G2.3 · Historique non destructif UI ; dépendances : S-024 ; critère : Undo/redo/reload conformes ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F03/P03-P05/G2 | UI-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-P | NON_VERIFIE |
+| S-027 | **P0** · G3.2 · Contrôle GPU réel ; dépendances : S-005 ; critère : VRAM et latence mesurées ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F02/P03/G3 | IA | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | I | NON_VERIFIE |
+| S-028 | **P0** · G3.3 · Groupes sujet + accessoires ; dépendances : S-006,S-027 ; critère : Pas de perte silencieuse des détails annotés ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F02/P03/G3 | IA-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | I-P | NON_VERIFIE |
+| S-029 | **P0** · G4.1 · Contrat PNG/alpha Cricut ; dépendances : S-002 ; critère : Import Design Space contrôlé ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F07/P01/G4 | GEO-FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E-F | NON_VERIFIE |
+| S-030 | **P0** · G4.2 · Contrat SVG Basic Cut ; dépendances : S-002 ; critère : Chemins fermés, géométrie contrôlée ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F06/P02/G4 | GEO-FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E-F | NON_VERIFIE |
+| S-031 | **P0** · G4.3 · Matrice d'essais Explore 5 ; dépendances : S-029,S-030 ; critère : Coupons fabriqués et documentés ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F07/P01-P02/G4 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | F | NON_VERIFIE |
+| S-032 | **P0** · G5.5 · Export SVG édition vs fabrication ; dépendances : S-011,S-030 ; critère : Aucun profil confondu ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F05-F06/P02-P06/G5 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E | NON_VERIFIE |
+| S-033 | **P1** · G5.2 · Préservation traits et petites régions ; dépendances : S-011 ; critère : IoU, MAE et risques suivis ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F05/P06/G5 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E | NON_VERIFIE |
+| S-034 | **P1** · G5.3 · Simplification de Bézier ; dépendances : S-033 ; critère : Courbes réduites à fidélité non dégradée ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F05-F06/P06/G5 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E | NON_VERIFIE |
+| S-035 | **P1** · G6.1 · Canevas objets/textes ; dépendances : S-024 ; critère : Composition éditable après réouverture ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F08/P05/G6 | UI-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-P | NON_VERIFIE |
+| S-036 | **P1** · G6.3 · Fonts et conversion textes → tracés ; dépendances : S-035 ; critère : Pas de substitution silencieuse ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F09/P05/G6 | TYPE-GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | T-E | NON_VERIFIE |
+| S-037 | **P1** · G6.4 · Gabarits métiers ; dépendances : S-035 ; critère : Trois gabarits testés ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F08-F09/P05/G6 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
+| S-038 | **P1** · G7.1 · Job manager et checkpoints ; dépendances : S-024 ; critère : Reprise 50/50 sans doublon ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F12/P04-P08/G7 | JOB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | J | NON_VERIFIE |
+| S-039 | **P1** · G7.3 · Variables CSV ; dépendances : S-035,S-038 ; critère : 30 variantes sans texte manquant ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F09-F12/P08/G7 | JOB-TYPE | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | J-T | NON_VERIFIE |
+| S-040 | **P1** · G7.4 · Imposition mesurable ; dépendances : S-029,S-030 ; critère : Zéro collision, dimensions cohérentes ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F11/P04/G7 | GEO-JOB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | J-E | NON_VERIFIE |
+| S-041 | **P1** · G7.2 · Bibliothèque locale ; dépendances : S-024 ; critère : Recherche/duplication/archivage fiables ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F10/P07/G7 | LIB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | L | NON_VERIFIE |
+| S-042 | **P0** · G8.2 · Audit de sécurité des projets ; dépendances : S-024 ; critère : Entrées adversariales contenues ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F15/P10/G8 | SEC | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B-P | NON_VERIFIE |
+| S-043 | **P0** · G8.3 · Benchmark Canva/Design Space ; dépendances : S-031,S-032 ; critère : Procédure égale, répétée et auditée ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F15/P01-P02/G8 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B-F | NON_VERIFIE |
+| S-044 | **P2** · G9 · Dioramas multi-plans ; dépendances : S-030,S-035 ; critère : Prototype réel assemblé ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F13/P09/G9 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | X-F | NON_VERIFIE |
+| S-045 | **P2** · G9 · Vinyle multi-couleur ; dépendances : S-030,S-031 ; critère : Test superposition concluant ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F05-F06-F13/P09/G9 | GEO-FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | X-F | NON_VERIFIE |
+| S-046 | **P2** · G9 · Application autonome ; dépendances : S-025,S-038 ; critère : Étude de coût et de maintenance ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F14/P10/G9 | OPS | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | X | NON_VERIFIE |
+| S-047 | **P2** · G9 · OCR texte de couverture ; dépendances : S-028,S-036 ; critère : Texte vérifié avant tout remplacement ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F09/P05/G9 | TYPE | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | T-X | NON_VERIFIE |
+| S-048 | **P2** · G9 · Upscale IA artistique ; dépendances : S-027,F04 ; critère : Audit des détails inventés ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F04/P01/G9 | IA-GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | I-X | NON_VERIFIE |
+| S-049 | **P0** · G0.2 · `corpus_manifest` et droits d'usage des fixtures ; dépendances : non détaillées ; critère : original hashé, origine et statut de droit explicites ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F15/TRANSVERSE/G0 | SRC | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B | NON_VERIFIE |
+| S-050 | **P0** · G0.3 · Vérité terrain versionnée + protocole annotations ; dépendances : non détaillées ; critère : ambiguïtés documentées, silhouettes/accessoires cohérents ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F02/TRANSVERSE/G0 | SRC | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B | NON_VERIFIE |
 
 ### Dossiers S-051 à S-101
 
 | ID | Intitulé/source/dépendances | Couverture F/P/G | Autorité | statut_implementation | Impl/tests | A/W/D/P | Risque/rollback | Décision |
 |---|---|---|---|---|---|---|---|---|
-| S-051 | V3.2 ligne S-051 H | F15/TRANSVERSE/G1 | SRC | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B | NON_VERIFIE |
-| S-052 | V3.2 ligne S-052 H | F01-F10/P01-P03/G1 | PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | P | NON_VERIFIE |
-| S-053 | V3.2 ligne S-053 H | F10/P07-P10/G1 | PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | P | NON_VERIFIE |
-| S-054 | V3.2 ligne S-054 H | F05-F07/P01-P02-P06/G2 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E | NON_VERIFIE |
-| S-055 | V3.2 ligne S-055 H | F07/P01/G4 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | F | NON_VERIFIE |
-| S-056 | V3.2 ligne S-056 H | F06/P02/G4 | GEO-FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E-F | NON_VERIFIE |
-| S-057 | V3.2 ligne S-057 H | F13/P09/G4 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | F | NON_VERIFIE |
-| S-058 | V3.2 ligne S-058 H | F02/P03/G3 | IA-OPS | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | I-B | NON_VERIFIE |
-| S-059 | V3.2 ligne S-059 H | F14/P01-P03/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
-| S-060 | V3.2 ligne S-060 H | F04-F06/P01-P02-P06/G5 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E-B | NON_VERIFIE |
-| S-061 | V3.2 ligne S-061 H | F15/P10/G1 | SEC | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B-P | NON_VERIFIE |
-| S-062 | V3.2 ligne S-062 H | F12/P04-P08/G7 | JOB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | J | NON_VERIFIE |
-| S-063 | V3.2 ligne S-063 H | F15/P10/G8 | OPS | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B | NON_VERIFIE |
-| S-064 | V3.2 ligne S-064 H | F09/P05/G6 | TYPE | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | T | NON_VERIFIE |
-| S-065 | V3.2 ligne S-065 H | F15/P01-P02/G8 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B-F | NON_VERIFIE |
-| S-066 | V3.2 ligne S-066 H | F13/P09/G9 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | X-F | NON_VERIFIE |
-| S-067 | V3.2 ligne S-067 H | F14/P01/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
-| S-068 | V3.2 ligne S-068 H | F14/P01-P05/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
-| S-069 | V3.2 ligne S-069 H | F14/TRANSVERSE/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
-| S-070 | V3.2 ligne S-070 H | F02-F14/P03/G2 | UI-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-P | NON_VERIFIE |
-| S-071 | V3.2 ligne S-071 H | F03-F14/P03/G2 | UI-GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-E | NON_VERIFIE |
-| S-072 | V3.2 ligne S-072 H | F14/P01-P03/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
-| S-073 | V3.2 ligne S-073 H | F03-F06/P01-P03/G2 | UI-GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-E | NON_VERIFIE |
-| S-074 | V3.2 ligne S-074 H | F10/P01-P07/G2 | PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | P | NON_VERIFIE |
-| S-075 | V3.2 ligne S-075 H | F05-F07/P01-P02-P06/G2 | UI-GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-E | NON_VERIFIE |
-| S-076 | V3.2 ligne S-076 H | F07/P01-P02/G4 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | F | NON_VERIFIE |
-| S-077 | V3.2 ligne S-077 H | F14/P01-P05/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
-| S-078 | V3.2 ligne S-078 H | F14/TRANSVERSE/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
-| S-079 | V3.2 ligne S-079 H | F03-F04/P01-P03/G2 | UI-GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
-| S-080 | V3.2 ligne S-080 H | F03/P03/G2 | UI-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-P | NON_VERIFIE |
-| S-081 | V3.2 ligne S-081 H | F10-F14/P01-P07/G2 | UI-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-P | NON_VERIFIE |
-| S-082 | V3.2 ligne S-082 H | F14/TRANSVERSE/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
-| S-083 | V3.2 ligne S-083 H | F14/TRANSVERSE/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
-| S-084 | V3.2 ligne S-084 H | F10/P01-P02-P07/G2 | UI-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-P | NON_VERIFIE |
-| S-085 | V3.2 ligne S-085 H | F06-F07/P02/G4 | GEO-FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E-F | NON_VERIFIE |
-| S-086 | V3.2 ligne S-086 H | F08/P05/G6 | UI-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-P | NON_VERIFIE |
-| S-087 | V3.2 ligne S-087 H | F08/P05/G6 | UI-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-P | NON_VERIFIE |
-| S-088 | V3.2 ligne S-088 H | F08-F09/P05/G6 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
-| S-089 | V3.2 ligne S-089 H | F12/P04-P08/G7 | JOB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | J | NON_VERIFIE |
-| S-090 | V3.2 ligne S-090 H | F11/P04/G7 | GEO-JOB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | J-E | NON_VERIFIE |
-| S-091 | V3.2 ligne S-091 H | F10/P07/G7 | LIB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | L | NON_VERIFIE |
-| S-092 | V3.2 ligne S-092 H | F09/P05-P08/G6 | TYPE | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | T | NON_VERIFIE |
-| S-093 | V3.2 ligne S-093 H | F14/TRANSVERSE/G8 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B | NON_VERIFIE |
-| S-094 | V3.2 ligne S-094 H | F14/TRANSVERSE/G8 | UI-OPS | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-B | NON_VERIFIE |
-| S-095 | V3.2 ligne S-095 H | F10-F15/P10/G8 | PRJ-JOB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | P-J | NON_VERIFIE |
-| S-096 | V3.2 ligne S-096 H | F14-F15/TRANSVERSE/G8 | OPS | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B | NON_VERIFIE |
-| S-097 | V3.2 ligne S-097 H | F08-F12/P04-P08/G7 | UI-JOB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-J | NON_VERIFIE |
-| S-098 | V3.2 ligne S-098 H | F10/P07/G7 | LIB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | L | NON_VERIFIE |
-| S-099 | V3.2 ligne S-099 H | F13/P09/G9 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | X-F | NON_VERIFIE |
-| S-100 | V3.2 ligne S-100 H | F14/TRANSVERSE/G9 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-X | NON_VERIFIE |
-| S-101 | V3.2 ligne S-101 H | F05-F11/P04-P06/G9 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E-X | NON_VERIFIE |
+| S-051 | **P0** · G1.1 · Rapprochement historique S-001–S-022 et inventaire réel workflows ; dépendances : non détaillées ; critère : fiches source conservées ; contrats B0 réellement vérifiés ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F15/TRANSVERSE/G1 | SRC | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B | NON_VERIFIE |
+| S-052 | **P0** · G1.2 · Schéma `Subject/Source/Artifact` avec identité et coordonnées ; dépendances : non détaillées ; critère : rotations/crop/alpha testés ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F01-F10/P01-P03/G1 | PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | P | NON_VERIFIE |
+| S-053 | **P0** · G1.3 · Format `.smartsvg` v1, migration et recovery ; dépendances : non détaillées ; critère : crash/reopen/malveillance testés ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F10/P07-P10/G1 | PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | P | NON_VERIFIE |
+| S-054 | **P0** · G2.4 · Preuves orthogonales et sidecar `manifest.json` ; dépendances : non détaillées ; critère : aucune fausse certification dans PNG/SVG ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F05-F07/P01-P02-P06/G2 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E | NON_VERIFIE |
+| S-055 | **P0** · G4.1 · Profil Explore 5 A4/Letter, imprimer portrait/poser A4 paysage ; dépendances : non détaillées ; critère : procédure suivie, captures et coupon ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F07/P01/G4 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | F | NON_VERIFIE |
+| S-056 | **P0** · G4.2 · QA geometry Cut en mm : holes, islands, segments, offset ; dépendances : non détaillées ; critère : coupe simulée signalée comme telle et coupon réel ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F06/P02/G4 | GEO-FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E-F | NON_VERIFIE |
+| S-057 | **P0** · G4.3 · Registre matériel : machine, lame, tapis, matière, tests ; dépendances : non détaillées ; critère : valeurs étiquetées source/calibrée/hypothèse ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F13/P09/G4 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | F | NON_VERIFIE |
+| S-058 | **P1** · G3.1 · Matrice environnement local et fournisseur IA ; dépendances : non détaillées ; critère : pas de promesse non exécutée ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F02/P03/G3 | IA-OPS | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | I-B | NON_VERIFIE |
+| S-059 | **P1** · G2.1 · Audit accessibilité clavier/contraste/labels ; dépendances : non détaillées ; critère : scénario Express réalisable au clavier ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F14/P01-P03/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
+| S-060 | **P1** · G5.1 · Score qualité séparé silhouette/couleur/géométrie ; dépendances : non détaillées ; critère : benchmark reproductible/échantillon fixé ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F04-F06/P01-P02-P06/G5 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E-B | NON_VERIFIE |
+| S-061 | **P0** · G1.4 · Tests fichiers hostiles et bombes XML/ZIP ; dépendances : non détaillées ; critère : aucune sortie hors projet ni épuisement incontrôlé ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F15/P10/G1 | SEC | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B-P | NON_VERIFIE |
+| S-062 | **P1** · G7.1 · File de jobs avec identité, cache et pause/reprise ; dépendances : non détaillées ; critère : 50 objets après interruption sans duplication ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F12/P04-P08/G7 | JOB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | J | NON_VERIFIE |
+| S-063 | **P1** · G8.1 · Matrice de compatibilité ComfyUI/frontend/node API ; dépendances : non détaillées ; critère : installation ancienne/nouvelle testées ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F15/P10/G8 | OPS | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B | NON_VERIFIE |
+| S-064 | **P1** · G6 · Contrat typographie et licence des polices ; dépendances : non détaillées ; critère : rendu reproductible ou avertissement précis ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F09/P05/G6 | TYPE | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | T | NON_VERIFIE |
+| S-065 | **P1** · G8.3 · Comparaison contrôlée Design Space/Canva/SmartSVG ; dépendances : non détaillées ; critère : protocole temps/clics/qualité/correction commun ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F15/P01-P02/G8 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B-F | NON_VERIFIE |
+| S-066 | **P2** · G9 · Prototype diorama à quatre plans alignables ; dépendances : non détaillées ; critère : assemblage réel et tolérances reportées ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F13/P09/G9 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | X-F | NON_VERIFIE |
+| S-067 | **P0** · G2.1 · Accueil 4 objectifs + Reprendre ; dépendances : non détaillées ; critère : Choix d’usage sans graphe ni terminologie IA ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F14/P01/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
+| S-068 | **P0** · G2.5 · Schéma unique d’écran responsive desktop ; dépendances : non détaillées ; critère : 1366×768 + 1920×1080, pas d’action cachée ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F14/P01-P05/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
+| S-069 | **P0** · G2.5 · États vide/chargement/erreur/export ; dépendances : non détaillées ; critère : Aucun contrôle factice ; succès partiel signalé ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F14/TRANSVERSE/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
+| S-070 | **P0** · G2.2 · Sélection directe et croisée sujets↔vignettes ; dépendances : non détaillées ; critère : T-02 : 12 sujets identifiables, même ID ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F02-F14/P03/G2 | UI-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-P | NON_VERIFIE |
+| S-071 | **P0** · G2.6 · Erreurs cliquables avec région et correction réversible ; dépendances : non détaillées ; critère : Masque rectangle : refus ou reprise explicite ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F03-F14/P03/G2 | UI-GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-E | NON_VERIFIE |
+| S-072 | **P0** · G2.7 · Flux Express souris + clavier ; dépendances : non détaillées ; critère : T-02/U-01 jusqu’à export sans drag obligatoire ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F14/P01-P03/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
+| S-073 | **P0** · G2.8 · Aperçus original/masque/coupe séparés ; dépendances : non détaillées ; critère : Dimensions constantes, aucune inversion confondue ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F03-F06/P01-P03/G2 | UI-GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-E | NON_VERIFIE |
+| S-074 | **P0** · G2.9 · Reprise dernier projet et contexte ; dépendances : non détaillées ; critère : fermeture + réouverture identiques, pas de retouche perdue ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F10/P01-P07/G2 | PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | P | NON_VERIFIE |
+| S-075 | **P0** · G2.4 · Panneau de validation du format par usage ; dépendances : non détaillées ; critère : PNG Print Then Cut ≠ SVG Cut ≠ SVG Art ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F05-F07/P01-P02-P06/G2 | UI-GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-E | NON_VERIFIE |
+| S-076 | **P0** · G4.6 · Checklist d’export et transfert Design Space ; dépendances : non détaillées ; critère : fichier recommandé, version, mise en garde A4/Letter ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F07/P01-P02/G4 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | F | NON_VERIFIE |
+| S-077 | **P1** · G2.7 · Alternative clavier aux gestes souris complexes ; dépendances : non détaillées ; critère : sélection/déplacement/redimensionnement possible ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F14/P01-P05/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
+| S-078 | **P1** · G2.7 · Contrastes/focus/texte ajustable ; dépendances : non détaillées ; critère : audit WCAG applicable et test manuel ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F14/TRANSVERSE/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
+| S-079 | **P1** · G2.8 · Loupe locale et comparaison glissante ; dépendances : non détaillées ; critère : détecter halo / trait coupé dans fixture ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F03-F04/P01-P03/G2 | UI-GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
+| S-080 | **P1** · G2.3 · Pinceau correction tactile souris + aperçu effet ; dépendances : non détaillées ; critère : undo, zoom et sauvegarde sans incohérence ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F03/P03/G2 | UI-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-P | NON_VERIFIE |
+| S-081 | **P1** · G2.9 · Réglages récents et préréglages utilisateur ; dépendances : non détaillées ; critère : aucune application cachée sur nouveau projet ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F10-F14/P01-P07/G2 | UI-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-P | NON_VERIFIE |
+| S-082 | **P1** · G2.5 · Disposition de panneaux persistante ; dépendances : non détaillées ; critère : contexte Express/Atelier conservé, reset disponible ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F14/TRANSVERSE/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
+| S-083 | **P1** · G2.6 · Recherche d’action et aide contextuelle ; dépendances : non détaillées ; critère : utilisateur retrouve l’outil sans documentation externe ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F14/TRANSVERSE/G2 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
+| S-084 | **P1** · G2.9 · Ouvrir dossier/export/rapport depuis la réussite ; dépendances : non détaillées ; critère : fichiers corrects et artefacts immuables ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F10/P01-P02-P07/G2 | UI-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-P | NON_VERIFIE |
+| S-085 | **P1** · G4.6 · Aperçu cutter-only et repères micro-détails ; dépendances : non détaillées ; critère : alertes pointent sur chemins précis ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F06-F07/P02/G4 | GEO-FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E-F | NON_VERIFIE |
+| S-086 | **P1** · G6.6 · Toiles avec poignées et dimensions mm ; dépendances : non détaillées ; critère : proportions, alignements, guides vérifiés ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F08/P05/G6 | UI-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-P | NON_VERIFIE |
+| S-087 | **P1** · G6.6 · Multi-sélection, groupement et menu contextuel ; dépendances : non détaillées ; critère : batch d’objets sans perte d’identité ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F08/P05/G6 | UI-PRJ | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-P | NON_VERIFIE |
+| S-088 | **P1** · G6.7 · Trois gabarits de départ guidés ; dépendances : non détaillées ; critère : étiquette, carte, topper sauvegardés et repris ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F08-F09/P05/G6 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U | NON_VERIFIE |
+| S-089 | **P1** · G7.6 · Tableau de lot et reprise d’un échec isolé ; dépendances : non détaillées ; critère : 50 éléments, 1 échec, 49 conservés ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F12/P04-P08/G7 | JOB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | J | NON_VERIFIE |
+| S-090 | **P1** · G7.4 · Comparer deux dispositions de planche ; dépendances : non détaillées ; critère : aucune collision ; placements verrouillés stables ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F11/P04/G7 | GEO-JOB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | J-E | NON_VERIFIE |
+| S-091 | **P1** · G7.2 · Bibliothèque avec miniatures et filtre métier ; dépendances : non détaillées ; critère : retrouver un projet en test utilisateur ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F10/P07/G7 | LIB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | L | NON_VERIFIE |
+| S-092 | **P1** · G6.3 · Choix de police avec aperçu et alertes glyphes ; dépendances : non détaillées ; critère : caractères FR et police absente contrôlés ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F09/P05-P08/G6 | TYPE | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | T | NON_VERIFIE |
+| S-093 | **P0** · G8.6 · Protocole de test utilisateur novice/régulier ; dépendances : non détaillées ; critère : tests scénarisés et observations anonymisées ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F14/TRANSVERSE/G8 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B | NON_VERIFIE |
+| S-094 | **P0** · G8.6 · Tests d’accessibilité + vérification Windows zoom ; dépendances : non détaillées ; critère : aucun blocage critique de la voie principale ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F14/TRANSVERSE/G8 | UI-OPS | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-B | NON_VERIFIE |
+| S-095 | **P0** · G8.6 · Tests de récupération pendant export/IA ; dépendances : non détaillées ; critère : zéro perte de source/correction validée ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F10-F15/P10/G8 | PRJ-JOB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | P-J | NON_VERIFIE |
+| S-096 | **P1** · G8.6 · Instrumentation locale UX et latence (opt-in export rapport) ; dépendances : non détaillées ; critère : p50/p90 et cas d’erreur disponibles localement ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F14-F15/TRANSVERSE/G8 | OPS | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | B | NON_VERIFIE |
+| S-097 | **P2** · G7 · Commandes « refaire sur sélection » ; dépendances : non détaillées ; critère : répétition sûre sur objets compatibles ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F08-F12/P04-P08/G7 | UI-JOB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-J | NON_VERIFIE |
+| S-098 | **P2** · G7 · Liste de recettes/gabarits personnels ; dépendances : non détaillées ; critère : modèle portable et droits visibles ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F10/P07/G7 | LIB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | L | NON_VERIFIE |
+| S-099 | **P2** · G9 · Guide d’assemblage de diorama dans l’UI ; dépendances : non détaillées ; critère : prototype mesuré et assemblé ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F13/P09/G9 | FAB | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | X-F | NON_VERIFIE |
+| S-100 | **P2** · G9 · Raccourcis personnalisables / commandes favorites ; dépendances : non détaillées ; critère : conflits clavier détectés et restaurables ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F14/TRANSVERSE/G9 | UI | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | U-X | NON_VERIFIE |
+| S-101 | **P2** · G9 · Comparaison de variantes avec scores séparés ; dépendances : non détaillées ; critère : rendu/coupe/coût non confondus ; [source intégrale](ROADMAP_HERITAGE_v3_3.md) | F05-F11/P04-P06/G9 | GEO | SPECIFIE | A_RECONSTRUIRE | N/N/N/N | E-X | NON_VERIFIE |
 
 ### Dossiers R33-001 à R33-040
 
