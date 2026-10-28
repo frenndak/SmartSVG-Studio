@@ -236,7 +236,7 @@ test('bound G2.6 report proposes one subject to node, never applies a mask',asyn
   const receive=b.MockBroadcastChannel.instances[0];
   const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAD0lEQVR42mNgGAUMDAwMAAEIAAEoUqMqAAAAAElFTkSuQmCC';
   const report={kind:'smartsvg:subjects:g33b',version:1,
-    node_id:17,session_id:'4'.repeat(32),selection:1,
+    node_id:17,session_id:'4'.repeat(32),expires_at_ms:Date.now()+90_000,selection:1,
     source_sha256:'a'.repeat(64),width_px:160,height_px:90,count:2,
     sujets:[
       {numero:1,image_data:png,codes:['FRAGMENTS_DETACHES'],
