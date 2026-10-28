@@ -14,7 +14,7 @@ import zlib
 
 from smartsvg_core.project_archive import load_project
 from smartsvg_core.project_workspace_g22 import ManagedWorkspace, WorkspaceError
-from project_routes_g22 import register_project_routes
+from engine.project_routes_g22 import register_project_routes
 
 
 def png(width=4, height=3):
