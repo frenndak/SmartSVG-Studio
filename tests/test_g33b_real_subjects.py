@@ -14,7 +14,8 @@ class RealSubjectHandoffTests(unittest.TestCase):
         node=shutil.which('node')
         if not node:
             self.skipTest('Node.js unavailable')
-        for suite in (JS, ROOT/'engine/tests/test_g33_subject_selection.mjs'):
+        for suite in (JS, ROOT/'engine/tests/test_g33_subject_selection.mjs',
+                      ROOT/'engine/tests/test_g33_node_selection_ui.mjs'):
             result=subprocess.run([node,'--test',str(suite)],cwd=ROOT,
                                   text=True,capture_output=True,timeout=30)
             self.assertEqual(result.returncode,0,(result.stdout+result.stderr)[-6000:])
