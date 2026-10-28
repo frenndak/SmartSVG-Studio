@@ -171,7 +171,7 @@ test('explicit real subject reception displays verified G2.6 content and stays n
   assert.equal(b.find('receiveSubjects').disabled,true);
   channel.sendToReceiver({kind:'foreign-plugin',sujets:[]});
   assert.equal(b.find('realSubjectsGrid').children.length,0);
-  const png='data:image/png;base64,QUJDRA==';
+  const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAD0lEQVR42mNgGAUMDAwMAAEIAAEoUqMqAAAAAElFTkSuQmCC';
   channel.sendToReceiver({kind:'smartsvg:subjects:g33b',version:1,
     selection:1,source_sha256:'a'.repeat(64),width_px:160,height_px:90,count:2,
     sujets:[

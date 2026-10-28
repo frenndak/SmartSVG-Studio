@@ -5,6 +5,49 @@ export const SUBJECT_HANDOFF_CHANNEL='smartsvg:subjects:atelier:g33b:v1';
 export const SUBJECT_HANDOFF_KIND='smartsvg:subjects:g33b';
 const SHA=/^[a-f0-9]{64}$/;
 const PREVIEW=/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/;
+
+const PNG_PREFIX='data:image/png;base64,';
+const PNG_SIGNATURE=[137,80,78,71,13,10,26,10];
+/** Validate a bounded PNG thumbnail header, not just an image/png data URI.
+ * Inspect only the first 33 decoded bytes (signature, IHDR and its CRC):
+ * avoid allocating an extra 4 MiB binary string for every preview.
+ * Browser decoding remains authoritative for the rest of the PNG.
+ */
+function validPngPreview(uri){
+  if(typeof uri!=='string'||uri.length>700000||!PREVIEW.test(uri))return false;
+  try{
+    const header=atob(uri.slice(PNG_PREFIX.length,PNG_PREFIX.length+44));
+    if(header.length!==33||
+       !PNG_SIGNATURE.every((value,index)=>header.charCodeAt(index)===value)||
+       header.slice(12,16)!=='IHDR')return false;
+    const u32=offset=>(
+      header.charCodeAt(offset)*0x1000000+
+      header.charCodeAt(offset+1)*0x10000+
+      header.charCodeAt(offset+2)*0x100+
+      header.charCodeAt(offset+3)
+    )>>>0;
+    if(u32(8)!==13)return false;
+    const width=u32(16),height=u32(20);
+    // The actual G2.6 previews are 88 px; 512 px per side is generous.
+    // 32 accepted previews then decode to at most 32 MiB of RGBA pixels.
+    if(!width||!height||width>512||height>512)return false;
+    const depth=header.charCodeAt(24),color=header.charCodeAt(25);
+    const legalDepth={0:[1,2,4,8,16],2:[8,16],3:[1,2,4,8],
+                      4:[8,16],6:[8,16]};
+    if(!legalDepth[color]?.includes(depth)||
+       header.charCodeAt(26)!==0||header.charCodeAt(27)!==0||
+       ![0,1].includes(header.charCodeAt(28)))return false;
+    let crc=0xffffffff;
+    for(let i=12;i<29;i++){
+      crc^=header.charCodeAt(i);
+      for(let bit=0;bit<8;bit++){
+        crc=(crc>>>1)^((crc&1)?0xedb88320:0);
+      }
+    }
+    return ((crc^0xffffffff)>>>0)===u32(29);
+  }catch{return false;}
+}
+
 const CODES=new Set([
  'MASQUE_VIDE','FRAGMENTS_DETACHES','MICRO_FRAGMENTS','TOUCHE_BORD_IMAGE',
  'SILHOUETTE_RECTANGULAIRE','SUJET_TRES_PETIT',
@@ -61,8 +104,7 @@ export function normalizeSubjectInspection(raw){
    if(!integer(item.zones_non_affichees??0,0,1000000))return null;
    let image=null;
    if(item.image_data!==undefined&&item.image_data!==null){
-     if(typeof item.image_data!=='string'||item.image_data.length>700000||
-        !PREVIEW.test(item.image_data))return null;
+     if(!validPngPreview(item.image_data))return null;
      image=item.image_data;
      bytes+=image.length;
      if(bytes>4*1024*1024)return null;
