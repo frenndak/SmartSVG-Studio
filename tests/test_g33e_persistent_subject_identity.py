@@ -190,7 +190,8 @@ class PersistentSubjectIdentityTests(unittest.TestCase):
         save_with_recovery(
             self.path, forged, expected_sha256=before["sha256"])
         state, item, source_id = self.binding(0)
-        self.assertEqual(item["subject_id"], created["subject_id"])
+        self.assertIsNone(item["subject_id"])
+        self.assertEqual(item["subject_proof_status"], "mismatch")
         with self.assertRaisesRegex(
                 WorkspaceError, "SUBJECT_IDENTITY_PROOF_MISMATCH"):
             self.workspace.register_subject_identity(
@@ -199,6 +200,30 @@ class PersistentSubjectIdentityTests(unittest.TestCase):
                 source_id=source_id, source_sha256=self.source_fingerprint,
                 expected_sha256=state["sha256"], confirmed=True,
                 expires_at_ms=int(time.time() * 1000) + 60_000)
+
+
+    def test_read_catalog_and_recognition_reject_changed_source_fingerprint(self):
+        self.register()
+        before = self.workspace.inspect("subjects")
+        project = load_project(self.path)
+        meta = dict(project.document[SNAPSHOT_KEY])
+        meta["editor_fingerprint"] = "d" * 64
+        forged = replace(
+            project, document={**project.document, SNAPSHOT_KEY: meta})
+        save_with_recovery(
+            self.path, forged, expected_sha256=before["sha256"])
+        state, item, source_id = self.binding(0)
+        self.assertIsNone(item["subject_id"])
+        self.assertEqual(item["subject_proof_status"], "mismatch")
+        with self.assertRaisesRegex(
+                WorkspaceError, "SUBJECT_IDENTITY_PROOF_MISMATCH"):
+            self.workspace.register_subject_identity(
+                "subjects", mask_index=0, mask_id=item["mask_id"],
+                mask_sha256_float32=item["mask_sha256_float32"],
+                source_id=source_id, source_sha256="d" * 64,
+                expected_sha256=state["sha256"], confirmed=True,
+                expires_at_ms=int(time.time() * 1000) + 60_000)
+
 
     def test_core_rejects_duplicate_empty_and_collision_cases(self):
         first = self.raw[:4 * 3 * 4]
