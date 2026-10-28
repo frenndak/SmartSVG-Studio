@@ -86,13 +86,15 @@ function browser(){
     sendToReceiver(data){this.onmessage?.({data});}
   }
   const timeouts=new Map();let nextTimeout=1;
-  const globals={document,window,URL,Image,console,Set,Array,Math,Number,String,
+  let simulatedNow=Date.now();
+  class SimulatedDate extends Date {static now(){return simulatedNow;}}
+  const globals={document,window,URL,Image,console,Set,Array,Math,Number,String,Date:SimulatedDate,
     Object,Promise,BroadcastChannel:MockBroadcastChannel,__g33Handoff:handoff,__g33Selection:selection,
     setTimeout:(fn)=>{const id=nextTimeout++;timeouts.set(id,fn);return id;},
     clearTimeout:id=>timeouts.delete(id)};
   vm.runInNewContext(vmScript,globals,{timeout:5000});
   return {find,steps,navigation,revoked,created,Image,document,
-    window,MockBroadcastChannel,timeouts};
+    window,MockBroadcastChannel,timeouts,advance:ms=>{simulatedNow+=ms;}};
 }
 const file=(name,type='image/png',size=1000)=>({name,type,size});
 
@@ -265,4 +267,29 @@ test('bound G2.6 report proposes one subject to node, never applies a mask',asyn
   assert.equal(b.MockBroadcastChannel.instances.length,2,'stale card must not send');
   assert.match(b.find('realSubjectsStatus').textContent,/Rapport remplacé/);
   assert.equal(b.find('count').textContent,'12 / 12','demo remains isolated');
+});
+
+test('Atelier expires proposal controls, even when the real PNG thumbnails stay visible',async()=>{
+ const b=browser();b.window.location.protocol='http:';
+ await b.find('receiveSubjects').fire('click');
+ const report={kind:'smartsvg:subjects:g33b',version:1,
+   node_id:17,session_id:'4'.repeat(32),expires_at_ms:Date.now()+90_000,selection:1,
+   source_sha256:'a'.repeat(64),width_px:160,height_px:90,count:1,
+   sujets:[{numero:1,image_data:null,codes:[],
+     zones_a_examiner:[],zones_non_affichees:0}]};
+ b.MockBroadcastChannel.instances[0].sendToReceiver(report);
+ const first=b.find('realSubjectsGrid').children[0];
+ const proposal=first.children.filter(x=>x.tagName==='button')[1];
+ assert.ok(proposal,'fresh report has proposal action');
+ const callbacks=[...b.timeouts.values()];
+ assert.equal(callbacks.length,1,'one actual session expiration callback');
+ b.advance(90_100);
+ callbacks[0]();
+ assert.match(b.find('realSubjectsStatus').textContent,/expirée/);
+ assert.equal(b.find('realSubjectsGrid').children.length,1,'genuine thumbnail remains available');
+ assert.equal(b.find('realSubjectsGrid').children[0].children.filter(x=>x.tagName==='button').length,1,
+   'propose control is no longer rendered');
+ await proposal.fire('click'); // stale detached button cannot send
+ assert.equal(b.MockBroadcastChannel.instances.length,1);
+ assert.match(b.find('realSubjectsStatus').textContent,/Session expirée/);
 });
