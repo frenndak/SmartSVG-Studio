@@ -2,11 +2,13 @@
 import base64
 import hashlib
 import json
+import os
 from pathlib import Path
 import stat
 import struct
 import tempfile
 import unittest
+from unittest import mock
 import zipfile
 import zlib
 
@@ -420,6 +422,23 @@ class ArchiveG13Tests(unittest.TestCase):
         with zipfile.ZipFile(self.path) as archive:
             self.assertEqual(len(archive.namelist()), 11)
             self.assertNotIn('../', ''.join(archive.namelist()))
+
+    def test_temporary_archive_is_fsynced_through_writable_descriptor(self):
+        real_fsync = os.fsync
+        fsync_calls = 0
+
+        def require_writable_descriptor(file_descriptor):
+            nonlocal fsync_calls
+            fsync_calls += 1
+            if fsync_calls == 1:
+                os.ftruncate(file_descriptor, os.fstat(file_descriptor).st_size)
+            return real_fsync(file_descriptor)
+
+        with mock.patch('smartsvg_core.project_archive.os.fsync',
+                        side_effect=require_writable_descriptor):
+            save_project(self.path, _fixture())
+
+        self.assertEqual(load_project(self.path), _fixture())
 
     def test_no_overwrite_by_default_and_atomic_overwrite(self):
         original = _fixture()
