@@ -140,3 +140,13 @@ test('optional node/session identity is preserved, but incomplete or malformed b
    {...bound,session_id:'x'.repeat(32)}
  ])assert.equal(normalizeSubjectInspection(invalid),null);
 });
+
+test('bound reports without a future session deadline cannot enable proposals',()=>{
+ const bound={...sample(),node_id:17,session_id:'4'.repeat(32)};
+ assert.equal(normalizeSubjectInspection(bound),null,'untimed node bindings fail closed');
+ assert.equal(normalizeSubjectInspection({...bound,expires_at_ms:Date.now()-1}),null);
+ assert.equal(normalizeSubjectInspection({...bound,expires_at_ms:'tomorrow'}),null);
+ const live=normalizeSubjectInspection({...bound,expires_at_ms:Date.now()+90_000});
+ assert.ok(live);
+ assert.equal(typeof live.expires_at_ms,'number');
+});
