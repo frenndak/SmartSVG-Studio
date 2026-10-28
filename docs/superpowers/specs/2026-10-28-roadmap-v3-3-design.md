@@ -25,7 +25,7 @@ Produire une révision de planification exhaustive qui conserve toutes les ambit
 - Le dépôt est public : aucune donnée utilisateur, œuvre privée, secret, poids de modèle ou média sous licence ne peut être ajouté.
 - PNG Print Then Cut, SVG Basic Cut, SVG Cut multicouche et SVG d'édition restent quatre contrats distincts.
 - Les preuves automatisées, Windows, GPU, Design Space et fabrication physique restent séparées.
-- La révision est publiée comme brouillon documentaire jusqu'à décision humaine explicite.
+- La révision est publiée comme proposition documentaire jusqu'à décision de fusion autorisée ; sa promotion opérationnelle exige ensuite un micro-lot distinct de gouvernance protégée.
 
 ## Approches considérées
 
@@ -52,7 +52,7 @@ Retenue : un document maître explique la stratégie et les portes, un registre 
 
 La V3.3 reprend normativement le contenu historique dans une annexe autonome `docs/ROADMAP_HERITAGE_v3_3.md` ; le registre fournit les 101 dossiers canoniques enrichis. Le fichier V3.2 original et son manifeste restent des archives protégées. Les nouvelles exigences de structuration utilisent les identifiants R33-001 et suivants afin d'éviter toute collision avec S-001 à S-101.
 
-Les états communs sont : `SPECIFIE`, `ARCHITECTURE`, `IMPLEMENTE`, `RACCORDE`, `TESTE_AUTO`, `TESTE_WINDOWS`, `TESTE_DESIGN_SPACE`, `TESTE_PHYSIQUE`, `STABILISE`. Un état supérieur ne peut être déduit d'un état inférieur.
+Les états d'implémentation communs sont : `SPECIFIE`, `ARCHITECTURE`, `IMPLEMENTE`, `RACCORDE`, `QUALIFIE`, `STABILISE`. Les preuves AUTO, WINDOWS, DESIGN_SPACE et PHYSIQUE sont quatre dimensions indépendantes, chacune justifiée par un SHA et un environnement ; aucune n'est déduite d'une autre.
 
 Les lots sont organisés par dépendances, pas par abandon : fondations et vérité des données, parcours connecté, fabrication, création, production, extensions avancées, stabilisation. Toutes les familles restent visibles jusqu'à leur gate final.
 
