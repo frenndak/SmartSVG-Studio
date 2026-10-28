@@ -104,3 +104,47 @@ test('missing widget and callback failure never leave a false committed choice',
  assert.equal(t.node.widgets[0].value,1);
  assert.match(t.hint.textContent,/restaurée/);
 });
+
+test('async widget rejection rolls back and ignores duplicate confirmations',async()=>{
+ const s=setup();s.node.onExecuted(report());await s.share.fire('click');
+ const channel=s.channels[0];
+ channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ let rejectLater;
+ s.node.widgets[0].callback=()=>new Promise((_,reject)=>{rejectLater=reject;});
+ const attempt=s.confirm.fire('click');
+ assert.equal(s.node.widgets[0].value,2,'temporary widget update before callback settlement');
+ assert.equal(s.confirm.disabled,true,'confirmation locked while callback is pending');
+ await s.confirm.fire('click');
+ rejectLater(new Error('synthetic async rejection'));
+ await attempt;
+ assert.equal(s.node.widgets[0].value,1,'rejected callback must restore old value');
+ assert.match(s.hint.textContent,/restaurée/);
+ assert.equal(channel.closed,true);
+});
+
+test('async widget resolution commits only if the source report remains current',async()=>{
+ const s=setup();s.node.onExecuted(report());await s.share.fire('click');
+ const channel=s.channels[0];
+ channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ let resolveLater;
+ s.node.widgets[0].callback=()=>new Promise(resolve=>{resolveLater=resolve;});
+ const attempt=s.confirm.fire('click');
+ s.node.onExecuted(report()); // same fingerprint, but a distinct execution invalidates the proposal
+ resolveLater();
+ await attempt;
+ assert.equal(s.node.widgets[0].value,1,'stale asynchronous confirmation must roll back');
+ assert.match(s.hint.textContent,/périmée/);
+ assert.equal(channel.closed,true);
+ assert.equal(s.share.disabled,false,'fresh report is still available');
+});
+
+test('async widget resolution on unchanged source completes normally',async()=>{
+ const s=setup();s.node.onExecuted(report());await s.share.fire('click');
+ const channel=s.channels[0];
+ channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ s.node.widgets[0].callback=async()=>{};
+ await s.confirm.fire('click');
+ assert.equal(s.node.widgets[0].value,2);
+ assert.match(s.hint.textContent,/Relancer manuellement/);
+ assert.equal(channel.closed,true);
+});
