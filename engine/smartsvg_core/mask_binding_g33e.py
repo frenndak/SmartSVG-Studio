@@ -12,8 +12,11 @@ import re
 import struct
 
 from .mask_snapshot_g24 import SNAPSHOT_KEY, SNAPSHOT_PATH, decode_snapshot
-_B1_SUBJECT_ID = re.compile(r'^subject-[0-9a-f]{32}    SubjectIdentityError, validated_subject_identity_bindings,
+from .subject_identity_g33e import (
+    SubjectIdentityError, validated_subject_identity_bindings,
 )
+
+_B1_SUBJECT_ID = re.compile(r'^subject-[0-9a-f]{32}$')
 
 
 def snapshot_mask_bindings(project):
