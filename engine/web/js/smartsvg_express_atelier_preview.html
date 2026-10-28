@@ -251,6 +251,19 @@ function paintRealSubjects(){
   for(const item of realSubjectsData.sujets){
     const card=document.createElement("article");card.className="subject-card";
     const name=document.createElement("h3");name.textContent="Sujet "+item.numero;card.appendChild(name);
+    // A G2.4 mask_id is an archive position, never a fabricated persistent
+    // subject_id. The catalog is validated before this DOM is rendered.
+    if(reportAtPaint.project_name){
+      const linked=reportAtPaint.mask_catalog?.items[item.numero-1];
+      const identity=document.createElement("p");
+      identity.textContent=linked
+        ?"Masque float32 : "+linked.mask_id+" · SHA "+linked.mask_sha256_float32.slice(0,12)+"… · "+
+          (linked.subject_id
+            ?"Sujet enregistré : "+linked.subject_id
+            :"Identité de sujet durable absente (liaison temporaire à cette révision)")
+        :"Identité du masque non vérifiée : projet hérité, seulement révision globale épinglée.";
+      card.appendChild(identity);
+    }
     const rings=[];
     if(item.image_data){
       const wrap=document.createElement("div");wrap.className="thumb-wrap";
@@ -398,6 +411,11 @@ $("receiveSubjects").addEventListener("click",async()=>{
           ?"Projet verrouillé : "+value.project_name+
             " · révision "+value.project_sha256.slice(0,12)+"… · "
           :"Aucun projet .smartsvg lié · ")+
+        (value.project_name
+          ?value.mask_catalog
+            ?"Correspondance float32 vérifiée pour cette révision · "
+            :"Identités par masque non disponibles (projet hérité) · "
+          :"")+
         "Inspection seulement ; aucun export ni masque modifié.";
       paintRealSubjects();
       $("realSubjectsHost").scrollIntoView?.({block:"nearest",behavior:"smooth"});
