@@ -13,6 +13,8 @@ function exactMask(report,mask){
  const item=catalog.items[mask.mask_index];
  if(!item||item.mask_id!==mask.mask_id||
     item.mask_sha256_float32!==mask.mask_sha256_float32||
+    mask.subject_id!==item.subject_id||
+    mask.subject_ambiguous!==item.subject_ambiguous||
     item.subject_id!==null||item.subject_ambiguous!==false)return null;
  return {catalog,item};
 }
