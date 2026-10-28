@@ -3,12 +3,16 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import * as handoff from '../engine/web/js/smartsvg_subject_handoff_g33.mjs';
+import * as selection from '../engine/web/js/smartsvg_subject_selection_g33c.mjs';
 
 const page=readFileSync(new URL('../engine/web/js/smartsvg_express_atelier_preview.html',import.meta.url),'utf8');
 const script=page.match(/<script>\s*([\s\S]*?)<\/script>/i)?.[1];
 const vmScript=script?.replace(
   'await import("./smartsvg_subject_handoff_g33.mjs")',
   'await Promise.resolve(globalThis.__g33Handoff)'
+).replace(
+  'await import("./smartsvg_subject_selection_g33c.mjs")',
+  'await Promise.resolve(globalThis.__g33Selection)'
 );
 assert.ok(script,'single inline G3 atelier script required');
 
@@ -76,13 +80,14 @@ function browser(){
   const window={location:{protocol:'file:'},addEventListener(){}};
   class MockBroadcastChannel{
     static instances=[];
-    constructor(name){this.name=name;this.closed=false;MockBroadcastChannel.instances.push(this);}
+    constructor(name){this.name=name;this.closed=false;this.posted=[];MockBroadcastChannel.instances.push(this);}
+    postMessage(value){this.posted.push(value);}
     close(){this.closed=true;}
     sendToReceiver(data){this.onmessage?.({data});}
   }
   const timeouts=new Map();let nextTimeout=1;
   const globals={document,window,URL,Image,console,Set,Array,Math,Number,String,
-    Object,Promise,BroadcastChannel:MockBroadcastChannel,__g33Handoff:handoff,
+    Object,Promise,BroadcastChannel:MockBroadcastChannel,__g33Handoff:handoff,__g33Selection:selection,
     setTimeout:(fn)=>{const id=nextTimeout++;timeouts.set(id,fn);return id;},
     clearTimeout:id=>timeouts.delete(id)};
   vm.runInNewContext(vmScript,globals,{timeout:5000});
@@ -223,4 +228,41 @@ test('real subjects receiver explicitly refuses file protocol',async()=>{
   await b.find('receiveSubjects').fire('click');
   assert.equal(b.MockBroadcastChannel.instances.length,0);
   assert.match(b.find('realSubjectsStatus').textContent,/ComfyUI sous HTTP local/);
+});
+
+test('bound G2.6 report proposes one subject to node, never applies a mask',async()=>{
+  const b=browser();b.window.location.protocol='http:';
+  await b.find('receiveSubjects').fire('click');
+  const receive=b.MockBroadcastChannel.instances[0];
+  const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAD0lEQVR42mNgGAUMDAwMAAEIAAEoUqMqAAAAAElFTkSuQmCC';
+  const report={kind:'smartsvg:subjects:g33b',version:1,
+    node_id:17,session_id:'4'.repeat(32),selection:1,
+    source_sha256:'a'.repeat(64),width_px:160,height_px:90,count:2,
+    sujets:[
+      {numero:1,image_data:png,codes:['FRAGMENTS_DETACHES'],
+       zones_a_examiner:[{type:'FRAGMENT_SEPARE',bbox_source_px:[1,2,8,10],
+         bbox_apercu_88px:[2,3,14,19]}],zones_non_affichees:0},
+      {numero:2,image_data:null,codes:['MASQUE_VIDE'],
+       zones_a_examiner:[],zones_non_affichees:0}
+    ]};
+  receive.sendToReceiver(report);
+  const card=b.find('realSubjectsGrid').children[0];
+  const proposals=card.children.filter(x=>x.tagName==='button');
+  assert.equal(proposals.length,2,'one local selection and one explicit proposal');
+  assert.equal(b.find('realSubjectsGrid').children[1].children.filter(x=>x.tagName==='button').length,1);
+  await proposals[1].fire('click');
+  assert.equal(b.MockBroadcastChannel.instances.length,2);
+  const outbound=b.MockBroadcastChannel.instances[1];
+  assert.equal(outbound.closed,true);
+  assert.equal(outbound.posted.length,1);
+  assert.equal(outbound.posted[0].node_id,17);
+  assert.equal(outbound.posted[0].session_id,'4'.repeat(32));
+  assert.equal(outbound.posted[0].subject,1);
+  assert.match(b.find('realSubjectsStatus').textContent,/Confirmer dans ComfyUI/);
+  assert.match(b.find('realSubjectsSelection').textContent,/1 \/ 2/);
+  await b.find('clearSubjects').fire('click');
+  await proposals[1].fire('click');
+  assert.equal(b.MockBroadcastChannel.instances.length,2,'stale card must not send');
+  assert.match(b.find('realSubjectsStatus').textContent,/Rapport remplacé/);
+  assert.equal(b.find('count').textContent,'12 / 12','demo remains isolated');
 });
