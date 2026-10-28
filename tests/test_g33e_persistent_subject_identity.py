@@ -1,4 +1,5 @@
 """G3.3e-b1: persistent Subject identity over exact G2.4 float32 masks."""
+from dataclasses import replace
 from hashlib import sha256
 import asyncio
 import importlib
@@ -13,7 +14,10 @@ from unittest import mock
 import unittest
 import zlib
 
+from smartsvg_core.mask_snapshot_g24 import SNAPSHOT_KEY, SNAPSHOT_PATH, create_snapshot, encode_preview_l8
 from smartsvg_core.project_archive import load_project
+from smartsvg_core.project_recovery import save_with_recovery
+from smartsvg_core.subject_identity_g33e import register_subject_identity as bind_subject_identity, SubjectIdentityError
 from smartsvg_core.project_workspace_g22 import ManagedWorkspace, WorkspaceError
 
 
@@ -154,6 +158,126 @@ class PersistentSubjectIdentityTests(unittest.TestCase):
                 editor_fingerprint=self.source_fingerprint,
                 expected_sha256=before["sha256"])
         self.assertEqual(self.workspace.inspect("subjects")["sha256"], before["sha256"])
+
+
+    def test_existing_identity_refuses_new_float32_bytes_with_same_bbox(self):
+        created = self.register()
+        before = self.workspace.inspect("subjects")
+        project = load_project(self.path)
+        values = list(struct.unpack("<24f", self.raw))
+        values[5] = 0.9  # remains foreground; bbox is intentionally unchanged
+        changed = struct.pack("<24f", *values)
+        meta, compressed = create_snapshot(
+            changed, [2, 3, 4], image_fingerprint="b" * 64,
+            editor_fingerprint=self.source_fingerprint)
+        resources = dict(project.resources)
+        resources[SNAPSHOT_PATH] = compressed
+        masks = []
+        stride = 4 * 3 * 4
+        for index, mask in enumerate(project.masks):
+            preview = encode_preview_l8(
+                changed[index * stride:(index + 1) * stride], 4, 3)
+            path = project.mask_paths[mask.mask_id]
+            resources[path] = preview
+            masks.append(replace(mask, sha256=sha256(preview).hexdigest()))
+        forged = replace(
+            project,
+            document={**project.document, SNAPSHOT_KEY: meta},
+            masks=tuple(masks),
+            resources=resources,
+        )
+        save_with_recovery(
+            self.path, forged, expected_sha256=before["sha256"])
+        state, item, source_id = self.binding(0)
+        self.assertEqual(item["subject_id"], created["subject_id"])
+        with self.assertRaisesRegex(
+                WorkspaceError, "SUBJECT_IDENTITY_PROOF_MISMATCH"):
+            self.workspace.register_subject_identity(
+                "subjects", mask_index=0, mask_id=item["mask_id"],
+                mask_sha256_float32=item["mask_sha256_float32"],
+                source_id=source_id, source_sha256=self.source_fingerprint,
+                expected_sha256=state["sha256"], confirmed=True,
+                expires_at_ms=int(time.time() * 1000) + 60_000)
+
+    def test_core_rejects_duplicate_empty_and_collision_cases(self):
+        first = self.raw[:4 * 3 * 4]
+        self.workspace.save_base_masks(
+            "subjects", raw_float32=first + first, shape=[2, 3, 4],
+            image_fingerprint="b" * 64,
+            editor_fingerprint=self.source_fingerprint,
+            expected_sha256=self.workspace.inspect("subjects")["sha256"])
+        state, item, source_id = self.binding(0)
+        with self.assertRaisesRegex(SubjectIdentityError, "AMBIGUOUS_MASK_CONTENT"):
+            bind_subject_identity(
+                load_project(self.path), mask_index=0,
+                mask_id=item["mask_id"],
+                mask_sha256_float32=item["mask_sha256_float32"],
+                source_id=source_id, source_sha256=self.source_fingerprint)
+
+        empty = bytes(4 * 3 * 4)
+        self.workspace.save_base_masks(
+            "subjects", raw_float32=empty + self.raw[4 * 3 * 4:],
+            shape=[2, 3, 4], image_fingerprint="b" * 64,
+            editor_fingerprint=self.source_fingerprint,
+            expected_sha256=self.workspace.inspect("subjects")["sha256"])
+        state, item, source_id = self.binding(0)
+        with self.assertRaisesRegex(SubjectIdentityError, "MASK_HAS_NO_G26_FOREGROUND"):
+            bind_subject_identity(
+                load_project(self.path), mask_index=0,
+                mask_id=item["mask_id"],
+                mask_sha256_float32=item["mask_sha256_float32"],
+                source_id=source_id, source_sha256=self.source_fingerprint)
+
+        self.workspace.save_base_masks(
+            "subjects", raw_float32=self.raw, shape=[2, 3, 4],
+            image_fingerprint="b" * 64,
+            editor_fingerprint=self.source_fingerprint,
+            expected_sha256=self.workspace.inspect("subjects")["sha256"])
+        project = load_project(self.path)
+        state, first_item, source_id = self.binding(0)
+        state, second_item, _ = self.binding(1)
+        project, _, _ = bind_subject_identity(
+            project, mask_index=0, mask_id=first_item["mask_id"],
+            mask_sha256_float32=first_item["mask_sha256_float32"],
+            source_id=source_id, source_sha256=self.source_fingerprint,
+            subject_id_factory=lambda: "1" * 32)
+        with self.assertRaisesRegex(SubjectIdentityError, "SUBJECT_ID_COLLISION"):
+            bind_subject_identity(
+                project, mask_index=1, mask_id=second_item["mask_id"],
+                mask_sha256_float32=second_item["mask_sha256_float32"],
+                source_id=source_id, source_sha256=self.source_fingerprint,
+                subject_id_factory=lambda: "1" * 32)
+
+    def test_workspace_rejects_unconfirmed_expired_stale_and_wrong_binding(self):
+        state, item, source_id = self.binding(0)
+        base = dict(
+            mask_index=0, mask_id=item["mask_id"],
+            mask_sha256_float32=item["mask_sha256_float32"],
+            source_id=source_id, source_sha256=self.source_fingerprint,
+            expected_sha256=state["sha256"], confirmed=True,
+            expires_at_ms=int(time.time() * 1000) + 60_000)
+        cases = [
+            ({"confirmed": False}, "SUBJECT_IDENTITY_CONFIRMATION_REQUIRED"),
+            ({"expires_at_ms": int(time.time() * 1000) - 1}, "SUBJECT_IDENTITY_SESSION_EXPIRED"),
+            ({"expected_sha256": "0" * 64}, "PROJECT_CHANGED"),
+            ({"mask_sha256_float32": "0" * 64}, "MASK_FLOAT32_SHA_MISMATCH"),
+            ({"mask_id": "base-mask-99"}, "MASK_IDENTITY_MISMATCH"),
+            ({"source_id": "source-wrong"}, "SUBJECT_SOURCE_MISMATCH"),
+            ({"mask_index": 99}, "MASK_INDEX_OUT_OF_RANGE"),
+        ]
+        for changes, code in cases:
+            with self.subTest(code=code), self.assertRaisesRegex(WorkspaceError, code):
+                self.workspace.register_subject_identity(
+                    "subjects", **{**base, **changes})
+
+    def test_save_readback_verification_is_part_of_recovery_transaction(self):
+        import smartsvg_core.project_workspace_g22 as workspace_module
+        original = workspace_module.save_with_recovery
+        with mock.patch.object(
+                workspace_module, "save_with_recovery", wraps=original) as saver:
+            self.register()
+        self.assertIn("verify_saved_project", saver.call_args.kwargs)
+
 
 
     def test_opt_in_route_requires_exact_confirmed_metadata(self):
