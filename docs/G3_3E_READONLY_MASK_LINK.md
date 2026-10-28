@@ -15,7 +15,7 @@ Le champ additionnel **facultatif** `project.base_masks.mask_identity` (version 
 - `mask_index` : index 0-based exact dans le tenseur G2.4 ;
 - `mask_id` : véritable identifiant d'archive `base-mask-XX`, lié à la position ;
 - `mask_sha256_float32` : SHA256 **de la tranche brute float32**, non du PNG L8 ;
-- `has_foreground` : au moins une valeur strictement positive, contrôlée en float32 ;
+- `has_foreground` : au moins une valeur `>= 0,5` (seuil réel G2.6), contrôlée en float32 ;
 - `subject_id` : identifiant G1.2 **seulement s'il existe une unique référence à ce masque**, sinon `null` ;
 - `accessory_ids` : relations existantes depuis le record `Subject`, jamais déduites du visuel ;
 - `subject_ambiguous` : plusieurs records référencent le même masque, à refuser lors d'une liaison exploitable.
