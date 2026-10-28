@@ -49,12 +49,14 @@ def validated_subject_identity_bindings(project):
     subjects = {subject.subject_id: subject for subject in project.subjects}
     items, subject_ids, mask_ids = [], set(), set()
     required = {
-        "subject_id", "source_id", "mask_id", "mask_sha256_float32",
+        "subject_id", "source_id", "source_sha256", "mask_id",
+        "mask_sha256_float32",
     }
     for item in raw["items"]:
         if (not isinstance(item, dict) or set(item) != required
                 or not _SUBJECT_ID.fullmatch(str(item.get("subject_id", "")))
                 or not _RECORD_ID.fullmatch(str(item.get("source_id", "")))
+                or not _SHA.fullmatch(str(item.get("source_sha256", "")))
                 or not _RECORD_ID.fullmatch(str(item.get("mask_id", "")))
                 or not _SHA.fullmatch(str(item.get("mask_sha256_float32", "")))):
             raise SubjectIdentityError("INVALID_SUBJECT_IDENTITY_PROOF")
@@ -141,6 +143,7 @@ def register_subject_identity(
         expected = {
             "subject_id": subject.subject_id,
             "source_id": source_id,
+            "source_sha256": source_sha256,
             "mask_id": mask_id,
             "mask_sha256_float32": mask_sha256_float32,
         }
@@ -163,6 +166,7 @@ def register_subject_identity(
     proof = {
         "subject_id": subject.subject_id,
         "source_id": source_id,
+        "source_sha256": source_sha256,
         "mask_id": mask_id,
         "mask_sha256_float32": mask_sha256_float32,
     }
@@ -177,6 +181,7 @@ def register_subject_identity(
             "kind": "register_subject_identity_g33e_b1",
             "subject_id": subject.subject_id,
             "source_id": source_id,
+            "source_sha256": source_sha256,
             "mask_id": mask_id,
             "mask_sha256_float32": mask_sha256_float32,
         }],
