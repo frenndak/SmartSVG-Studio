@@ -14,9 +14,11 @@ class RealSubjectHandoffTests(unittest.TestCase):
         node=shutil.which('node')
         if not node:
             self.skipTest('Node.js unavailable')
-        result=subprocess.run([node,'--test',str(JS)],cwd=ROOT,
-                              text=True,capture_output=True,timeout=30)
-        self.assertEqual(result.returncode,0,(result.stdout+result.stderr)[-6000:])
+        for suite in (JS, ROOT/'engine/tests/test_g33_subject_selection.mjs',
+                      ROOT/'engine/tests/test_g33_node_selection_ui.mjs'):
+            result=subprocess.run([node,'--test',str(suite)],cwd=ROOT,
+                                  text=True,capture_output=True,timeout=30)
+            self.assertEqual(result.returncode,0,(result.stdout+result.stderr)[-6000:])
 
     def test_sender_and_reception_reuse_real_g26_inspector(self):
         html=(ROOT/'engine/web/js/smartsvg_express_atelier_preview.html').read_text()
