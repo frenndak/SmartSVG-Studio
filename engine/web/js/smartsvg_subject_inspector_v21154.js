@@ -322,6 +322,9 @@ function inspector(node){
      else button.addEventListener('click',()=>{
        const widget=node.widgets?.find(w=>w.name==='numero_sujet');
        if(!widget){hint.textContent='Champ numero_sujet introuvable : choisir manuellement.';return;}
+       // A newer explicit thumbnail choice cancels any older pending
+       // inspection/confirmation before the widget is changed.
+       stopSelection();
        widget.value=item.numero;
        for(const b of layout.children){
          b.setAttribute('aria-pressed',String(b===button));
