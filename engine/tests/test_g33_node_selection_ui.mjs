@@ -515,3 +515,52 @@ test('a newer thumbnail selection aborts a pinned GET instead of waiting for tim
  assert.match(s.hint.textContent,/Sujet 1 choisi/,'new UI message is preserved');
  assert.equal(s.share.disabled,false,'subsequent explicit sharing stays possible');
 });
+
+test('manual thumbnail selecting proposed subject during initial GET is not rolled back',async()=>{
+ let reads=0,entered,signal,s;
+ const started=new Promise(resolve=>{entered=resolve;});
+ const reader=(_api,_name,options)=>{
+   if(++reads===1)return Promise.resolve(s.getProject());
+   signal=options.signal;entered();
+   return new Promise((_resolve,reject)=>{
+     signal.addEventListener('abort',()=>reject(Error('PROJECT_BINDING_ABORTED')),{once:true});
+   });
+ };
+ s=setup({projectReader:reader});s.node.onExecuted(report());s.projectName.value='mes_sujets';
+ await s.share.fire('click');const c=s.channels[0];
+ c.receive(selection.makeSelectionProposal(c.sent[0],2));
+ let callbacks=0;s.node.widgets[0].callback=()=>{callbacks++;};
+ const pending=s.confirm.fire('click');await started;
+ await s.root.children[3].children[1].fire('click'); // the user independently chooses 2
+ await pending;
+ assert.equal(signal.aborted,true);
+ assert.equal(callbacks,0,'obsolete confirmation never invoked callback');
+ assert.equal(s.node.widgets[0].value,2,'new manual choice is not rolled back');
+ assert.match(s.hint.textContent,/Sujet 2 choisi/);
+ assert.equal(c.closed,true);
+});
+
+test('manual thumbnail selecting proposed subject during post-callback GET stays selected',async()=>{
+ let reads=0,entered,signal,s;
+ const started=new Promise(resolve=>{entered=resolve;});
+ const reader=(_api,_name,options)=>{
+   if(++reads<=2)return Promise.resolve(s.getProject());
+   signal=options.signal;entered();
+   return new Promise((_resolve,reject)=>{
+     signal.addEventListener('abort',()=>reject(Error('PROJECT_BINDING_ABORTED')),{once:true});
+   });
+ };
+ s=setup({projectReader:reader});s.node.onExecuted(report());s.projectName.value='mes_sujets';
+ await s.share.fire('click');const c=s.channels[0];
+ c.receive(selection.makeSelectionProposal(c.sent[0],2));
+ let callbacks=0;s.node.widgets[0].callback=async()=>{callbacks++;};
+ const pending=s.confirm.fire('click');await started;
+ assert.equal(s.node.widgets[0].value,2,'confirmation applied provisional value');
+ await s.root.children[3].children[1].fire('click');
+ await pending;
+ assert.equal(signal.aborted,true);
+ assert.equal(callbacks,1);
+ assert.equal(s.node.widgets[0].value,2,'newer manual choice must survive aborted confirmation');
+ assert.match(s.hint.textContent,/Sujet 2 choisi/);
+ assert.equal(c.closed,true);
+});
