@@ -258,13 +258,17 @@ class G24MaskArchiveTests(unittest.TestCase):
         original=load_project(self.path)
         id_source=original.sources[0].source_id
         entity=Subject('real-subject-01',id_source,'base-mask-00',(1,1,4,4))
-        save_project(self.path,replace(original,subjects=(entity,)))
-        state=self.ws.inspect('snails')['base_masks']['mask_identity']
+        # save_project is intentionally create-only: construct a separate
+        # synthetic .smartsvg fixture instead of overwriting a healthy file.
+        target=self.ws.root/'subject_fixture.smartsvg'
+        save_project(target,replace(original,project_id='subject_fixture',
+                                    subjects=(entity,)))
+        state=self.ws.inspect('subject_fixture')['base_masks']['mask_identity']
         self.assertEqual(state['bindings'][0]['subject_id'],'real-subject-01')
         self.assertIsNone(state['bindings'][1]['subject_id'])
         self.assertFalse(state['persistent_subject_ids'])
-        self.assertEqual(self.ws.base_masks('snails',
-            expected_sha256=self.ws.inspect('snails')['sha256'])[0],self.raw)
+        self.assertEqual(self.ws.base_masks('subject_fixture',
+            expected_sha256=self.ws.inspect('subject_fixture')['sha256'])[0],self.raw)
 
 
 if __name__=='__main__':
