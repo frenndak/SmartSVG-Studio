@@ -18,7 +18,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .breadcrumb{color:#9db3c8;font-size:12px}.breadcrumb strong{color:#f4f9ff;font-weight:650}.top-actions{display:flex;align-items:center;gap:12px}.pill{border:1px solid #3a4b60;border-radius:30px;padding:7px 12px;font-weight:650;font-size:11px;letter-spacing:.02em;background:#1b2a38}.pill.warning{color:#f4d8a5;border-color:#735b37;background:#302820}.avatar{width:34px;height:34px;display:grid;place-items:center;background:#244758;border-radius:50%;font-size:12px;font-weight:750}
 .content{max-width:1740px;margin:auto;padding:31px 31px 46px}.hero{display:flex;align-items:center;justify-content:space-between;gap:20px}.kicker{color:var(--aqua);font-weight:750;text-transform:uppercase;letter-spacing:.15em;font-size:10px}.hero h1{margin:4px 0 5px;font-size:clamp(24px,2.4vw,32px);line-height:1.25;letter-spacing:-.04em}.hero p{color:var(--muted);margin:0;max-width:730px;font-size:13px}.hero-btn{flex:none}
 .primary{border:1px solid #7debd8;border-radius:10px;background:var(--aqua);color:#0d2830;font-weight:800;padding:11px 17px;box-shadow:0 4px 25px #54d9c418}.primary:hover{background:#78edda}.outline{border:1px solid var(--line2);background:#1a293a;color:var(--text);font-weight:700;border-radius:10px;padding:10px 15px}.outline:hover{background:#25394e}.subtle{border:1px solid #365467;background:#1a3440;color:#bcfbef;border-radius:8px;padding:8px 13px;font-weight:700;font-size:12px}.plain{border:0;background:transparent;color:var(--muted);padding:8px 10px}.plain:hover{color:white}
-.workflow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin:26px 0 18px}.step{border:1px solid var(--line);background:#131f2d;border-radius:12px;padding:12px 13px;display:flex;align-items:center;gap:10px;text-align:left;color:var(--muted);min-width:0}.step[aria-current=step]{border-color:var(--aqua);background:#15323b;color:var(--text);box-shadow:inset 0 0 0 1px #54d9c42e}.step-index{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:#26394b;color:#c9dbe9;flex:none;font-size:12px;font-weight:800}.step[aria-current=step] .step-index{background:var(--aqua);color:#12313a}.step-label{font-size:12px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.workflow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:9px;margin:26px 0 18px}.step{border:1px solid var(--line);background:#131f2d;border-radius:12px;padding:12px 13px;display:flex;align-items:center;gap:10px;text-align:left;color:var(--muted);min-width:0}.step[aria-current=step]{border-color:var(--aqua);background:#15323b;color:var(--text);box-shadow:inset 0 0 0 1px #54d9c42e}.step-index{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:#26394b;color:#c9dbe9;flex:none;font-size:12px;font-weight:800}.step[aria-current=step] .step-index{background:var(--aqua);color:#12313a}.step-label{font-size:12px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .workarea{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:stretch}.surface,.inspect{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);min-width:0}.surface{overflow:hidden}.surface-header{display:flex;align-items:center;justify-content:space-between;padding:17px 20px;border-bottom:1px solid var(--line);gap:10px}.surface-title{font-weight:800;font-size:14px;letter-spacing:-.01em}.surface-sub{display:block;color:var(--muted);font-size:11px;font-weight:400}.toolbar{display:flex;align-items:center;gap:6px}.tool{min-width:35px;height:34px;border:1px solid #3b4f63;border-radius:8px;background:#203044;color:var(--text);font-size:16px;font-weight:700}.tool:hover{background:#2d4660}.zoom-label{min-width:44px;text-align:center;font-size:11px;color:var(--muted)}
 .stage{padding:27px 25px;min-height:458px;display:grid;place-items:center;position:relative;overflow:hidden;background-color:#101927;background-image:radial-gradient(#304153 1px,transparent 1px);background-size:21px 21px}
 .artboard-wrap{transform:scale(var(--zoom,1));transform-origin:center;transition:transform .2s}.artboard{width:min(620px,58vw);aspect-ratio:1.41;background:#fff;box-shadow:0 14px 55px #0008,0 0 0 1px #ffffff24;border-radius:4px;position:relative;overflow:hidden;color:#4c5363;display:grid;place-items:center}
@@ -36,7 +36,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 input[type=file]{position:absolute;width:1px;height:1px;opacity:.001;overflow:hidden}
 @media(max-width:1170px){.app{grid-template-columns:78px minmax(0,1fr)}.side{padding-left:10px;padding-right:10px}.brand{padding:0;justify-content:center}.brand>div:last-child,.nav-heading,.nav b,.side-bottom{display:none}.nav button{justify-content:center;padding:12px}.nav-icon{font-size:20px}.workarea{grid-template-columns:minmax(0,1fr) 288px}.content{padding:24px 18px}}
 @media(max-width:860px){.workarea{grid-template-columns:1fr}.artboard{width:min(620px,80vw)}.stage{min-height:370px}.workflow{gap:4px}.step{padding:9px;justify-content:center}.step-label{display:none}.step-index{width:29px;height:29px}.inspect{display:grid;grid-template-columns:repeat(2,1fr);gap:0 18px}.inspect-header{grid-column:1/-1}.group{padding-right:5px}.footer-actions{align-items:flex-start;flex-direction:column}}
-@media(max-width:580px){.app{display:block}.side{display:none}.topbar{padding:0 14px;height:60px}.breadcrumb{font-size:11px}.top-actions{gap:5px}.avatar{display:none}.content{padding:21px 12px}.hero{display:block}.hero-btn{margin-top:15px}.workflow{margin:21px 0 12px}.stage{padding:15px 9px;min-height:290px}.artboard{width:min(100%,500px)}.snails{inset:33px 19px 26px;gap:2px}.snail{padding:1px;border-width:1px}.snail-index{width:14px;height:14px;font-size:8px}.surface-header{padding:13px}.surface-title{font-size:12px}.surface-footer{padding:12px}.inspect{display:block}.footer-actions{padding:14px}}
+@media(max-width:580px){.app{display:block}.side{display:none}.topbar{padding:0 14px;height:60px}.breadcrumb{font-size:11px}.top-actions{gap:5px}.avatar{display:none}.content{padding:21px 12px}.hero{display:block}.hero-btn{margin-top:15px}.workflow{margin:21px 0 12px;display:flex;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;gap:7px;padding:0 0 7px}.workflow .step{flex:0 0 110px;scroll-snap-align:start;padding:9px 7px;gap:6px}.workflow .step-label{display:block;font-size:10px}.workflow .step-index{width:22px;height:24px;flex:none}.stage{padding:15px 9px;min-height:290px}.artboard{width:min(100%,500px)}.snails{inset:33px 19px 26px;gap:2px}.snail{padding:1px;border-width:1px}.snail-index{width:14px;height:14px;font-size:8px}.surface-header{padding:13px}.surface-title{font-size:12px}.surface-footer{padding:12px}.inspect{display:block}.footer-actions{padding:14px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;animation:none!important}}
 
 /* G3.1: an actual SVG reviewer (distinct from fictional subjects). */
@@ -79,11 +79,11 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:.001;overflow:hi
  <header class="topbar"><div class="breadcrumb">Atelier <span aria-hidden="true">/</span> <strong>Projet escargots</strong> <span style="color:#658199">/ Interface de démonstration</span></div><div class="top-actions"><span class="pill warning">● APERÇU NON CERTIFIÉ</span><span class="avatar" aria-hidden="true">SS</span></div></header>
  <div class="content">
   <section class="hero" aria-label="En-tête du projet"><div><div class="kicker">CRÉER · AFFINER · DÉCOUPER</div><h1>Votre atelier de création, en plus simple.</h1><p>Préparez vos images et vos planches dans un espace unique. Cette démonstration permet de tester l'interface ; les moteurs ComfyUI et Cricut ne sont pas connectés.</p></div><button class="outline hero-btn" type="button" id="demo">↻ Recharger la démo</button></section>
-  <nav class="workflow" aria-label="Étapes de création" id="steps"><button class="step" data-step="source" type="button"><span class="step-index">1</span><span class="step-label">Importer</span></button><button class="step" data-step="clean" type="button"><span class="step-index">2</span><span class="step-label">Nettoyer</span></button><button class="step" data-step="subjects" type="button" aria-current="step"><span class="step-index">3</span><span class="step-label">Sélectionner</span></button><button class="step" data-step="cut" type="button"><span class="step-index">4</span><span class="step-label">Découpe</span></button><button class="step" data-step="export" type="button"><span class="step-index">5</span><span class="step-label">Exporter</span></button></nav>
+  <nav class="workflow" aria-label="Étapes de création" id="steps"><button class="step" data-step="source" type="button" aria-label="Étape 1 : Importer"><span class="step-index" aria-hidden="true">1</span><span class="step-label">Importer</span></button><button class="step" data-step="clean" type="button" aria-label="Étape 2 : Nettoyer"><span class="step-index" aria-hidden="true">2</span><span class="step-label">Nettoyer</span></button><button class="step" data-step="subjects" type="button" aria-current="step" aria-label="Étape 3 : Sélectionner les sujets"><span class="step-index" aria-hidden="true">3</span><span class="step-label">Sélectionner</span></button><button class="step" data-step="retouch" type="button" aria-label="Étape 4 : Retoucher"><span class="step-index" aria-hidden="true">4</span><span class="step-label">Retoucher</span></button><button class="step" data-step="cut" type="button" aria-label="Étape 5 : Découpe"><span class="step-index" aria-hidden="true">5</span><span class="step-label">Découpe</span></button><button class="step" data-step="export" type="button" aria-label="Étape 6 : Exporter"><span class="step-index" aria-hidden="true">6</span><span class="step-label">Exporter</span></button></nav>
   <section class="workarea" aria-label="Éditeur de l'atelier">
    <div class="surface">
     <div class="surface-header"><div><span class="surface-title" id="stageTitle">Ma planche de sujets</span><span class="surface-sub" id="stageSubtitle">Exemple interactif · 12 escargots · aucune IA exécutée</span></div><div class="toolbar" aria-label="Zoom"><button class="tool" type="button" id="zoomOut" aria-label="Dézoomer">−</button><span class="zoom-label" id="zoomLabel">100 %</span><button class="tool" type="button" id="zoomIn" aria-label="Zoomer">+</button><button class="tool" type="button" id="zoomFit" aria-label="Réinitialiser le zoom">⤢</button></div></div>
-    <div class="stage" id="dropZone" aria-label="Zone de prévisualisation, déposer une image PNG ou JPEG ici">
+    <div class="stage" id="dropZone" aria-label="Zone de prévisualisation, déposer une image PNG, JPEG ou WebP ici">
       <div class="artboard-wrap" id="artboardWrap"><div class="artboard" id="artboard"><div class="artboard-note" id="artboardNote">PLAN DE TRAVAIL · DÉMONSTRATION</div><div class="snails" id="sheet" role="group" aria-label="Sujets de démonstration sélectionnables"></div><img class="uploaded" id="uploaded" alt="Aperçu local de l'image choisie" hidden><div class="noimage" id="empty" hidden><strong>Votre image est chargée.</strong><span>L'analyse des sujets sera disponible dans l'atelier connecté à ComfyUI.</span></div><div class="artboard-size" id="sizeNote">APERÇU · 40 × 28 mm PAR SUJET</div></div></div>
       <div class="stage-badge" id="stageBadge">● 12 silhouettes de démonstration</div>
     </div>
@@ -106,7 +106,7 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:.001;overflow:hi
   <section class="real-review" id="realProjectHost" aria-label="Gestion réelle des projets SmartSVG" hidden><h2>Mes projets .smartsvg · G2.2</h2><p>Gestion réelle via ComfyUI local : créer depuis un PNG, inspecter une sauvegarde, modifier les notes ou restaurer un secours après confirmation. Le JPEG/WebP de l'aperçu ne peut pas être utilisé directement ici et aucune opération n'est lancée automatiquement.</p>
 <div class="project-options"><div><label for="realProjectProfile">Type de projet enregistré</label><select id="realProjectProfile"><option value="Planche - 12 images (4x3)">Planche de 12 motifs</option><option value="Sticker - contour du sujet">Autocollant individuel</option><option value="Planche - 24 images (6x4)">Planche de 24 motifs</option><option value="Carte - visuel rectangulaire">Carte rectangulaire</option><option value="Auto - conserver le visuel">Détection prudente</option></select></div><div><label for="realProjectDpi">Précision du projet</label><select id="realProjectDpi"><option value="300">300 ppp</option><option value="450">450 ppp</option></select></div></div>
 <div id="realProjectMount"></div></section>
-  <div class="stats"><span>⚙ <strong id="statePill">12 objets de démonstration</strong></span><span>◇ <strong>Source locale</strong></span><span>↺ <strong>Retouches : module séparé</strong></span><span>✓ <strong>Exports réels : désactivés</strong></span></div>
+  <div class="stats"><span>⚙ <strong id="statePill">12 objets de démonstration</strong></span><span>◇ <strong>Source locale</strong></span><span>↺ <strong>Retouches : module séparé</strong></span><span>✓ <strong>SVG sélectionné : brouillon dans le panneau réel</strong></span></div>
   <div class="footer-actions"><p><strong id="actionTitle">Étape suivante : contrôlez vos sujets</strong><br><span id="actionDesc">Cet aperçu montre le parcours et les commandes, pas une vectorisation réelle.</span></p><div style="display:flex;gap:9px;flex-wrap:wrap"><button class="outline" type="button" id="resetSelect">Réinitialiser</button><button class="primary" type="button" id="next">Continuer vers l'export →</button></div></div>
   <div id="notification" role="status" aria-live="polite"></div>
  </div>
@@ -146,6 +146,7 @@ function paint(){
   }
  }else{box.hidden=true;$("empty").hidden=true}
  const count=demo?selected.size:0;
+  for(const key of ["all","none","alternate","resetSelect"])$(key).disabled=!demo;
  $("count").textContent=demo?count+" / "+SAMPLE_COUNT:"En attente";
  $("selInfo").innerHTML=demo?"<strong>"+count+" sujets sélectionnés</strong> sur "+SAMPLE_COUNT:"<strong>Image chargée</strong> · sujets non analysés";
  $("stageBadge").textContent=demo?"● "+count+" silhouette(s) de démonstration":"● Source chargée · analyse non réalisée";
@@ -154,26 +155,27 @@ function paint(){
  $("none").setAttribute("aria-pressed",String(demo&&count===0));
  $("alternate").setAttribute("aria-pressed",String(demo&&count===6&&[1,3,5,7,9,11].every(i=>selected.has(i))));
  const w=Number($("width").value);
- $("sizeNote").textContent="APERÇU · "+(Number.isFinite(w)&&w>=10&&w<=200?w:"?")+" MM PAR SUJET";
+ $("sizeNote").textContent=demo?"APERÇU · "+(Number.isFinite(w)&&w>=10&&w<=200?w:"?")+" MM PAR SUJET":"SOURCE · TAILLE PHYSIQUE NON APPLIQUÉE";
+ $("artboardNote").textContent=demo?"PLAN DE TRAVAIL · DÉMONSTRATION":"SOURCE IMPORTÉE · NON SEGMENTÉE";
 }
 function update(){
  paint();
  $("stageTitle").textContent=({source:"Importer votre image",clean:"Nettoyage des images",subjects:"Ma planche de sujets",retouch:"Retouches des masques",cut:"Contours & découpe",export:"Préparer les exports"})[view]||"Mon atelier";
- $("stageSubtitle").textContent=demo?"Exemple interactif · silhouettes fictives · pas d’IA exécutée":"Image locale · le moteur ComfyUI n'est pas connecté à cet aperçu";
+ $("stageSubtitle").textContent=demo?"Exemple interactif · silhouettes fictives · pas d’IA exécutée":"Image locale · aucun sujet détecté, aucune vectorisation exécutée";
  document.querySelectorAll("[data-step]").forEach(b=>b.setAttribute("aria-current",b.dataset.step===view?"step":"false"));
  document.querySelectorAll("[data-view]").forEach(b=>b.setAttribute("aria-current",b.dataset.view===view?"page":"false"));
  const titles={
  source:["Importez une photo ou une planche","PNG, JPEG et WebP sont affichés localement ; aucune conversion ne s’exécute ici."],
  clean:["Prochaine fonction : détourage assisté","L’IA locale, l’effacement du fond et l’upscale seront raccordés dans ComfyUI."],
  subjects:["Étape suivante : contrôlez vos sujets","Activez ou masquez les 12 exemples pour tester la sélection."],
- retouch:["Retouchez les masques dans SmartSVG","Les pinceaux réels, l’annulation et la restauration des brouillons existent dans l’éditeur ComfyUI V21.6."],
- cut:["Inspectez les chemins de découpe","Le contrôle SVG réel est disponible dans la pile G2.9 ; cette scène est illustrative."],
+ retouch:["Retouchez les masques dans SmartSVG","Les pinceaux réels, l’annulation et les brouillons sont dans l’éditeur ComfyUI V21.6 ; pas encore sur cette planche."],
+ cut:["Inspectez les chemins de découpe","Ouvrez « Examiner un vrai SVG de contours » pour accéder au validateur G2.9 ; aucune machine n’est lancée."],
  export:["Exports en attente de validation","Les fichiers de production doivent être générés par le moteur puis vérifiés dans Design Space."]
  };
  $("actionTitle").textContent=titles[view][0];$("actionDesc").textContent=titles[view][1];
  const mode=document.querySelector('input[name="mode"]:checked').value;
  $("modeHint").textContent=mode==="cut"?"⚠️ Basic Cut : contours externes à vérifier. La planche affichée est une démonstration, sans tracé validé.":mode==="print"?"⚠️ Print Then Cut : images et marges de coupe réelles à générer et contrôler dans Design Space.":"⚠️ SVG éditable : vectorisation des traits intérieurs non réalisée dans cet aperçu.";
- $("next").textContent=view==="export"?"Vérifier l'état de l'export →":"Continuer →";
+ $("next").textContent=view==="export"?"Exports indisponibles dans la maquette":"Étape suivante →";
 }
 function setView(name){if(!Object.prototype.hasOwnProperty.call(C,name))return;view=name;update();notify(view==="export"?"Aucun export de production n'est possible depuis cette maquette.":"Étape affichée : "+C[name]+".");}
 document.querySelectorAll("[data-step]").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.step)));
@@ -182,7 +184,12 @@ $("all").addEventListener("click",()=>{if(!demo)return notify("Importer un fichi
 $("none").addEventListener("click",()=>{if(!demo)return notify("Aucun contour analysé sur cette image.",true);selected.clear();update()});
 $("alternate").addEventListener("click",()=>{if(!demo)return notify("Aucun contour analysé sur cette image.",true);selected=new Set([1,3,5,7,9,11]);update()});
 function resetDemo(){++fileToken;if(uploadedURL){URL.revokeObjectURL(uploadedURL);uploadedURL=null};$("file").value="";demo=true;selected=new Set(Array.from({length:12},(_,i)=>i+1));$("fileInfo").textContent="Démo chargée : 12 escargots de démonstration.";$("uploaded").removeAttribute("src");view="subjects";zoom=1;updateZoom();update();notify("Démonstration réinitialisée.");}
-$("demo").addEventListener("click",resetDemo);$("resetSelect").addEventListener("click",resetDemo);
+$("demo").addEventListener("click",resetDemo);
+$("resetSelect").addEventListener("click",()=>{
+  if(!demo){notify("Votre image reste affichée : aucun sujet réel n'a encore été détecté.",true);return;}
+  selected=new Set(Array.from({length:SAMPLE_COUNT},(_,i)=>i+1));
+  update();notify("La sélection des sujets de démonstration a été réinitialisée.");
+});
 document.querySelectorAll('input[name="mode"]').forEach(x=>x.addEventListener("change",update));
 $("width").addEventListener("change",()=>{const n=Number($("width").value);if(!Number.isFinite(n)||n<10||n>200){notify("La largeur de l'aperçu doit être comprise entre 10 et 200 mm.",true);$("width").value="40";}update()});
 $("dpi").addEventListener("change",()=>notify("La précision sera appliquée uniquement au moteur connecté. Ici, elle ne change pas les pixels."));
@@ -190,7 +197,7 @@ function updateZoom(){$("artboardWrap").style.setProperty("--zoom",String(zoom))
 $("zoomIn").addEventListener("click",()=>{zoom=Math.min(1.5,Math.round((zoom+.1)*10)/10);updateZoom()});
 $("zoomOut").addEventListener("click",()=>{zoom=Math.max(.6,Math.round((zoom-.1)*10)/10);updateZoom()});
 $("zoomFit").addEventListener("click",()=>{zoom=1;updateZoom()});
-$("next").addEventListener("click",()=>{const steps=["source","clean","subjects","cut","export"];const i=steps.indexOf(view);if(i===steps.length-1){notify("APERÇU UNIQUEMENT : aucun export réel. Ouvrir la version ComfyUI pour préparer les fichiers.",true);return}setView(steps[Math.min(i+1,steps.length-1)])});
+$("next").addEventListener("click",()=>{const steps=["source","clean","subjects","retouch","cut","export"];const i=steps.indexOf(view);if(i===steps.length-1){notify("APERÇU UNIQUEMENT : aucun export réel. Ouvrir la version ComfyUI pour préparer les fichiers.",true);return}setView(steps[Math.min(i+1,steps.length-1)])});
 // G3.2: opt-in same-origin access to existing managed .smartsvg API.
 let realProjectPanel=null,realProjectLoading=false;
 $("realProjectButton").addEventListener("click",async()=>{
@@ -266,16 +273,34 @@ $("realContourButton").addEventListener("click",async()=>{
 });
 $("uploadButton").addEventListener("click",()=>$("file").click());
 function uploadFile(file){
+ // Increment also on invalid selections: a pending older decode must never
+ // replace the newest selection after a delayed onload event.
+ const token=++fileToken;
  const valid=file&&/^image\/(png|jpeg|webp)$/.test(file.type)&&file.size>0&&file.size<=12*1024*1024;
- if(!valid){notify("Choisir un PNG, JPEG ou WebP de moins de 12 Mo.",true);return}
- const token=++fileToken,blob=URL.createObjectURL(file),img=new Image();
- img.onload=()=>{if(token!==fileToken){URL.revokeObjectURL(blob);return}
-   if(uploadedURL)URL.revokeObjectURL(uploadedURL);uploadedURL=blob;demo=false;selected.clear();
+ if(!valid){notify("Choisir un PNG, JPEG ou WebP non vide de 12 Mo maximum.",true);return;}
+ let blob;
+ try{blob=URL.createObjectURL(file);}
+ catch{notify("Impossible de lire ce fichier dans le navigateur.",true);return;}
+ const img=new Image();
+ notify("Lecture locale et vérification de l'image…");
+ img.onload=()=>{
+   if(token!==fileToken){URL.revokeObjectURL(blob);return;}
+   const pixels=img.naturalWidth*img.naturalHeight;
+   if(!Number.isSafeInteger(pixels)||pixels<1||pixels>20_000_000){
+     URL.revokeObjectURL(blob);
+     notify("Image trop grande pour cet aperçu (20 millions de pixels maximum). Aucune image existante n'a été effacée.",true);
+     return;
+   }
+   if(uploadedURL)URL.revokeObjectURL(uploadedURL);
+   uploadedURL=blob;demo=false;selected.clear();
    const el=$("uploaded");el.src=blob;el.hidden=false;$("sheet").hidden=true;
    $("fileInfo").textContent=file.name+" · "+img.naturalWidth+" × "+img.naturalHeight+" px";
    view="source";update();notify("Image affichée localement. Aucun sujet n'a été segmenté ; la vraie analyse nécessite ComfyUI.");
  };
- img.onerror=()=>{URL.revokeObjectURL(blob);notify("Image illisible ou incompatible.",true)};
+ img.onerror=()=>{
+   URL.revokeObjectURL(blob);
+   if(token===fileToken)notify("Image illisible ou incompatible ; votre aperçu précédent est conservé.",true);
+ };
  img.src=blob;
 }
 $("file").addEventListener("change",event=>{const file=event.target.files?.[0];if(file)uploadFile(file)});
