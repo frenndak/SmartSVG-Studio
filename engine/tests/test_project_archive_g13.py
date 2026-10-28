@@ -2,11 +2,13 @@
 import base64
 import hashlib
 import json
+import os
 from pathlib import Path
 import stat
 import struct
 import tempfile
 import unittest
+from unittest import mock
 import zipfile
 import zlib
 
@@ -420,6 +422,75 @@ class ArchiveG13Tests(unittest.TestCase):
         with zipfile.ZipFile(self.path) as archive:
             self.assertEqual(len(archive.namelist()), 11)
             self.assertNotIn('../', ''.join(archive.namelist()))
+
+    def test_temporary_archive_is_fsynced_through_writable_descriptor(self):
+        real_open = open
+        synchronized_handles = []
+
+        def record_temporary_archive_mode(path, mode='r', *args, **kwargs):
+            handle = real_open(path, mode, *args, **kwargs)
+            if Path(path).suffix == '.tmp' and 'r' in mode:
+                synchronized_handles.append((mode, handle.writable()))
+            return handle
+
+        with mock.patch('builtins.open', side_effect=record_temporary_archive_mode):
+            save_project(self.path, _fixture())
+
+        self.assertEqual(synchronized_handles, [('r+b', True)])
+        self.assertEqual(load_project(self.path), _fixture())
+
+    def test_fsync_failure_never_publishes_new_project(self):
+        with mock.patch('smartsvg_core.project_archive.os.fsync',
+                        side_effect=OSError('injected fsync failure')):
+            with self.assertRaisesRegex(ProjectArchiveError,
+                                        'PROJECT_SAVE_FAILED'):
+                save_project(self.path, _fixture())
+
+        self.assertFalse(self.path.exists())
+        self.assertEqual(list(self.path.parent.glob('.smartsvg-*.tmp')), [])
+
+    def test_fsync_failure_preserves_existing_project_exactly(self):
+        original = _fixture()
+        save_project(self.path, original)
+        previous_bytes = self.path.read_bytes()
+        replacement = _fixture()
+        replacement.document['objects'][0]['x'] = 9
+
+        with mock.patch('smartsvg_core.project_archive.os.fsync',
+                        side_effect=OSError('injected fsync failure')):
+            with self.assertRaisesRegex(ProjectArchiveError,
+                                        'PROJECT_SAVE_FAILED'):
+                save_project(self.path, replacement, overwrite=True)
+
+        self.assertEqual(self.path.read_bytes(), previous_bytes)
+        self.assertEqual(load_project(self.path), original)
+        self.assertEqual(list(self.path.parent.glob('.smartsvg-*.tmp')), [])
+
+    def test_readback_precedes_atomic_overwrite(self):
+        original = _fixture()
+        save_project(self.path, original)
+        replacement = _fixture()
+        replacement.document['objects'][0]['x'] = 9
+        events = []
+        real_load_project = load_project
+        real_replace = os.replace
+
+        def record_readback(path):
+            events.append('readback')
+            return real_load_project(path)
+
+        def record_publish(source, destination):
+            events.append('publish')
+            return real_replace(source, destination)
+
+        with mock.patch('smartsvg_core.project_archive.load_project',
+                        side_effect=record_readback), mock.patch(
+                            'smartsvg_core.project_archive.os.replace',
+                            side_effect=record_publish):
+            save_project(self.path, replacement, overwrite=True)
+
+        self.assertEqual(events, ['readback', 'publish'])
+        self.assertEqual(load_project(self.path), replacement)
 
     def test_no_overwrite_by_default_and_atomic_overwrite(self):
         original = _fixture()

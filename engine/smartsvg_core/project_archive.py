@@ -734,7 +734,7 @@ def save_project(path, project: LoadedProject, *, overwrite: bool = False):
                              compresslevel=6, allowZip64=False) as out:
             for name, content in sorted(files.items()):
                 out.writestr(name, content)
-        with open(tmp, 'rb') as handle:
+        with open(tmp, 'r+b') as handle:
             os.fsync(handle.fileno())
         recovered = load_project(tmp)
         if recovered.project_id != project.project_id:
