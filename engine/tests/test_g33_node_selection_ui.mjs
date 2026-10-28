@@ -489,3 +489,29 @@ test('editing a pinned project to blank during module import cannot send an unbo
  assert.equal(s.share.disabled,false,'new explicit send is possible');
  assert.match(s.hint.textContent,/Projet modifié/);
 });
+
+test('a newer thumbnail selection aborts a pinned GET instead of waiting for timeout',async()=>{
+ let count=0,entered,signal,s;
+ const started=new Promise(resolve=>{entered=resolve;});
+ const reader=(_api,_name,options)=>{
+   if(++count===1)return Promise.resolve(s.getProject());
+   signal=options.signal;entered();
+   return new Promise((_resolve,reject)=>{
+     signal.addEventListener('abort',()=>reject(Error('PROJECT_BINDING_ABORTED')),{once:true});
+   });
+ };
+ s=setup({projectReader:reader});s.node.onExecuted(report());
+ s.projectName.value='mes_sujets';await s.share.fire('click');
+ const channel=s.channels[0];
+ channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ const pending=s.confirm.fire('click');
+ await started;
+ const subjectOneThumbnail=s.root.children[3].children[0];
+ await subjectOneThumbnail.fire('click');
+ await pending;
+ assert.equal(signal.aborted,true,'thumbnail selection interrupts ongoing GET immediately');
+ assert.equal(s.node.widgets[0].value,1,'new user selection persists');
+ assert.equal(channel.closed,true,'old session is invalidated');
+ assert.match(s.hint.textContent,/Sujet 1 choisi/,'new UI message is preserved');
+ assert.equal(s.share.disabled,false,'subsequent explicit sharing stays possible');
+});
