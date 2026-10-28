@@ -1,5 +1,7 @@
 # SmartSVG Studio Matrice de couverture V3.3
 
+**Navigation :** [Maître V3.3](ROADMAP_MASTER_v3_3.md) · [Registre de traçabilité](ROADMAP_TRACEABILITY_v3_3.md) · [Annexe historique](ROADMAP_HERITAGE_v3_3.md).
+
 ## 1 Mode d'emploi
 
 Cette matrice est une checklist de conception et de recette. Chaque micro-lot copie les lignes applicables dans sa preuve et indique `PASS`, `FAIL`, `NON_EXECUTE`, `NON_APPLICABLE` ou `BLOQUE`. Seul `PASS` représente une preuve réussie. `NON_EXECUTE` et l'absence de valeur ne sont jamais assimilés à un succès.
