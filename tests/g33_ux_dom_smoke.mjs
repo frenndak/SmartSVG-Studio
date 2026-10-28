@@ -345,3 +345,9 @@ test('verified project mask offers one confirmed persistent identity write',asyn
  assert.match(b.find('realSubjectsStatus').textContent,/révision f{12}/);
  assert.equal(register.disabled,true,'old revision cannot be written again');
 });
+
+
+test('timeout and cancellation copy does not claim that the server did not commit',()=>{
+ assert.doesNotMatch(page,/aucune identité confirmée/i);
+ assert.match(page,/état du projet.*vérifier/i);
+});
