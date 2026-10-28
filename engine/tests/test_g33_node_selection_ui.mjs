@@ -56,7 +56,7 @@ function setup({projectReader}={}){
  let timer=0;
  const context={__app:app,__api:api,__project:projectReader?{...projectGate,readProjectRevision:projectReader}:projectGate,__handoff:handoff,
   __selection:{...selection,createSelectionBinding:(n,r)=>selection.createSelectionBinding(n,r,random)},
-  document,window:{location:{protocol:'http:'}},BroadcastChannel,
+  document,window:{location:{protocol:'http:'}},BroadcastChannel,AbortController,
   setTimeout:fn=>{const id=++timer;timers.set(id,fn);return id;},
   clearTimeout:id=>timers.delete(id),console,CustomEvent:class{}};
  vm.runInNewContext(script,context,{timeout:5000});
@@ -355,4 +355,75 @@ test('a hung revision recheck cancels confirmation and preserves the previous su
  assert.equal(channel.closed,true,'stale proposal channel is closed');
  assert.equal(s.share.disabled,false,'user can retry');
  assert.match(s.hint.textContent,/Délai de vérification du projet dépassé/);
+});
+
+test('editing project during stalled share aborts its GET and preserves newer guidance',async()=>{
+ let started,signal;
+ const entered=new Promise(resolve=>{started=resolve;});
+ const reader=(_api,_name,options)=>{
+   signal=options.signal;started();
+   return new Promise((_resolve,reject)=>{
+     options.signal.addEventListener('abort',()=>reject(Error('PROJECT_BINDING_ABORTED')),{once:true});
+   });
+ };
+ const s=setup({projectReader:reader});s.node.onExecuted(report());
+ s.projectName.value='mes_sujets';
+ const pending=s.share.fire('click');
+ await entered;
+ assert.equal(signal.aborted,false);
+ s.projectName.value='autre_projet';
+ await s.projectName.fire('input');
+ await pending;
+ assert.equal(signal.aborted,true,'input change cancels a read immediately');
+ assert.equal(s.channels.length,0,'no stale diagnostic is transmitted');
+ assert.equal(s.share.disabled,false,'sharing can be retried');
+ assert.match(s.hint.textContent,/Projet modifié : renvoyer le diagnostic/);
+});
+
+test('new execution aborts stalled confirmation GET and retains usable UI',async()=>{
+ let reads=0,entered,signal;
+ const started=new Promise(resolve=>{entered=resolve;});
+ let s;
+ const reader=(_api,_name,options)=>{
+   if(++reads===1)return Promise.resolve(s.getProject());
+   signal=options.signal;entered();
+   return new Promise((_resolve,reject)=>{
+     options.signal.addEventListener('abort',()=>reject(Error('PROJECT_BINDING_ABORTED')),{once:true});
+   });
+ };
+ s=setup({projectReader:reader});s.node.onExecuted(report());
+ s.projectName.value='mes_sujets';await s.share.fire('click');
+ const channel=s.channels[0];channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ const pending=s.confirm.fire('click');
+ await started;
+ s.node.onExecuted(report()); // a new execution takes ownership of the UI
+ await pending;
+ assert.equal(signal.aborted,true);
+ assert.equal(s.node.widgets[0].value,1,'no stale confirmation committed');
+ assert.equal(channel.closed,true,'previous proposal channel invalidated');
+ assert.equal(s.share.disabled,false,'new diagnostic can be shared');
+ assert.doesNotMatch(s.hint.textContent,/Échec du changement de sujet/,'old abort must not hide fresh status');
+});
+
+test('expiry during stalled confirmation aborts its project GET and leaves no dangling proposal',async()=>{
+ let reads=0,entered,signal,s;
+ const started=new Promise(resolve=>{entered=resolve;});
+ const reader=(_api,_name,options)=>{
+   if(++reads===1)return Promise.resolve(s.getProject());
+   signal=options.signal;entered();
+   return new Promise((_resolve,reject)=>{
+     options.signal.addEventListener('abort',()=>reject(Error('PROJECT_BINDING_ABORTED')),{once:true});
+   });
+ };
+ s=setup({projectReader:reader});s.node.onExecuted(report());
+ s.projectName.value='mes_sujets';await s.share.fire('click');
+ const channel=s.channels[0];channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ const expire=[...s.timers.values()][0];
+ const pending=s.confirm.fire('click');
+ await started;expire();await pending;
+ assert.equal(signal.aborted,true);
+ assert.equal(s.node.widgets[0].value,1);
+ assert.equal(channel.closed,true);
+ assert.equal(s.confirm.hidden,true);
+ assert.match(s.hint.textContent,/Proposition expirée/);
 });
