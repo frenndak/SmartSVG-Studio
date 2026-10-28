@@ -203,7 +203,7 @@ function inspector(node){
    shareReadController=readController;
    const sourceAtSend=latest;
    try{
-     const {normalizeSubjectInspection,SUBJECT_HANDOFF_CHANNEL}=
+     const {normalizeSubjectInspection,SUBJECT_HANDOFF_CHANNEL,makeVerifiedMaskCatalog}=
        await import('./smartsvg_subject_handoff_g33.mjs');
      selectionModule=await import('./smartsvg_subject_selection_g33c.mjs');
      if(readController.signal.aborted||latest!==sourceAtSend)return; // imports or user input invalidated this transfer
@@ -222,6 +222,17 @@ function inspector(node){
          hint.textContent='Projet incompatible : révision saine et empreinte IMAGE + masques float32 G2.4 identiques requises.';return;
        }
        Object.assign(msg,projectLock);
+       // New installations expose exact float32 slice digests from G2.4.
+       // Legacy project inspections keep the earlier project-revision pin,
+       // but must never claim a per-mask identity that they cannot prove.
+       if(info?.base_masks?.mask_identity!==undefined){
+         const catalog=makeVerifiedMaskCatalog(info,msg);
+         if(!catalog){
+           hint.textContent='Correspondance des masques ambiguë ou invalide : aucun sujet envoyé. Vérifier les masques float32 et le projet.';
+           return;
+         }
+         msg.mask_catalog=catalog;
+       }
      }
      const originalBinding=selectionModule.createSelectionBinding(node,msg);
      if(projectLock&&!originalBinding){
@@ -261,7 +272,7 @@ function inspector(node){
      try{channel.postMessage(msg);}catch(error){stopSelection();throw error;}
      if(!binding)channel.close();
      hint.textContent=binding
-       ?'Diagnostic envoyé'+(projectLock?' avec projet '+projectLock.project_name+' verrouillé à la révision '+projectLock.project_sha256.slice(0,12)+'…':' sans projet lié')+'. Choisir un sujet dans l’Atelier, puis confirmer ici dans les 90 s. Aucune modification automatique.'
+       ?'Diagnostic envoyé'+(projectLock?' avec projet '+projectLock.project_name+' verrouillé à la révision '+projectLock.project_sha256.slice(0,12)+'…':' sans projet lié')+(projectLock?(msg.mask_catalog?' · masques float32 identifiés par empreintes exactes':' · identifiants de masques indisponibles sur cette version du projet'):'')+'. Choisir un sujet dans l’Atelier, puis confirmer ici dans les 90 s. Aucune modification automatique.'
        :'Diagnostic envoyé en lecture seule. Liaison indisponible : connecter IMAGE/MASK, identifier le nœud et utiliser un navigateur avec crypto.';
    }catch(error){
      // The input/rerun/expiry already invalidated this transfer. Do not
