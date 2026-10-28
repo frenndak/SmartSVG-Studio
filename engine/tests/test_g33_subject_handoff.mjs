@@ -126,7 +126,7 @@ test('UI explicitly handles only opt-in sender+receiver; no hidden compute or pe
 test('optional node/session identity is preserved, but incomplete or malformed binding is rejected',()=>{
  const raw=sample();
  assert.equal(normalizeSubjectInspection(raw).node_id,undefined,'legacy reports remain read-only');
- const bound={...raw,node_id:17,session_id:'4'.repeat(32)};
+ const bound={...raw,node_id:17,session_id:'4'.repeat(32),expires_at_ms:Date.now()+90_000};
  const result=normalizeSubjectInspection(bound);
  assert.equal(result.node_id,17);assert.equal(result.session_id,'4'.repeat(32));
  assert.deepEqual(normalizeSubjectInspection(result),result);
