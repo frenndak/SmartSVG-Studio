@@ -47,3 +47,9 @@ Le présent commit sur #60 vise à déclencher le nouveau workflow pour les **vr
 La PR [#62](https://github.com/frenndak/SmartSVG-Studio/pull/62) a été **fusionnée** au commit `a1c7bf5f5f7240b1e95c8f8dc79024e00f93381a`, avec un preflight GitHub **SUCCESS** au SHA source `8857def003467c28d0fee6a5d3d12a230dab5e3f`. Elle a corrigé le faux doublon causé par les mentions de synthèse S-076 et S-085 : l'exhaustivité et l'unicité restent strictes dans les dossiers canoniques.
 
 Cette modification de #60 redéclenche la validation CI documentaire corrigée. Aucun PASS pour les documents V3.3 ne doit être déclaré avant lecture du résultat GitHub sur le nouveau HEAD.
+
+## Réévaluation après contrôle documentaire réel
+
+Le workflow `SmartSVG - Roadmap V3.3 document gate` a exécuté sur le HEAD documentaire `acf04030b04870efb6b939c4251efb59d9d4cc9a` le run GitHub Actions `40716548165` : **SUCCESS**. L'étape complète `Validate 141 requirements, historical immutability and links` a été **SUCCESS** (ni `SKIPPED`, ni simulée). Cette preuve clôt le blocage initial « aucun contrôle documentaire CI » pour ce SHA, sans valoir qualification du moteur, de Windows, de Design Space, ni de la Cricut physique.
+
+**Règle de décision finale :** le présent ajout modifiant encore le HEAD, la PR #60 ne devient intégrable qu'après un nouveau PASS documentaire sur le HEAD final, comparaison fraîche à `main`, contrôle de l'absence de fichiers protégés et absence de conflit bloquant. L'adoption opérationnelle V3.3 reste conditionnée au micro-lot protégé `AGENTS.md` post-publication.
