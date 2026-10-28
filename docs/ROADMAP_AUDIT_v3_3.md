@@ -35,3 +35,9 @@
 5. Rollback : revert documenté de la PR de publication et de toute modification de gouvernance dépendante. Aucun fichier produit ou projet utilisateur n'est migré par ce changement documentaire.
 
 **Invariants :** ne prétendre ni à une validation Design Space, ni à un test réel RTX 3070, ni à une découpe physique ; ne déplacer aucune preuve privée vers le dépôt public.
+
+## Réouverture du gate CI après PR #61 (28 octobre 2026)
+
+La PR [#61](https://github.com/frenndak/SmartSVG-Studio/pull/61) a été **fusionnée** sur `main` au commit `96d90180d5528d12a4aa43bd4775ad5f87488f74`. Elle apporte le workflow isolé `.github/workflows/roadmap-v3-3-gate.yml` pour les chemins documentaires V3.3. Son propre preflight était **SUCCESS** sur HEAD `622bde14280ad6087b22e24127f8ec58a35ee0fd` ; l'étape de validation des documents V3.3 y était **SKIPPED**, car ceux-ci ne figuraient pas dans #61.
+
+Le présent commit sur #60 vise à déclencher le nouveau workflow pour les **vrais documents V3.3**. Tant que le contrôle n'a pas abouti au SHA exact, la décision de fusion de #60 reste **NO-GO**. Les résultats doivent être consignés séparément, puis le `main` courant et les protections doivent être vérifiés.
