@@ -9,7 +9,7 @@ import unittest
 import zlib
 
 from smartsvg_core.project_archive import load_project
-from smartsvg_core.project_workspace_g22 import ManagedWorkspace
+from smartsvg_core.project_workspace_g22 import ManagedWorkspace, WorkspaceError
 
 
 def png(width=4, height=3):
@@ -93,10 +93,6 @@ class PersistentSubjectIdentityTests(unittest.TestCase):
         self.assertEqual(
             sha256(reopened.resources["snapshots/base_masks_float32_v1.zlib"]).hexdigest(),
             before_snapshot_sha)
-        self.assertNotEqual(result["sha256"], self.workspace.inspect("subjects")["previous"]["sha256"]
-                            if isinstance(self.workspace.inspect("subjects")["previous"], dict)
-                            else "")
-
         current = self.workspace.inspect("subjects")
         state, item, source_id = self.binding(0)
         again = self.workspace.register_subject_identity(
@@ -109,6 +105,50 @@ class PersistentSubjectIdentityTests(unittest.TestCase):
         self.assertEqual(again["subject_id"], result["subject_id"])
         self.assertEqual(again["sha256"], current["sha256"])
         self.assertEqual(len(load_project(self.path).subjects), 1)
+
+    def test_existing_identity_allows_identical_snapshot_replay(self):
+        created = self.register()
+        state = self.workspace.inspect("subjects")
+        replay = self.workspace.save_base_masks(
+            "subjects", raw_float32=self.raw, shape=[2, 3, 4],
+            image_fingerprint="b" * 64,
+            editor_fingerprint=self.source_fingerprint,
+            expected_sha256=state["sha256"])
+        reopened = load_project(self.path)
+        self.assertEqual(reopened.subjects[0].subject_id, created["subject_id"])
+        self.assertEqual(replay["status"], "full_resolution_masks_saved")
+
+    def test_existing_identity_refuses_changed_snapshot_without_touching_project(self):
+        self.register()
+        before = self.workspace.inspect("subjects")
+        values = list(struct.unpack("<24f", self.raw))
+        values[0] = 0.9
+        changed = struct.pack("<24f", *values)
+        with self.assertRaisesRegex(
+                WorkspaceError, "SUBJECT_IDENTITIES_REQUIRE_EXPLICIT_REBIND"):
+            self.workspace.save_base_masks(
+                "subjects", raw_float32=changed, shape=[2, 3, 4],
+                image_fingerprint="b" * 64,
+                editor_fingerprint=self.source_fingerprint,
+                expected_sha256=before["sha256"])
+        self.assertEqual(self.workspace.inspect("subjects")["sha256"], before["sha256"])
+        self.assertEqual(load_project(self.path).subjects[0].subject_id,
+                         self.workspace.inspect("subjects")["base_masks"]["mask_identity"]
+                         ["bindings"][0]["subject_id"])
+
+    def test_existing_identity_refuses_reordered_snapshot(self):
+        self.register()
+        before = self.workspace.inspect("subjects")
+        stride = 4 * 3 * 4
+        reordered = self.raw[stride:] + self.raw[:stride]
+        with self.assertRaisesRegex(
+                WorkspaceError, "SUBJECT_IDENTITIES_REQUIRE_EXPLICIT_REBIND"):
+            self.workspace.save_base_masks(
+                "subjects", raw_float32=reordered, shape=[2, 3, 4],
+                image_fingerprint="b" * 64,
+                editor_fingerprint=self.source_fingerprint,
+                expected_sha256=before["sha256"])
+        self.assertEqual(self.workspace.inspect("subjects")["sha256"], before["sha256"])
 
 
 if __name__ == "__main__":
