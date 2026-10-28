@@ -1,0 +1,94 @@
+name: SmartSVG - Roadmap V3.3 document gate
+
+on:
+  pull_request:
+    paths:
+      - "docs/ROADMAP_*v3_3.md"
+      - "docs/superpowers/plans/2026-10-28-roadmap-v3-3.md"
+      - "docs/superpowers/specs/2026-10-28-roadmap-v3-3-design.md"
+      - ".github/workflows/roadmap-v3-3-gate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  v33-documents:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Discover published candidate
+        id: candidate
+        shell: bash
+        run: |
+          if [[ -f docs/ROADMAP_MASTER_v3_3.md ]]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No V3.3 candidate on this ref; validation is NOT_EXECUTED (this is a workflow-only PR)." 
+          fi
+      - name: Validate 141 requirements, historical immutability and links
+        if: steps.candidate.outputs.present == 'true'
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          import re
+          from pathlib import Path
+          root = Path.cwd().resolve()
+          paths = [
+              Path("docs/ROADMAP_MASTER_v3_3.md"),
+              Path("docs/ROADMAP_HERITAGE_v3_3.md"),
+              Path("docs/ROADMAP_TRACEABILITY_v3_3.md"),
+              Path("docs/ROADMAP_COVERAGE_v3_3.md"),
+              Path("docs/ROADMAP_AUDIT_v3_3.md"),
+              Path("docs/superpowers/plans/2026-10-28-roadmap-v3-3.md"),
+              Path("docs/superpowers/specs/2026-10-28-roadmap-v3-3-design.md"),
+          ]
+          for p in paths:
+              assert p.is_file(), f"Missing V3.3 file: {p}"
+          d = {p: p.read_text(encoding="utf-8") for p in paths}
+          master = d[paths[0]]
+          annex = d[paths[1]]
+          register = d[paths[2]]
+          old_path = Path("docs/ROADMAP_MASTER_v3_2.md")
+          old = old_path.read_text(encoding="utf-8")
+          assert annex.endswith(old), "V3.3 heritage must preserve complete V3.2 text verbatim"
+          expected_old = "0e503a55fa622d7acea44d8e742205fb6a71119262c309a0b5a2bd48f0ab28a3"
+          assert hashlib.sha256(old_path.read_bytes()).hexdigest() == expected_old, "V3.2 archive hash changed"
+          for i in range(1, 16):
+              assert re.search(r"\bF%02d\b" % i, master), f"Missing family F{i:02d}"
+          for i in range(10):
+              assert re.search(r"\bG%d\b" % i, master), f"Missing gate G{i}"
+          for i in range(1, 11):
+              assert re.search(r"^### P%02d\s" % i, master, re.M), f"Missing journey P{i:02d}"
+          for prefix, n in (("S", 101), ("R33", 40)):
+              hits = re.findall(r"^\|\s*(%s-\d{3})\s*\|" % prefix, register, re.M)
+              expect = {f"{prefix}-{i:03d}" for i in range(1, n + 1)}
+              assert len(hits) == len(expect) and set(hits) == expect, f"Missing or duplicate {prefix} requirements"
+          for term in ("PNG Print Then Cut", "SVG Basic Cut", "SVG Cut multicouche", "SVG d'édition"):
+              assert term in master, f"Missing distinct contract: {term}"
+          assert "preuves **automatiques, Windows, Design Space et physiques sont indépendants**" in master
+          count = 0
+          for source, text in d.items():
+              for target in re.findall(r"(?<!!)\[[^\]]+\]\(([^)]+)\)", text):
+                  path = target.split("#", 1)[0]
+                  if not path or "://" in path or path.startswith("mailto:"):
+                      continue
+                  candidate = (root / source.parent / path).resolve()
+                  assert candidate.is_relative_to(root), f"Link escapes repository: {source}: {target}"
+                  assert candidate.is_file(), f"Broken local link: {source}: {target}"
+                  count += 1
+          summary = (
+              f"Validated at commit {__import__('os').environ.get('GITHUB_SHA', 'unknown')}: "
+              f"15 families, 10 gates, 10 journeys, 101 S + 40 R33, "
+              f"historical source preserved, {count} links."
+          )
+          print(summary)
+          with open(__import__('os').environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as out:
+              out.write(summary + "\n")
+          PY
