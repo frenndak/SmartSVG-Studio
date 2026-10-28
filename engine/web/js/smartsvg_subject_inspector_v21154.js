@@ -199,7 +199,7 @@ function inspector(node){
      const {normalizeSubjectInspection,SUBJECT_HANDOFF_CHANNEL}=
        await import('./smartsvg_subject_handoff_g33.mjs');
      selectionModule=await import('./smartsvg_subject_selection_g33c.mjs');
-     if(latest!==sourceAtSend)return; // onExecuted replaced the report during import
+     if(readController.signal.aborted||latest!==sourceAtSend)return; // imports or user input invalidated this transfer
      const msg=normalizeSubjectInspection(latest);
      if(!msg){hint.textContent='Diagnostic incomplet ou trop volumineux : relancer le nœud et réessayer.';return;}
      const requestedProject=projectName.value.trim();
@@ -209,7 +209,7 @@ function inspector(node){
          hint.textContent='Nom de projet invalide : aucune proposition envoyée.';return;
        }
        const info=await readProjectRevision(api,requestedProject,{signal:readController.signal});
-       if(latest!==sourceAtSend||projectName.value.trim()!==requestedProject)return;
+       if(readController.signal.aborted||latest!==sourceAtSend||projectName.value.trim()!==requestedProject)return;
        projectLock=makeProjectLock(requestedProject,info,msg);
        if(!projectLock){
          hint.textContent='Projet incompatible : révision saine et empreinte IMAGE + masques float32 G2.4 identiques requises.';return;
@@ -227,6 +227,7 @@ function inspector(node){
        msg.expires_at_ms=binding.expires_at_ms;
        selectionBinding=binding;
      }
+     if(readController.signal.aborted)return; // never revive a session cancelled during imports or GET
      const channel=new BroadcastChannel(SUBJECT_HANDOFF_CHANNEL);
      if(binding){
        selectionChannel=channel;
