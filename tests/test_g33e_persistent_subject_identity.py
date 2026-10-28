@@ -382,6 +382,20 @@ class PersistentSubjectIdentityTests(unittest.TestCase):
                 workspace_module, "save_with_recovery", wraps=original) as saver:
             self.register()
         self.assertIn("verify_saved_project", saver.call_args.kwargs)
+        verifier = saver.call_args.kwargs["verify_saved_project"]
+        restored = load_project(self.path)
+        self.assertTrue(verifier(restored))
+        # A valid-looking archive with the Subject still present but a
+        # falsified b1 SHA must never pass the under-lock domain readback.
+        proof_key = "subject_identity_bindings_g33e_b1"
+        proof = restored.document[proof_key]
+        items = [dict(item) for item in proof["items"]]
+        items[0]["mask_sha256_float32"] = "0" * 64
+        tampered = replace(restored, document={
+            **restored.document,
+            proof_key: {"version": 1, "items": items},
+        })
+        self.assertFalse(verifier(tampered))
 
 
 
