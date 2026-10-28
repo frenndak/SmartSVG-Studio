@@ -3,6 +3,7 @@
  */
 import {validProjectLock} from './smartsvg_subject_project_gate_g33d.mjs';
 import {normalizeMaskCatalog} from './smartsvg_mask_link_g33e.mjs';
+export {makeVerifiedMaskCatalog} from './smartsvg_mask_link_g33e.mjs';
 export const SUBJECT_HANDOFF_CHANNEL='smartsvg:subjects:atelier:g33b:v1';
 export const SUBJECT_HANDOFF_KIND='smartsvg:subjects:g33b';
 const SHA=/^[a-f0-9]{64}$/;
