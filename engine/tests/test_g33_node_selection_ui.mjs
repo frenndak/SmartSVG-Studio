@@ -23,7 +23,7 @@ const report=()=>({smartsvg_subjects_v21154:[{
    zones_a_examiner:[{type:'FRAGMENT_SEPARE',bbox_source_px:[1,2,8,10],
      bbox_apercu_88px:[2,3,14,19]}],zones_non_affichees:0}
  ]}]});
-function setup(){
+function setup({projectReader}={}){
  class Element{
   constructor(tag){this.tagName=tag;this.children=[];this.style={};this.attributes={};
    this.listeners={};this.hidden=false;this.disabled=false;this.value='';this.textContent='';}
@@ -54,7 +54,7 @@ function setup(){
  }};
  const timers=new Map();
  let timer=0;
- const context={__app:app,__api:api,__project:projectGate,__handoff:handoff,
+ const context={__app:app,__api:api,__project:projectReader?{...projectGate,readProjectRevision:projectReader}:projectGate,__handoff:handoff,
   __selection:{...selection,createSelectionBinding:(n,r)=>selection.createSelectionBinding(n,r,random)},
   document,window:{location:{protocol:'http:'}},BroadcastChannel,
   setTimeout:fn=>{const id=++timer;timers.set(id,fn);return id;},
@@ -328,4 +328,31 @@ test('pinned confirmation rejects widget replacement during a pending project GE
  assert.equal(callbacks,0);
  assert.equal(channel.closed,true);
  assert.match(s.hint.textContent,/Sélection modifiée/);
+});
+
+test('a hung project GET fails closed without sending a subject and allows retry',async()=>{
+ const s=setup({projectReader:(api,name)=>projectGate.readProjectRevision(
+   api,name,{timeoutMs:15})});
+ s.node.onExecuted(report());s.projectName.value='mes_sujets';
+ s.api.fetchApi=()=>new Promise(()=>{});
+ await s.share.fire('click');
+ assert.equal(s.channels.length,0,'no proposal sent from a stalled project inspection');
+ assert.equal(s.node.widgets[0].value,1,'subject is unchanged');
+ assert.equal(s.share.disabled,false,'user can retry after timeout');
+ assert.match(s.hint.textContent,/Délai de lecture du projet dépassé/);
+});
+
+test('a hung revision recheck cancels confirmation and preserves the previous subject',async()=>{
+ const s=setup({projectReader:(api,name)=>projectGate.readProjectRevision(
+   api,name,{timeoutMs:15})});
+ s.node.onExecuted(report());s.projectName.value='mes_sujets';
+ await s.share.fire('click');
+ const channel=s.channels[0];
+ channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ s.api.fetchApi=()=>new Promise(()=>{});
+ await s.confirm.fire('click');
+ assert.equal(s.node.widgets[0].value,1,'no subject write after stalled GET');
+ assert.equal(channel.closed,true,'stale proposal channel is closed');
+ assert.equal(s.share.disabled,false,'user can retry');
+ assert.match(s.hint.textContent,/Délai de vérification du projet dépassé/);
 });
