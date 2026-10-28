@@ -123,10 +123,13 @@ export function normalizeSubjectInspection(raw){
  // only when BOTH a real ComfyUI node ID and a fresh execution session exist.
  const hasBinding=body.node_id!==undefined||body.session_id!==undefined;
  if(hasBinding&&(!integer(body.node_id,1)||
-    typeof body.session_id!=='string'||!/^[a-f0-9]{32}$/.test(body.session_id)))
+    typeof body.session_id!=='string'||!/^[a-f0-9]{32}$/.test(body.session_id)||
+    !Number.isSafeInteger(body.expires_at_ms)||body.expires_at_ms<=0||
+    Date.now()>=body.expires_at_ms))
    return null;
  return {kind:SUBJECT_HANDOFF_KIND,version:1,source_sha256:sha,
    width_px:width,height_px:height,count,selection:body.selection,
    sujets:items,modifications_automatiques:false,decoupe_certifiee:false,
-   ...(hasBinding?{node_id:body.node_id,session_id:body.session_id}:{})};
+   ...(hasBinding?{node_id:body.node_id,session_id:body.session_id,
+     expires_at_ms:body.expires_at_ms}:{})};
 }
