@@ -17,6 +17,9 @@ from .project_contracts import Subject
 from .project_archive import LoadedProject
 
 _SHA = re.compile(r"^[0-9a-f]{64}$")
+_SUBJECT_ID = re.compile(r"^subject-[0-9a-f]{32}$")
+_RECORD_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+BINDINGS_KEY = "subject_identity_bindings_g33e_b1"
 
 
 class SubjectIdentityError(ValueError):
@@ -33,6 +36,37 @@ def _subject_id(existing, factory):
                 and candidate not in existing):
             return candidate
     raise SubjectIdentityError("SUBJECT_ID_COLLISION")
+
+
+def _validated_bindings(project):
+    raw = project.document.get(BINDINGS_KEY)
+    if raw is None:
+        return []
+    if (not isinstance(raw, dict) or set(raw) != {"version", "items"}
+            or raw.get("version") != 1 or not isinstance(raw.get("items"), list)
+            or len(raw["items"]) > 5000):
+        raise SubjectIdentityError("INVALID_SUBJECT_IDENTITY_PROOF")
+    subjects = {subject.subject_id: subject for subject in project.subjects}
+    items, subject_ids, mask_ids = [], set(), set()
+    required = {
+        "subject_id", "source_id", "mask_id", "mask_sha256_float32",
+    }
+    for item in raw["items"]:
+        if (not isinstance(item, dict) or set(item) != required
+                or not _SUBJECT_ID.fullmatch(str(item.get("subject_id", "")))
+                or not _RECORD_ID.fullmatch(str(item.get("source_id", "")))
+                or not _RECORD_ID.fullmatch(str(item.get("mask_id", "")))
+                or not _SHA.fullmatch(str(item.get("mask_sha256_float32", "")))):
+            raise SubjectIdentityError("INVALID_SUBJECT_IDENTITY_PROOF")
+        subject = subjects.get(item["subject_id"])
+        if (subject is None or subject.source_id != item["source_id"]
+                or subject.mask_id != item["mask_id"]
+                or item["subject_id"] in subject_ids or item["mask_id"] in mask_ids):
+            raise SubjectIdentityError("INVALID_SUBJECT_IDENTITY_PROOF")
+        subject_ids.add(item["subject_id"])
+        mask_ids.add(item["mask_id"])
+        items.append(dict(item))
+    return items
 
 
 def _bbox_float32(chunk, width, height):
@@ -64,6 +98,7 @@ def register_subject_identity(
             or not isinstance(source_sha256, str)
             or not _SHA.fullmatch(source_sha256)):
         raise SubjectIdentityError("INVALID_SUBJECT_IDENTITY_REQUEST")
+    bindings = _validated_bindings(project)
     snapshot = project.document.get(SNAPSHOT_KEY)
     if snapshot is None:
         raise SubjectIdentityError("BASE_MASK_SNAPSHOT_NOT_FOUND")
@@ -99,7 +134,21 @@ def register_subject_identity(
         subject = linked[0]
         if subject.source_id != source_id or subject.bbox_px != bbox:
             raise SubjectIdentityError("SUBJECT_IDENTITY_CONFLICT")
+        proof = [item for item in bindings
+                 if item["subject_id"] == subject.subject_id]
+        if not proof:
+            raise SubjectIdentityError("SUBJECT_IDENTITY_PROOF_MISSING")
+        expected = {
+            "subject_id": subject.subject_id,
+            "source_id": source_id,
+            "mask_id": mask_id,
+            "mask_sha256_float32": mask_sha256_float32,
+        }
+        if len(proof) != 1 or proof[0] != expected:
+            raise SubjectIdentityError("SUBJECT_IDENTITY_PROOF_MISMATCH")
         return project, subject, False
+    if any(item["mask_id"] == mask_id for item in bindings):
+        raise SubjectIdentityError("SUBJECT_IDENTITY_PROOF_CONFLICT")
 
     existing = {subject.subject_id for subject in project.subjects}
     factory = subject_id_factory or (lambda: secrets.token_hex(16))
@@ -111,9 +160,19 @@ def register_subject_identity(
     )
     if len(project.operations) >= 4999:
         raise SubjectIdentityError("HISTORY_LIMIT")
+    proof = {
+        "subject_id": subject.subject_id,
+        "source_id": source_id,
+        "mask_id": mask_id,
+        "mask_sha256_float32": mask_sha256_float32,
+    }
     updated = replace(
         project,
         subjects=(*project.subjects, subject),
+        document={
+            **project.document,
+            BINDINGS_KEY: {"version": 1, "items": [*bindings, proof]},
+        },
         operations=[*project.operations, {
             "kind": "register_subject_identity_g33e_b1",
             "subject_id": subject.subject_id,
