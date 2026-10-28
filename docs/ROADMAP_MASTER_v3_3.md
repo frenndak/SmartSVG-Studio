@@ -3,7 +3,7 @@
 ## Statut et décision documentaire
 
 **Date de proposition :** 28 octobre 2026
-**Statut :** version candidate à la publication ; devient directrice uniquement après fusion de la PR #60 **et** publication de la gouvernance protégée correspondante
+**Statut documentaire :** V3.3 consolidée et qualifiée par les contrôles documentaires. **Application opérationnelle :** cette roadmap remplace V3.2 lorsque sa PR de publication et le micro-lot de gouvernance `AGENTS.md` associé sont tous deux intégrés dans `main`. La présence du fichier seule ne constitue pas une adoption ni une certification produit.
 **Document précédent :** `ROADMAP_MASTER_v3_2.md`, conservé intégralement et inchangé comme archive historique
 **Objet :** restructurer et détailler la planification sans retirer, réduire ni repousser silencieusement une ambition approuvée
 
