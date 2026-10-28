@@ -115,7 +115,7 @@ function browser(){
     clearTimeout:id=>timeouts.delete(id)};
   vm.runInNewContext(vmScript,globals,{timeout:5000});
   return {find,steps,navigation,revoked,created,Image,document,
-    window,confirmations,apiCalls,MockBroadcastChannel,timeouts,
+    window,confirmations,apiCalls,api,MockBroadcastChannel,timeouts,
     advance:ms=>{simulatedNow+=ms;}};
 }
 const file=(name,type='image/png',size=1000)=>({name,type,size});
@@ -344,10 +344,67 @@ test('verified project mask offers one confirmed persistent identity write',asyn
  assert.match(b.find('realSubjectsStatus').textContent,/subject-e{32}/);
  assert.match(b.find('realSubjectsStatus').textContent,/révision f{12}/);
  assert.equal(register.disabled,true,'old revision cannot be written again');
+ const oldProposal=card.children.find(x=>x.tagName==='button'&&
+   /Proposer le sujet/.test(x.textContent));
+ assert.equal(oldProposal.disabled,true,'project revision changed: stale proposal is disabled');
+ await oldProposal.fire('click');
+ assert.equal(b.MockBroadcastChannel.instances.length,1,
+   'no stale proposal can be sent after a successful identity write');
 });
 
 
 test('timeout and cancellation copy does not claim that the server did not commit',()=>{
  assert.doesNotMatch(page,/aucune identité confirmée/i);
  assert.match(page,/état du projet.*vérifier/i);
+});
+
+function registrationReport(){
+ return {kind:'smartsvg:subjects:g33b',version:1,
+  node_id:17,session_id:'4'.repeat(32),expires_at_ms:Date.now()+90_000,selection:1,
+  source_sha256:'a'.repeat(64),width_px:160,height_px:90,count:2,
+  project_name:'subjects',project_sha256:'b'.repeat(64),
+  mask_catalog:{version:1,project_name:'subjects',project_sha256:'b'.repeat(64),
+   source_sha256:'a'.repeat(64),source_id:'source-original',
+   width_px:160,height_px:90,count:2,items:[0,1].map(i=>({
+    mask_index:i,mask_id:'base-mask-'+String(i).padStart(2,'0'),
+    mask_sha256_float32:(i?'d':'c').repeat(64),
+    has_foreground:true,subject_id:null,accessory_ids:[],subject_ambiguous:false,
+   }))},
+  sujets:[1,2].map(numero=>({numero,image_data:null,codes:[],
+   zones_a_examiner:[],zones_non_affichees:0}))};
+}
+
+test('writing one subject seals other stale subject actions until new inspection',async()=>{
+ const b=browser();b.window.location.protocol='http:';
+ await b.find('receiveSubjects').fire('click');
+ b.MockBroadcastChannel.instances[0].sendToReceiver(registrationReport());
+ const cards=b.find('realSubjectsGrid').children;
+ const writes=cards.map(card=>card.children.find(x=>x.tagName==='button'&&
+   /Enregistrer l’identité/.test(x.textContent)));
+ assert.equal(writes.length,2);
+ await writes[0].fire('click');
+ assert.equal(b.apiCalls.length,1);
+ assert.equal(writes[1].disabled,true,'second subject uses a now-obsolete project SHA');
+ await writes[1].fire('click');
+ assert.equal(b.apiCalls.length,1,'second stale write cannot reach server');
+ assert.match(b.find('realSubjectsStatus').textContent,/Diagnostic périmé/);
+});
+
+test('uncertain write response seals registration controls pending reinspection',async()=>{
+ const b=browser();b.window.location.protocol='http:';
+ b.api.fetchApi=async(route,options)=>{
+   b.apiCalls.push({route,options});
+   throw Error('SUBJECT_IDENTITY_TIMEOUT');
+ };
+ await b.find('receiveSubjects').fire('click');
+ b.MockBroadcastChannel.instances[0].sendToReceiver(registrationReport());
+ const card=b.find('realSubjectsGrid').children[0];
+ const button=card.children.find(x=>x.tagName==='button'&&
+   /Enregistrer l’identité/.test(x.textContent));
+ await button.fire('click');
+ assert.equal(b.apiCalls.length,1);
+ assert.equal(button.disabled,true,'timeout may mean server committed: no retry on stale revision');
+ assert.match(b.find('realSubjectsStatus').textContent,/état du projet à vérifier/);
+ await button.fire('click');
+ assert.equal(b.apiCalls.length,1);
 });
