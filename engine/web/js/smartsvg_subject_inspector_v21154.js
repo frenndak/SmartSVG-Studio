@@ -152,6 +152,8 @@ function inspector(node){
        ?'Sélection modifiée pendant la vérification du projet : proposition refusée, votre nouveau choix est conservé.'
        :error?.message==='PROJECT_CHANGED'
        ?'Projet .smartsvg modifié ou incompatible : proposition refusée, valeur précédente restaurée si inchangée.'
+       :error?.message==='PROJECT_BINDING_TIMEOUT'
+       ?'Délai de vérification du projet dépassé : proposition annulée, valeur précédente conservée si inchangée. Réessayer.'
        :'Échec du changement de sujet ou de la vérification du projet ; valeur précédente restaurée si inchangée.';
    }finally{
      confirmationInFlight=false;stopSelection();share.disabled=!latest;
@@ -234,9 +236,11 @@ function inspector(node){
      hint.textContent=binding
        ?'Diagnostic envoyé'+(projectLock?' avec projet '+projectLock.project_name+' verrouillé à la révision '+projectLock.project_sha256.slice(0,12)+'…':' sans projet lié')+'. Choisir un sujet dans l’Atelier, puis confirmer ici dans les 90 s. Aucune modification automatique.'
        :'Diagnostic envoyé en lecture seule. Liaison indisponible : connecter IMAGE/MASK, identifier le nœud et utiliser un navigateur avec crypto.';
-   }catch{
+   }catch(error){
      stopSelection();
-     hint.textContent='Transfert indisponible ; utiliser l’inspecteur du nœud ComfyUI.';
+     hint.textContent=error?.message==='PROJECT_BINDING_TIMEOUT'
+       ?'Délai de lecture du projet dépassé : aucun sujet envoyé. Réessayer ou laisser le champ projet vide.'
+       :'Transfert indisponible ; utiliser l’inspecteur du nœud ComfyUI.';
    }finally{
      shareInFlight=false;
      share.disabled=confirmationInFlight||!latest;
