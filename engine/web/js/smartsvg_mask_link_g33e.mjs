@@ -67,7 +67,10 @@ export function makeVerifiedMaskCatalog(project,report){
  const evidence=project?.base_masks?.mask_identity;
  if(!evidence||evidence.version!==1||
     evidence.identity_kind!=='snapshot_position_plus_float32_digest'||
-    !Array.isArray(evidence.bindings))return null;
+    evidence.subject_proof_schema_valid===false||
+    !Array.isArray(evidence.bindings)||
+    evidence.bindings.some(item=>
+      ['invalid','missing','mismatch'].includes(item?.subject_proof_status)))return null;
  return normalizeMaskCatalog({
    version:1,project_name:project.name,project_sha256:project.sha256,
    source_sha256:report.source_sha256,
