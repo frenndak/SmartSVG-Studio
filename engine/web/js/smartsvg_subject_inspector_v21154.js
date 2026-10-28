@@ -89,7 +89,7 @@ function inspector(node){
    const previous=widget.value;
    const reportAtConfirm=latest,bindingAtConfirm=selectionBinding;
    const proposalAtConfirm=pendingSelection;
-   confirmationInFlight=true;confirm.disabled=true;
+   confirmationInFlight=true;confirm.disabled=true;share.disabled=true;
    try{
      widget.value=subject;
      // ComfyUI widgets are usually synchronous, but a Promise rejection must
@@ -112,11 +112,17 @@ function inspector(node){
      if(widget.value===subject)widget.value=previous;
      hint.textContent='Échec du changement de sujet ; valeur précédente restaurée si inchangée.';
    }finally{
-     confirmationInFlight=false;stopSelection();
+     confirmationInFlight=false;stopSelection();share.disabled=!latest;
    }
  });
  // Deliberately NOT connected to onExecuted: user action is mandatory.
  share.addEventListener('click',async()=>{
+   // A pending widget callback owns the current channel until it settles.
+   // Do not replace it: its finally block would otherwise close a new channel.
+   if(confirmationInFlight){
+     hint.textContent='Confirmation en cours : attendre sa fin avant de renvoyer le diagnostic.';
+     return;
+   }
    if(!latest)return;
    if(!['http:','https:'].includes(window.location.protocol)||
       typeof BroadcastChannel==='undefined'){
