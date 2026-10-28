@@ -256,11 +256,14 @@ test('project revision changed while widget callback awaits rolls back unchanged
  const s=setup();s.node.onExecuted(report());s.projectName.value='mes_sujets';
  await s.share.fire('click');const channel=s.channels[0];
  channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
- let resolveLater;
- s.node.widgets[0].callback=()=>new Promise(resolve=>{resolveLater=resolve;});
+ let resolveLater,signalCallbackEntered;
+ const callbackEntered=new Promise(resolve=>{signalCallbackEntered=resolve;});
+ s.node.widgets[0].callback=()=>{
+   signalCallbackEntered();
+   return new Promise(resolve=>{resolveLater=resolve;});
+ };
  const pending=s.confirm.fire('click');
- // The first read is asynchronous; allow its continuation to enter callback.
- await Promise.resolve();await Promise.resolve();await Promise.resolve();
+ await callbackEntered;
  assert.equal(typeof resolveLater,'function');
  s.setProject({...s.getProject(),sha256:'d'.repeat(64)});
  resolveLater();await pending;
