@@ -2,9 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
+import * as handoff from '../engine/web/js/smartsvg_subject_handoff_g33.mjs';
 
 const page=readFileSync(new URL('../engine/web/js/smartsvg_express_atelier_preview.html',import.meta.url),'utf8');
 const script=page.match(/<script>\s*([\s\S]*?)<\/script>/i)?.[1];
+const vmScript=script?.replace(
+  'await import("./smartsvg_subject_handoff_g33.mjs")',
+  'await Promise.resolve(globalThis.__g33Handoff)'
+);
 assert.ok(script,'single inline G3 atelier script required');
 
 function browser(){
@@ -77,15 +82,10 @@ function browser(){
   }
   const timeouts=new Map();let nextTimeout=1;
   const globals={document,window,URL,Image,console,Set,Array,Math,Number,String,
-    Object,Promise,BroadcastChannel:MockBroadcastChannel,
+    Object,Promise,BroadcastChannel:MockBroadcastChannel,__g33Handoff:handoff,
     setTimeout:(fn)=>{const id=nextTimeout++;timeouts.set(id,fn);return id;},
     clearTimeout:id=>timeouts.delete(id)};
-  vm.runInNewContext(script,globals,{timeout:5000,
-    importModuleDynamically:specifier=>{
-      if(specifier!=='./smartsvg_subject_handoff_g33.mjs')
-        throw Error('Unexpected dynamic import in test '+specifier);
-      return import(new URL('../engine/web/js/smartsvg_subject_handoff_g33.mjs',import.meta.url));
-    }});
+  vm.runInNewContext(vmScript,globals,{timeout:5000});
   return {find,steps,navigation,revoked,created,Image,document,
     window,MockBroadcastChannel,timeouts};
 }
