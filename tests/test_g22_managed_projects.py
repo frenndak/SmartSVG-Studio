@@ -37,4 +37,7 @@ class ProjectPanelJSTests(unittest.TestCase):
         self.assertIn("== '1'",entry)
         routes=(ENGINE/'project_routes_g22.py').read_text()
         self.assertIn("X-SmartSVG-UI",routes)
+        self.assertIn("@routes.post(prefix+'/resolve-pending')",routes)
+        self.assertIn("expected_pending_sha256=fields.get('expected_pending_sha256')",routes)
+        self.assertIn("confirmed=fields.get('confirmed')=='yes'",routes)
         self.assertNotIn('os.system',routes)
