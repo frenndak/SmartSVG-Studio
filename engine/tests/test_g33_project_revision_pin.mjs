@@ -86,3 +86,45 @@ test('project pin survives handoff and cannot be stripped or forged in proposal'
  assert.equal(makeSelectionProposal({...report(),...binding()},2).project_name,undefined,
    'legacy unbound workflow remains available');
 });
+
+test('project GET timeout aborts a hung request and a hung JSON decoder',async()=>{
+ let firstSignal;
+ const hung={fetchApi:(_route,options)=>{
+   firstSignal=options.signal;
+   return new Promise(()=>{});
+ }};
+ await assert.rejects(readProjectRevision(hung,'mes_sujets',{timeoutMs:15}),
+   {message:'PROJECT_BINDING_TIMEOUT'});
+ assert.equal(firstSignal.aborted,true,'abort is requested even if fetch ignores it');
+ let secondSignal;
+ const stalledBody={fetchApi:async(_route,options)=>{
+   secondSignal=options.signal;
+   return {ok:true,json:()=>new Promise(()=>{})};
+ }};
+ await assert.rejects(readProjectRevision(stalledBody,'mes_sujets',{timeoutMs:15}),
+   {message:'PROJECT_BINDING_TIMEOUT'});
+ assert.equal(secondSignal.aborted,true,'JSON parsing is also time-bounded');
+});
+
+test('external cancellation rejects a stale inspection and does not issue a late GET',async()=>{
+ const cancelled=new AbortController();
+ cancelled.abort();
+ let calls=0;
+ const api={fetchApi:(_route,options)=>{
+   calls++;
+   assert.equal(options.signal.aborted,false);
+   return new Promise(()=>{});
+ }};
+ await assert.rejects(readProjectRevision(api,'mes_sujets',
+   {signal:cancelled.signal,timeoutMs:100}),{message:'PROJECT_BINDING_ABORTED'});
+ assert.equal(calls,0,'already cancelled inspection must not issue a GET');
+ const current=new AbortController();
+ const pending=readProjectRevision(api,'mes_sujets',
+   {signal:current.signal,timeoutMs:100});
+ assert.equal(calls,1);
+ current.abort();
+ await assert.rejects(pending,{message:'PROJECT_BINDING_ABORTED'});
+ await assert.rejects(readProjectRevision(api,'mes_sujets',{timeoutMs:0}),
+   {message:'PROJECT_BINDING_UNAVAILABLE'});
+ assert.equal(calls,1,'invalid timeout must not issue a GET');
+});
