@@ -61,13 +61,15 @@ test('read-only project API fails closed on missing, invalid and failed response
 
 test('project pin survives handoff and cannot be stripped or forged in proposal',()=>{
  const lock=makeProjectLock('mes_sujets',project(),report());
- const bound={...report(),...binding(),...lock};
+ const activeBinding=binding();
+ const bound={...report(),...activeBinding,...lock};
  const normalized=normalizeSubjectInspection(bound);
  assert.equal(normalized.project_name,'mes_sujets');
  assert.equal(normalized.project_sha256,revision);
  const proposal=makeSelectionProposal(normalized,2);
  assert.equal(proposal.project_sha256,revision);
- assert.equal(validateSelectionProposal(proposal,{...binding(),...lock},node(),report()),2);
+ assert.equal(validateSelectionProposal(
+   proposal,{...activeBinding,...lock},node(),report()),2);
  for(const bad of [
    {...proposal,project_sha256:'d'.repeat(64)},
    {...proposal,project_name:'other'},
