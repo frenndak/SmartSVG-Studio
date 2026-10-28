@@ -239,6 +239,17 @@ function stopSubjectReceive(){
   if(realSubjectsChannel){realSubjectsChannel.close();realSubjectsChannel=null;}
   $("receiveSubjects").disabled=false;
 }
+function invalidateRealSubjectIdentityActions(report){
+  if(realSubjectsData!==report)return;
+  // A successful or indeterminate POST consumes this report's pinned
+  // revision. Prevent any other pending subject action using stale proof.
+  report.identityActionStale=true;
+  for(const card of $("realSubjectsGrid").children){
+    for(const control of card.children){
+      if(control.dataset?.smartsvgIdentityAction)control.disabled=true;
+    }
+  }
+}
 function paintRealSubjects(){
   const grid=$("realSubjectsGrid");grid.replaceChildren();
   const fragmentControls=[];
@@ -253,16 +264,17 @@ function paintRealSubjects(){
     const name=document.createElement("h3");name.textContent="Sujet "+item.numero;card.appendChild(name);
     // A G2.4 mask_id is an archive position, never a fabricated persistent
     // subject_id. The catalog is validated before this DOM is rendered.
+    let linkedIdentity=null,identityLine=null;
     if(reportAtPaint.project_name){
-      const linked=reportAtPaint.mask_catalog?.items[item.numero-1];
-      const identity=document.createElement("p");
-      identity.textContent=linked
-        ?"Masque float32 : "+linked.mask_id+" · SHA "+linked.mask_sha256_float32.slice(0,12)+"… · "+
-          (linked.subject_id
-            ?"Sujet enregistré : "+linked.subject_id
+      linkedIdentity=reportAtPaint.mask_catalog?.items[item.numero-1];
+      identityLine=document.createElement("p");
+      identityLine.textContent=linkedIdentity
+        ?"Masque float32 : "+linkedIdentity.mask_id+" · SHA "+linkedIdentity.mask_sha256_float32.slice(0,12)+"… · "+
+          (linkedIdentity.subject_id
+            ?"Sujet enregistré : "+linkedIdentity.subject_id
             :"Identité de sujet durable absente (liaison temporaire à cette révision)")
         :"Identité du masque non vérifiée : projet hérité, seulement révision globale épinglée.";
-      card.appendChild(identity);
+      card.appendChild(identityLine);
     }
     const rings=[];
     if(item.image_data){
@@ -305,16 +317,84 @@ function paintRealSubjects(){
         " sujets présélectionnés pour revue (aucune modification du nœud).";
     });
     card.appendChild(button);
+    // G3.3e-b1: one explicit write for an exact unambiguous float32 binding.
+    if(!reportAtPaint.identityActionStale&&
+       linkedIdentity&&linkedIdentity.subject_id===null&&
+       linkedIdentity.subject_ambiguous===false&&
+       Number.isSafeInteger(reportAtPaint.expires_at_ms)&&
+       Date.now()<reportAtPaint.expires_at_ms){
+      const persist=document.createElement("button");persist.type="button";
+      persist.dataset.smartsvgIdentityAction="register";
+      persist.textContent="Enregistrer l’identité de ce sujet";
+      let identityPending=false,identityComplete=false;
+      persist.addEventListener("click",async()=>{
+        if(identityPending||identityComplete)return;
+        if(reportAtPaint.identityActionStale){
+          $("realSubjectsStatus").textContent="Diagnostic périmé après une demande d’enregistrement : recevoir un nouveau diagnostic avant toute action.";
+          persist.disabled=true;return;
+        }
+        if(realSubjectsData!==reportAtPaint){
+          $("realSubjectsStatus").textContent="Rapport remplacé : relancer la réception avant d’enregistrer une identité.";
+          persist.disabled=true;return;
+        }
+        if(Date.now()>=reportAtPaint.expires_at_ms){
+          $("realSubjectsStatus").textContent="Session expirée : relancer le nœud avant d’enregistrer une identité.";
+          persist.disabled=true;return;
+        }
+        identityPending=true;persist.disabled=true;
+        const confirmed=typeof window?.confirm==="function"&&window.confirm(
+          "Enregistrer durablement le sujet "+item.numero+" dans le projet "+
+          reportAtPaint.project_name+" ? Les masques float32 resteront inchangés.");
+        if(!confirmed){identityPending=false;persist.disabled=false;return;}
+        $("realSubjectsStatus").textContent="Vérification et sauvegarde de l’identité en cours…";
+        try{
+          const {registerPersistentSubject}=await import("./smartsvg_subject_identity_g33e.mjs");
+          const {api}=await import("../../scripts/api.js");
+          const result=await registerPersistentSubject(
+            api,reportAtPaint,linkedIdentity,{confirmed:true});
+          if(realSubjectsData!==reportAtPaint)return;
+          identityComplete=true;
+          invalidateRealSubjectIdentityActions(reportAtPaint);
+          identityLine.textContent="Sujet enregistré : "+result.subject_id+
+            " · masque "+result.mask_id+" · projet révision "+result.sha256.slice(0,12)+"…";
+          $("realSubjectsStatus").textContent="Identité "+result.subject_id+
+            " enregistrée · nouvelle révision "+result.sha256.slice(0,12)+
+            "… Les masques float32 sont inchangés. Relancer le nœud puis recevoir un diagnostic actualisé.";
+        }catch(error){
+          if(realSubjectsData!==reportAtPaint)return;
+          invalidateRealSubjectIdentityActions(reportAtPaint);
+          $("realSubjectsStatus").textContent=
+            ["PROJECT_CHANGED","PROJECT_CHANGED_DURING_SAVE"].includes(error?.message)
+            ?"Projet modifié dans un autre onglet : recharger le projet et relancer le diagnostic, sans écraser les changements."
+            :error?.message==="SUBJECT_IDENTITY_TIMEOUT"
+            ?"Délai dépassé : état du projet à vérifier en relançant le diagnostic avant toute nouvelle tentative."
+            :error?.message==="SUBJECT_IDENTITY_ABORTED"
+            ?"Demande annulée dans cette interface : état du projet à vérifier, car le serveur peut avoir terminé la sauvegarde."
+            :"Résultat non confirmé : vérifier la révision du projet et renouveler le diagnostic avant toute nouvelle tentative.";
+        }finally{
+          identityPending=false;
+          persist.disabled=identityComplete||reportAtPaint.identityActionStale||
+            realSubjectsData!==reportAtPaint||Date.now()>=reportAtPaint.expires_at_ms;
+        }
+      });
+      card.appendChild(persist);
+    }
     // G3.3c-b: only a verified node+session report may offer a proposal.
     // This sends no mask pixels, no project writes and no queue command.
-    if(Number.isSafeInteger(reportAtPaint.node_id)&&reportAtPaint.node_id>0&&
+    if(!reportAtPaint.identityActionStale&&
+       Number.isSafeInteger(reportAtPaint.node_id)&&reportAtPaint.node_id>0&&
        /^[a-f0-9]{32}$/.test(reportAtPaint.session_id||"")&&
        Number.isSafeInteger(reportAtPaint.expires_at_ms)&&
        Date.now()<reportAtPaint.expires_at_ms&&
        !item.codes.includes("MASQUE_VIDE")){
       const propose=document.createElement("button");propose.type="button";
+      propose.dataset.smartsvgIdentityAction="propose";
       propose.textContent="Proposer le sujet "+item.numero+" au nœud ComfyUI";
       propose.addEventListener("click",async()=>{
+        if(reportAtPaint.identityActionStale){
+          $("realSubjectsStatus").textContent="Diagnostic périmé après enregistrement : recevoir un nouveau diagnostic avant de proposer un sujet.";
+          propose.disabled=true;return;
+        }
         if(realSubjectsData!==reportAtPaint){
           $("realSubjectsStatus").textContent="Rapport remplacé : relancer la réception avant toute proposition.";
           return;
