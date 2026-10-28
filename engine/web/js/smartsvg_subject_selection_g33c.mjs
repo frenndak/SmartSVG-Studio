@@ -3,6 +3,7 @@
  * A proposal requires a second, explicit confirmation inside the source node.
  * Same-origin extensions can spoof BroadcastChannel: this is NOT authentication.
  */
+import {validProjectLock} from './smartsvg_subject_project_gate_g33d.mjs';
 export const SUBJECT_SELECTION_KIND='smartsvg:subject-selection:g33c:v1';
 const SHA=/^[a-f0-9]{64}$/;
 const SESSION=/^[a-f0-9]{32}$/;
@@ -41,6 +42,9 @@ export function createSelectionBinding(node,report,cryptoProvider=globalThis.cry
     count:report.count,links});
 }
 export function makeSelectionProposal(report,subject){
+  const hasProject=report?.project_name!==undefined||
+    report?.project_sha256!==undefined;
+  if(hasProject&&!validProjectLock(report))return null;
   if(!report||!positive(report.node_id)||!SESSION.test(String(report.session_id||''))||
      !validExpiry(report.expires_at_ms)||Date.now()>=report.expires_at_ms||
      !SHA.test(String(report.source_sha256||''))||
@@ -53,7 +57,9 @@ export function makeSelectionProposal(report,subject){
     node_id:report.node_id,session_id:report.session_id,
     expires_at_ms:report.expires_at_ms,
     source_sha256:report.source_sha256,width_px:report.width_px,
-    height_px:report.height_px,count:report.count,subject};
+    height_px:report.height_px,count:report.count,subject,
+    ...(hasProject?{project_name:report.project_name,
+      project_sha256:report.project_sha256}:{})};
 }
 /** Return the selected 1-based index only when all identities still match. */
 export function validateSelectionProposal(request,binding,node,latest){
@@ -70,6 +76,11 @@ export function validateSelectionProposal(request,binding,node,latest){
      request.width_px!==binding.width_px||
      request.height_px!==binding.height_px||
      request.count!==binding.count||
+     // A project-bound session cannot be downgraded to an unbound proposal.
+     request.project_name!==binding.project_name||
+     request.project_sha256!==binding.project_sha256||
+     ((binding.project_name!==undefined||binding.project_sha256!==undefined)&&
+       !validProjectLock(binding))||
      latest.width_px!==binding.width_px||
      latest.height_px!==binding.height_px||
      latest.count!==binding.count)return null;
