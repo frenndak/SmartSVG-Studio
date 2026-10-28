@@ -80,10 +80,14 @@ function inspector(node){
  projectName.style.cssText='display:block;max-width:100%;margin:5px 0 8px;padding:7px';
  let latest=null,selectionModule=null,selectionBinding=null,selectionChannel=null;
  let selectionTimer=null,pendingSelection=null,widgetAtProposal=null;
- let confirmationInFlight=false,shareInFlight=false;
+ let confirmationInFlight=false,shareInFlight=false,disposed=false;
  // Read-only requests belong to a particular UI/session lifetime. Abort on
  // rerun, edited project name, expiry and final channel closure.
  let shareReadController=null,confirmReadController=null;
+ function dispose(){
+   disposed=true;stopSelection();latest=null;
+   share.disabled=true;confirm.disabled=true;
+ }
  function stopSelection(){
    shareReadController?.abort();shareReadController=null;
    confirmReadController?.abort();confirmReadController=null;
@@ -97,7 +101,7 @@ function inspector(node){
    hint.textContent='Projet modifié : renvoyer le diagnostic avant toute proposition.';
  });
  confirm.addEventListener('click',async()=>{
-   if(confirmationInFlight)return; // ignore double clicks while a callback is pending
+   if(disposed||confirmationInFlight)return; // ignore double clicks while a callback is pending
    const widget=node.widgets?.find(w=>w.name==='numero_sujet');
    const subject=selectionModule?.validateSelectionProposal(
      pendingSelection,selectionBinding,node,latest);
@@ -168,11 +172,12 @@ function inspector(node){
        ?'Délai de vérification du projet dépassé : proposition annulée, valeur précédente conservée si inchangée. Réessayer.'
        :'Échec du changement de sujet ou de la vérification du projet ; valeur précédente restaurée si inchangée.';
    }finally{
-     confirmationInFlight=false;stopSelection();share.disabled=!latest;
+     confirmationInFlight=false;stopSelection();share.disabled=disposed||!latest;
    }
  });
  // Deliberately NOT connected to onExecuted: user action is mandatory.
  share.addEventListener('click',async()=>{
+   if(disposed)return;
    // A pending widget callback owns the current channel until it settles.
    // Do not replace it: its finally block would otherwise close a new channel.
    if(confirmationInFlight||shareInFlight){
@@ -261,12 +266,13 @@ function inspector(node){
    }finally{
      if(shareReadController===readController)shareReadController=null;
      shareInFlight=false;
-     share.disabled=confirmationInFlight||!latest;
+     share.disabled=disposed||confirmationInFlight||!latest;
    }
  });
  root.append(title,hint,summary,layout,zoneActions,share,confirm,
    projectLabel,projectName);
  function update(data){
+   if(disposed)return;
    stopSelection();latest=null;share.disabled=true;
    layout.replaceChildren();zoneActions.replaceChildren();
    const entry=data?.smartsvg_subjects_v21154?.[0];
@@ -346,7 +352,7 @@ function inspector(node){
    summary.textContent=`${shown} sujet(s) affiché(s), ${issues} à examiner. Cadres orange = fragments possibles, jamais supprimés. Aucune validation de découpe.`;
    hint.textContent='Cliquer un sujet puis relancer. Un avertissement demande inspection, pas suppression automatique.';
  }
- return {root,update};
+ return {root,update,dispose};
 }
 app.registerExtension({name:'smartsvg.studio.subjectinspector.v21154',nodeCreated(node){
  if((node?.comfyClass||node?.type)!==CLASS||node._ss21154Inspector||typeof node.addDOMWidget!=='function')return;
@@ -357,6 +363,10 @@ app.registerExtension({name:'smartsvg.studio.subjectinspector.v21154',nodeCreate
    node._ss21154Inspector=ui;
    const previous=node.onExecuted;
    node.onExecuted=function(out){previous?.apply(this,arguments);try{ui.update(out);}catch(error){console.warn('SmartSVG inspection advisory',error);}};
+   const previousRemoved=node.onRemoved;
+   node.onRemoved=function(...args){
+     try{ui.dispose();}finally{return previousRemoved?.apply(this,args);}
+   };
    node.size=[Math.max(node.size?.[0]||300,430),Math.max(node.size?.[1]||200,470)];
  }catch(error){console.warn('SmartSVG subject inspector disabled',error);}
 }});
