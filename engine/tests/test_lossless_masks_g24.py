@@ -239,6 +239,17 @@ class G24MaskArchiveTests(unittest.TestCase):
         self.assertFalse(rows[0]['has_foreground'])
         self.assertTrue(rows[1]['has_foreground'])
 
+    def test_g33e_soft_values_below_g26_cutoff_are_not_a_detectable_subject(self):
+        # G2.6 thresholds a float32 mask at >= 0.5, not merely > 0.
+        step=12*9*4
+        soft_only=struct.pack('<'+'f'*(12*9),*([0.1]*(12*9)))+self.raw[step:]
+        self.capture(raw=soft_only)
+        evidence=self.ws.inspect('snails')['base_masks']['mask_identity']
+        self.assertFalse(evidence['bindings'][0]['has_foreground'])
+        self.assertTrue(evidence['bindings'][1]['has_foreground'])
+        self.assertEqual(self.ws.base_masks('snails',
+            expected_sha256=self.ws.inspect('snails')['sha256'])[0],soft_only)
+
     def test_g33e_mask_permutation_changes_revision_and_content_order(self):
         step=12*9*4
         self.capture()
