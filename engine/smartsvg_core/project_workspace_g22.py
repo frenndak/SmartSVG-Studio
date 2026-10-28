@@ -483,6 +483,10 @@ class ManagedWorkspace:
         except MaskSnapshotError as exc:
             raise WorkspaceError(exc.code) from exc
         src=previous.sources[0]
+        if previous.subjects:
+            existing_snapshot=previous.document.get(SNAPSHOT_KEY)
+            if existing_snapshot != meta:
+                raise WorkspaceError('SUBJECT_IDENTITIES_REQUIRE_EXPLICIT_REBIND')
         count,height,width=meta['shape']
         if (width,height)!=(src.width_px,src.height_px):
             raise WorkspaceError('MASK_SOURCE_SIZE_MISMATCH')
