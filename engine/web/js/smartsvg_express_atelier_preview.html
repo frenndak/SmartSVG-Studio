@@ -258,7 +258,7 @@ function paintRealSubjects(){
       linkedIdentity=reportAtPaint.mask_catalog?.items[item.numero-1];
       identityLine=document.createElement("p");
       identityLine.textContent=linkedIdentity
-        ?"Masque float32 : "+linked.mask_id+" · SHA "+linked.mask_sha256_float32.slice(0,12)+"… · "+
+        ?"Masque float32 : "+linkedIdentity.mask_id+" · SHA "+linkedIdentity.mask_sha256_float32.slice(0,12)+"… · "+
           (linkedIdentity.subject_id
             ?"Sujet enregistré : "+linkedIdentity.subject_id
             :"Identité de sujet durable absente (liaison temporaire à cette révision)")
