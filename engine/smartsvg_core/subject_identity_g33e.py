@@ -38,7 +38,7 @@ def _subject_id(existing, factory):
     raise SubjectIdentityError("SUBJECT_ID_COLLISION")
 
 
-def _validated_bindings(project):
+def validated_subject_identity_bindings(project):
     raw = project.document.get(BINDINGS_KEY)
     if raw is None:
         return []
@@ -98,7 +98,7 @@ def register_subject_identity(
             or not isinstance(source_sha256, str)
             or not _SHA.fullmatch(source_sha256)):
         raise SubjectIdentityError("INVALID_SUBJECT_IDENTITY_REQUEST")
-    bindings = _validated_bindings(project)
+    bindings = validated_subject_identity_bindings(project)
     snapshot = project.document.get(SNAPSHOT_KEY)
     if snapshot is None:
         raise SubjectIdentityError("BASE_MASK_SNAPSHOT_NOT_FOUND")
