@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-const script=fs.readFileSync(new URL('../web/js/smartsvg_subject_inspector_v21154.js',import.meta.url),'utf8').replace(/^import\s+\{app\}.*;\s*$/m,'');
+const script=fs.readFileSync(new URL('../web/js/smartsvg_subject_inspector_v21154.js',import.meta.url),'utf8').replace(/^import\s+\{app\}.*;\s*$/m,'').replace(/^import\s+\{api\}.*;\s*$/m,'').replace(/^import\s+\{validProjectName[^;]+;\s*$/m,'');
 const png='data:image/png;base64,QUJDRA==';
 function setup(){
  let extension;
