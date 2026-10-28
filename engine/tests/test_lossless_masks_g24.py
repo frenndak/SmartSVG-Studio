@@ -203,5 +203,69 @@ class G24MaskArchiveTests(unittest.TestCase):
                 decode_snapshot(meta,sample)
 
 
+    def test_g33e_identity_catalog_is_lossless_read_only_and_order_specific(self):
+        self.capture()
+        before=self.path.read_bytes()
+        state=self.ws.inspect('snails')
+        evidence=state['base_masks']['mask_identity']
+        self.assertEqual(evidence['version'],1)
+        self.assertEqual(evidence['identity_kind'],'snapshot_position_plus_float32_digest')
+        self.assertFalse(evidence['persistent_subject_ids'])
+        self.assertEqual(len(evidence['bindings']),2)
+        step=12*9*4
+        self.assertEqual([row['mask_id'] for row in evidence['bindings']],
+                         ['base-mask-00','base-mask-01'])
+        self.assertEqual([row['mask_index'] for row in evidence['bindings']],[0,1])
+        self.assertEqual([row['mask_sha256_float32'] for row in evidence['bindings']],
+                         [sha256(self.raw[i*step:(i+1)*step]).hexdigest() for i in range(2)])
+        self.assertTrue(all(row['has_foreground'] for row in evidence['bindings']))
+        self.assertTrue(all(row['subject_id'] is None for row in evidence['bindings']))
+        self.assertEqual(self.ws.base_masks('snails',expected_sha256=state['sha256'])[0],self.raw)
+        self.assertEqual(self.path.read_bytes(),before)
+        self.assertNotIn('resources',str(evidence))
+        self.assertNotIn(self.raw[:24],str(evidence).encode())
+
+    def test_g33e_duplicate_float32_slices_and_empty_masks_are_exposed_not_claimed_stable(self):
+        step=12*9*4
+        duplicate=self.raw[:step]*2
+        self.capture(raw=duplicate)
+        rows=self.ws.inspect('snails')['base_masks']['mask_identity']['bindings']
+        self.assertEqual(rows[0]['mask_sha256_float32'],rows[1]['mask_sha256_float32'])
+        self.assertIsNone(rows[0]['subject_id'])
+        empty=bytes(step)+self.raw[step:]
+        current=self.ws.inspect('snails')['sha256']
+        self.capture(raw=empty,sha=current)
+        rows=self.ws.inspect('snails')['base_masks']['mask_identity']['bindings']
+        self.assertFalse(rows[0]['has_foreground'])
+        self.assertTrue(rows[1]['has_foreground'])
+
+    def test_g33e_mask_permutation_changes_revision_and_content_order(self):
+        step=12*9*4
+        self.capture()
+        first=self.ws.inspect('snails')
+        ordered=[row['mask_sha256_float32']
+                 for row in first['base_masks']['mask_identity']['bindings']]
+        self.capture(raw=self.raw[step:]+self.raw[:step],sha=first['sha256'])
+        second=self.ws.inspect('snails')
+        reversed_digests=[row['mask_sha256_float32']
+                          for row in second['base_masks']['mask_identity']['bindings']]
+        self.assertEqual(reversed_digests,list(reversed(ordered)))
+        self.assertNotEqual(first['sha256'],second['sha256'])
+
+    def test_g33e_subject_id_only_when_real_subject_record_exists(self):
+        from smartsvg_core.project_contracts import Subject
+        self.capture()
+        original=load_project(self.path)
+        id_source=original.sources[0].source_id
+        entity=Subject('real-subject-01',id_source,'base-mask-00',(1,1,4,4))
+        save_project(self.path,replace(original,subjects=(entity,)))
+        state=self.ws.inspect('snails')['base_masks']['mask_identity']
+        self.assertEqual(state['bindings'][0]['subject_id'],'real-subject-01')
+        self.assertIsNone(state['bindings'][1]['subject_id'])
+        self.assertFalse(state['persistent_subject_ids'])
+        self.assertEqual(self.ws.base_masks('snails',
+            expected_sha256=self.ws.inspect('snails')['sha256'])[0],self.raw)
+
+
 if __name__=='__main__':
     unittest.main()
