@@ -427,3 +427,49 @@ test('expiry during stalled confirmation aborts its project GET and leaves no da
  assert.equal(s.confirm.hidden,true);
  assert.match(s.hint.textContent,/Proposition expirée/);
 });
+
+test('removing source node aborts pending share and seals detached inspector',async()=>{
+ let signal,entered;
+ const started=new Promise(resolve=>{entered=resolve;});
+ const reader=(_api,_name,opts)=>{
+   signal=opts.signal;entered();
+   return new Promise((_resolve,reject)=>{
+     signal.addEventListener('abort',()=>reject(Error('PROJECT_BINDING_ABORTED')),{once:true});
+   });
+ };
+ const s=setup({projectReader:reader});s.node.onExecuted(report());
+ s.projectName.value='mes_sujets';
+ const pending=s.share.fire('click');await started;
+ s.node.onRemoved();
+ await pending;
+ assert.equal(signal.aborted,true);
+ assert.equal(s.channels.length,0,'detached node cannot broadcast stale subjects');
+ assert.equal(s.share.disabled,true,'removed inspector must remain disabled');
+ s.node.onExecuted(report());
+ assert.equal(s.share.disabled,true,'late execution cannot revive detached UI');
+ await s.share.fire('click');
+ assert.equal(s.channels.length,0,'detached UI never shares again');
+});
+
+test('removing source node cancels pinned confirmation without changing the widget',async()=>{
+ let count=0,entered,signal,s;
+ const started=new Promise(resolve=>{entered=resolve;});
+ const reader=(_api,_name,opts)=>{
+   if(++count===1)return Promise.resolve(s.getProject());
+   signal=opts.signal;entered();
+   return new Promise((_resolve,reject)=>{
+     signal.addEventListener('abort',()=>reject(Error('PROJECT_BINDING_ABORTED')),{once:true});
+   });
+ };
+ s=setup({projectReader:reader});s.node.onExecuted(report());s.projectName.value='mes_sujets';
+ await s.share.fire('click');
+ const channel=s.channels[0];
+ channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ const pending=s.confirm.fire('click');await started;
+ s.node.onRemoved();await pending;
+ assert.equal(signal.aborted,true);
+ assert.equal(s.node.widgets[0].value,1);
+ assert.equal(channel.closed,true);
+ assert.equal(s.share.disabled,true);
+ assert.equal(s.confirm.disabled,true);
+});
