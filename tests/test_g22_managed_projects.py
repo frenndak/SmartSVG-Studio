@@ -97,9 +97,9 @@ class RoutePendingIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 def chunk(tag,payload):
                     return (struct.pack('>I',len(payload))+tag+payload+
                             struct.pack('>I',zlib.crc32(tag+payload)&0xffffffff))
-                png=(b'\\x89PNG\\r\\n\\x1a\\n'+
+                png=(b'\x89PNG\r\n\x1a\n'+
                      chunk(b'IHDR',struct.pack('>IIBBBBB',8,6,8,6,0,0,0))+
-                     chunk(b'IDAT',zlib.compress((b'\\x00'+b'\\x44'*32)*6))+
+                     chunk(b'IDAT',zlib.compress((b'\x00'+b'\x44'*32)*6))+
                      chunk(b'IEND',b''))
                 workspace.create('snails',png,profile='Sticker - contour du sujet')
                 first=workspace.inspect('snails')
