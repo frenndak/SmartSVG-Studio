@@ -123,6 +123,16 @@ def register_subject_identity(
         for index in range(count)
     ]
     digests = [sha256(chunk).hexdigest() for chunk in chunks]
+    # A new binding cannot be appended to an archive whose *other*
+    # persisted bindings have already drifted. Validate all proofs against
+    # this same exact snapshot, not only the selected candidate.
+    by_mask_id = {mask.mask_id: index for index, mask in enumerate(project.masks)}
+    for proof in bindings:
+        proof_index = by_mask_id.get(proof["mask_id"])
+        if (proof_index is None or proof["source_id"] != source_id
+                or proof["source_sha256"] != snapshot["editor_fingerprint"]
+                or digests[proof_index] != proof["mask_sha256_float32"]):
+            raise SubjectIdentityError("SUBJECT_IDENTITY_PROOF_MISMATCH")
     if digests[mask_index] != mask_sha256_float32:
         raise SubjectIdentityError("MASK_FLOAT32_SHA_MISMATCH")
     if digests.count(mask_sha256_float32) != 1:
