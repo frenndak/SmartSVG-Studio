@@ -578,12 +578,29 @@ class ManagedWorkspace:
                 'certified': False,
             }
         def verified_subject(reopened):
+            # The saved archive is reloaded UNDER the same OS project lock.
+            # Verify the persisted proof against the exact float32 bytes too;
+            # a structurally valid Subject record alone is not enough.
             persisted = [item for item in reopened.subjects
                          if item.subject_id == subject.subject_id]
-            return (len(persisted) == 1 and
-                    persisted[0].mask_id == mask_id and
-                    persisted[0].source_id == source_id and
-                    persisted[0].bbox_px == subject.bbox_px)
+            if (len(persisted) != 1 or
+                    persisted[0].mask_id != mask_id or
+                    persisted[0].source_id != source_id or
+                    persisted[0].bbox_px != subject.bbox_px):
+                return False
+            try:
+                catalog = snapshot_mask_bindings(reopened)
+                evidence = catalog["bindings"][mask_index]
+                return (
+                    catalog["subject_proof_schema_valid"] is True and
+                    catalog["source_id"] == source_id and
+                    evidence["subject_id"] == subject.subject_id and
+                    evidence["mask_id"] == mask_id and
+                    evidence["mask_sha256_float32"] == mask_sha256_float32 and
+                    evidence["subject_proof_status"] == "verified"
+                )
+            except (KeyError, IndexError, MaskSnapshotError, TypeError, ValueError):
+                return False
         try:
             saved = save_with_recovery(
                 path, updated, expected_sha256=current_sha,
