@@ -17,6 +17,7 @@ from .project_archive import LoadedProject, ProjectArchiveError, load_project
 from .project_contracts import SourceAsset
 from .editor_session_g23 import parse_editor_document, EditorSessionError
 from .project_contracts import Mask
+from .mask_binding_g33e import snapshot_mask_bindings
 from .mask_snapshot_g24 import (
     SNAPSHOT_KEY, SNAPSHOT_PATH, create_snapshot, decode_snapshot,
     encode_preview_l8, MaskSnapshotError,
@@ -245,12 +246,16 @@ class ManagedWorkspace:
                 'certified':False,'message_fr':health.message_fr,
                 'action_fr':health.action_fr}
         if health.status=='PROJECT_HEALTHY':
+            revision_before=_revision(path)
             loaded=load_project(path)
             report['document']={k:loaded.document.get(k) for k in
                 ('profile','width_mm','dpi','notes','stage')}
             report['source_count']=len(loaded.sources)
             report['operations_count']=len(loaded.operations)
-            report['sha256']=_sha(path.read_bytes())
+            revision_after=_revision(path)
+            if revision_before!=revision_after:
+                raise WorkspaceError('PROJECT_CHANGED_DURING_INSPECTION')
+            report['sha256']=revision_after
             snap=loaded.document.get(SNAPSHOT_KEY)
             if isinstance(snap,dict):
                 report['base_masks']={
@@ -259,7 +264,10 @@ class ManagedWorkspace:
                     'editor_fingerprint':snap['editor_fingerprint'],
                     'source_fingerprint':snap['image_fingerprint'],
                     'physical_cut_verified':False,
+                    'mask_identity':snapshot_mask_bindings(loaded),
                 }
+                if _revision(path)!=revision_after:
+                    raise WorkspaceError('PROJECT_CHANGED_DURING_INSPECTION')
             session=loaded.document.get('editor_v216')
             if isinstance(session,dict):
                 report['editor_session']={
