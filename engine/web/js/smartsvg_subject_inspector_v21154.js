@@ -73,6 +73,8 @@ function inspector(node){
  const projectLabel=element('label','Projet .smartsvg à verrouiller (facultatif, lecture seule)');
  const projectName=element('input');
  projectName.type='text';projectName.maxLength=48;
+ projectName.id='smartsvg-g33d-project-'+String(node?.id||'node');
+ projectLabel.setAttribute('for',projectName.id);
  projectName.placeholder='Nom du projet existant';
  projectName.setAttribute('aria-label','Nom du projet SmartSVG à vérifier avant confirmation');
  projectName.style.cssText='display:block;max-width:100%;margin:5px 0 8px;padding:7px';
@@ -223,7 +225,7 @@ function inspector(node){
      try{channel.postMessage(msg);}catch(error){stopSelection();throw error;}
      if(!binding)channel.close();
      hint.textContent=binding
-       ?'Diagnostic envoyé. Choisir un sujet dans l’Atelier, puis confirmer ici dans les 90 s. Aucune modification automatique.'
+       ?'Diagnostic envoyé'+(projectLock?' avec projet '+projectLock.project_name+' verrouillé à la révision '+projectLock.project_sha256.slice(0,12)+'…':' sans projet lié')+'. Choisir un sujet dans l’Atelier, puis confirmer ici dans les 90 s. Aucune modification automatique.'
        :'Diagnostic envoyé en lecture seule. Liaison indisponible : connecter IMAGE/MASK, identifier le nœud et utiliser un navigateur avec crypto.';
    }catch{
      stopSelection();
