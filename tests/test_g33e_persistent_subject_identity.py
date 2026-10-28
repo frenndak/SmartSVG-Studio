@@ -215,14 +215,19 @@ class PersistentSubjectIdentityTests(unittest.TestCase):
         state, item, source_id = self.binding(0)
         self.assertIsNone(item["subject_id"])
         self.assertEqual(item["subject_proof_status"], "mismatch")
-        with self.assertRaisesRegex(
-                WorkspaceError, "SUBJECT_IDENTITY_PROOF_MISMATCH"):
-            self.workspace.register_subject_identity(
-                "subjects", mask_index=0, mask_id=item["mask_id"],
-                mask_sha256_float32=item["mask_sha256_float32"],
-                source_id=source_id, source_sha256="d" * 64,
-                expected_sha256=state["sha256"], confirmed=True,
-                expires_at_ms=int(time.time() * 1000) + 60_000)
+        self.assertFalse(state["base_masks"]["mask_identity"]["subject_proof_schema_valid"])
+        # The mismatched proof for mask 0 must also block a NEW subject
+        # registration for mask 1; never extend an inconsistent archive.
+        other = state["base_masks"]["mask_identity"]["bindings"][1]
+        for index, candidate in ((0, item), (1, other)):
+            with self.subTest(index=index), self.assertRaisesRegex(
+                    WorkspaceError, "SUBJECT_IDENTITY_PROOF_MISMATCH"):
+                self.workspace.register_subject_identity(
+                    "subjects", mask_index=index, mask_id=candidate["mask_id"],
+                    mask_sha256_float32=candidate["mask_sha256_float32"],
+                    source_id=source_id, source_sha256="d" * 64,
+                    expected_sha256=state["sha256"], confirmed=True,
+                    expires_at_ms=int(time.time() * 1000) + 60_000)
 
 
     def test_core_rejects_duplicate_empty_and_collision_cases(self):
