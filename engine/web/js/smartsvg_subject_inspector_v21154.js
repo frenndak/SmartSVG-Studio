@@ -61,8 +61,33 @@ function inspector(node){
  layout.style.cssText='display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px';
  const zoneActions=element('div');
  zoneActions.setAttribute('aria-label','Examiner des fragments dans l’éditeur V21.6');
- root.append(title,hint,summary,layout,zoneActions);
+ const share=element('button','Envoyer le dernier diagnostic vers l’Atelier');
+ share.type='button';share.disabled=true;
+ share.style.cssText='display:block;margin-top:10px;padding:9px;border:1px solid #68aa9c;background:#12423e;color:white;border-radius:7px;cursor:pointer';
+ let latest=null;
+ // Deliberately NOT connected to onExecuted: user action is mandatory.
+ share.addEventListener('click',async()=>{
+   if(!latest)return;
+   if(!['http:','https:'].includes(window.location.protocol)||
+      typeof BroadcastChannel==='undefined'){
+     hint.textContent='Transfert indisponible : ouvrir ComfyUI et l’Atelier sur la même origine HTTP.';
+     return;
+   }
+   try{
+     const {normalizeSubjectInspection,SUBJECT_HANDOFF_CHANNEL}=
+       await import('./smartsvg_subject_handoff_g33.mjs');
+     const msg=normalizeSubjectInspection(latest);
+     if(!msg){hint.textContent='Diagnostic incomplet ou trop volumineux : relancer le nœud et réessayer.';return;}
+     const channel=new BroadcastChannel(SUBJECT_HANDOFF_CHANNEL);
+     try{channel.postMessage(msg);}finally{channel.close();}
+     hint.textContent='Diagnostic envoyé localement. Dans l’Atelier, vérifier que la réception est active et que l’empreinte correspond. Aucun masque modifié.';
+   }catch{
+     hint.textContent='Transfert indisponible ; utiliser l’inspecteur du nœud ComfyUI.';
+   }
+ });
+ root.append(title,hint,summary,layout,zoneActions,share);
  function update(data){
+   latest=null;share.disabled=true;
    layout.replaceChildren();zoneActions.replaceChildren();
    const entry=data?.smartsvg_subjects_v21154?.[0];
    if(!entry||!Array.isArray(entry.sujets)){
@@ -73,6 +98,9 @@ function inspector(node){
    const selected=entry.selection;
    const safeSource=SHA.test(String(entry.source_sha256||''))&&Number.isInteger(entry.width_px)&&entry.width_px>0&&
       Number.isInteger(entry.height_px)&&entry.height_px>0&&Number.isInteger(entry.count)&&entry.count>=1&&entry.count<=32;
+   if(safeSource&&Array.isArray(entry.sujets)&&entry.sujets.length===entry.count){
+     latest=entry;share.disabled=false;
+   }
    let issues=0, shown=0;
    for(const item of entry.sujets.slice(0,32)){
      if(!Number.isInteger(item.numero)||item.numero<1||item.numero>32)continue;

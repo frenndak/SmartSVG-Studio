@@ -2,9 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
+import * as handoff from '../engine/web/js/smartsvg_subject_handoff_g33.mjs';
 
 const page=readFileSync(new URL('../engine/web/js/smartsvg_express_atelier_preview.html',import.meta.url),'utf8');
 const script=page.match(/<script>\s*([\s\S]*?)<\/script>/i)?.[1];
+const vmScript=script?.replace(
+  'await import("./smartsvg_subject_handoff_g33.mjs")',
+  'await Promise.resolve(globalThis.__g33Handoff)'
+);
 assert.ok(script,'single inline G3 atelier script required');
 
 function browser(){
@@ -37,7 +42,8 @@ function browser(){
     'notification','count','selInfo','stageBadge','statePill','sizeNote','artboardNote',
     'width','dpi','stageTitle','stageSubtitle','actionTitle','actionDesc','modeHint',
     'next','all','none','alternate','resetSelect','demo','zoomLabel','artboardWrap','dropZone',
-    'zoomIn','zoomOut','zoomFit','fileInfo'];
+    'zoomIn','zoomOut','zoomFit','fileInfo','receiveSubjects','clearSubjects',
+    'realSubjectsGrid','realSubjectsStatus','realSubjectsSelection','realSubjectsHost'];
   for(const id of ids)find(id);
   find('width').value='40';
   for(const id of ['uploaded','empty','realProjectHost','realContourHost'])find(id).hidden=true;
@@ -67,11 +73,21 @@ function browser(){
     load(w=300,h=200){this.naturalWidth=w;this.naturalHeight=h;this.onload?.();}
     fail(){this.onerror?.();}
   }
-  const window={location:{protocol:'file:'}};
+  const window={location:{protocol:'file:'},addEventListener(){}};
+  class MockBroadcastChannel{
+    static instances=[];
+    constructor(name){this.name=name;this.closed=false;MockBroadcastChannel.instances.push(this);}
+    close(){this.closed=true;}
+    sendToReceiver(data){this.onmessage?.({data});}
+  }
+  const timeouts=new Map();let nextTimeout=1;
   const globals={document,window,URL,Image,console,Set,Array,Math,Number,String,
-    Object,Promise};
-  vm.runInNewContext(script,globals,{timeout:5000});
-  return {find,steps,navigation,revoked,created,Image,document};
+    Object,Promise,BroadcastChannel:MockBroadcastChannel,__g33Handoff:handoff,
+    setTimeout:(fn)=>{const id=nextTimeout++;timeouts.set(id,fn);return id;},
+    clearTimeout:id=>timeouts.delete(id)};
+  vm.runInNewContext(vmScript,globals,{timeout:5000});
+  return {find,steps,navigation,revoked,created,Image,document,
+    window,MockBroadcastChannel,timeouts};
 }
 const file=(name,type='image/png',size=1000)=>({name,type,size});
 
@@ -144,4 +160,46 @@ test('real ComfyUI panels are explicitly unavailable on file:// but UI stays int
   assert.match(b.find('notification').textContent,/ComfyUI/);
   await b.find('none').fire('click');
   assert.equal(b.find('count').textContent,'0 / 12');
+});
+
+test('explicit real subject reception displays verified G2.6 content and stays non-destructive',async()=>{
+  const b=browser();
+  b.window.location.protocol='http:';
+  await b.find('receiveSubjects').fire('click');
+  assert.equal(b.MockBroadcastChannel.instances.length,1);
+  const channel=b.MockBroadcastChannel.instances[0];
+  assert.equal(b.find('receiveSubjects').disabled,true);
+  channel.sendToReceiver({kind:'foreign-plugin',sujets:[]});
+  assert.equal(b.find('realSubjectsGrid').children.length,0);
+  const png='data:image/png;base64,QUJDRA==';
+  channel.sendToReceiver({kind:'smartsvg:subjects:g33b',version:1,
+    selection:1,source_sha256:'a'.repeat(64),width_px:160,height_px:90,count:2,
+    sujets:[
+      {numero:1,image_data:png,codes:['FRAGMENTS_DETACHES'],
+       zones_a_examiner:[{type:'FRAGMENT_SEPARE',bbox_source_px:[1,2,8,10],
+         bbox_apercu_88px:[2,3,14,19]}],zones_non_affichees:0},
+      {numero:2,image_data:png,codes:['MASQUE_VIDE'],
+       zones_a_examiner:[],zones_non_affichees:0}
+    ]});
+  assert.equal(channel.closed,true);
+  assert.equal(b.find('receiveSubjects').disabled,false);
+  assert.equal(b.find('realSubjectsGrid').children.length,2);
+  assert.match(b.find('realSubjectsStatus').textContent,/Diagnostic G2.6 reçu/);
+  assert.match(b.find('realSubjectsSelection').textContent,/1 \/ 2 sujets/);
+  const first=b.find('realSubjectsGrid').children[0];
+  const button=first.children.find(x=>x.tagName==='button');
+  assert.equal(button.attributes['aria-pressed'],'true');
+  await button.fire('click');
+  assert.match(b.find('realSubjectsSelection').textContent,/0 \/ 2 sujets/);
+  // The old fictitious planche remains unchanged.
+  assert.equal(b.find('count').textContent,'12 / 12');
+  await b.find('clearSubjects').fire('click');
+  assert.equal(b.find('realSubjectsGrid').children.length,0);
+  assert.match(b.find('realSubjectsStatus').textContent,/Aucun masque ni projet modifié/);
+});
+test('real subjects receiver explicitly refuses file protocol',async()=>{
+  const b=browser();
+  await b.find('receiveSubjects').fire('click');
+  assert.equal(b.MockBroadcastChannel.instances.length,0);
+  assert.match(b.find('realSubjectsStatus').textContent,/ComfyUI sous HTTP local/);
 });
