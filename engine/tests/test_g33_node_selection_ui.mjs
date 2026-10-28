@@ -68,7 +68,7 @@ function setup(){
  extension.nodeCreated(node);
  assert.ok(root,'real inspector is attached to source node');
  const hint=root.children[1],share=root.children[5],confirm=root.children[6];
- return {node,root,hint,share,confirm,channels,timers,
+ return {node,root,hint,share,confirm,channels,timers,api,
    projectName:root.children[8],requests,setProject:next=>{projectState=next;},
    getProject:()=>projectState};
 }
@@ -270,4 +270,62 @@ test('project revision changed while widget callback awaits rolls back unchanged
  assert.equal(s.node.widgets[0].value,1);
  assert.match(s.hint.textContent,/Projet .smartsvg modifié/);
  assert.equal(channel.closed,true);
+});
+
+test('pinned confirmation never overwrites a newer valid numeric subject during a pending GET',async()=>{
+ const s=setup(),r=report(),entry=r.smartsvg_subjects_v21154[0];
+ entry.count=3;
+ entry.sujets.push({...entry.sujets[0],numero:3});
+ s.setProject({...s.getProject(),base_masks:{...s.getProject().base_masks,count:3}});
+ s.node.onExecuted(r);s.projectName.value='mes_sujets';
+ await s.share.fire('click');
+ const channel=s.channels[0];
+ channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ let enterGet,finishGet;
+ const getStarted=new Promise(resolve=>{enterGet=resolve;});
+ s.api.fetchApi=route=>{
+   s.requests.push(route);enterGet();
+   return new Promise(resolve=>{
+     finishGet=()=>resolve({ok:true,json:async()=>({ok:true,project:s.getProject()})});
+   });
+ };
+ let callbacks=0;
+ s.node.widgets[0].callback=()=>{callbacks++;};
+ const pending=s.confirm.fire('click');
+ await getStarted;
+ assert.equal(s.node.widgets[0].value,1,'GET has not updated the widget');
+ s.node.widgets[0].value=3; // newer explicit numeric user choice
+ finishGet();
+ await pending;
+ assert.equal(s.node.widgets[0].value,3,'newer user choice must win');
+ assert.equal(callbacks,0,'obsolete proposal must not invoke callback');
+ assert.equal(s.requests.length,2,'no post-callback read on refused proposal');
+ assert.equal(channel.closed,true);
+ assert.match(s.hint.textContent,/Sélection modifiée.*nouveau choix est conservé/);
+ assert.equal(s.share.disabled,false,'user can retry');
+});
+
+test('pinned confirmation rejects widget replacement during a pending project GET',async()=>{
+ const s=setup();s.node.onExecuted(report());s.projectName.value='mes_sujets';
+ await s.share.fire('click');const channel=s.channels[0];
+ channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ let enterGet,finishGet;
+ const getStarted=new Promise(resolve=>{enterGet=resolve;});
+ s.api.fetchApi=route=>{
+   s.requests.push(route);enterGet();
+   return new Promise(resolve=>{
+     finishGet=()=>resolve({ok:true,json:async()=>({ok:true,project:s.getProject()})});
+   });
+ };
+ const previousWidget=s.node.widgets[0];
+ let callbacks=0;previousWidget.callback=()=>{callbacks++;};
+ const pending=s.confirm.fire('click');
+ await getStarted;
+ s.node.widgets[0]={name:'numero_sujet',value:1};
+ finishGet();await pending;
+ assert.equal(s.node.widgets[0].value,1,'replacement widget untouched');
+ assert.equal(previousWidget.value,1,'detached widget untouched');
+ assert.equal(callbacks,0);
+ assert.equal(channel.closed,true);
+ assert.match(s.hint.textContent,/Sélection modifiée/);
 });
