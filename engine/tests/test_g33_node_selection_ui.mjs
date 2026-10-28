@@ -10,7 +10,7 @@ const original=fs.readFileSync(new URL('../web/js/smartsvg_subject_inspector_v21
 const script=original
  .replace("import {app} from '../../scripts/app.js';","const app=globalThis.__app;")
  .replace("import {api} from '../../scripts/api.js';","const api=globalThis.__api;")
- .replace(/import\\s+\\{validProjectName,readProjectRevision,makeProjectLock,matchesProjectLock\\}\\s+from '\\.\\/smartsvg_subject_project_gate_g33d\\.mjs';/,
+ .replace(/import\s+\{validProjectName,readProjectRevision,makeProjectLock,matchesProjectLock\}\s+from '\.\/smartsvg_subject_project_gate_g33d\.mjs';/,
    "const {validProjectName,readProjectRevision,makeProjectLock,matchesProjectLock}=globalThis.__project;")
  .replace("await import('./smartsvg_subject_handoff_g33.mjs')","await Promise.resolve(globalThis.__handoff)")
  .replace("await import('./smartsvg_subject_selection_g33c.mjs')","await Promise.resolve(globalThis.__selection)");
