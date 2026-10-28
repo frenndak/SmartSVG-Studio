@@ -1,20 +1,20 @@
 """G3.3e-b1: persistent Subject identity over exact G2.4 float32 masks."""
 from hashlib import sha256
 import asyncio
+import importlib
 from pathlib import Path
 import re
 import struct
 import tempfile
 import time
 import sys
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from unittest import mock
 import unittest
 import zlib
 
 from smartsvg_core.project_archive import load_project
 from smartsvg_core.project_workspace_g22 import ManagedWorkspace, WorkspaceError
-from engine.project_routes_g22 import register_project_routes
 
 
 def png(width=4, height=3):
@@ -206,8 +206,14 @@ class PersistentSubjectIdentityTests(unittest.TestCase):
                 return self.reader
 
         routes = Routes()
-        with mock.patch.dict(sys.modules, {"aiohttp": SimpleNamespace(web=Web)}):
-            register_project_routes(routes, self.temp.name)
+        engine_package = ModuleType("engine")
+        engine_package.__path__ = [str(Path(__file__).resolve().parents[1] / "engine")]
+        with mock.patch.dict(sys.modules, {
+                "engine": engine_package,
+                "aiohttp": SimpleNamespace(web=Web),
+        }):
+            route_module = importlib.import_module("engine.project_routes_g22")
+            route_module.register_project_routes(routes, self.temp.name)
         handler = routes.posts["/smartsvg/g22/subject/identity"]
         response = asyncio.run(handler(Request({
             "name": "subjects",
