@@ -197,5 +197,64 @@ class SVGContractTests(unittest.TestCase):
             inspect_svg(p)
 
 
+    def test_malformed_path_commands_rejected(self):
+        bad_paths = (
+            'garbage', 'L1 2', 'M0 0 L', 'M0 0 L1',
+            'M0 0 L1 2 garbage', 'M0 0 L1e999 2',
+            'M0 0 A 0 4 0 0 1 2 3', 'M0 0 A 4 4 0 2 1 2 3',
+            'M0 0 L1 2 Z 4 5', 'M0 0 L1 2,,3 4',
+        )
+        for data in bad_paths:
+            with self.subTest(data=data):
+                p = self.write(self.base('<path d="' + data + '"/>'))
+                with self.assertRaisesRegex(SVGRejected, 'INVALID_PATH_DATA|NONFINITE_PATH_DATA'):
+                    inspect_svg(p)
+
+    def test_move_only_path_is_not_cut_geometry(self):
+        for data in ('M0 0', 'M0 0 Z'):
+            with self.subTest(data=data):
+                p = self.write(self.base('<path d="' + data + '"/>'))
+                with self.assertRaisesRegex(SVGRejected, 'NO_DRAWING_PATH'):
+                    inspect_svg(p)
+
+    def test_valid_path_grammar_still_accepted(self):
+        paths = (
+            'M0 0 L10 10 Z',
+            'M 40 680 Q 330 530 550 660 T 1060 665 L1060 790 Z',
+            'M10-5h10v-5z',
+            'm0 0 1 1 2 2',
+            'M0 0 A 4 4 0 1 0 10 10',
+            'M0 0 C0 0 2 2 3 3 S5 5 8 8',
+        )
+        for data in paths:
+            with self.subTest(data=data):
+                p = self.write(self.base('<path d="' + data + '"/>'))
+                result = inspect_svg(p)
+                self.assertTrue(result['path_syntax_checked'])
+                self.assertFalse(result['geometry_verified'])
+                self.assertFalse(result['blade_path_verified'])
+
+    def test_unverified_transform_rejected(self):
+        for body in (
+            '<path d="M0 0 L2 2" transform="scale(2)"/>',
+            '<g transform="rotate(foo)"><circle r="8"/></g>',
+        ):
+            with self.subTest(body=body):
+                p = self.write(self.base(body))
+                with self.assertRaisesRegex(SVGRejected, 'UNVERIFIED_TRANSFORM'):
+                    inspect_svg(p)
+
+    def test_static_path_gate_never_certifies_geometry(self):
+        p = self.write(self.base('<path d="M0 0 L0 0"/>'))
+        result = inspect_svg(p)
+        self.assertTrue(result['path_syntax_checked'])
+        self.assertFalse(result['geometry_verified'])
+        self.assertFalse(result['blade_path_verified'])
+        self.assertFalse(result['design_space_import_verified'])
+        self.assertFalse(result['physical_cut_verified'])
+
+
+
+
 if __name__ == "__main__":
     unittest.main()
