@@ -1,15 +1,20 @@
 """G3.3e-b1: persistent Subject identity over exact G2.4 float32 masks."""
 from hashlib import sha256
+import asyncio
 from pathlib import Path
 import re
 import struct
 import tempfile
 import time
+import sys
+from types import SimpleNamespace
+from unittest import mock
 import unittest
 import zlib
 
 from smartsvg_core.project_archive import load_project
 from smartsvg_core.project_workspace_g22 import ManagedWorkspace, WorkspaceError
+from project_routes_g22 import register_project_routes
 
 
 def png(width=4, height=3):
@@ -149,6 +154,76 @@ class PersistentSubjectIdentityTests(unittest.TestCase):
                 editor_fingerprint=self.source_fingerprint,
                 expected_sha256=before["sha256"])
         self.assertEqual(self.workspace.inspect("subjects")["sha256"], before["sha256"])
+
+
+    def test_opt_in_route_requires_exact_confirmed_metadata(self):
+        state, item, source_id = self.binding(0)
+
+        class Routes:
+            def __init__(self):
+                self.gets, self.posts = {}, {}
+            def get(self, path):
+                return lambda fn: self.gets.setdefault(path, fn) or fn
+            def post(self, path):
+                def decorate(fn):
+                    self.posts[path] = fn
+                    return fn
+                return decorate
+
+        class Web:
+            @staticmethod
+            def json_response(data, status=200, headers=None):
+                return SimpleNamespace(data=data, status=status, headers=headers or {})
+            class Response:
+                def __init__(self, **kwargs):
+                    self.__dict__.update(kwargs)
+
+        class Part:
+            def __init__(self, name, value):
+                self.name, self.value, self.done = name, value.encode(), False
+            async def read_chunk(self, size=65536):
+                if self.done:
+                    return b""
+                self.done = True
+                return self.value
+
+        class Reader:
+            def __init__(self, fields):
+                self.parts = [Part(key, value) for key, value in fields.items()]
+            async def next(self):
+                return self.parts.pop(0) if self.parts else None
+
+        class Request:
+            content_length = None
+            headers = {
+                "X-SmartSVG-UI": "1",
+                "Origin": "http://localhost:8188",
+                "Host": "localhost:8188",
+            }
+            def __init__(self, fields):
+                self.reader = Reader(fields)
+            async def multipart(self):
+                return self.reader
+
+        routes = Routes()
+        with mock.patch.dict(sys.modules, {"aiohttp": SimpleNamespace(web=Web)}):
+            register_project_routes(routes, self.temp.name)
+        handler = routes.posts["/smartsvg/g22/subject/identity"]
+        response = asyncio.run(handler(Request({
+            "name": "subjects",
+            "expected_sha256": state["sha256"],
+            "source_id": source_id,
+            "source_sha256": self.source_fingerprint,
+            "mask_index": "0",
+            "mask_id": item["mask_id"],
+            "mask_sha256_float32": item["mask_sha256_float32"],
+            "expires_at_ms": str(int(time.time() * 1000) + 60_000),
+            "confirmed": "yes",
+        })))
+        self.assertEqual(response.status, 200)
+        self.assertTrue(response.data["ok"])
+        self.assertEqual(response.data["result"]["mask_id"], "base-mask-00")
+        self.assertRegex(response.data["result"]["subject_id"], r"^subject-[a-f0-9]{32}$")
 
 
 if __name__ == "__main__":
