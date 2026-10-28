@@ -1,6 +1,7 @@
 /** G3.3b: bounded, voluntary transfer of G2.6 subject inspections across
  * same-origin ComfyUI tabs. No storage, no inference, no mutation of masks.
  */
+import {validProjectLock} from './smartsvg_subject_project_gate_g33d.mjs';
 export const SUBJECT_HANDOFF_CHANNEL='smartsvg:subjects:atelier:g33b:v1';
 export const SUBJECT_HANDOFF_KIND='smartsvg:subjects:g33b';
 const SHA=/^[a-f0-9]{64}$/;
@@ -122,6 +123,8 @@ export function normalizeSubjectInspection(raw){
  // Legacy G3.3b reports remain readable; executable selection is enabled
  // only when BOTH a real ComfyUI node ID and a fresh execution session exist.
  const hasBinding=body.node_id!==undefined||body.session_id!==undefined;
+ const hasProject=body.project_name!==undefined||body.project_sha256!==undefined;
+ if(hasProject&&(!hasBinding||!validProjectLock(body)))return null;
  if(hasBinding&&(!integer(body.node_id,1)||
     typeof body.session_id!=='string'||!/^[a-f0-9]{32}$/.test(body.session_id)||
     !Number.isSafeInteger(body.expires_at_ms)||body.expires_at_ms<=0||
@@ -131,5 +134,7 @@ export function normalizeSubjectInspection(raw){
    width_px:width,height_px:height,count,selection:body.selection,
    sujets:items,modifications_automatiques:false,decoupe_certifiee:false,
    ...(hasBinding?{node_id:body.node_id,session_id:body.session_id,
-     expires_at_ms:body.expires_at_ms}:{})};
+     expires_at_ms:body.expires_at_ms}:{}),
+   ...(hasProject?{project_name:body.project_name,
+     project_sha256:body.project_sha256}:{})};
 }
