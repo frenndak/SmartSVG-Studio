@@ -253,16 +253,17 @@ function paintRealSubjects(){
     const name=document.createElement("h3");name.textContent="Sujet "+item.numero;card.appendChild(name);
     // A G2.4 mask_id is an archive position, never a fabricated persistent
     // subject_id. The catalog is validated before this DOM is rendered.
+    let linkedIdentity=null,identityLine=null;
     if(reportAtPaint.project_name){
-      const linked=reportAtPaint.mask_catalog?.items[item.numero-1];
-      const identity=document.createElement("p");
-      identity.textContent=linked
+      linkedIdentity=reportAtPaint.mask_catalog?.items[item.numero-1];
+      identityLine=document.createElement("p");
+      identityLine.textContent=linkedIdentity
         ?"Masque float32 : "+linked.mask_id+" · SHA "+linked.mask_sha256_float32.slice(0,12)+"… · "+
-          (linked.subject_id
-            ?"Sujet enregistré : "+linked.subject_id
+          (linkedIdentity.subject_id
+            ?"Sujet enregistré : "+linkedIdentity.subject_id
             :"Identité de sujet durable absente (liaison temporaire à cette révision)")
         :"Identité du masque non vérifiée : projet hérité, seulement révision globale épinglée.";
-      card.appendChild(identity);
+      card.appendChild(identityLine);
     }
     const rings=[];
     if(item.image_data){
@@ -305,6 +306,60 @@ function paintRealSubjects(){
         " sujets présélectionnés pour revue (aucune modification du nœud).";
     });
     card.appendChild(button);
+    // G3.3e-b1: one explicit write for an exact unambiguous float32 binding.
+    if(linkedIdentity&&linkedIdentity.subject_id===null&&
+       linkedIdentity.subject_ambiguous===false&&
+       Number.isSafeInteger(reportAtPaint.expires_at_ms)&&
+       Date.now()<reportAtPaint.expires_at_ms){
+      const persist=document.createElement("button");persist.type="button";
+      persist.textContent="Enregistrer l’identité de ce sujet";
+      let identityPending=false,identityComplete=false;
+      persist.addEventListener("click",async()=>{
+        if(identityPending||identityComplete)return;
+        if(realSubjectsData!==reportAtPaint){
+          $("realSubjectsStatus").textContent="Rapport remplacé : relancer la réception avant d’enregistrer une identité.";
+          persist.disabled=true;return;
+        }
+        if(Date.now()>=reportAtPaint.expires_at_ms){
+          $("realSubjectsStatus").textContent="Session expirée : relancer le nœud avant d’enregistrer une identité.";
+          persist.disabled=true;return;
+        }
+        identityPending=true;persist.disabled=true;
+        const confirmed=typeof window?.confirm==="function"&&window.confirm(
+          "Enregistrer durablement le sujet "+item.numero+" dans le projet "+
+          reportAtPaint.project_name+" ? Les masques float32 resteront inchangés.");
+        if(!confirmed){identityPending=false;persist.disabled=false;return;}
+        $("realSubjectsStatus").textContent="Vérification et sauvegarde de l’identité en cours…";
+        try{
+          const {registerPersistentSubject}=await import("./smartsvg_subject_identity_g33e.mjs");
+          const {api}=await import("../../scripts/api.js");
+          const result=await registerPersistentSubject(
+            api,reportAtPaint,linkedIdentity,{confirmed:true});
+          if(realSubjectsData!==reportAtPaint)return;
+          identityComplete=true;
+          identityLine.textContent="Sujet enregistré : "+result.subject_id+
+            " · masque "+result.mask_id+" · projet révision "+result.sha256.slice(0,12)+"…";
+          $("realSubjectsStatus").textContent="Identité "+result.subject_id+
+            " enregistrée · nouvelle révision "+result.sha256.slice(0,12)+
+            "… Les masques float32 sont inchangés. Relancer le nœud puis recevoir un diagnostic actualisé.";
+        }catch(error){
+          if(realSubjectsData!==reportAtPaint)return;
+          $("realSubjectsStatus").textContent=
+            ["PROJECT_CHANGED","PROJECT_CHANGED_DURING_SAVE"].includes(error?.message)
+            ?"Projet modifié dans un autre onglet : recharger le projet et relancer le diagnostic, sans écraser les changements."
+            :error?.message==="SUBJECT_IDENTITY_TIMEOUT"
+            ?"Délai de sauvegarde dépassé : vérifier le projet avant de réessayer."
+            :error?.message==="SUBJECT_IDENTITY_ABORTED"
+            ?"Enregistrement annulé : aucune identité confirmée."
+            :"Identité non enregistrée : vérifier le projet, le masque et la session puis réessayer.";
+        }finally{
+          identityPending=false;
+          persist.disabled=identityComplete||realSubjectsData!==reportAtPaint||
+            Date.now()>=reportAtPaint.expires_at_ms;
+        }
+      });
+      card.appendChild(persist);
+    }
     // G3.3c-b: only a verified node+session report may offer a proposal.
     // This sends no mask pixels, no project writes and no queue command.
     if(Number.isSafeInteger(reportAtPaint.node_id)&&reportAtPaint.node_id>0&&
