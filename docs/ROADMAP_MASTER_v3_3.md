@@ -3,7 +3,7 @@
 ## Statut et décision documentaire
 
 **Date de proposition :** 28 octobre 2026
-**Statut :** version candidate à la publication ; devient directrice uniquement après fusion de la PR #60 et basculement de la gouvernance
+**Statut :** version candidate à la publication ; devient directrice uniquement après fusion de la PR #60 **et** publication de la gouvernance protégée correspondante
 **Document précédent :** `ROADMAP_MASTER_v3_2.md`, conservé intégralement et inchangé comme archive historique
 **Objet :** restructurer et détailler la planification sans retirer, réduire ni repousser silencieusement une ambition approuvée
 
@@ -11,7 +11,7 @@ La V3.3 reprend toutes les exigences, familles F01 à F15, jalons G0 à G9, tick
 
 Cette révision ne certifie ni installation Windows, ni inférence GPU RTX 3070, ni import Design Space, ni découpe Cricut Explore 5. Elle décrit comment obtenir et distinguer ces preuves.
 
-**Navigation V3.3 :** [Registre de traçabilité](ROADMAP_TRACEABILITY_v3_3.md) · [Matrices de couverture](ROADMAP_COVERAGE_v3_3.md) · [Annexe historique normative](ROADMAP_HERITAGE_v3_3.md). Après fusion, ce document devient l'unique maître actif ; la V3.2 originale reste une archive protégée.
+**Navigation V3.3 :** [Registre de traçabilité](ROADMAP_TRACEABILITY_v3_3.md) · [Matrices de couverture](ROADMAP_COVERAGE_v3_3.md) · [Annexe historique normative](ROADMAP_HERITAGE_v3_3.md) · [Contre-expertise](ROADMAP_AUDIT_v3_3.md). Après fusion de la publication documentaire **et mise à jour approuvée du contrat AGENTS.md**, ce document devient l'unique maître actif ; la V3.2 originale reste une archive protégée.
 
 ## 1 Vision produit conservée
 
@@ -50,9 +50,9 @@ L'IA reste locale et facultative. Une voie CPU ou manuelle doit préserver l'acc
 
 Chaque capacité utilise l'échelle de maturité suivante :
 
-`SPECIFIE → ARCHITECTURE → IMPLEMENTE → RACCORDE → TESTE_AUTO → TESTE_WINDOWS → TESTE_DESIGN_SPACE → TESTE_PHYSIQUE → STABILISE`
+`SPECIFIE → ARCHITECTURE → IMPLEMENTE → RACCORDE → QUALIFIE → STABILISE`
 
-Un état ne prouve jamais automatiquement le suivant. Le registre de traçabilité porte le statut, le SHA, l'environnement, la date et l'emplacement de la preuve.
+Les axes de preuves **automatiques, Windows, Design Space et physiques sont indépendants**, et ne constituent pas des étapes obligatoires dans un ordre unique (un test Windows n'atteste pas un test Cricut). Le registre de traçabilité porte le statut d'implémentation, les quatre axes séparés, le SHA, l'environnement, la date et l'emplacement des preuves. Un état ne prouve jamais automatiquement le suivant.
 
 ## 3 Parcours utilisateur de référence
 
@@ -410,7 +410,7 @@ Un lot est terminé uniquement lorsque le code est raccordé au parcours réel, 
 | R33-005 | Résultat obsolète refusé ou isolé | G3 |
 | R33-006 | Masques float32 comme autorité de retouche | G2-G3 |
 | R33-007 | Fallback manuel ou CPU pour le parcours essentiel | G2-G3 |
-| R33-008 | Séparation permanente PNG, SVG Cut et SVG Edit | G2-G6 |
+| R33-008 | Séparation permanente PNG Print Then Cut, SVG Basic Cut, SVG Cut multicouche et SVG d'édition | G2-G6 |
 | R33-009 | Migration transactionnelle des projets | G1-G8 |
 | R33-010 | Index de bibliothèque reconstructible | G7 |
 | R33-011 | Jobs idempotents avec succès partiel | G7 |
@@ -452,4 +452,4 @@ Un lot est terminé uniquement lorsque le code est raccordé au parcours réel, 
 
 ## 13 Décision de publication
 
-Cette PR propose de promouvoir V3.3 en roadmap directrice après contre-expertise, vérification de la CI et fusion autorisée. Avant fusion, la V3.2 reste la référence opérationnelle. Après fusion, V3.3 devient le seul document maître actif ; la V3.2 originale et son manifeste demeurent intacts, en archive. Les automatismes et le contrat AGENTS.md devront être basculés dans un micro-lot de gouvernance distinct et vérifié avant d'annoncer la migration opérationnelle achevée.
+Cette PR propose de promouvoir V3.3 en roadmap directrice après contre-expertise, vérification de la CI et fusion autorisée. Avant fusion, la V3.2 reste la référence opérationnelle. Après fusion, V3.3 est publiée mais ne devient le seul document maître **opérationnellement applicable** qu'une fois le contrat AGENTS.md basculé par un micro-lot de gouvernance distinct. La V3.2 originale et son manifeste demeurent intacts, en archive. Les automatismes et le contrat AGENTS.md devront être basculés dans un micro-lot de gouvernance distinct et vérifié avant d'annoncer la migration opérationnelle achevée.
