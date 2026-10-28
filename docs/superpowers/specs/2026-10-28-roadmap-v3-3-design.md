@@ -23,7 +23,7 @@ Produire une révision de planification exhaustive qui conserve toutes les ambit
 
 - `docs/ROADMAP_MASTER_v3_2.md` et `docs/ROADMAP_FREEZE_v3_2.json` restent bit à bit inchangés.
 - Le dépôt est public : aucune donnée utilisateur, œuvre privée, secret, poids de modèle ou média sous licence ne peut être ajouté.
-- PNG Print Then Cut, SVG Basic Cut et SVG d'édition restent trois contrats distincts.
+- PNG Print Then Cut, SVG Basic Cut, SVG Cut multicouche et SVG d'édition restent quatre contrats distincts.
 - Les preuves automatisées, Windows, GPU, Design Space et fabrication physique restent séparées.
 - La révision est publiée comme brouillon documentaire jusqu'à décision humaine explicite.
 
@@ -43,13 +43,14 @@ Retenue : un document maître explique la stratégie et les portes, un registre 
 
 ## Livrables
 
-- `docs/ROADMAP_MASTER_v3_3_DRAFT.md` : vision, parcours, familles, architecture, vagues, gates et gouvernance.
+- `docs/ROADMAP_MASTER_v3_3.md` : vision, parcours, familles, architecture, vagues, gates et gouvernance.
 - `docs/ROADMAP_TRACEABILITY_v3_3.md` : conventions de statut et correspondance complète des exigences historiques et nouvelles.
+- `docs/ROADMAP_HERITAGE_v3_3.md` : annexe historique normative complète.
 - `docs/ROADMAP_COVERAGE_v3_3.md` : matrices de couverture des formats, environnements, erreurs, accessibilité, persistance, sécurité et preuves.
 
 ## Décisions de structure
 
-La V3.3 hérite normativement de tout le contenu V3.2. Une exigence héritée reste obligatoire même si elle n'est pas recopiée mot pour mot. Les nouvelles exigences de structuration utilisent les identifiants R33-001 et suivants afin d'éviter toute collision avec S-001 à S-101.
+La V3.3 reprend normativement le contenu historique dans une annexe autonome `docs/ROADMAP_HERITAGE_v3_3.md` ; le registre fournit les 101 dossiers canoniques enrichis. Le fichier V3.2 original et son manifeste restent des archives protégées. Les nouvelles exigences de structuration utilisent les identifiants R33-001 et suivants afin d'éviter toute collision avec S-001 à S-101.
 
 Les états communs sont : `SPECIFIE`, `ARCHITECTURE`, `IMPLEMENTE`, `RACCORDE`, `TESTE_AUTO`, `TESTE_WINDOWS`, `TESTE_DESIGN_SPACE`, `TESTE_PHYSIQUE`, `STABILISE`. Un état supérieur ne peut être déduit d'un état inférieur.
 
