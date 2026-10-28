@@ -122,7 +122,7 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:.001;overflow:hi
   </section>
   <section class="subjects-live" id="realSubjectsHost" aria-label="Diagnostic des vrais sujets G2.6">
 <h2>◈ Mes vrais sujets · inspection G2.6</h2>
-<p>Les 12 escargots du canevas restent un exemple. Pour voir vos vrais sujets ici, exécutez le nœud « Inspecter et choisir les silhouettes V21.15.4 » dans ComfyUI, puis transmettez explicitement son dernier diagnostic. Aucune segmentation ni découpe n’est déclenchée.</p>
+<p>Les 12 escargots du canevas restent un exemple. Pour voir vos vrais sujets ici, exécutez le nœud « Inspecter et choisir les silhouettes V21.15.4 » dans ComfyUI, puis transmettez explicitement son dernier diagnostic. Aucune segmentation ni découpe n’est déclenchée. Si la liaison est disponible, proposez un sujet unique puis confirmez ce choix dans le nœud ComfyUI : les masques et fragments restent inchangés.</p>
 <div class="subject-actions"><button class="outline" type="button" id="receiveSubjects" aria-controls="realSubjectsGrid">↳ Recevoir une inspection (90 s)</button><button class="plain" type="button" id="clearSubjects" disabled>Effacer l’inspection reçue</button></div>
 <p class="subject-meta" id="realSubjectsStatus" role="status" aria-live="polite">Aucun diagnostic réel reçu. Les exemples et les projets restent indépendants.</p>
 <div class="subjects-grid" id="realSubjectsGrid" aria-live="off"></div>
@@ -242,6 +242,7 @@ function paintRealSubjects(){
   $("clearSubjects").disabled=!realSubjectsData;
   if(!realSubjectsData){$("realSubjectsSelection").textContent="";return;}
   const count=realSubjectsData.count,shown=chosenRealSubjects.size;
+  const reportAtPaint=realSubjectsData;
   $("realSubjectsSelection").textContent=shown+" / "+count+" sujets présélectionnés pour revue (cette sélection ne modifie pas le workflow ni les masques).";
   for(const item of realSubjectsData.sujets){
     const card=document.createElement("article");card.className="subject-card";
@@ -287,6 +288,35 @@ function paintRealSubjects(){
         " sujets présélectionnés pour revue (aucune modification du nœud).";
     });
     card.appendChild(button);
+    // G3.3c-b: only a verified node+session report may offer a proposal.
+    // This sends no mask pixels, no project writes and no queue command.
+    if(Number.isSafeInteger(reportAtPaint.node_id)&&reportAtPaint.node_id>0&&
+       /^[a-f0-9]{32}$/.test(reportAtPaint.session_id||"")&&
+       !item.codes.includes("MASQUE_VIDE")){
+      const propose=document.createElement("button");propose.type="button";
+      propose.textContent="Proposer le sujet "+item.numero+" au nœud ComfyUI";
+      propose.addEventListener("click",async()=>{
+        if(realSubjectsData!==reportAtPaint){
+          $("realSubjectsStatus").textContent="Rapport remplacé : relancer la réception avant toute proposition.";
+          return;
+        }
+        try{
+          const {makeSelectionProposal}=await import("./smartsvg_subject_selection_g33c.mjs");
+          if(realSubjectsData!==reportAtPaint)return;
+          const proposal=makeSelectionProposal(reportAtPaint,item.numero);
+          if(!proposal||!["http:","https:"].includes(window.location.protocol)||
+             typeof BroadcastChannel==="undefined")throw Error("PROPOSAL_UNAVAILABLE");
+          const channel=new BroadcastChannel(subjectModule.SUBJECT_HANDOFF_CHANNEL);
+          try{channel.postMessage(proposal);}finally{channel.close();}
+          $("realSubjectsStatus").textContent="Sujet "+item.numero+
+            " proposé au nœud "+reportAtPaint.node_id+
+            ". Confirmer dans ComfyUI sous 90 s ; aucune exécution automatique.";
+        }catch{
+          $("realSubjectsStatus").textContent="Proposition impossible ou expirée : relancer le nœud et transmettre un diagnostic récent.";
+        }
+      });
+      card.appendChild(propose);
+    }
     const details=document.createElement("details");
     const summary=document.createElement("summary");summary.textContent="Zones à examiner ("+
       (item.zones_a_examiner.length+item.zones_non_affichees)+")";
