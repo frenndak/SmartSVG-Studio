@@ -4,10 +4,14 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import * as handoff from '../web/js/smartsvg_subject_handoff_g33.mjs';
 import * as selection from '../web/js/smartsvg_subject_selection_g33c.mjs';
+import * as projectGate from '../web/js/smartsvg_subject_project_gate_g33d.mjs';
 
 const original=fs.readFileSync(new URL('../web/js/smartsvg_subject_inspector_v21154.js',import.meta.url),'utf8');
 const script=original
  .replace("import {app} from '../../scripts/app.js';","const app=globalThis.__app;")
+ .replace("import {api} from '../../scripts/api.js';","const api=globalThis.__api;")
+ .replace(/import\s+\{validProjectName,readProjectRevision,makeProjectLock,matchesProjectLock\}\s+from '\.\/smartsvg_subject_project_gate_g33d\.mjs';/,
+   "const {validProjectName,readProjectRevision,makeProjectLock,matchesProjectLock}=globalThis.__project;")
  .replace("await import('./smartsvg_subject_handoff_g33.mjs')","await Promise.resolve(globalThis.__handoff)")
  .replace("await import('./smartsvg_subject_selection_g33c.mjs')","await Promise.resolve(globalThis.__selection)");
 const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAD0lEQVR42mNgGAUMDAwMAAEIAAEoUqMqAAAAAElFTkSuQmCC';
@@ -40,9 +44,17 @@ function setup(){
   receive(data){this.onmessage?.({data});}
  }
  const random={getRandomValues(bytes){bytes.fill(0x42);return bytes;}};
+ let projectState={name:'mes_sujets',status:'PROJECT_HEALTHY',sha256:'b'.repeat(64),
+   base_masks:{exact_float32:true,editor_fingerprint:'a'.repeat(64),
+     count:2,dimensions_px:[160,90]}};
+ const requests=[];
+ const api={fetchApi:async route=>{
+   requests.push(route);
+   return {ok:true,json:async()=>({ok:true,project:projectState})};
+ }};
  const timers=new Map();
  let timer=0;
- const context={__app:app,__handoff:handoff,
+ const context={__app:app,__api:api,__project:projectGate,__handoff:handoff,
   __selection:{...selection,createSelectionBinding:(n,r)=>selection.createSelectionBinding(n,r,random)},
   document,window:{location:{protocol:'http:'}},BroadcastChannel,
   setTimeout:fn=>{const id=++timer;timers.set(id,fn);return id;},
@@ -56,7 +68,9 @@ function setup(){
  extension.nodeCreated(node);
  assert.ok(root,'real inspector is attached to source node');
  const hint=root.children[1],share=root.children[5],confirm=root.children[6];
- return {node,root,hint,share,confirm,channels,timers};
+ return {node,root,hint,share,confirm,channels,timers,api,
+   projectName:root.children[8],requests,setProject:next=>{projectState=next;},
+   getProject:()=>projectState};
 }
 test('source node changes widget only after its own explicit confirmation',async()=>{
  const s=setup();s.node.onExecuted(report());
@@ -196,4 +210,122 @@ test('source node expiration closes channel and invalidates later proposals',asy
  assert.equal(s.confirm.hidden,true);
  channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
  assert.equal(s.confirm.hidden,true,'expired node never offers confirmation');
+});
+
+test('opt-in .smartsvg pin is read-only and rechecked before and after confirmation',async()=>{
+ const s=setup();s.node.onExecuted(report());
+ s.projectName.value='mes_sujets';
+ await s.share.fire('click');
+ assert.equal(s.channels.length,1);
+ const sent=s.channels[0].sent[0];
+ assert.equal(sent.project_name,'mes_sujets');
+ assert.equal(sent.project_sha256,'b'.repeat(64));
+ assert.equal(s.requests.length,1,'share inspects archive without writing');
+ const proposal=selection.makeSelectionProposal(sent,2);
+ assert.equal(proposal.project_sha256,sent.project_sha256);
+ s.channels[0].receive(proposal);
+ await s.confirm.fire('click');
+ assert.equal(s.node.widgets[0].value,2);
+ assert.equal(s.requests.length,3,'confirmation rechecks before and after callback');
+ assert.ok(s.requests.every(x=>x==='/smartsvg/g22/project?name=mes_sujets'));
+});
+test('project mismatch or unavailable project never silently sends an unbound proposal',async()=>{
+ const s=setup();s.node.onExecuted(report());
+ s.projectName.value='mes_sujets';
+ s.setProject({...s.getProject(),base_masks:{...s.getProject().base_masks,
+   editor_fingerprint:'e'.repeat(64)}});
+ await s.share.fire('click');
+ assert.equal(s.channels.length,0);
+ assert.match(s.hint.textContent,/incompatible/);
+ const t=setup();t.node.onExecuted(report());t.projectName.value='../bad';
+ await t.share.fire('click');
+ assert.equal(t.channels.length,0);
+ assert.match(t.hint.textContent,/invalide/);
+});
+test('changed project revision before confirmation refuses subject without changing widget',async()=>{
+ const s=setup();s.node.onExecuted(report());s.projectName.value='mes_sujets';
+ await s.share.fire('click');const channel=s.channels[0];
+ channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ s.setProject({...s.getProject(),sha256:'d'.repeat(64)});
+ await s.confirm.fire('click');
+ assert.equal(s.node.widgets[0].value,1);
+ assert.match(s.hint.textContent,/Projet .smartsvg modifié/);
+ assert.equal(channel.closed,true);
+});
+test('project revision changed while widget callback awaits rolls back unchanged value',async()=>{
+ const s=setup();s.node.onExecuted(report());s.projectName.value='mes_sujets';
+ await s.share.fire('click');const channel=s.channels[0];
+ channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ let resolveLater,signalCallbackEntered;
+ const callbackEntered=new Promise(resolve=>{signalCallbackEntered=resolve;});
+ s.node.widgets[0].callback=()=>{
+   signalCallbackEntered();
+   return new Promise(resolve=>{resolveLater=resolve;});
+ };
+ const pending=s.confirm.fire('click');
+ await callbackEntered;
+ assert.equal(typeof resolveLater,'function');
+ s.setProject({...s.getProject(),sha256:'d'.repeat(64)});
+ resolveLater();await pending;
+ assert.equal(s.node.widgets[0].value,1);
+ assert.match(s.hint.textContent,/Projet .smartsvg modifié/);
+ assert.equal(channel.closed,true);
+});
+
+test('pinned confirmation never overwrites a newer valid numeric subject during a pending GET',async()=>{
+ const s=setup(),r=report(),entry=r.smartsvg_subjects_v21154[0];
+ entry.count=3;
+ entry.sujets.push({...entry.sujets[0],numero:3});
+ s.setProject({...s.getProject(),base_masks:{...s.getProject().base_masks,count:3}});
+ s.node.onExecuted(r);s.projectName.value='mes_sujets';
+ await s.share.fire('click');
+ const channel=s.channels[0];
+ channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ let enterGet,finishGet;
+ const getStarted=new Promise(resolve=>{enterGet=resolve;});
+ s.api.fetchApi=route=>{
+   s.requests.push(route);enterGet();
+   return new Promise(resolve=>{
+     finishGet=()=>resolve({ok:true,json:async()=>({ok:true,project:s.getProject()})});
+   });
+ };
+ let callbacks=0;
+ s.node.widgets[0].callback=()=>{callbacks++;};
+ const pending=s.confirm.fire('click');
+ await getStarted;
+ assert.equal(s.node.widgets[0].value,1,'GET has not updated the widget');
+ s.node.widgets[0].value=3; // newer explicit numeric user choice
+ finishGet();
+ await pending;
+ assert.equal(s.node.widgets[0].value,3,'newer user choice must win');
+ assert.equal(callbacks,0,'obsolete proposal must not invoke callback');
+ assert.equal(s.requests.length,2,'no post-callback read on refused proposal');
+ assert.equal(channel.closed,true);
+ assert.match(s.hint.textContent,/Sélection modifiée.*nouveau choix est conservé/);
+ assert.equal(s.share.disabled,false,'user can retry');
+});
+
+test('pinned confirmation rejects widget replacement during a pending project GET',async()=>{
+ const s=setup();s.node.onExecuted(report());s.projectName.value='mes_sujets';
+ await s.share.fire('click');const channel=s.channels[0];
+ channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ let enterGet,finishGet;
+ const getStarted=new Promise(resolve=>{enterGet=resolve;});
+ s.api.fetchApi=route=>{
+   s.requests.push(route);enterGet();
+   return new Promise(resolve=>{
+     finishGet=()=>resolve({ok:true,json:async()=>({ok:true,project:s.getProject()})});
+   });
+ };
+ const previousWidget=s.node.widgets[0];
+ let callbacks=0;previousWidget.callback=()=>{callbacks++;};
+ const pending=s.confirm.fire('click');
+ await getStarted;
+ s.node.widgets[0]={name:'numero_sujet',value:1};
+ finishGet();await pending;
+ assert.equal(s.node.widgets[0].value,1,'replacement widget untouched');
+ assert.equal(previousWidget.value,1,'detached widget untouched');
+ assert.equal(callbacks,0);
+ assert.equal(channel.closed,true);
+ assert.match(s.hint.textContent,/Sélection modifiée/);
 });

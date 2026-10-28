@@ -320,6 +320,10 @@ function paintRealSubjects(){
           try{channel.postMessage(proposal);}finally{channel.close();}
           $("realSubjectsStatus").textContent="Sujet "+item.numero+
             " proposé au nœud "+reportAtPaint.node_id+
+            (reportAtPaint.project_name
+              ?" · projet "+reportAtPaint.project_name+
+                " · révision "+reportAtPaint.project_sha256.slice(0,12)+"…"
+              :" · sans projet .smartsvg lié")+
             ". Confirmer dans ComfyUI sous 90 s ; aucune exécution automatique.";
         }catch{
           $("realSubjectsStatus").textContent="Proposition impossible ou expirée : relancer le nœud et transmettre un diagnostic récent.";
@@ -390,6 +394,10 @@ $("receiveSubjects").addEventListener("click",async()=>{
       $("realSubjectsStatus").textContent="Diagnostic G2.6 reçu · "+value.count+
         " sujet(s) · source "+value.width_px+"×"+value.height_px+
         " px · empreinte "+value.source_sha256.slice(0,12)+"… "+
+        (value.project_name
+          ?"Projet verrouillé : "+value.project_name+
+            " · révision "+value.project_sha256.slice(0,12)+"… · "
+          :"Aucun projet .smartsvg lié · ")+
         "Inspection seulement ; aucun export ni masque modifié.";
       paintRealSubjects();
       $("realSubjectsHost").scrollIntoView?.({block:"nearest",behavior:"smooth"});
