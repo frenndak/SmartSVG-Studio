@@ -80,6 +80,7 @@ function inspector(node){
  projectName.style.cssText='display:block;max-width:100%;margin:5px 0 8px;padding:7px';
  let latest=null,selectionModule=null,selectionBinding=null,selectionChannel=null;
  let selectionTimer=null,pendingSelection=null,widgetAtProposal=null;
+ let thumbnailChoiceVersion=0;
  let confirmationInFlight=false,shareInFlight=false,disposed=false;
  // Read-only requests belong to a particular UI/session lifetime. Abort on
  // rerun, edited project name, expiry and final channel closure.
@@ -111,6 +112,8 @@ function inspector(node){
      stopSelection();return;
    }
    const previous=widget.value;
+   const manualChoiceAtConfirm=thumbnailChoiceVersion;
+   let assignedByConfirmation=false;
    const readController=new AbortController();
    confirmReadController=readController;
    const reportAtConfirm=latest,bindingAtConfirm=selectionBinding;
@@ -135,6 +138,7 @@ function inspector(node){
          throw Error('PROJECT_CHANGED');
      }
      widget.value=subject;
+     assignedByConfirmation=true;
      // ComfyUI widgets are usually synchronous, but a Promise rejection must
      // never be mistaken for a successful subject change.
      await widget.callback?.(subject);
@@ -150,7 +154,8 @@ function inspector(node){
         widget.value!==subject||
         selectionModule.validateSelectionProposal(
           proposalAtConfirm,bindingAtConfirm,node,reportAtConfirm)!==subject){
-       if(widget.value===subject)widget.value=previous;
+       if(assignedByConfirmation&&thumbnailChoiceVersion===manualChoiceAtConfirm&&
+          widget.value===subject)widget.value=previous;
        hint.textContent='Proposition périmée pendant la confirmation ; valeur précédente restaurée si inchangée.';
        return;
      }
@@ -158,7 +163,9 @@ function inspector(node){
      node.graph?.setDirtyCanvas?.(true,true);
      hint.textContent='Sujet '+subject+' confirmé dans le nœud. Relancer manuellement le workflow ; masques float32 et fragments conservés.';
    }catch(error){
-     if(widget.value===subject)widget.value=previous;
+     // Do not roll back a value we never wrote, or a newer explicit thumbnail choice.
+     if(assignedByConfirmation&&thumbnailChoiceVersion===manualChoiceAtConfirm&&
+        widget.value===subject)widget.value=previous;
      if(error?.message==='PROJECT_BINDING_ABORTED'){
        // A newer execution or changed project owns the UI message/state.
        // The value is restored above only if this confirmation still owns it.
@@ -324,6 +331,7 @@ function inspector(node){
        if(!widget){hint.textContent='Champ numero_sujet introuvable : choisir manuellement.';return;}
        // A newer explicit thumbnail choice cancels any older pending
        // inspection/confirmation before the widget is changed.
+       thumbnailChoiceVersion++;
        stopSelection();
        widget.value=item.numero;
        for(const b of layout.children){
