@@ -577,17 +577,19 @@ class ManagedWorkspace:
                 'previous_available': inspect_project(path).previous == 'valid',
                 'certified': False,
             }
+        def verified_subject(reopened):
+            persisted = [item for item in reopened.subjects
+                         if item.subject_id == subject.subject_id]
+            return (len(persisted) == 1 and
+                    persisted[0].mask_id == mask_id and
+                    persisted[0].source_id == source_id and
+                    persisted[0].bbox_px == subject.bbox_px)
         try:
             saved = save_with_recovery(
-                path, updated, expected_sha256=current_sha)
-            reopened = load_project(path)
+                path, updated, expected_sha256=current_sha,
+                verify_saved_project=verified_subject)
         except (RecoveryError, ProjectArchiveError, OSError) as exc:
             raise WorkspaceError(getattr(exc, 'code', 'SAVE_FAILED')) from exc
-        persisted = [item for item in reopened.subjects
-                     if item.subject_id == subject.subject_id]
-        if (len(persisted) != 1 or persisted[0].mask_id != mask_id or
-                persisted[0].bbox_px != subject.bbox_px):
-            raise WorkspaceError('SUBJECT_IDENTITY_READBACK_FAILED')
         return {
             'name': name,
             'status': 'subject_identity_created',
