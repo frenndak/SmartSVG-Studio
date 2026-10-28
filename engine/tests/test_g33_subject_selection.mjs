@@ -43,3 +43,18 @@ test('stale source, session, node, missing name/id and detached links fail close
  assert.equal(createSelectionBinding(n,r,{}),null,'no secure random = read-only');
  assert.equal(newSessionId({}),null);
 });
+
+test('session deadline is enforced in proposal and final node validation',()=>{
+ const n=node(),r=report(),now=Date.now();
+ const expired=createSelectionBinding(n,r,random,now-90_001);
+ assert.ok(expired&&expired.expires_at_ms<now);
+ assert.equal(makeSelectionProposal({...r,...expired},1),null,'Atelier cannot propose after expiration');
+ const live=createSelectionBinding(n,r,random,now);
+ const p=makeSelectionProposal({...r,...live},1);
+ assert.ok(p);
+ assert.equal(p.expires_at_ms,live.expires_at_ms);
+ assert.equal(validateSelectionProposal(p,live,n,r),1);
+ assert.equal(validateSelectionProposal({...p,expires_at_ms:live.expires_at_ms+1},live,n,r),null);
+ assert.equal(validateSelectionProposal({...p,expires_at_ms:expired.expires_at_ms},
+   expired,n,r),null,'node cannot confirm a genuinely expired session');
+});
