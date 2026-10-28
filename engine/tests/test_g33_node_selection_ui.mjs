@@ -177,3 +177,23 @@ test('re-share during async confirmation cannot close a later fresh channel',asy
  assert.equal(s.node.widgets[0].value,2,'fresh proposal can be confirmed');
  assert.equal(second.closed,true);
 });
+
+test('concurrent send clicks do not open two independent sessions',async()=>{
+ const s=setup();s.node.onExecuted(report());
+ const first=s.share.fire('click'),second=s.share.fire('click');
+ await Promise.all([first,second]);
+ assert.equal(s.channels.length,1,'even before dynamic imports resolve, one session is permitted');
+ assert.equal(s.channels[0].sent.length,1);
+ assert.ok(s.channels[0].sent[0].expires_at_ms>Date.now());
+ assert.equal(s.share.disabled,false);
+});
+test('source node expiration closes channel and invalidates later proposals',async()=>{
+ const s=setup();s.node.onExecuted(report());await s.share.fire('click');
+ const channel=s.channels[0];
+ assert.equal(s.timers.size,1);
+ const timer=[...s.timers.values()][0];timer();
+ assert.equal(channel.closed,true);
+ assert.equal(s.confirm.hidden,true);
+ channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ assert.equal(s.confirm.hidden,true,'expired node never offers confirmation');
+});

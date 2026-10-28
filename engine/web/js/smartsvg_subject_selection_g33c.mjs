@@ -6,6 +6,8 @@
 export const SUBJECT_SELECTION_KIND='smartsvg:subject-selection:g33c:v1';
 const SHA=/^[a-f0-9]{64}$/;
 const SESSION=/^[a-f0-9]{32}$/;
+export const SUBJECT_SESSION_LIFETIME_MS=90_000;
+const validExpiry=x=>Number.isSafeInteger(x)&&x>0;
 const positive=n=>Number.isSafeInteger(n)&&n>0;
 export function linkedMaskInputs(node){
   const inputs=Array.isArray(node?.inputs)?node.inputs:[];
@@ -23,21 +25,24 @@ export function newSessionId(cryptoProvider=globalThis.crypto){
     return [...bytes].map(x=>x.toString(16).padStart(2,'0')).join('');
   }catch{return null;}
 }
-export function createSelectionBinding(node,report,cryptoProvider=globalThis.crypto){
+export function createSelectionBinding(node,report,cryptoProvider=globalThis.crypto,now=Date.now()){
   const links=linkedMaskInputs(node);
   const session_id=newSessionId(cryptoProvider);
-  if(!links||!session_id||!positive(node?.id)||
+  if(!links||!session_id||!validExpiry(now)||
+     now>Number.MAX_SAFE_INTEGER-SUBJECT_SESSION_LIFETIME_MS||!positive(node?.id)||
      !SHA.test(String(report?.source_sha256||''))||
      !positive(report?.count)||report.count>32||
      !positive(report?.width_px)||!positive(report?.height_px)||
      !Array.isArray(report?.sujets)||report.sujets.length!==report.count)return null;
   return Object.freeze({node_id:node.id,session_id,
+    expires_at_ms:now+SUBJECT_SESSION_LIFETIME_MS,
     source_sha256:report.source_sha256,
     width_px:report.width_px,height_px:report.height_px,
     count:report.count,links});
 }
 export function makeSelectionProposal(report,subject){
   if(!report||!positive(report.node_id)||!SESSION.test(String(report.session_id||''))||
+     !validExpiry(report.expires_at_ms)||Date.now()>=report.expires_at_ms||
      !SHA.test(String(report.source_sha256||''))||
      !positive(report.count)||report.count>32||
      !positive(subject)||subject>report.count||
@@ -46,6 +51,7 @@ export function makeSelectionProposal(report,subject){
     return null;
   return {kind:SUBJECT_SELECTION_KIND,version:1,
     node_id:report.node_id,session_id:report.session_id,
+    expires_at_ms:report.expires_at_ms,
     source_sha256:report.source_sha256,width_px:report.width_px,
     height_px:report.height_px,count:report.count,subject};
 }
@@ -55,6 +61,8 @@ export function validateSelectionProposal(request,binding,node,latest){
      !binding||!latest||!positive(node?.id)||node.id!==binding.node_id||
      linkedMaskInputs(node)!==binding.links||
      !SESSION.test(String(binding.session_id||''))||
+     !validExpiry(binding.expires_at_ms)||Date.now()>=binding.expires_at_ms||
+     request.expires_at_ms!==binding.expires_at_ms||
      request.node_id!==binding.node_id||
      request.session_id!==binding.session_id||
      request.source_sha256!==binding.source_sha256||
