@@ -66,8 +66,11 @@ jobs:
               assert re.search(r"\bG%d\b" % i, master), f"Missing gate G{i}"
           for i in range(1, 11):
               assert re.search(r"^### P%02d\s" % i, master, re.M), f"Missing journey P{i:02d}"
+          assert "## 6 Dossiers individuels des exigences" in register, "Missing canonical register section"
+          canonical = register.split("## 6 Dossiers individuels des exigences", 1)[1]
+          canonical = canonical.split("## 7 Modèle de preuve", 1)[0]
           for prefix, n in (("S", 101), ("R33", 40)):
-              hits = re.findall(r"^\|\s*(%s-\d{3})\s*\|" % prefix, register, re.M)
+              hits = re.findall(r"^\|\s*(%s-\d{3})\s*\|" % prefix, canonical, re.M)
               expect = {f"{prefix}-{i:03d}" for i in range(1, n + 1)}
               assert len(hits) == len(expect) and set(hits) == expect, f"Missing or duplicate {prefix} requirements"
           for term in ("PNG Print Then Cut", "SVG Basic Cut", "SVG Cut multicouche", "SVG d'édition"):
