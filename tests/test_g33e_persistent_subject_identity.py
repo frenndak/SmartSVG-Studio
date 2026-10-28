@@ -1,4 +1,5 @@
 """G3.3e-b1: persistent Subject identity over exact G2.4 float32 masks."""
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from hashlib import sha256
 import asyncio
@@ -16,7 +17,7 @@ import zlib
 
 from smartsvg_core.mask_snapshot_g24 import SNAPSHOT_KEY, SNAPSHOT_PATH, create_snapshot, encode_preview_l8
 from smartsvg_core.project_archive import load_project
-from smartsvg_core.project_recovery import save_with_recovery
+from smartsvg_core.project_recovery import save_with_recovery, RecoveryError
 from smartsvg_core.subject_identity_g33e import register_subject_identity as bind_subject_identity, SubjectIdentityError
 from smartsvg_core.project_workspace_g22 import ManagedWorkspace, WorkspaceError
 
@@ -270,6 +271,73 @@ class PersistentSubjectIdentityTests(unittest.TestCase):
                 self.workspace.register_subject_identity(
                     "subjects", **{**base, **changes})
 
+    def test_concurrent_same_revision_creates_exactly_one_subject(self):
+        state = self.workspace.inspect("subjects")
+        catalog = state["base_masks"]["mask_identity"]
+        source_id = catalog["source_id"]
+
+        def attempt(index):
+            item = catalog["bindings"][index]
+            try:
+                return self.workspace.register_subject_identity(
+                    "subjects", mask_index=index, mask_id=item["mask_id"],
+                    mask_sha256_float32=item["mask_sha256_float32"],
+                    source_id=source_id,
+                    source_sha256=self.source_fingerprint,
+                    expected_sha256=state["sha256"], confirmed=True,
+                    expires_at_ms=int(time.time() * 1000) + 60_000)
+            except WorkspaceError as exc:
+                return str(exc)
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            outcomes = list(pool.map(attempt, (0, 1)))
+        successes = [item for item in outcomes if isinstance(item, dict)]
+        failures = [item for item in outcomes if isinstance(item, str)]
+        self.assertEqual(len(successes), 1)
+        self.assertEqual(len(failures), 1)
+        self.assertIn(
+            failures[0],
+            {"PROJECT_LOCKED", "PROJECT_CHANGED", "PROJECT_CHANGED_DURING_SAVE"})
+        self.assertEqual(len(load_project(self.path).subjects), 1)
+
+    def test_pending_recovery_and_save_failure_never_report_success(self):
+        before = self.workspace.inspect("subjects")
+        pending = self.path.with_name("subjects.pending-backup.smartsvg")
+        pending.write_bytes(self.path.read_bytes())
+        with self.assertRaisesRegex(
+                WorkspaceError, "PENDING_BACKUP_REVIEW_REQUIRED"):
+            self.register(expected_sha256=before["sha256"])
+        self.assertEqual(self.workspace.inspect("subjects")["sha256"], before["sha256"])
+        pending.unlink()
+
+        with mock.patch(
+                "smartsvg_core.project_workspace_g22.save_with_recovery",
+                side_effect=RecoveryError("SAVE_FAILED")):
+            with self.assertRaisesRegex(WorkspaceError, "SAVE_FAILED"):
+                self.register(expected_sha256=before["sha256"])
+        self.assertEqual(self.workspace.inspect("subjects")["sha256"], before["sha256"])
+
+    def test_idempotent_recognition_preserves_accessories(self):
+        first = self.register(index=0)
+        second = self.register(index=1)
+        state = self.workspace.inspect("subjects")
+        project = load_project(self.path)
+        subjects = tuple(
+            replace(subject, accessory_ids=(second["subject_id"],))
+            if subject.subject_id == first["subject_id"] else subject
+            for subject in project.subjects)
+        save_with_recovery(
+            self.path, replace(project, subjects=subjects),
+            expected_sha256=state["sha256"])
+        result = self.register(index=0)
+        self.assertEqual(result["status"], "subject_identity_exists")
+        reopened = load_project(self.path)
+        subject = next(item for item in reopened.subjects
+                       if item.subject_id == first["subject_id"])
+        self.assertEqual(subject.accessory_ids, (second["subject_id"],))
+
+
+
     def test_save_readback_verification_is_part_of_recovery_transaction(self):
         import smartsvg_core.project_workspace_g22 as workspace_module
         original = workspace_module.save_with_recovery
@@ -356,6 +424,19 @@ class PersistentSubjectIdentityTests(unittest.TestCase):
         self.assertTrue(response.data["ok"])
         self.assertEqual(response.data["result"]["mask_id"], "base-mask-00")
         self.assertRegex(response.data["result"]["subject_id"], r"^subject-[a-f0-9]{32}$")
+
+        rejected = Request({
+            "name": "subjects",
+            "confirmed": "yes",
+        })
+        rejected.headers = {
+            "X-SmartSVG-UI": "1",
+            "Origin": "https://evil.example",
+            "Host": "localhost:8188",
+        }
+        response = asyncio.run(handler(rejected))
+        self.assertEqual(response.status, 403)
+        self.assertEqual(response.data["error_code"], "ORIGIN_REJECTED")
 
 
 if __name__ == "__main__":
