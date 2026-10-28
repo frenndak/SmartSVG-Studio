@@ -41,7 +41,7 @@ def snapshot_mask_bindings(project):
             'mask_index': index,
             'mask_id': mask.mask_id,
             'mask_sha256_float32': sha256(chunk).hexdigest(),
-            'has_foreground': any(value > 0 for (value,) in struct.iter_unpack('<f', chunk)),
+            'has_foreground': any(value >= 0.5 for (value,) in struct.iter_unpack('<f', chunk)),
             'subject_id': subject.subject_id if subject else None,
             'accessory_ids': list(subject.accessory_ids) if subject else [],
             'subject_ambiguous': len(references) > 1,
