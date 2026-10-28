@@ -1,5 +1,8 @@
 /** V21.15.5: locate suspicious components; diagnostics only, no mask mutations. */
 import {app} from '../../scripts/app.js';
+import {api} from '../../scripts/api.js';
+import {validProjectName,readProjectRevision,makeProjectLock,matchesProjectLock}
+  from './smartsvg_subject_project_gate_g33d.mjs';
 const FOCUS_EVENT='smartsvg:mask-focus:v1';
 const SHA=/^[a-f0-9]{64}$/;
 const CLASS='SmartSVGChooseSubjectV21154';
@@ -67,6 +70,12 @@ function inspector(node){
  const confirm=element('button','Confirmer le sujet proposé depuis l’Atelier');
  confirm.type='button';confirm.hidden=true;confirm.disabled=true;
  confirm.style.cssText='margin-top:8px;padding:9px;border:2px solid #ffce73;background:#42351b;color:white;border-radius:7px';
+ const projectLabel=element('label','Projet .smartsvg à verrouiller (facultatif, lecture seule)');
+ const projectName=element('input');
+ projectName.type='text';projectName.maxLength=48;
+ projectName.placeholder='Nom du projet existant';
+ projectName.setAttribute('aria-label','Nom du projet SmartSVG à vérifier avant confirmation');
+ projectName.style.cssText='display:block;max-width:100%;margin:5px 0 8px;padding:7px';
  let latest=null,selectionModule=null,selectionBinding=null,selectionChannel=null;
  let selectionTimer=null,pendingSelection=null,widgetAtProposal=null;
  let confirmationInFlight=false,shareInFlight=false;
@@ -76,6 +85,10 @@ function inspector(node){
    selectionBinding=null;pendingSelection=null;widgetAtProposal=null;
    confirm.hidden=true;confirm.disabled=true;
  }
+ projectName.addEventListener('input',()=>{
+   stopSelection();
+   hint.textContent='Projet modifié : renvoyer le diagnostic avant toute proposition.';
+ });
  confirm.addEventListener('click',async()=>{
    if(confirmationInFlight)return; // ignore double clicks while a callback is pending
    const widget=node.widgets?.find(w=>w.name==='numero_sujet');
@@ -91,10 +104,28 @@ function inspector(node){
    const proposalAtConfirm=pendingSelection;
    confirmationInFlight=true;confirm.disabled=true;share.disabled=true;
    try{
+     const projectAtConfirm=bindingAtConfirm?.project_name
+       ?{project_name:bindingAtConfirm.project_name,
+         project_sha256:bindingAtConfirm.project_sha256}:null;
+     if(projectAtConfirm){
+       const current=await readProjectRevision(api,projectAtConfirm.project_name);
+       if(!matchesProjectLock(projectAtConfirm,current,reportAtConfirm)||
+          projectName.value.trim()!==projectAtConfirm.project_name||
+          selectionBinding!==bindingAtConfirm||
+          selectionModule.validateSelectionProposal(
+            proposalAtConfirm,bindingAtConfirm,node,reportAtConfirm)!==subject)
+         throw Error('PROJECT_CHANGED');
+     }
      widget.value=subject;
      // ComfyUI widgets are usually synchronous, but a Promise rejection must
      // never be mistaken for a successful subject change.
      await widget.callback?.(subject);
+     if(projectAtConfirm){
+       const current=await readProjectRevision(api,projectAtConfirm.project_name);
+       if(!matchesProjectLock(projectAtConfirm,current,reportAtConfirm)||
+          projectName.value.trim()!==projectAtConfirm.project_name)
+         throw Error('PROJECT_CHANGED');
+     }
      if(latest!==reportAtConfirm||selectionBinding!==bindingAtConfirm||
         pendingSelection!==proposalAtConfirm||
         node.widgets?.find(w=>w.name==='numero_sujet')!==widget||
@@ -108,9 +139,11 @@ function inspector(node){
      node.setDirtyCanvas?.(true,true);
      node.graph?.setDirtyCanvas?.(true,true);
      hint.textContent='Sujet '+subject+' confirmé dans le nœud. Relancer manuellement le workflow ; masques float32 et fragments conservés.';
-   }catch{
+   }catch(error){
      if(widget.value===subject)widget.value=previous;
-     hint.textContent='Échec du changement de sujet ; valeur précédente restaurée si inchangée.';
+     hint.textContent=error?.message==='PROJECT_CHANGED'
+       ?'Projet .smartsvg modifié ou incompatible : proposition refusée, valeur précédente restaurée.'
+       :'Échec du changement de sujet ou de la vérification du projet ; valeur précédente restaurée si inchangée.';
    }finally{
      confirmationInFlight=false;stopSelection();share.disabled=!latest;
    }
@@ -139,7 +172,26 @@ function inspector(node){
      if(latest!==sourceAtSend)return; // onExecuted replaced the report during import
      const msg=normalizeSubjectInspection(latest);
      if(!msg){hint.textContent='Diagnostic incomplet ou trop volumineux : relancer le nœud et réessayer.';return;}
-     const binding=selectionModule.createSelectionBinding(node,msg);
+     const requestedProject=projectName.value.trim();
+     let projectLock=null;
+     if(requestedProject){
+       if(!validProjectName(requestedProject)){
+         hint.textContent='Nom de projet invalide : aucune proposition envoyée.';return;
+       }
+       const info=await readProjectRevision(api,requestedProject);
+       if(latest!==sourceAtSend||projectName.value.trim()!==requestedProject)return;
+       projectLock=makeProjectLock(requestedProject,info,msg);
+       if(!projectLock){
+         hint.textContent='Projet incompatible : révision saine et empreinte IMAGE + masques float32 G2.4 identiques requises.';return;
+       }
+       Object.assign(msg,projectLock);
+     }
+     const originalBinding=selectionModule.createSelectionBinding(node,msg);
+     if(projectLock&&!originalBinding){
+       hint.textContent='Liaison du nœud indisponible : projet non envoyé.';return;
+     }
+     const binding=originalBinding
+       ?Object.freeze({...originalBinding,...(projectLock||{})}):null;
      if(binding){
        msg.node_id=binding.node_id;msg.session_id=binding.session_id;
        msg.expires_at_ms=binding.expires_at_ms;
@@ -181,7 +233,8 @@ function inspector(node){
      share.disabled=confirmationInFlight||!latest;
    }
  });
- root.append(title,hint,summary,layout,zoneActions,share,confirm);
+ root.append(title,hint,summary,layout,zoneActions,share,confirm,
+   projectLabel,projectName);
  function update(data){
    stopSelection();latest=null;share.disabled=true;
    layout.replaceChildren();zoneActions.replaceChildren();
