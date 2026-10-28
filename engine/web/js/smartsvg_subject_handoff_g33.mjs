@@ -119,7 +119,14 @@ export function normalizeSubjectInspection(raw){
    });
  }
  items.sort((a,b)=>a.numero-b.numero);
+ // Legacy G3.3b reports remain readable; executable selection is enabled
+ // only when BOTH a real ComfyUI node ID and a fresh execution session exist.
+ const hasBinding=body.node_id!==undefined||body.session_id!==undefined;
+ if(hasBinding&&(!integer(body.node_id,1)||
+    typeof body.session_id!=='string'||!/^[a-f0-9]{32}$/.test(body.session_id)))
+   return null;
  return {kind:SUBJECT_HANDOFF_KIND,version:1,source_sha256:sha,
    width_px:width,height_px:height,count,selection:body.selection,
-   sujets:items,modifications_automatiques:false,decoupe_certifiee:false};
+   sujets:items,modifications_automatiques:false,decoupe_certifiee:false,
+   ...(hasBinding?{node_id:body.node_id,session_id:body.session_id}:{})};
 }
