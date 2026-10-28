@@ -43,3 +43,9 @@ Le rapport affiche son empreinte de source pour permettre une vérification manu
 - Suites historiques de nœud inspecteur, G3.0, G3.1, G3.2, G3.3a et G0/CPU requises avant fusion.
 
 **Déploiement** : prototype produit interne expérimenté, pas encore un parcours tout-en-un utilisable sans nœuds ComfyUI. Voir le critère de prêt-pour-première-recette dans l'issue #51.
+
+## G3.3c-a — Examen ciblé des fragments (lot expérimental)
+
+Pour chaque zone suspecte déjà identifiée par le vrai nœud G2.6, l'Atelier ajoute un bouton clavier « Examiner zone ». L'action annonce les coordonnées en pixels source et met en évidence le rectangle de la vignette 88 px ; le dernier repère remplace le précédent. Les contrôles restent bornés par la validation G3.3b (32 sujets × 12 zones affichées). Effacer ou recevoir un nouveau diagnostic efface les repères précédents. Aucun pixel, masque, sujet sélectionné, projet .smartsvg ou nœud ComfyUI n'est modifié.
+
+Preuve requise : test DOM Node de deux zones successives, d'états `aria-pressed` et de leur effacement, plus tests G0/CPU sur HEAD et merge synthétique. Les boutons natifs sont accessibles au clavier, mais une recette visuelle navigateur et le runtime Windows restent à réaliser. Ce lot ne fournit pas encore le transfert des masques float32, la liaison automatique au projet ou la sélection exécutable ; G3.3c/d et G3.4 restent partiels. Retour arrière : revert de la PR sans migration de données.

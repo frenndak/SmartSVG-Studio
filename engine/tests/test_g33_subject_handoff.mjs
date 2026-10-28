@@ -5,7 +5,7 @@ import {
  normalizeSubjectInspection,SUBJECT_HANDOFF_CHANNEL,SUBJECT_HANDOFF_KIND,
  SUBJECT_WARNING_LABELS
 } from '../web/js/smartsvg_subject_handoff_g33.mjs';
-const png='data:image/png;base64,QUJDRA==';
+const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAD0lEQVR42mNgGAUMDAwMAAEIAAEoUqMqAAAAAElFTkSuQmCC';
 const source='a'.repeat(64);
 const item=(numero)=>({numero,image_data:png,codes:[],
  zones_a_examiner:[],zones_non_affichees:0,etat:'INSPECTION_VISUELLE_REQUISE'});
@@ -39,6 +39,43 @@ test('data from other tools, unknown codes or external images is rejected',()=>{
  ];
  for(const c of cases)assert.equal(normalizeSubjectInspection(c),null);
 });
+
+test('only real bounded PNG IHDR is accepted as a subject thumbnail',()=>{
+  const asData=bytes=>'data:image/png;base64,'+bytes.toString('base64');
+  const withPreview=image_data=>{
+    const raw=sample();raw.sujets[0]={...item(1),image_data};return raw;
+  };
+  assert.ok(normalizeSubjectInspection(withPreview(png)));
+  assert.equal(normalizeSubjectInspection(withPreview('data:image/png;base64,QUJDRA==')),null);
+  assert.equal(normalizeSubjectInspection(withPreview('data:image/png;base64,AAAA')),null);
+  const corruptCrc=Buffer.from(png.split(',')[1],'base64');
+  corruptCrc[29]^=1;
+  assert.equal(normalizeSubjectInspection(withPreview(asData(corruptCrc))),null);
+  const wrongSignature=Buffer.from(png.split(',')[1],'base64');
+  wrongSignature[0]^=1;
+  assert.equal(normalizeSubjectInspection(withPreview(asData(wrongSignature))),null);
+  const modified=Buffer.from(png.split(',')[1],'base64');
+  const crc32=bytes=>{
+    let crc=0xffffffff;
+    for(const b of bytes) {
+      crc^=b;
+      for(let j=0;j<8;j++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);
+    }
+    return (crc^0xffffffff)>>>0;
+  };
+  const withHeader=(width,height,depth,color)=>{
+    const bytes=Buffer.from(modified);
+    bytes.writeUInt32BE(width,16);bytes.writeUInt32BE(height,20);
+    bytes[24]=depth;bytes[25]=color;
+    bytes.writeUInt32BE(crc32(bytes.subarray(12,29)),29);
+    return asData(bytes);
+  };
+  assert.equal(normalizeSubjectInspection(withPreview(withHeader(513,8,8,6))),null);
+  assert.equal(normalizeSubjectInspection(withPreview(withHeader(8,513,8,6))),null);
+  assert.equal(normalizeSubjectInspection(withPreview(withHeader(8,8,1,6))),null);
+  assert.equal(normalizeSubjectInspection(withPreview(withHeader(8,8,8,5))),null);
+});
+
 test('highlight zones must be valid source+tile coordinates, with bounded count',()=>{
  const raw=sample();
  raw.sujets[1]={...item(2),codes:['FRAGMENTS_DETACHES'],

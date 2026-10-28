@@ -171,13 +171,17 @@ test('explicit real subject reception displays verified G2.6 content and stays n
   assert.equal(b.find('receiveSubjects').disabled,true);
   channel.sendToReceiver({kind:'foreign-plugin',sujets:[]});
   assert.equal(b.find('realSubjectsGrid').children.length,0);
-  const png='data:image/png;base64,QUJDRA==';
+  const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAD0lEQVR42mNgGAUMDAwMAAEIAAEoUqMqAAAAAElFTkSuQmCC';
   channel.sendToReceiver({kind:'smartsvg:subjects:g33b',version:1,
     selection:1,source_sha256:'a'.repeat(64),width_px:160,height_px:90,count:2,
     sujets:[
       {numero:1,image_data:png,codes:['FRAGMENTS_DETACHES'],
-       zones_a_examiner:[{type:'FRAGMENT_SEPARE',bbox_source_px:[1,2,8,10],
-         bbox_apercu_88px:[2,3,14,19]}],zones_non_affichees:0},
+       zones_a_examiner:[
+         {type:'FRAGMENT_SEPARE',bbox_source_px:[1,2,8,10],
+           bbox_apercu_88px:[2,3,14,19]},
+         {type:'MICRO_FRAGMENT',bbox_source_px:[10,11,14,15],
+           bbox_apercu_88px:[20,21,24,25]}
+       ],zones_non_affichees:0},
       {numero:2,image_data:png,codes:['MASQUE_VIDE'],
        zones_a_examiner:[],zones_non_affichees:0}
     ]});
@@ -187,6 +191,22 @@ test('explicit real subject reception displays verified G2.6 content and stays n
   assert.match(b.find('realSubjectsStatus').textContent,/Diagnostic G2.6 reçu/);
   assert.match(b.find('realSubjectsSelection').textContent,/1 \/ 2 sujets/);
   const first=b.find('realSubjectsGrid').children[0];
+  const details=first.children.find(x=>x.tagName==='details');
+  const zoneButtons=details.children.filter(x=>x.tagName==='button');
+  const rings=first.children.find(x=>x.className==='thumb-wrap').children.slice(1);
+  assert.equal(zoneButtons.length,2);
+  assert.equal(zoneButtons[0].attributes['aria-pressed'],'false');
+  await zoneButtons[0].fire('click');
+  assert.equal(zoneButtons[0].attributes['aria-pressed'],'true');
+  assert.equal(rings[0].attributes['data-active'],'true');
+  assert.match(b.find('realFragmentStatus').textContent,/pixels source \[1, 2, 8, 10\]/);
+  await zoneButtons[1].fire('click');
+  assert.equal(zoneButtons[0].attributes['aria-pressed'],'false');
+  assert.equal(zoneButtons[1].attributes['aria-pressed'],'true');
+  assert.equal(rings[0].attributes['data-active'],'false');
+  assert.equal(rings[1].attributes['data-active'],'true');
+  assert.match(b.find('realFragmentStatus').textContent,/Micro-fragment/);
+  assert.match(b.find('realFragmentStatus').textContent,/sans modification des masques/);
   const button=first.children.find(x=>x.tagName==='button');
   assert.equal(button.attributes['aria-pressed'],'true');
   await button.fire('click');
@@ -195,6 +215,7 @@ test('explicit real subject reception displays verified G2.6 content and stays n
   assert.equal(b.find('count').textContent,'12 / 12');
   await b.find('clearSubjects').fire('click');
   assert.equal(b.find('realSubjectsGrid').children.length,0);
+  assert.equal(b.find('realFragmentStatus').textContent,'');
   assert.match(b.find('realSubjectsStatus').textContent,/Aucun masque ni projet modifié/);
 });
 test('real subjects receiver explicitly refuses file protocol',async()=>{
