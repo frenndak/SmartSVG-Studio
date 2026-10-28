@@ -2,7 +2,7 @@
 
 ## Référence
 
-Source V21.15.2 conservée dans `source-releases/` ; moteurs évolutifs dans `engine/`. La roadmap gelée est `docs/ROADMAP_MASTER_v3_2.md`. La présence de `.automation/READY` confirme l'admission documentaire, pas une certification Cricut, ComfyUI ou GPU.
+Source V21.15.2 conservée dans `source-releases/` ; moteurs évolutifs dans `engine/`. La roadmap active approuvée est `docs/ROADMAP_MASTER_v3_3.md` avec ses registres `docs/ROADMAP_TRACEABILITY_v3_3.md` et `docs/ROADMAP_COVERAGE_v3_3.md`. Le master V3.2 et son gel restent des archives protégées. La présence de `.automation/READY` confirme l'admission documentaire, pas une certification Cricut, ComfyUI ou GPU.
 
 ## Cadence opérationnelle
 

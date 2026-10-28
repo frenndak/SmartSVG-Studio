@@ -1,6 +1,6 @@
 # SmartSVG Studio — État réel et prochains développements
 
-**État constaté : 27 octobre 2026**. Document de suivi vivant **non normatif** ; la roadmap contractuelle et figée reste `ROADMAP_MASTER_v3_2.md`.
+**État logiciel constaté : 27 octobre 2026**. Document de suivi vivant **non normatif** ; depuis le 28 octobre 2026, la référence contractuelle active est [la roadmap V3.3](ROADMAP_MASTER_v3_3.md). La V3.2 demeure une archive protégée, sans validation produit supplémentaire implicite.
 
 ## Synthèse à ne pas confondre
 
@@ -60,7 +60,7 @@ Le gestionnaire de projets du panneau Express dispose déjà de fonctions réell
 
 ## Références
 
-- [Roadmap figée](ROADMAP_MASTER_v3_2.md)
+- [Roadmap V3.3 active](ROADMAP_MASTER_v3_3.md) · [V3.2 historique](ROADMAP_MASTER_v3_2.md)
 - [Documentation du raccordement G3.1](G3_1_EXPRESS_REAL_SVG_REVIEW.md)
 - [Gestion native des projets dans l'atelier G3.2](G3_2_ATELIER_NATIVE_PROJECTS.md)
 - [Contrat de source figée](SOURCE_V21_15_2_PROVENANCE.json)
