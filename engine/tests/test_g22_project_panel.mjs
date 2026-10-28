@@ -39,6 +39,11 @@ function harness(){
         main={...main,sha256:'b'.repeat(64),document:{...main.document,notes:'nouveau'}};
         return makeResponse({ok:true,result:{status:'updated'}});
       }
+      if(route.endsWith('/resolve-pending')){
+        main={...main,status:'PROJECT_HEALTHY',sha256:'e'.repeat(64),
+          pending_resolution_available:false};
+        return makeResponse({ok:true,result:{status:'pending_backup_finalized'}});
+      }
       if(route.endsWith('/restore')){
         main={...main,status:'PROJECT_HEALTHY',recoverable:false,sha256:'c'.repeat(64)};
         return makeResponse({ok:true,result:{status:'restored_from_previous'}});
@@ -73,12 +78,12 @@ test('project names never permit traversal, separators, or reserved names',()=>{
 });
 test('creation uses chosen local PNG, historical settings and custom CSRF header',async()=>{
   const h=harness();
-  // Four original .smartsvg project actions must remain in their original
-  // order, followed by three strictly local SVG review controls (G2.7).
-  assert.equal(h.buttons.length,7);
+  // Preserve the four historical actions, then add explicit crash recovery.
+  assert.equal(h.buttons.length,8);
   assert.deepEqual(h.buttons.slice(0,4).map(x=>x.textContent),
     ['Créer projet depuis PNG','Ouvrir et inspecter','Enregistrer les notes','Restaurer le secours']);
-  assert.equal(h.buttons[6].disabled,true,'local SVG export disabled without reviewed paths');
+  assert.equal(h.buttons[7].disabled,true,'local SVG export disabled without reviewed paths');
+  assert.equal(h.buttons[4].disabled,true,'pending recovery requires inspected snapshot');
   assert.equal(h.buttons[2].disabled,true);
   assert.equal(h.buttons[3].disabled,true);
   h.name.value='snails';
@@ -122,6 +127,32 @@ test('recovery is blocked unless confirmed in browser and carries fresh fingerpr
   const req=h.calls.find(x=>x.route.endsWith('/restore'));
   assert.equal(req.options.body.rows.find(x=>x[0]==='expected_recovery_sha256')[1],'b'.repeat(64));
   assert.equal(req.options.body.rows.find(x=>x[0]==='confirmed')[1],'yes');
+});
+test('pending recovery requires explicit confirmation and all three fresh hashes',async()=>{
+  const h=harness();h.name.value='snails';
+  h.setMain({...h.getMain(),status:'PENDING_BACKUP_REVIEW_REQUIRED',
+    sha256:undefined,recoverable:false,pending_resolution_available:true,
+    pending_sha256:'b'.repeat(64),primary_sha256:'c'.repeat(64),
+    previous_sha256:'d'.repeat(64),message_fr:'Sauvegarde interrompue',
+    action_fr:'Confirmer après inspection'});
+  await h.buttons[1].trigger('click');
+  assert.equal(h.buttons[2].disabled,true);
+  assert.equal(h.buttons[3].disabled,true);
+  assert.equal(h.buttons[4].disabled,false);
+  assert.match(h.root.children.find(x=>x.textContent?.includes('Sauvegarde interrompue'))?.textContent||'',/Sauvegarde/);
+  globalThis.window.confirm=()=>false;
+  await h.buttons[4].trigger('click');
+  assert.equal(h.calls.some(x=>x.route.endsWith('/resolve-pending')),false);
+  globalThis.window.confirm=()=>true;
+  await h.buttons[4].trigger('click');
+  const req=h.calls.find(x=>x.route.endsWith('/resolve-pending'));
+  assert.equal(req.options.headers['X-SmartSVG-UI'],'1');
+  assert.equal(req.options.body.rows.find(x=>x[0]==='confirmed')[1],'yes');
+  for(const [key,hash] of [['expected_pending_sha256','b'],
+                           ['expected_primary_sha256','c'],
+                           ['expected_previous_sha256','d']])
+    assert.equal(req.options.body.rows.find(x=>x[0]===key)[1],hash.repeat(64));
+  assert.equal(h.buttons[4].disabled,true);
 });
 test('invalid project name does not call backend',async()=>{
   const h=harness();h.name.value='../private';
