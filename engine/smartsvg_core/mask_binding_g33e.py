@@ -45,6 +45,7 @@ def snapshot_mask_bindings(project):
     for proof in proofs:
         by_subject_proof.setdefault(proof["subject_id"], []).append(proof)
     bindings = []
+    proof_content_valid = True
     for index in range(count):
         mask = project.masks[index]
         chunk = memoryview(raw)[index * stride:(index + 1) * stride]
@@ -76,6 +77,8 @@ def snapshot_mask_bindings(project):
                     proof_status, subject = 'mismatch', None
                 else:
                     proof_status = 'verified'
+        if proof_status in ('invalid', 'missing', 'mismatch'):
+            proof_content_valid = False
         bindings.append({
             'mask_index': index,
             'mask_id': mask.mask_id,
@@ -89,5 +92,5 @@ def snapshot_mask_bindings(project):
     return {'version': 1, 'bindings': bindings,
             'source_id': project.sources[0].source_id,
             'identity_kind': 'snapshot_position_plus_float32_digest',
-            'subject_proof_schema_valid': proof_schema_valid,
+            'subject_proof_schema_valid': proof_schema_valid and proof_content_valid,
             'persistent_subject_ids': all(x['subject_id'] is not None for x in bindings)}
