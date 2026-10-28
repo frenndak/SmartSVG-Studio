@@ -80,8 +80,18 @@ function inspector(node){
  projectName.style.cssText='display:block;max-width:100%;margin:5px 0 8px;padding:7px';
  let latest=null,selectionModule=null,selectionBinding=null,selectionChannel=null;
  let selectionTimer=null,pendingSelection=null,widgetAtProposal=null;
- let confirmationInFlight=false,shareInFlight=false;
+ let thumbnailChoiceVersion=0;
+ let confirmationInFlight=false,shareInFlight=false,disposed=false;
+ // Read-only requests belong to a particular UI/session lifetime. Abort on
+ // rerun, edited project name, expiry and final channel closure.
+ let shareReadController=null,confirmReadController=null;
+ function dispose(){
+   disposed=true;stopSelection();latest=null;
+   share.disabled=true;confirm.disabled=true;
+ }
  function stopSelection(){
+   shareReadController?.abort();shareReadController=null;
+   confirmReadController?.abort();confirmReadController=null;
    if(selectionTimer!==null){clearTimeout(selectionTimer);selectionTimer=null;}
    selectionChannel?.close();selectionChannel=null;
    selectionBinding=null;pendingSelection=null;widgetAtProposal=null;
@@ -92,7 +102,7 @@ function inspector(node){
    hint.textContent='Projet modifié : renvoyer le diagnostic avant toute proposition.';
  });
  confirm.addEventListener('click',async()=>{
-   if(confirmationInFlight)return; // ignore double clicks while a callback is pending
+   if(disposed||confirmationInFlight)return; // ignore double clicks while a callback is pending
    const widget=node.widgets?.find(w=>w.name==='numero_sujet');
    const subject=selectionModule?.validateSelectionProposal(
      pendingSelection,selectionBinding,node,latest);
@@ -102,6 +112,10 @@ function inspector(node){
      stopSelection();return;
    }
    const previous=widget.value;
+   const manualChoiceAtConfirm=thumbnailChoiceVersion;
+   let assignedByConfirmation=false;
+   const readController=new AbortController();
+   confirmReadController=readController;
    const reportAtConfirm=latest,bindingAtConfirm=selectionBinding;
    const proposalAtConfirm=pendingSelection;
    confirmationInFlight=true;confirm.disabled=true;share.disabled=true;
@@ -110,7 +124,7 @@ function inspector(node){
        ?{project_name:bindingAtConfirm.project_name,
          project_sha256:bindingAtConfirm.project_sha256}:null;
      if(projectAtConfirm){
-       const current=await readProjectRevision(api,projectAtConfirm.project_name);
+       const current=await readProjectRevision(api,projectAtConfirm.project_name,{signal:readController.signal});
        // The awaited GET creates a race with a user's newer widget choice.
        // Never overwrite that choice (or a replacement widget) after returning.
        if(node.widgets?.find(w=>w.name==='numero_sujet')!==widget||
@@ -124,11 +138,12 @@ function inspector(node){
          throw Error('PROJECT_CHANGED');
      }
      widget.value=subject;
+     assignedByConfirmation=true;
      // ComfyUI widgets are usually synchronous, but a Promise rejection must
      // never be mistaken for a successful subject change.
      await widget.callback?.(subject);
      if(projectAtConfirm){
-       const current=await readProjectRevision(api,projectAtConfirm.project_name);
+       const current=await readProjectRevision(api,projectAtConfirm.project_name,{signal:readController.signal});
        if(!matchesProjectLock(projectAtConfirm,current,reportAtConfirm)||
           projectName.value.trim()!==projectAtConfirm.project_name)
          throw Error('PROJECT_CHANGED');
@@ -139,7 +154,8 @@ function inspector(node){
         widget.value!==subject||
         selectionModule.validateSelectionProposal(
           proposalAtConfirm,bindingAtConfirm,node,reportAtConfirm)!==subject){
-       if(widget.value===subject)widget.value=previous;
+       if(assignedByConfirmation&&thumbnailChoiceVersion===manualChoiceAtConfirm&&
+          widget.value===subject)widget.value=previous;
        hint.textContent='Proposition périmée pendant la confirmation ; valeur précédente restaurée si inchangée.';
        return;
      }
@@ -147,18 +163,28 @@ function inspector(node){
      node.graph?.setDirtyCanvas?.(true,true);
      hint.textContent='Sujet '+subject+' confirmé dans le nœud. Relancer manuellement le workflow ; masques float32 et fragments conservés.';
    }catch(error){
-     if(widget.value===subject)widget.value=previous;
+     // Do not roll back a value we never wrote, or a newer explicit thumbnail choice.
+     if(assignedByConfirmation&&thumbnailChoiceVersion===manualChoiceAtConfirm&&
+        widget.value===subject)widget.value=previous;
+     if(error?.message==='PROJECT_BINDING_ABORTED'){
+       // A newer execution or changed project owns the UI message/state.
+       // The value is restored above only if this confirmation still owns it.
+       return;
+     }
      hint.textContent=error?.message==='SELECTION_CHANGED'
        ?'Sélection modifiée pendant la vérification du projet : proposition refusée, votre nouveau choix est conservé.'
        :error?.message==='PROJECT_CHANGED'
        ?'Projet .smartsvg modifié ou incompatible : proposition refusée, valeur précédente restaurée si inchangée.'
+       :error?.message==='PROJECT_BINDING_TIMEOUT'
+       ?'Délai de vérification du projet dépassé : proposition annulée, valeur précédente conservée si inchangée. Réessayer.'
        :'Échec du changement de sujet ou de la vérification du projet ; valeur précédente restaurée si inchangée.';
    }finally{
-     confirmationInFlight=false;stopSelection();share.disabled=!latest;
+     confirmationInFlight=false;stopSelection();share.disabled=disposed||!latest;
    }
  });
  // Deliberately NOT connected to onExecuted: user action is mandatory.
  share.addEventListener('click',async()=>{
+   if(disposed)return;
    // A pending widget callback owns the current channel until it settles.
    // Do not replace it: its finally block would otherwise close a new channel.
    if(confirmationInFlight||shareInFlight){
@@ -173,12 +199,14 @@ function inspector(node){
    }
    shareInFlight=true;share.disabled=true;
    stopSelection();
+   const readController=new AbortController();
+   shareReadController=readController;
    const sourceAtSend=latest;
    try{
      const {normalizeSubjectInspection,SUBJECT_HANDOFF_CHANNEL}=
        await import('./smartsvg_subject_handoff_g33.mjs');
      selectionModule=await import('./smartsvg_subject_selection_g33c.mjs');
-     if(latest!==sourceAtSend)return; // onExecuted replaced the report during import
+     if(readController.signal.aborted||latest!==sourceAtSend)return; // imports or user input invalidated this transfer
      const msg=normalizeSubjectInspection(latest);
      if(!msg){hint.textContent='Diagnostic incomplet ou trop volumineux : relancer le nœud et réessayer.';return;}
      const requestedProject=projectName.value.trim();
@@ -187,8 +215,8 @@ function inspector(node){
        if(!validProjectName(requestedProject)){
          hint.textContent='Nom de projet invalide : aucune proposition envoyée.';return;
        }
-       const info=await readProjectRevision(api,requestedProject);
-       if(latest!==sourceAtSend||projectName.value.trim()!==requestedProject)return;
+       const info=await readProjectRevision(api,requestedProject,{signal:readController.signal});
+       if(readController.signal.aborted||latest!==sourceAtSend||projectName.value.trim()!==requestedProject)return;
        projectLock=makeProjectLock(requestedProject,info,msg);
        if(!projectLock){
          hint.textContent='Projet incompatible : révision saine et empreinte IMAGE + masques float32 G2.4 identiques requises.';return;
@@ -206,6 +234,7 @@ function inspector(node){
        msg.expires_at_ms=binding.expires_at_ms;
        selectionBinding=binding;
      }
+     if(readController.signal.aborted)return; // never revive a session cancelled during imports or GET
      const channel=new BroadcastChannel(SUBJECT_HANDOFF_CHANNEL);
      if(binding){
        selectionChannel=channel;
@@ -234,17 +263,24 @@ function inspector(node){
      hint.textContent=binding
        ?'Diagnostic envoyé'+(projectLock?' avec projet '+projectLock.project_name+' verrouillé à la révision '+projectLock.project_sha256.slice(0,12)+'…':' sans projet lié')+'. Choisir un sujet dans l’Atelier, puis confirmer ici dans les 90 s. Aucune modification automatique.'
        :'Diagnostic envoyé en lecture seule. Liaison indisponible : connecter IMAGE/MASK, identifier le nœud et utiliser un navigateur avec crypto.';
-   }catch{
+   }catch(error){
+     // The input/rerun/expiry already invalidated this transfer. Do not
+     // replace the newer status message with a stale request error.
+     if(readController.signal.aborted)return;
      stopSelection();
-     hint.textContent='Transfert indisponible ; utiliser l’inspecteur du nœud ComfyUI.';
+     hint.textContent=error?.message==='PROJECT_BINDING_TIMEOUT'
+       ?'Délai de lecture du projet dépassé : aucun sujet envoyé. Réessayer ou laisser le champ projet vide.'
+       :'Transfert indisponible ; utiliser l’inspecteur du nœud ComfyUI.';
    }finally{
+     if(shareReadController===readController)shareReadController=null;
      shareInFlight=false;
-     share.disabled=confirmationInFlight||!latest;
+     share.disabled=disposed||confirmationInFlight||!latest;
    }
  });
  root.append(title,hint,summary,layout,zoneActions,share,confirm,
    projectLabel,projectName);
  function update(data){
+   if(disposed)return;
    stopSelection();latest=null;share.disabled=true;
    layout.replaceChildren();zoneActions.replaceChildren();
    const entry=data?.smartsvg_subjects_v21154?.[0];
@@ -293,6 +329,10 @@ function inspector(node){
      else button.addEventListener('click',()=>{
        const widget=node.widgets?.find(w=>w.name==='numero_sujet');
        if(!widget){hint.textContent='Champ numero_sujet introuvable : choisir manuellement.';return;}
+       // A newer explicit thumbnail choice cancels any older pending
+       // inspection/confirmation before the widget is changed.
+       thumbnailChoiceVersion++;
+       stopSelection();
        widget.value=item.numero;
        for(const b of layout.children){
          b.setAttribute('aria-pressed',String(b===button));
@@ -324,7 +364,7 @@ function inspector(node){
    summary.textContent=`${shown} sujet(s) affiché(s), ${issues} à examiner. Cadres orange = fragments possibles, jamais supprimés. Aucune validation de découpe.`;
    hint.textContent='Cliquer un sujet puis relancer. Un avertissement demande inspection, pas suppression automatique.';
  }
- return {root,update};
+ return {root,update,dispose};
 }
 app.registerExtension({name:'smartsvg.studio.subjectinspector.v21154',nodeCreated(node){
  if((node?.comfyClass||node?.type)!==CLASS||node._ss21154Inspector||typeof node.addDOMWidget!=='function')return;
@@ -335,6 +375,10 @@ app.registerExtension({name:'smartsvg.studio.subjectinspector.v21154',nodeCreate
    node._ss21154Inspector=ui;
    const previous=node.onExecuted;
    node.onExecuted=function(out){previous?.apply(this,arguments);try{ui.update(out);}catch(error){console.warn('SmartSVG inspection advisory',error);}};
+   const previousRemoved=node.onRemoved;
+   node.onRemoved=function(...args){
+     try{ui.dispose();}finally{return previousRemoved?.apply(this,args);}
+   };
    node.size=[Math.max(node.size?.[0]||300,430),Math.max(node.size?.[1]||200,470)];
  }catch(error){console.warn('SmartSVG subject inspector disabled',error);}
 }});

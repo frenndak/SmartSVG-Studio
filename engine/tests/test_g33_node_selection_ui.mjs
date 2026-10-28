@@ -23,7 +23,7 @@ const report=()=>({smartsvg_subjects_v21154:[{
    zones_a_examiner:[{type:'FRAGMENT_SEPARE',bbox_source_px:[1,2,8,10],
      bbox_apercu_88px:[2,3,14,19]}],zones_non_affichees:0}
  ]}]});
-function setup(){
+function setup({projectReader,handoffProvider}={}){
  class Element{
   constructor(tag){this.tagName=tag;this.children=[];this.style={};this.attributes={};
    this.listeners={};this.hidden=false;this.disabled=false;this.value='';this.textContent='';}
@@ -54,9 +54,9 @@ function setup(){
  }};
  const timers=new Map();
  let timer=0;
- const context={__app:app,__api:api,__project:projectGate,__handoff:handoff,
+ const context={__app:app,__api:api,__project:projectReader?{...projectGate,readProjectRevision:projectReader}:projectGate,__handoff:handoffProvider||handoff,
   __selection:{...selection,createSelectionBinding:(n,r)=>selection.createSelectionBinding(n,r,random)},
-  document,window:{location:{protocol:'http:'}},BroadcastChannel,
+  document,window:{location:{protocol:'http:'}},BroadcastChannel,AbortController,
   setTimeout:fn=>{const id=++timer;timers.set(id,fn);return id;},
   clearTimeout:id=>timers.delete(id),console,CustomEvent:class{}};
  vm.runInNewContext(script,context,{timeout:5000});
@@ -328,4 +328,239 @@ test('pinned confirmation rejects widget replacement during a pending project GE
  assert.equal(callbacks,0);
  assert.equal(channel.closed,true);
  assert.match(s.hint.textContent,/Sélection modifiée/);
+});
+
+test('a hung project GET fails closed without sending a subject and allows retry',async()=>{
+ const s=setup({projectReader:(api,name)=>projectGate.readProjectRevision(
+   api,name,{timeoutMs:15})});
+ s.node.onExecuted(report());s.projectName.value='mes_sujets';
+ s.api.fetchApi=()=>new Promise(()=>{});
+ await s.share.fire('click');
+ assert.equal(s.channels.length,0,'no proposal sent from a stalled project inspection');
+ assert.equal(s.node.widgets[0].value,1,'subject is unchanged');
+ assert.equal(s.share.disabled,false,'user can retry after timeout');
+ assert.match(s.hint.textContent,/Délai de lecture du projet dépassé/);
+});
+
+test('a hung revision recheck cancels confirmation and preserves the previous subject',async()=>{
+ const s=setup({projectReader:(api,name)=>projectGate.readProjectRevision(
+   api,name,{timeoutMs:15})});
+ s.node.onExecuted(report());s.projectName.value='mes_sujets';
+ await s.share.fire('click');
+ const channel=s.channels[0];
+ channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ s.api.fetchApi=()=>new Promise(()=>{});
+ await s.confirm.fire('click');
+ assert.equal(s.node.widgets[0].value,1,'no subject write after stalled GET');
+ assert.equal(channel.closed,true,'stale proposal channel is closed');
+ assert.equal(s.share.disabled,false,'user can retry');
+ assert.match(s.hint.textContent,/Délai de vérification du projet dépassé/);
+});
+
+test('editing project during stalled share aborts its GET and preserves newer guidance',async()=>{
+ let started,signal;
+ const entered=new Promise(resolve=>{started=resolve;});
+ const reader=(_api,_name,options)=>{
+   signal=options.signal;started();
+   return new Promise((_resolve,reject)=>{
+     options.signal.addEventListener('abort',()=>reject(Error('PROJECT_BINDING_ABORTED')),{once:true});
+   });
+ };
+ const s=setup({projectReader:reader});s.node.onExecuted(report());
+ s.projectName.value='mes_sujets';
+ const pending=s.share.fire('click');
+ await entered;
+ assert.equal(signal.aborted,false);
+ s.projectName.value='autre_projet';
+ await s.projectName.fire('input');
+ await pending;
+ assert.equal(signal.aborted,true,'input change cancels a read immediately');
+ assert.equal(s.channels.length,0,'no stale diagnostic is transmitted');
+ assert.equal(s.share.disabled,false,'sharing can be retried');
+ assert.match(s.hint.textContent,/Projet modifié : renvoyer le diagnostic/);
+});
+
+test('new execution aborts stalled confirmation GET and retains usable UI',async()=>{
+ let reads=0,entered,signal;
+ const started=new Promise(resolve=>{entered=resolve;});
+ let s;
+ const reader=(_api,_name,options)=>{
+   if(++reads===1)return Promise.resolve(s.getProject());
+   signal=options.signal;entered();
+   return new Promise((_resolve,reject)=>{
+     options.signal.addEventListener('abort',()=>reject(Error('PROJECT_BINDING_ABORTED')),{once:true});
+   });
+ };
+ s=setup({projectReader:reader});s.node.onExecuted(report());
+ s.projectName.value='mes_sujets';await s.share.fire('click');
+ const channel=s.channels[0];channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ const pending=s.confirm.fire('click');
+ await started;
+ s.node.onExecuted(report()); // a new execution takes ownership of the UI
+ await pending;
+ assert.equal(signal.aborted,true);
+ assert.equal(s.node.widgets[0].value,1,'no stale confirmation committed');
+ assert.equal(channel.closed,true,'previous proposal channel invalidated');
+ assert.equal(s.share.disabled,false,'new diagnostic can be shared');
+ assert.doesNotMatch(s.hint.textContent,/Échec du changement de sujet/,'old abort must not hide fresh status');
+});
+
+test('expiry during stalled confirmation aborts its project GET and leaves no dangling proposal',async()=>{
+ let reads=0,entered,signal,s;
+ const started=new Promise(resolve=>{entered=resolve;});
+ const reader=(_api,_name,options)=>{
+   if(++reads===1)return Promise.resolve(s.getProject());
+   signal=options.signal;entered();
+   return new Promise((_resolve,reject)=>{
+     options.signal.addEventListener('abort',()=>reject(Error('PROJECT_BINDING_ABORTED')),{once:true});
+   });
+ };
+ s=setup({projectReader:reader});s.node.onExecuted(report());
+ s.projectName.value='mes_sujets';await s.share.fire('click');
+ const channel=s.channels[0];channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ const expire=[...s.timers.values()][0];
+ const pending=s.confirm.fire('click');
+ await started;expire();await pending;
+ assert.equal(signal.aborted,true);
+ assert.equal(s.node.widgets[0].value,1);
+ assert.equal(channel.closed,true);
+ assert.equal(s.confirm.hidden,true);
+ assert.match(s.hint.textContent,/Proposition expirée/);
+});
+
+test('removing source node aborts pending share and seals detached inspector',async()=>{
+ let signal,entered;
+ const started=new Promise(resolve=>{entered=resolve;});
+ const reader=(_api,_name,opts)=>{
+   signal=opts.signal;entered();
+   return new Promise((_resolve,reject)=>{
+     signal.addEventListener('abort',()=>reject(Error('PROJECT_BINDING_ABORTED')),{once:true});
+   });
+ };
+ const s=setup({projectReader:reader});s.node.onExecuted(report());
+ s.projectName.value='mes_sujets';
+ const pending=s.share.fire('click');await started;
+ s.node.onRemoved();
+ await pending;
+ assert.equal(signal.aborted,true);
+ assert.equal(s.channels.length,0,'detached node cannot broadcast stale subjects');
+ assert.equal(s.share.disabled,true,'removed inspector must remain disabled');
+ s.node.onExecuted(report());
+ assert.equal(s.share.disabled,true,'late execution cannot revive detached UI');
+ await s.share.fire('click');
+ assert.equal(s.channels.length,0,'detached UI never shares again');
+});
+
+test('removing source node cancels pinned confirmation without changing the widget',async()=>{
+ let count=0,entered,signal,s;
+ const started=new Promise(resolve=>{entered=resolve;});
+ const reader=(_api,_name,opts)=>{
+   if(++count===1)return Promise.resolve(s.getProject());
+   signal=opts.signal;entered();
+   return new Promise((_resolve,reject)=>{
+     signal.addEventListener('abort',()=>reject(Error('PROJECT_BINDING_ABORTED')),{once:true});
+   });
+ };
+ s=setup({projectReader:reader});s.node.onExecuted(report());s.projectName.value='mes_sujets';
+ await s.share.fire('click');
+ const channel=s.channels[0];
+ channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ const pending=s.confirm.fire('click');await started;
+ s.node.onRemoved();await pending;
+ assert.equal(signal.aborted,true);
+ assert.equal(s.node.widgets[0].value,1);
+ assert.equal(channel.closed,true);
+ assert.equal(s.share.disabled,true);
+ assert.equal(s.confirm.disabled,true);
+});
+
+test('editing a pinned project to blank during module import cannot send an unbound report',async()=>{
+ let releaseImport;
+ const importReady=new Promise(resolve=>{releaseImport=resolve;});
+ const s=setup({handoffProvider:importReady});
+ s.node.onExecuted(report());s.projectName.value='mes_sujets';
+ const pending=s.share.fire('click');
+ // The dynamic import has not resolved; invalidate this session by clearing pin.
+ s.projectName.value='';
+ await s.projectName.fire('input');
+ releaseImport(handoff);
+ await pending;
+ assert.equal(s.channels.length,0,'cancelled pinned transfer must not downgrade to unbound');
+ assert.equal(s.share.disabled,false,'new explicit send is possible');
+ assert.match(s.hint.textContent,/Projet modifié/);
+});
+
+test('a newer thumbnail selection aborts a pinned GET instead of waiting for timeout',async()=>{
+ let count=0,entered,signal,s;
+ const started=new Promise(resolve=>{entered=resolve;});
+ const reader=(_api,_name,options)=>{
+   if(++count===1)return Promise.resolve(s.getProject());
+   signal=options.signal;entered();
+   return new Promise((_resolve,reject)=>{
+     signal.addEventListener('abort',()=>reject(Error('PROJECT_BINDING_ABORTED')),{once:true});
+   });
+ };
+ s=setup({projectReader:reader});s.node.onExecuted(report());
+ s.projectName.value='mes_sujets';await s.share.fire('click');
+ const channel=s.channels[0];
+ channel.receive(selection.makeSelectionProposal(channel.sent[0],2));
+ const pending=s.confirm.fire('click');
+ await started;
+ const subjectOneThumbnail=s.root.children[3].children[0];
+ await subjectOneThumbnail.fire('click');
+ await pending;
+ assert.equal(signal.aborted,true,'thumbnail selection interrupts ongoing GET immediately');
+ assert.equal(s.node.widgets[0].value,1,'new user selection persists');
+ assert.equal(channel.closed,true,'old session is invalidated');
+ assert.match(s.hint.textContent,/Sujet 1 choisi/,'new UI message is preserved');
+ assert.equal(s.share.disabled,false,'subsequent explicit sharing stays possible');
+});
+
+test('manual thumbnail selecting proposed subject during initial GET is not rolled back',async()=>{
+ let reads=0,entered,signal,s;
+ const started=new Promise(resolve=>{entered=resolve;});
+ const reader=(_api,_name,options)=>{
+   if(++reads===1)return Promise.resolve(s.getProject());
+   signal=options.signal;entered();
+   return new Promise((_resolve,reject)=>{
+     signal.addEventListener('abort',()=>reject(Error('PROJECT_BINDING_ABORTED')),{once:true});
+   });
+ };
+ s=setup({projectReader:reader});s.node.onExecuted(report());s.projectName.value='mes_sujets';
+ await s.share.fire('click');const c=s.channels[0];
+ c.receive(selection.makeSelectionProposal(c.sent[0],2));
+ let callbacks=0;s.node.widgets[0].callback=()=>{callbacks++;};
+ const pending=s.confirm.fire('click');await started;
+ await s.root.children[3].children[1].fire('click'); // the user independently chooses 2
+ await pending;
+ assert.equal(signal.aborted,true);
+ assert.equal(callbacks,0,'obsolete confirmation never invoked callback');
+ assert.equal(s.node.widgets[0].value,2,'new manual choice is not rolled back');
+ assert.match(s.hint.textContent,/Sujet 2 choisi/);
+ assert.equal(c.closed,true);
+});
+
+test('manual thumbnail selecting proposed subject during post-callback GET stays selected',async()=>{
+ let reads=0,entered,signal,s;
+ const started=new Promise(resolve=>{entered=resolve;});
+ const reader=(_api,_name,options)=>{
+   if(++reads<=2)return Promise.resolve(s.getProject());
+   signal=options.signal;entered();
+   return new Promise((_resolve,reject)=>{
+     signal.addEventListener('abort',()=>reject(Error('PROJECT_BINDING_ABORTED')),{once:true});
+   });
+ };
+ s=setup({projectReader:reader});s.node.onExecuted(report());s.projectName.value='mes_sujets';
+ await s.share.fire('click');const c=s.channels[0];
+ c.receive(selection.makeSelectionProposal(c.sent[0],2));
+ let callbacks=0;s.node.widgets[0].callback=async()=>{callbacks++;};
+ const pending=s.confirm.fire('click');await started;
+ assert.equal(s.node.widgets[0].value,2,'confirmation applied provisional value');
+ await s.root.children[3].children[1].fire('click');
+ await pending;
+ assert.equal(signal.aborted,true);
+ assert.equal(callbacks,1);
+ assert.equal(s.node.widgets[0].value,2,'newer manual choice must survive aborted confirmation');
+ assert.match(s.hint.textContent,/Sujet 2 choisi/);
+ assert.equal(c.closed,true);
 });
