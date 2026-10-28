@@ -23,7 +23,7 @@ const report=()=>({smartsvg_subjects_v21154:[{
    zones_a_examiner:[{type:'FRAGMENT_SEPARE',bbox_source_px:[1,2,8,10],
      bbox_apercu_88px:[2,3,14,19]}],zones_non_affichees:0}
  ]}]});
-function setup({projectReader}={}){
+function setup({projectReader,handoffProvider}={}){
  class Element{
   constructor(tag){this.tagName=tag;this.children=[];this.style={};this.attributes={};
    this.listeners={};this.hidden=false;this.disabled=false;this.value='';this.textContent='';}
@@ -54,7 +54,7 @@ function setup({projectReader}={}){
  }};
  const timers=new Map();
  let timer=0;
- const context={__app:app,__api:api,__project:projectReader?{...projectGate,readProjectRevision:projectReader}:projectGate,__handoff:handoff,
+ const context={__app:app,__api:api,__project:projectReader?{...projectGate,readProjectRevision:projectReader}:projectGate,__handoff:handoffProvider||handoff,
   __selection:{...selection,createSelectionBinding:(n,r)=>selection.createSelectionBinding(n,r,random)},
   document,window:{location:{protocol:'http:'}},BroadcastChannel,AbortController,
   setTimeout:fn=>{const id=++timer;timers.set(id,fn);return id;},
@@ -472,4 +472,20 @@ test('removing source node cancels pinned confirmation without changing the widg
  assert.equal(channel.closed,true);
  assert.equal(s.share.disabled,true);
  assert.equal(s.confirm.disabled,true);
+});
+
+test('editing a pinned project to blank during module import cannot send an unbound report',async()=>{
+ let releaseImport;
+ const importReady=new Promise(resolve=>{releaseImport=resolve;});
+ const s=setup({handoffProvider:importReady});
+ s.node.onExecuted(report());s.projectName.value='mes_sujets';
+ const pending=s.share.fire('click');
+ // The dynamic import has not resolved; invalidate this session by clearing pin.
+ s.projectName.value='';
+ await s.projectName.fire('input');
+ releaseImport(handoff);
+ await pending;
+ assert.equal(s.channels.length,0,'cancelled pinned transfer must not downgrade to unbound');
+ assert.equal(s.share.disabled,false,'new explicit send is possible');
+ assert.match(s.hint.textContent,/Projet modifié/);
 });
