@@ -30,7 +30,9 @@ async def _multipart_fields(request, *, image=False):
     reader = await request.multipart()
     fields = {}
     allowed = {'name','profile','width_mm','dpi','notes','expected_sha256',
-               'expected_recovery_sha256','confirmed','editor_json'}
+               'expected_recovery_sha256','expected_pending_sha256',
+               'expected_primary_sha256','expected_previous_sha256',
+               'confirmed','editor_json'}
     total = 0
     for _ in range(12):
         part = await reader.next()
@@ -142,6 +144,22 @@ def register_project_routes(routes, trusted_output_root):
                 confirmed=fields.get('confirmed')=='yes')
             return web.json_response({'ok':True,'result':result,'certified':False})
         except (WorkspaceError, ValueError) as exc:
+            return json_error(getattr(exc,'code','INVALID_REQUEST'))
+
+    @routes.post(prefix+'/resolve-pending')
+    async def resolve_pending(request):
+        if not _browser_origin_ok(request):
+            return json_error('ORIGIN_REJECTED',403)
+        try:
+            fields=await _multipart_fields(request)
+            result=workspace.resolve_pending(fields.get('name'),
+                expected_pending_sha256=fields.get('expected_pending_sha256'),
+                expected_primary_sha256=fields.get('expected_primary_sha256'),
+                expected_previous_sha256=fields.get('expected_previous_sha256'),
+                confirmed=fields.get('confirmed')=='yes')
+            return web.json_response({'ok':True,'result':result,'certified':False},
+                                     headers={'Cache-Control':'no-store'})
+        except (WorkspaceError,ValueError) as exc:
             return json_error(getattr(exc,'code','INVALID_REQUEST'))
 
     @routes.get(prefix+'/editor')

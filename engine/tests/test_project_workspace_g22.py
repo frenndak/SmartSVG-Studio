@@ -3,11 +3,12 @@ from dataclasses import replace
 from hashlib import sha256
 import struct
 import zlib
+import shutil
 from pathlib import Path
 import tempfile
 import unittest
 
-from smartsvg_core.project_archive import load_project
+from smartsvg_core.project_archive import load_project, save_project
 from smartsvg_core.project_workspace_g22 import ManagedWorkspace, WorkspaceError
 from smartsvg_core.project_recovery import save_with_recovery
 
@@ -181,6 +182,66 @@ class G22ManagedWorkspaceTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkspaceError,'UNSAFE_PROJECT_PATH'):
             self.workspace.inspect('snails')
         self.assertEqual(external.read_bytes(),b'private bytes')
+
+    def test_pending_transaction_after_publish_requires_explicit_sha_pinned_resolution(self):
+        self.create()
+        first=self.workspace.inspect('snails')
+        self.workspace.update_notes('snails',notes='version2',expected_sha256=first['sha256'])
+        path=self.workspace.root/'snails.smartsvg'
+        previous=self.workspace.root/'snails.previous.smartsvg'
+        pending=self.workspace.root/'snails.pending-backup.smartsvg'
+        old_backup=previous.read_bytes()
+        shutil.copyfile(path,pending)
+        current=load_project(path)
+        save_project(path,replace(current,document={**current.document,'notes':'version3'}),
+                     overwrite=True)
+        state=self.workspace.inspect('snails')
+        self.assertEqual(state['status'],'PENDING_BACKUP_REVIEW_REQUIRED')
+        self.assertTrue(state['pending_resolution_available'])
+        self.assertNotIn('sha256',state)
+        self.assertEqual(previous.read_bytes(),old_backup)
+        args={'expected_pending_sha256':state['pending_sha256'],
+              'expected_primary_sha256':state['primary_sha256'],
+              'expected_previous_sha256':state['previous_sha256']}
+        with self.assertRaisesRegex(WorkspaceError,'RECOVERY_CONFIRMATION_REQUIRED'):
+            self.workspace.resolve_pending('snails',**args)
+        with self.assertRaisesRegex(WorkspaceError,'RECOVERY_SNAPSHOT_CHANGED'):
+            self.workspace.resolve_pending('snails',confirmed=True,
+                **{**args,'expected_previous_sha256':'0'*64})
+        self.assertEqual(previous.read_bytes(),old_backup)
+        self.assertTrue(pending.exists())
+        result=self.workspace.resolve_pending('snails',confirmed=True,**args)
+        self.assertEqual(result['status'],'pending_backup_finalized')
+        self.assertFalse(pending.exists())
+        self.assertEqual(load_project(path).document['notes'],'version3')
+        self.assertEqual(load_project(previous).document['notes'],'version2')
+
+    def test_pending_before_publish_and_foreign_snapshot_fail_closed(self):
+        self.create()
+        first=self.workspace.inspect('snails')
+        self.workspace.update_notes('snails',notes='version2',expected_sha256=first['sha256'])
+        path=self.workspace.root/'snails.smartsvg'
+        previous=self.workspace.root/'snails.previous.smartsvg'
+        pending=self.workspace.root/'snails.pending-backup.smartsvg'
+        old_backup=previous.read_bytes()
+        shutil.copyfile(path,pending)
+        state=self.workspace.inspect('snails')
+        args={'expected_pending_sha256':state['pending_sha256'],
+              'expected_primary_sha256':state['primary_sha256'],
+              'expected_previous_sha256':state['previous_sha256']}
+        self.assertTrue(state['pending_resolution_available'])
+        self.assertEqual(self.workspace.resolve_pending('snails',confirmed=True,**args)['status'],
+                         'unpublished_candidate_discarded')
+        self.assertEqual(previous.read_bytes(),old_backup)
+        self.assertFalse(pending.exists())
+        self.create('foreign')
+        shutil.copyfile(self.workspace.root/'foreign.smartsvg',pending)
+        state=self.workspace.inspect('snails')
+        self.assertFalse(state['pending_resolution_available'])
+        with self.assertRaisesRegex(WorkspaceError,'NO_VALID_RECOVERY_SNAPSHOT'):
+            self.workspace.resolve_pending('snails',confirmed=True,**args)
+        self.assertTrue(pending.exists())
+        self.assertEqual(previous.read_bytes(),old_backup)
 
     def test_project_holds_no_fabrication_evidence(self):
         self.create()

@@ -22,7 +22,8 @@ from .mask_snapshot_g24 import (
     encode_preview_l8, MaskSnapshotError,
 )
 from .project_recovery import (
-    RecoveryError, inspect_project, recover_previous, save_with_recovery,
+    RecoveryError, inspect_project, recover_previous, resolve_pending_backup,
+    save_with_recovery,
 )
 
 NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_-]{0,47}$')
@@ -44,6 +45,17 @@ class WorkspaceError(ValueError):
 
 def _sha(data):
     return sha256(data).hexdigest()
+
+
+def _revision(path):
+    """Bounded-memory fingerprint; explicit sentinel for a missing revision."""
+    if not path.exists():
+        return 'missing'
+    digest=sha256()
+    with path.open('rb') as stream:
+        for block in iter(lambda:stream.read(1024*1024),b''):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def _valid_name(name):
@@ -169,7 +181,8 @@ class ManagedWorkspace:
     def _path(self, name):
         _valid_name(name)
         file = self.root / (name + '.smartsvg')
-        if file.is_symlink() or file.with_name(name + '.previous.smartsvg').is_symlink():
+        if (file.is_symlink() or file.with_name(name + '.previous.smartsvg').is_symlink()
+                or file.with_name(name + '.pending-backup.smartsvg').is_symlink()):
             raise WorkspaceError('UNSAFE_PROJECT_PATH')
         return file
 
@@ -208,7 +221,9 @@ class ManagedWorkspace:
             if entry.is_symlink():
                 continue
             name=entry.name
-            if name.endswith('.previous.smartsvg'):
+            if name.endswith('.pending-backup.smartsvg'):
+                name=name[:-len('.pending-backup.smartsvg')]
+            elif name.endswith('.previous.smartsvg'):
                 name=name[:-len('.previous.smartsvg')]
             elif name.endswith('.smartsvg'):
                 name=name[:-len('.smartsvg')]
@@ -226,6 +241,7 @@ class ManagedWorkspace:
         report={'name':name,'status':health.status,
                 'primary':health.primary,'previous':health.previous,
                 'recoverable':health.status=='PROJECT_RECOVERABLE',
+                'pending_resolution_available':False,
                 'certified':False,'message_fr':health.message_fr,
                 'action_fr':health.action_fr}
         if health.status=='PROJECT_HEALTHY':
@@ -257,6 +273,26 @@ class ManagedWorkspace:
             previous=path.with_name(path.stem+'.previous.smartsvg')
             # An explicit restore request must carry a fingerprint of this snapshot.
             report['recovery_sha256']=_sha(previous.read_bytes())
+        if health.status=='PENDING_BACKUP_REVIEW_REQUIRED':
+            pending=path.with_name(path.stem+'.pending-backup.smartsvg')
+            previous=path.with_name(path.stem+'.previous.smartsvg')
+            # Never offer a one-click resolution for corrupt or foreign files.
+            if pending.is_file() and health.previous!='invalid':
+                try:
+                    staged=load_project(pending)
+                    primary_ok=(health.primary!='valid' or
+                                load_project(path).project_id==name)
+                    previous_ok=(health.previous!='valid' or
+                                 load_project(previous).project_id==name)
+                    if staged.project_id==name and primary_ok and previous_ok:
+                        report.update({
+                            'pending_resolution_available':True,
+                            'pending_sha256':_revision(pending),
+                            'primary_sha256':_revision(path),
+                            'previous_sha256':_revision(previous),
+                        })
+                except (ProjectArchiveError,OSError):
+                    pass
         return report
 
     def update_notes(self, name, *, notes, expected_sha256):
@@ -301,6 +337,33 @@ class ManagedWorkspace:
             raise WorkspaceError(exc.code) from exc
         return {'name':name,'status':result['status'],
                 'certified':False}
+
+    def resolve_pending(self, name, *, expected_pending_sha256,
+                        expected_primary_sha256, expected_previous_sha256,
+                        confirmed=False):
+        """Explicitly finish a staged transaction with all revisions pinned."""
+        if confirmed is not True:
+            raise WorkspaceError('RECOVERY_CONFIRMATION_REQUIRED')
+        before=self.inspect(name)
+        if not before['pending_resolution_available']:
+            raise WorkspaceError('NO_VALID_RECOVERY_SNAPSHOT')
+        for key, expected in (
+            ('pending_sha256',expected_pending_sha256),
+            ('primary_sha256',expected_primary_sha256),
+            ('previous_sha256',expected_previous_sha256),
+        ):
+            if (not isinstance(expected,str) or
+                    before[key]!=expected or
+                    (expected!='missing' and not re.fullmatch('[0-9a-f]{64}',expected))):
+                raise WorkspaceError('RECOVERY_SNAPSHOT_CHANGED')
+        try:
+            result=resolve_pending_backup(self._path(name),confirmed=True,
+                expected_pending_sha256=expected_pending_sha256,
+                expected_primary_sha256=expected_primary_sha256,
+                expected_previous_sha256=expected_previous_sha256)
+        except RecoveryError as exc:
+            raise WorkspaceError(exc.code) from exc
+        return {'name':name,'status':result['status'],'certified':False}
 
     def source_png(self, name):
         path=self._path(name)

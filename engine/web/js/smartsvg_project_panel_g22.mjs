@@ -22,7 +22,9 @@ export function projectError(code){
     PROJECT_CHANGED:'Le projet a été modifié : le rouvrir avant d’enregistrer.',
     BACKUP_CONFLICT:'Le secours existant est incompatible ou endommagé : aucune donnée écrasée.',
     NOT_RECOVERABLE:'Aucune sauvegarde valide ne peut être restaurée.',
-    RECOVERY_SNAPSHOT_CHANGED:'La sauvegarde précédente a changé : recommencer l’inspection.',
+    RECOVERY_SNAPSHOT_CHANGED:'Une version a changé : réinspecter le projet avant de confirmer.',
+    PENDING_BACKUP_REVIEW_REQUIRED:'Sauvegarde interrompue : examiner puis confirmer sa finalisation.',
+    NO_VALID_RECOVERY_SNAPSHOT:'Secours interrompu invalide ou étranger : conserver les fichiers pour diagnostic.',
     SAVE_FAILED:'Écriture refusée : contrôler le dossier ou les permissions.',
     ORIGIN_REJECTED:'Requête refusée : utiliser cette interface depuis ComfyUI.',
   };
@@ -62,7 +64,7 @@ export function createProjectPanel(api, currentSettings, ownerId='default'){
   const actionButtons=[];
   const discard=()=>{
     loaded=null;
-    saveNotes.disabled=true;restore.disabled=true;
+    saveNotes.disabled=true;restore.disabled=true;resolvePending.disabled=true;
     source.hidden=true;source.removeAttribute('src');
     readiness.textContent='Projet à réinspecter avant toute modification.';
   };
@@ -80,6 +82,7 @@ export function createProjectPanel(api, currentSettings, ownerId='default'){
         for(const b of actionButtons)b.disabled=false;
         saveNotes.disabled=!loaded?.sha256;
         restore.disabled=!loaded?.recoverable;
+        resolvePending.disabled=!loaded?.pending_resolution_available;
       }
     });
     actions.appendChild(button);
@@ -111,7 +114,9 @@ export function createProjectPanel(api, currentSettings, ownerId='default'){
     if(nameValue()!==n)throw Error('PROJECT_SELECTION_CHANGED');
     loaded=result.project;
     const level=projectReadiness(loaded);
-    readiness.textContent=level.title+' — '+level.detail;
+    readiness.textContent=loaded.status==='PENDING_BACKUP_REVIEW_REQUIRED'
+      ? 'Sauvegarde interrompue — '+loaded.message_fr+' '+loaded.action_fr
+      : level.title+' — '+level.detail;
     details.textContent='Statut : '+loaded.status+
       (loaded.document ? ' · '+String(loaded.document.width_mm)+' mm · '+String(loaded.document.dpi)+' ppp' : '')+
       (loaded.sha256 ? ' · SHA-256 révision (à copier dans le nœud G2.4) : '+loaded.sha256 : '')+
@@ -127,6 +132,7 @@ export function createProjectPanel(api, currentSettings, ownerId='default'){
     }
     restore.disabled=!loaded.recoverable;
     saveNotes.disabled=!loaded.sha256;
+    resolvePending.disabled=!loaded.pending_resolution_available;
     return loaded;
   };
   const save=action('Créer projet depuis PNG',async()=>{
@@ -169,7 +175,26 @@ export function createProjectPanel(api, currentSettings, ownerId='default'){
       await inspect();show('Version précédente restaurée après confirmation.');
     }catch(err){show(projectError(err.message));}
   });
-  saveNotes.disabled=true;restore.disabled=true;
+  const resolvePending=action('Finaliser le secours interrompu',async()=>{
+    try{
+      const snapshot=loaded,n=nameValue();
+      if(!snapshot?.pending_resolution_available||snapshot.name!==n)
+        throw Error('RECOVERY_SNAPSHOT_CHANGED');
+      if(typeof window?.confirm!=='function'||!window.confirm(
+        'Une sauvegarde a été interrompue. Finaliser le secours vérifié ? '+
+        'Le projet courant sera conservé s’il est valide ; sinon le secours '+
+        'vérifié sera restauré. Cette opération est explicite et irréversible.'))return;
+      if(nameValue()!==n||loaded!==snapshot)throw Error('RECOVERY_SNAPSHOT_CHANGED');
+      await post('/resolve-pending',{name:n,confirmed:'yes',
+        expected_pending_sha256:snapshot.pending_sha256,
+        expected_primary_sha256:snapshot.primary_sha256,
+        expected_previous_sha256:snapshot.previous_sha256});
+      await inspect();show('Secours interrompu traité après confirmation.');
+    }catch(err){
+      discard();show(projectError(err.message));
+    }
+  });
+  saveNotes.disabled=true;restore.disabled=true;resolvePending.disabled=true;
   name.addEventListener('input',()=>{
     discard();details.textContent='';
   });
