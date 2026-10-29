@@ -6,54 +6,54 @@
 
 Les **141 identifiants** proviennent de [HERITAGE_INDEX](HERITAGE_INDEX.md) (101 S, 40 R33) et sont conservés **sans altérer leurs critères normatifs V3.3**. Le tableau ci-dessous propose un **point d'entrée V34** par exigence, non une assertion de couverture fonctionnelle complète. Les `T-V34-22-xx` sont des **recettes transversales de référence** : lorsqu'un test est partagé, il ne prouve **que la partie correspondante** de l'exigence. Les exigences G6/G9 non détaillées dans V3.4 restent entièrement exigibles par la V3.3 ; le tiret de ticket n'est ni suppression ni report. Aucun `PASS` produit, Windows, GPU, Design Space ou physique n'est revendiqué. Les tickets V34 sont `SPECIFIE` seulement ; les tests sont `NON_EXECUTE`.
 
-**Attention :** cette table est une **réconciliation de planification**, pas un audit ligne par ligne des assertions de tous les tests locaux des lots 01–22. La relation test↔ticket↔exigence est un **candidat de traçabilité** à confirmer lors de la future implémentation. Les liens directs supplémentaires figurent dans les tableaux de tickets de chaque lot. Ne jamais utiliser cette matrice pour promouvoir un statut de maturité.
+**Attention :** cette table est une **réconciliation de planification**, pas un audit ligne par ligne des assertions de tous les tests locaux des lots 01–22. La relation test↔ticket↔exigence est un **candidat de traçabilité** à confirmer lors de la future implémentation. Les renvois de coordination de l’index inverse sont désormais également reproduits dans le sens exigence→ticket (correction documentaire du lot 24) ; les liens des tests locaux détaillés restent à qualifier au niveau des assertions lors des PR de code. Aucun renvoi de coordination n'établit à lui seul une couverture fonctionnelle. Ne jamais utiliser cette matrice pour promouvoir un statut de maturité.
 
 ## 2. Exigence → ticket V34 → recette de référence (141/141)
 
 | Exigence | Intitulé historique abrégé | Tickets / propriétaire proposé | Test prévu de référence | Statut / justification |
 |---|---|---|---|---|
-| S-001 | G0-G9 (cf. V3.2) · Geler archive V21.14.1 et corpus | V34-001, V34-003 | T-V34-22-02 | Lien de planification, preuve non exécutée |
+| S-001 | G0-G9 (cf. V3.2) · Geler archive V21.14.1 et corpus | V34-001, V34-003, V34-002 | T-V34-22-02 | Lien de planification, preuve non exécutée |
 | S-002 | G0-G9 (cf. V3.2) · Spécifier les trois contrats de sortie | V34-005, V34-129 | T-V34-22-01 | Lien de planification, preuve non exécutée |
-| S-003 | G0-G9 (cf. V3.2) · Définir modèle de projet/retouches sérialisables | V34-032, V34-132 | T-V34-22-02 | Lien de planification, preuve non exécutée |
-| S-004 | G0-G9 (cf. V3.2) · Réduire la complexité visible, conserver anciens IDs | V34-041, V34-043 | T-V34-22-14 | Lien de planification, preuve non exécutée |
-| S-005 | G0-G9 (cf. V3.2) · Test réel RMBG/SAM2/BiRefNet RTX 3070 | V34-078, V34-080 | T-V34-22-12 | Lien de planification, preuve non exécutée |
-| S-006 | G0-G9 (cf. V3.2) · Créer masques de référence des neuf images | V34-068, V34-085 | T-V34-22-12 | Lien de planification, preuve non exécutée |
-| S-007 | G0-G9 (cf. V3.2) · Validation sémantique du sujet désiré | V34-069, V34-110 | T-V34-22-05 | Lien de planification, preuve non exécutée |
-| S-008 | G0-G9 (cf. V3.2) · Éditeur pinceaux/undo/reload vérifié sur frontend | V34-132, V34-133 | T-V34-22-04 | Lien de planification, preuve non exécutée |
-| S-009 | G0-G9 (cf. V3.2) · Assurance qualité Cricut par format | V34-101, V34-129 | T-V34-22-01 | Lien de planification, preuve non exécutée |
+| S-003 | G0-G9 (cf. V3.2) · Définir modèle de projet/retouches sérialisables | V34-032, V34-132, V34-010, V34-041, V34-048, V34-053, V34-059, V34-060, V34-063, V34-079, V34-087 | T-V34-22-02 | Lien de planification, preuve non exécutée |
+| S-004 | G0-G9 (cf. V3.2) · Réduire la complexité visible, conserver anciens IDs | V34-041, V34-043, V34-006 | T-V34-22-14 | Lien de planification, preuve non exécutée |
+| S-005 | G0-G9 (cf. V3.2) · Test réel RMBG/SAM2/BiRefNet RTX 3070 | V34-078, V34-080, V34-077, V34-084, V34-092 | T-V34-22-12 | Lien de planification, preuve non exécutée |
+| S-006 | G0-G9 (cf. V3.2) · Créer masques de référence des neuf images | V34-068, V34-085, V34-094 | T-V34-22-12 | Lien de planification, preuve non exécutée |
+| S-007 | G0-G9 (cf. V3.2) · Validation sémantique du sujet désiré | V34-069, V34-110, V34-007, V34-071, V34-082 | T-V34-22-05 | Lien de planification, preuve non exécutée |
+| S-008 | G0-G9 (cf. V3.2) · Éditeur pinceaux/undo/reload vérifié sur frontend | V34-132, V34-133, V34-035, V34-038, V34-062, V34-102 | T-V34-22-04 | Lien de planification, preuve non exécutée |
+| S-009 | G0-G9 (cf. V3.2) · Assurance qualité Cricut par format | V34-101, V34-129, V34-090 | T-V34-22-01 | Lien de planification, preuve non exécutée |
 | S-010 | G0-G9 (cf. V3.2) · Couper physiquement des exemplaires Explore 5 | V34-124 | T-V34-22-07 | Lien de planification, preuve non exécutée |
-| S-011 | G0-G9 (cf. V3.2) · Fidélité SVG multicouche et analyse des formes | V34-098, V34-099 | T-V34-22-01 | Lien de planification, preuve non exécutée |
-| S-012 | G0-G9 (cf. V3.2) · Chemins SVG utilisables avec matériau choisi | V34-106, V34-109 | T-V34-22-08 | Lien de planification, preuve non exécutée |
-| S-013 | G0-G9 (cf. V3.2) · Écran Express unifié | V34-043 | T-V34-22-14 | Lien de planification, preuve non exécutée |
+| S-011 | G0-G9 (cf. V3.2) · Fidélité SVG multicouche et analyse des formes | V34-098, V34-099, V34-103 | T-V34-22-01 | Lien de planification, preuve non exécutée |
+| S-012 | G0-G9 (cf. V3.2) · Chemins SVG utilisables avec matériau choisi | V34-106, V34-109, V34-008, V34-012, V34-107, V34-111, V34-113, V34-120, V34-127 | T-V34-22-08 | Lien de planification, preuve non exécutée |
+| S-013 | G0-G9 (cf. V3.2) · Écran Express unifié | V34-043, V34-051, V34-091 | T-V34-22-14 | Lien de planification, preuve non exécutée |
 | S-014 | G0-G9 (cf. V3.2) · Segmentation objets et fragments associés | V34-073 | T-V34-22-12 | Lien de planification, preuve non exécutée |
-| S-015 | G0-G9 (cf. V3.2) · Nettoyage des halos / découpe et offset | V34-088, V34-095 | T-V34-22-05 | Lien de planification, preuve non exécutée |
+| S-015 | G0-G9 (cf. V3.2) · Nettoyage des halos / découpe et offset | V34-088, V34-095, V34-076 | T-V34-22-05 | Lien de planification, preuve non exécutée |
 | S-016 | G0-G9 (cf. V3.2) · HD conditionnelle + diagnostic d'artefacts | V34-089 | T-V34-22-05 | Lien de planification, preuve non exécutée |
-| S-017 | G0-G9 (cf. V3.2) · Packaging « projet SmartSVG » | V34-025, V34-137 | T-V34-22-02 | Lien de planification, preuve non exécutée |
-| S-018 | G0-G9 (cf. V3.2) · Queue/batch/cache avec reprise | V34-074, V34-135 | T-V34-22-11 | Lien de planification, preuve non exécutée |
+| S-017 | G0-G9 (cf. V3.2) · Packaging « projet SmartSVG » | V34-025, V34-137, V34-031, V34-131 | T-V34-22-02 | Lien de planification, preuve non exécutée |
+| S-018 | G0-G9 (cf. V3.2) · Queue/batch/cache avec reprise | V34-074, V34-135, V34-070, V34-081, V34-093, V34-104 | T-V34-22-11 | Lien de planification, preuve non exécutée |
 | S-019 | G0-G9 (cf. V3.2) · Benchmark Canva/Design Space sur corpus identique | V34-003 | T-V34-22-07 | Lien partiel : benchmark/score V3.3 reste à tester |
 | S-020 | G0-G9 (cf. V3.2) · Papier découpé multicouche / dioramas | V34-126 | T-V34-22-08 | Lien de planification, preuve non exécutée |
 | S-021 | G0-G9 (cf. V3.2) · OCR et gestion du texte sur affiches | V3.3 G6/G9 (sans ticket V34) | Test V3.3 à relier | V3.3 conservée ; aucune nouvelle obligation V34 |
-| S-022 | G0-G9 (cf. V3.2) · App autonome hors ComfyUI, si justifiée | V34-019, V34-139 | T-V34-22-14 | Lien de planification, preuve non exécutée |
-| S-023 | Identité de sujet stable | V34-028, V34-132 | T-V34-22-02 | Lien de planification, preuve non exécutée |
-| S-024 | Projet `.smartsvg` v1 | V34-025 | T-V34-22-02 | Lien de planification, preuve non exécutée |
-| S-025 | Écran Express métier | V34-043 | T-V34-22-14 | Lien de planification, preuve non exécutée |
-| S-026 | Historique non destructif UI | V34-033, V34-133 | T-V34-22-04 | Lien de planification, preuve non exécutée |
-| S-027 | Contrôle GPU réel | V34-074, V34-080 | T-V34-22-12 | Lien de planification, preuve non exécutée |
+| S-022 | G0-G9 (cf. V3.2) · App autonome hors ComfyUI, si justifiée | V34-019, V34-139, V34-004, V34-011, V34-014, V34-017, V34-020, V34-024, V34-054, V34-064 | T-V34-22-14 | Lien de planification, preuve non exécutée |
+| S-023 | Identité de sujet stable | V34-028, V34-132, V34-025, V34-044, V34-061, V34-072, V34-096, V34-115 | T-V34-22-02 | Lien de planification, preuve non exécutée |
+| S-024 | Projet `.smartsvg` v1 | V34-025, V34-136 | T-V34-22-02 | Lien de planification, preuve non exécutée |
+| S-025 | Écran Express métier | V34-043, V34-083 | T-V34-22-14 | Lien de planification, preuve non exécutée |
+| S-026 | Historique non destructif UI | V34-033, V34-133, V34-029 | T-V34-22-04 | Lien de planification, preuve non exécutée |
+| S-027 | Contrôle GPU réel | V34-074, V34-080, V34-016, V34-036, V34-039, V34-047 | T-V34-22-12 | Lien de planification, preuve non exécutée |
 | S-028 | Groupes sujet + accessoires | V34-073 | T-V34-22-04 | Lien de planification, preuve non exécutée |
-| S-029 | Contrat PNG/alpha Cricut | V34-087, V34-129 | T-V34-22-01 | Lien de planification, preuve non exécutée |
-| S-030 | Contrat SVG Basic Cut | V34-097, V34-129 | T-V34-22-01 | Lien de planification, preuve non exécutée |
+| S-029 | Contrat PNG/alpha Cricut | V34-087, V34-129, V34-122 | T-V34-22-01 | Lien de planification, preuve non exécutée |
+| S-030 | Contrat SVG Basic Cut | V34-097, V34-129, V34-100, V34-108, V34-128 | T-V34-22-01 | Lien de planification, preuve non exécutée |
 | S-031 | Matrice d'essais Explore 5 | V34-124 | T-V34-22-07 | Lien de planification, preuve non exécutée |
-| S-032 | Export SVG édition vs fabrication | V34-098, V34-129 | T-V34-22-01 | Lien de planification, preuve non exécutée |
+| S-032 | Export SVG édition vs fabrication | V34-098, V34-129, V34-112 | T-V34-22-01 | Lien de planification, preuve non exécutée |
 | S-033 | Préservation traits et petites régions | V34-099 | T-V34-22-01 | Lien de planification, preuve non exécutée |
 | S-034 | Simplification de Bézier | V34-099 | T-V34-22-01 | Lien de planification, preuve non exécutée |
 | S-035 | Canevas objets/textes | V34-133 | T-V34-22-04 | Lien de planification, preuve non exécutée |
 | S-036 | Fonts et conversion textes → tracés | V3.3 G6/G9 (sans ticket V34) | Test V3.3 à relier | V3.3 conservée ; aucune nouvelle obligation V34 |
 | S-037 | Gabarits métiers | V3.3 G6/G9 (sans ticket V34) | Test V3.3 à relier | V3.3 conservée ; aucune nouvelle obligation V34 |
-| S-038 | Job manager et checkpoints | V34-074, V34-135 | T-V34-22-11 | Lien de planification, preuve non exécutée |
+| S-038 | Job manager et checkpoints | V34-074, V34-135, V34-138 | T-V34-22-11 | Lien de planification, preuve non exécutée |
 | S-039 | Variables CSV | V34-138 | T-V34-22-13 | Lien de planification, preuve non exécutée |
 | S-040 | Imposition mesurable | V34-134 | T-V34-22-05 | Lien de planification, preuve non exécutée |
 | S-041 | Bibliothèque locale | V34-136 | T-V34-22-13 | Lien de planification, preuve non exécutée |
-| S-042 | Audit de sécurité des projets | V34-031, V34-139 | T-V34-22-03 | Lien de planification, preuve non exécutée |
+| S-042 | Audit de sécurité des projets | V34-031, V34-139, V34-086 | T-V34-22-03 | Lien de planification, preuve non exécutée |
 | S-043 | Benchmark Canva/Design Space | V34-003 | T-V34-22-07 | Lien partiel : benchmark/score V3.3 reste à tester |
 | S-044 | Dioramas multi-plans | V3.3 G6/G9 (sans ticket V34) | Test V3.3 à relier | V3.3 conservée ; aucune nouvelle obligation V34 |
 | S-045 | Vinyle multi-couleur | V34-100, V34-112 | T-V34-22-01 | Lien de planification, preuve non exécutée |
@@ -63,8 +63,8 @@ Les **141 identifiants** proviennent de [HERITAGE_INDEX](HERITAGE_INDEX.md) (101
 | S-049 | `corpus_manifest` et droits d'usage des fixtures | V34-001, V34-003 | T-V34-22-02 | Lien de planification, preuve non exécutée |
 | S-050 | Vérité terrain versionnée + protocole annotations | V34-068, V34-085 | T-V34-22-12 | Lien de planification, preuve non exécutée |
 | S-051 | Rapprochement historique S-001–S-022 et inventaire réel workflows | V34-001 | T-V34-22-02 | Lien de planification, preuve non exécutée |
-| S-052 | Schéma `Subject/Source/Artifact` avec identité et coordonnées | V34-025, V34-028 | T-V34-22-02 | Lien de planification, preuve non exécutée |
-| S-053 | Format `.smartsvg` v1, migration et recovery | V34-025, V34-027 | T-V34-22-03 | Lien de planification, preuve non exécutée |
+| S-052 | Schéma `Subject/Source/Artifact` avec identité et coordonnées | V34-025, V34-028, V34-018, V34-026 | T-V34-22-02 | Lien de planification, preuve non exécutée |
+| S-053 | Format `.smartsvg` v1, migration et recovery | V34-025, V34-027, V34-013, V34-022, V34-034, V34-040, V34-140 | T-V34-22-03 | Lien de planification, preuve non exécutée |
 | S-054 | Preuves orthogonales et sidecar `manifest.json` | V34-003, V34-131 | T-V34-22-01 | Lien de planification, preuve non exécutée |
 | S-055 | Profil Explore 5 A4/Letter, imprimer portrait/poser A4 paysage | V34-122, V34-130 | T-V34-22-06 | Lien de planification, preuve non exécutée |
 | S-056 | QA geometry Cut en mm : holes, islands, segments, offset | V34-108, V34-109 | T-V34-22-08 | Lien de planification, preuve non exécutée |
@@ -74,37 +74,37 @@ Les **141 identifiants** proviennent de [HERITAGE_INDEX](HERITAGE_INDEX.md) (101
 | S-060 | Score qualité séparé silhouette/couleur/géométrie | V34-101, V34-109 | T-V34-22-01 | Lien de planification, preuve non exécutée |
 | S-061 | Tests fichiers hostiles et bombes XML/ZIP | V34-025, V34-139 | T-V34-22-03 | Lien de planification, preuve non exécutée |
 | S-062 | File de jobs avec identité, cache et pause/reprise | V34-074, V34-135 | T-V34-22-11 | Lien de planification, preuve non exécutée |
-| S-063 | Matrice de compatibilité ComfyUI/frontend/node API | V34-020, V34-139 | T-V34-22-14 | Lien de planification, preuve non exécutée |
+| S-063 | Matrice de compatibilité ComfyUI/frontend/node API | V34-020, V34-139, V34-021, V34-023 | T-V34-22-14 | Lien de planification, preuve non exécutée |
 | S-064 | Contrat typographie et licence des polices | V3.3 G6/G9 (sans ticket V34) | Test V3.3 à relier | V3.3 conservée ; aucune nouvelle obligation V34 |
 | S-065 | Comparaison contrôlée Design Space/Canva/SmartSVG | V34-003 | T-V34-22-07 | Lien partiel : benchmark/score V3.3 reste à tester |
 | S-066 | Prototype diorama à quatre plans alignables | V3.3 G6/G9 (sans ticket V34) | Test V3.3 à relier | V3.3 conservée ; aucune nouvelle obligation V34 |
-| S-067 | Accueil 4 objectifs + Reprendre | V34-042, V34-043 | T-V34-22-14 | Lien de planification, preuve non exécutée |
+| S-067 | Accueil 4 objectifs + Reprendre | V34-042, V34-043, V34-009, V34-015, V34-037, V34-050, V34-052, V34-105, V34-114 | T-V34-22-14 | Lien de planification, preuve non exécutée |
 | S-068 | Schéma unique d’écran responsive desktop | V34-045 | T-V34-22-14 | Lien de planification, preuve non exécutée |
-| S-069 | États vide/chargement/erreur/export | V34-009, V34-046 | T-V34-22-14 | Lien de planification, preuve non exécutée |
+| S-069 | États vide/chargement/erreur/export | V34-009, V34-046, V34-030 | T-V34-22-14 | Lien de planification, preuve non exécutée |
 | S-070 | Sélection directe et croisée sujets↔vignettes | V34-075, V34-132 | T-V34-22-04 | Lien de planification, preuve non exécutée |
-| S-071 | Erreurs cliquables avec région et correction réversible | V34-065, V34-114 | T-V34-22-08 | Lien de planification, preuve non exécutée |
-| S-072 | Flux Express souris + clavier | V34-049 | T-V34-22-14 | Lien de planification, preuve non exécutée |
+| S-071 | Erreurs cliquables avec région et correction réversible | V34-065, V34-114, V34-056 | T-V34-22-08 | Lien de planification, preuve non exécutée |
+| S-072 | Flux Express souris + clavier | V34-049, V34-066 | T-V34-22-14 | Lien de planification, preuve non exécutée |
 | S-073 | Aperçus original/masque/coupe séparés | V34-091, V34-095 | T-V34-22-05 | Lien de planification, preuve non exécutée |
-| S-074 | Reprise dernier projet et contexte | V34-044, V34-136 | T-V34-22-13 | Lien de planification, preuve non exécutée |
+| S-074 | Reprise dernier projet et contexte | V34-044, V34-136, V34-055 | T-V34-22-13 | Lien de planification, preuve non exécutée |
 | S-075 | Panneau de validation du format par usage | V34-043, V34-051 | T-V34-22-01 | Lien de planification, preuve non exécutée |
 | S-076 | Checklist d’export et transfert Design Space | V34-130 | T-V34-22-09 | Lien de planification, preuve non exécutée |
 | S-077 | Alternative clavier aux gestes souris complexes | V34-049 | T-V34-22-14 | Lien de planification, preuve non exécutée |
 | S-078 | Contrastes/focus/texte ajustable | V34-045 | T-V34-22-14 | Lien de planification, preuve non exécutée |
 | S-079 | Loupe locale et comparaison glissante | V34-095 | T-V34-22-05 | Lien de planification, preuve non exécutée |
 | S-080 | Pinceau correction tactile souris + aperçu effet | V34-133 | T-V34-22-04 | Lien de planification, preuve non exécutée |
-| S-081 | Réglages récents et préréglages utilisateur | V34-055 | T-V34-22-14 | Lien de planification, preuve non exécutée |
+| S-081 | Réglages récents et préréglages utilisateur | V34-055, V34-057 | T-V34-22-14 | Lien de planification, preuve non exécutée |
 | S-082 | Disposition de panneaux persistante | V34-046, V34-055 | T-V34-22-14 | Lien de planification, preuve non exécutée |
 | S-083 | Recherche d’action et aide contextuelle | V34-050, V34-051 | T-V34-22-14 | Lien de planification, preuve non exécutée |
 | S-084 | Ouvrir dossier/export/rapport depuis la réussite | V34-130, V34-140 | T-V34-22-14 | Lien de planification, preuve non exécutée |
-| S-085 | Aperçu cutter-only et repères micro-détails | V34-108, V34-109 | T-V34-22-08 | Lien de planification, preuve non exécutée |
+| S-085 | Aperçu cutter-only et repères micro-détails | V34-108, V34-109, V34-118 | T-V34-22-08 | Lien de planification, preuve non exécutée |
 | S-086 | Toiles avec poignées et dimensions mm | V34-133 | T-V34-22-04 | Lien de planification, preuve non exécutée |
 | S-087 | Multi-sélection, groupement et menu contextuel | V34-133 | T-V34-22-04 | Lien de planification, preuve non exécutée |
 | S-088 | Trois gabarits de départ guidés | V34-126 | T-V34-22-08 | Lien de planification, preuve non exécutée |
-| S-089 | Tableau de lot et reprise d’un échec isolé | V34-135 | T-V34-22-11 | Lien de planification, preuve non exécutée |
+| S-089 | Tableau de lot et reprise d’un échec isolé | V34-135, V34-134 | T-V34-22-11 | Lien de planification, preuve non exécutée |
 | S-090 | Comparer deux dispositions de planche | V34-134 | T-V34-22-05 | Lien de planification, preuve non exécutée |
 | S-091 | Bibliothèque avec miniatures et filtre métier | V34-136 | T-V34-22-13 | Lien de planification, preuve non exécutée |
 | S-092 | Choix de police avec aperçu et alertes glyphes | V3.3 G6/G9 (sans ticket V34) | Test V3.3 à relier | V3.3 conservée ; aucune nouvelle obligation V34 |
-| S-093 | Protocole de test utilisateur novice/régulier | V34-058 | T-V34-22-14 | Lien de planification, preuve non exécutée |
+| S-093 | Protocole de test utilisateur novice/régulier | V34-058, V34-067 | T-V34-22-14 | Lien de planification, preuve non exécutée |
 | S-094 | Tests d’accessibilité + vérification Windows zoom | V34-045, V34-139 | T-V34-22-14 | Lien de planification, preuve non exécutée |
 | S-095 | Tests de récupération pendant export/IA | V34-022, V34-140 | T-V34-22-03 | Lien de planification, preuve non exécutée |
 | S-096 | Instrumentation locale UX et latence (opt-in export rapport) | V34-024, V34-140 | T-V34-22-14 | Lien de planification, preuve non exécutée |
@@ -126,7 +126,7 @@ Les **141 identifiants** proviennent de [HERITAGE_INDEX](HERITAGE_INDEX.md) (101
 | R33-011 | Jobs idempotents avec succès partiel | V34-074, V34-135 | T-V34-22-11 | Lien de planification, preuve non exécutée |
 | R33-012 | Annulation et reprise sans doublon | V34-074, V34-135 | T-V34-22-11 | Lien de planification, preuve non exécutée |
 | R33-013 | Gestion explicite disque plein et lecture seule | V34-022, V34-140 | T-V34-22-03 | Lien de planification, preuve non exécutée |
-| R33-014 | Gestion de sessions concurrentes et double activation | V34-036, V34-125 | T-V34-22-04 | Lien de planification, preuve non exécutée |
+| R33-014 | Gestion de sessions concurrentes et double activation | V34-036, V34-125, V34-119 | T-V34-22-04 | Lien de planification, preuve non exécutée |
 | R33-015 | Rapport de diagnostic local expurgé | V34-024, V34-140 | T-V34-22-14 | Lien de planification, preuve non exécutée |
 | R33-016 | Inventaire des licences et provenances | V34-001, V34-078 | T-V34-22-12 | Lien de planification, preuve non exécutée |
 | R33-017 | Mesure CPU RAM VRAM et temps par fournisseur | V34-080, V34-085 | T-V34-22-12 | Lien de planification, preuve non exécutée |
@@ -134,10 +134,10 @@ Les **141 identifiants** proviennent de [HERITAGE_INDEX](HERITAGE_INDEX.md) (101
 | R33-019 | Alternative clavier à chaque geste complexe | V34-049 | T-V34-22-14 | Lien de planification, preuve non exécutée |
 | R33-020 | Localisation française cohérente et messages actionnables | V34-050, V34-056 | T-V34-22-14 | Lien de planification, preuve non exécutée |
 | R33-021 | Tests d'installation mise à jour et rollback | V34-139 | T-V34-22-14 | Lien de planification, preuve non exécutée |
-| R33-022 | Versions Design Space associées aux preuves | V34-107, V34-130 | T-V34-22-09 | Lien de planification, preuve non exécutée |
+| R33-022 | Versions Design Space associées aux preuves | V34-107, V34-130, V34-116, V34-117, V34-121 | T-V34-22-09 | Lien de planification, preuve non exécutée |
 | R33-023 | Contexte machine matière outil associé aux preuves physiques | V34-107, V34-124 | T-V34-22-10 | Lien de planification, preuve non exécutée |
 | R33-024 | Données de preuve privées hors dépôt public | V34-003, V34-140 | T-V34-22-14 | Lien de planification, preuve non exécutée |
-| R33-025 | Tests de panne pendant sauvegarde export et IA | V34-022, V34-140 | T-V34-22-03 | Lien de planification, preuve non exécutée |
+| R33-025 | Tests de panne pendant sauvegarde export et IA | V34-022, V34-140, V34-123 | T-V34-22-03 | Lien de planification, preuve non exécutée |
 | R33-026 | Budgets pour projets et lots volumineux | V34-074, V34-135 | T-V34-22-11 | Lien de planification, preuve non exécutée |
 | R33-027 | Noms de fichiers sûrs et collisions contrôlées | V34-131, V34-138 | T-V34-22-13 | Lien de planification, preuve non exécutée |
 | R33-028 | Polices licences et glyphes manquants visibles | V3.3 G6/G9 (sans ticket V34) | Test V3.3 à relier | V3.3 conservée ; aucune nouvelle obligation V34 |
