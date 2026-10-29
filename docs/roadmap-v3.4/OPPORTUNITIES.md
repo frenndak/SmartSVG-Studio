@@ -11,6 +11,8 @@
 | **O-001** | Journal local de transfert Design Space (étapes confirmées, versions, réglages, incidents et photo facultative) | Raffine S-010, S-084, R33-022, R33-034 ; pas un doublon du rapport de prévol, car il suit **l'après-export** ; V34-010 | 4/3/4/4/2/2 → 48 | **P1 / RETENU_POUR_SPEC** |
 | **O-002** | Vérification guidée de l'échelle imprimante et de l'orientation A4 avant découpe, avec état « vérification externe nécessaire » | Raffine S-029, R33-022 et le parcours P01 ; évite de présenter un nesting indicatif comme une coupe garantie ; V34-007, V34-009 | 5/4/4/4/2/2 → 80 | **P1 / RETENU_POUR_SPEC** |
 | **O-003** | Pilotage direct de la Cricut depuis SmartSVG sans Design Space | Hors périmètre, non documenté comme interface publique supportée ; contredit la règle de non-promesse du lot 02 | 2/2/1/2/5/5 → 0,32 | **REJETÉ** |
+| **O-004** | Prévisualisation par opération et séquence physique Cut/Score/Draw/Foil avec alertes contextualisées | Raffine S-085, R33-022..023 et V34-012 ; visualise la sémantique métier, sans inventer de commande machine | 5/4/4/4/2/2 → 80 | **P1 / RETENU_POUR_SPEC** |
+| **O-005** | Aperçu de pliage 3D purement géométrique d'un patron carton, sans IA | Raffine le parcours boîte V34-008 et future géométrie cycle 16 ; distinct d'une prévisualisation 2D des plis | 3/2/3/3/4/3 → 4,5 | **P2 / REPORTE** |
 
 ### O-001 — Journal local de transfert
 
@@ -36,6 +38,26 @@
 
 - **Raison :** aucune interface officielle de pilotage direct validée dans le lot ; risque d'endommagement, de compatibilité, de responsabilité et de périmètre disproportionné.
 - **Alternative :** préparer des fichiers conformes aux contrats, un manifeste d'opérations et un guide Design Space. Ne rouvrir le sujet que sur preuve officielle d'API supportée, autorisation du propriétaire et ADR séparée.
+
+### O-004 — Prévisualisation par opération et ordre de fabrication (cycle 03)
+
+- **Problème :** une superposition de traits SVG masque les différences Cut/Score/Draw ; l'utilisateur peut oublier une opération ou un changement d'outil dans Design Space.
+- **Scénario :** boîte ou carte : choisir « Voir les opérations » puis parcourir les groupes avec couleurs + libellés accessibles et liste « vérifier Score, Attacher, changer d'outil ».
+- **Gain :** diminuer les confusions de fabrication sans piloter la machine ; s'appuie sur le modèle d'assignation métier du cycle 03.
+- **Interaction :** `[CUT 4 chemins] [SCORE 3 plis] [Guide de transfert] [Voir défauts]`, surbrillance du chemin sélectionné ; mode daltonien textuel.
+- **Effort/dépendances :** moyen ; V34-012, V34-009, modèle opérations cycle 14, profil machine cycle 15.
+- **Risques :** faire croire que l'ordre de fabrication est imposé par SmartSVG ; afficher « ordre indicatif / séquence réelle gérée par Design Space ».
+- **Recette :** T-V34-03-08,09,15 ; aucun SCORE rendu comme CUT ; une assignation inconnue produit alerte, jamais une instruction inventée.
+
+### O-005 — Aperçu de pliage 3D géométrique (cycle 03)
+
+- **Problème :** un patron de boîte correct en 2D peut être difficile à comprendre avant de gaspiller du carton.
+- **Scénario :** après création du développé, bouton facultatif « Simuler le pliage » pour inspecter panneaux et languettes, sans prétendre valider le comportement physique du carton.
+- **Gain :** meilleure compréhension et repérage de collisions géométriques grossières.
+- **Interaction :** `[Patron 2D] [Aperçu 3D expérimental] [Revenir au 2D]`, aucun blocage du parcours Express.
+- **Effort/dépendances :** élevé ; moteur paramétrique cycle 16, contraintes de charnières, collision, performance UI ; ne pas faire dépendre le socle P0 de la 3D.
+- **Risques :** fausse confiance sur jeu matière, pliage réel, épaisseur, collage ; simulation étiquetée « indicative » et validée seulement sur géométries simples.
+- **Recette future :** cube synthétique à dimensions connues : panneaux raccordés sans trou topologique ; carton physique **NON QUALIFIÉ** par l'aperçu ; erreur d'épaisseur inconnue signalée. Statut **REPORTÉ**, aucun ticket d'implémentation immédiat.
 
 ## Gouvernance du registre
 
