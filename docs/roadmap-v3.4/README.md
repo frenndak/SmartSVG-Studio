@@ -4,6 +4,8 @@
 
 ## Livrables
 - [Lot 01 : audit du référentiel et du code](01_BASELINE_AUDIT.md)
+- [Lot 02 : vision, personas, parcours stickers/boîte, contrats et tests](02_VISION_PARCOURS.md)
+- [Registre d'opportunités et arbitrages](OPPORTUNITIES.md)
 - [Index individuel des 141 exigences V3.3](HERITAGE_INDEX.md)
 - [Journal des cycles et reprises](PROGRESS.md)
 - [Issue de suivi #72](https://github.com/frenndak/SmartSVG-Studio/issues/72)
