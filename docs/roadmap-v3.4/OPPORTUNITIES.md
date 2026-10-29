@@ -32,6 +32,10 @@
 | **O-017** | Refus réparateur avec action sûre et explicite | Raffine S-072/077/084, R33-020/022/034, V34-061/066 ; distinct de O-007 (diagnostic de capacité) et O-013 (justification d'une suggestion) | 4/4/4/4/2/2 → 64 | **P1 / RETENU_POUR_SPEC** |
 | **O-018** | Exécution automatique des plans suggérés sans clic | Rejet : incompatible avec l'autorité utilisateur, les mutations transactionnelles et les prévols matériels | 2/3/1/1/5/5 → 0,24 | **REJETÉ** |
 
+| **O-019** | Revue des relations accessoires↔sujets avec liaison réversible et justification | Raffine S-028 et V34-073 : S-028 exige de conserver les accessoires, mais pas le **geste explicite de liaison/déliaison sans fusion des pixels** ; différent de O-013 explication d'intention | 4/4/4/4/3/2 → 42,67 | **P1 / RETENU_POUR_SPEC** |
+| **O-020** | Inspection de masques à 100 % avec échantillons de bord reproductibles | Raffine S-073/079 et V34-076 : contrôle de **l'intégrité du bord du masque avant acceptation**, pas le prévol physique ni le comparateur de migration O-006 | 4/4/4/4/3/2 → 42,67 | **P1 / RETENU_POUR_SPEC** |
+| **O-021** | Envoi automatique des photos importées à une API cloud pour « améliorer » la segmentation | Contradiction avec traitement local/offline, consentement réseau et confidentialité ; ne complète ni S-005 ni V34-074 | 1/3/2/1/5/5 → 0,24 | **REJETÉ** |
+
 ### O-001 — Journal local de transfert
 
 - **Problème :** un export local peut être correct alors que l'utilisateur choisit une mauvaise opération ou un mauvais support dans Design Space ; l'incident est ensuite impossible à reproduire.
@@ -217,6 +221,38 @@
 - **Effort/risques :** risque critique d'erreur matérielle, faux consentement, attaque par injection, écriture hors CAS.
 - **Interaction rejetée :** pas de bouton « toujours exécuter les suggestions » ; le mode expert conserve les mêmes autorisations.
 - **Recette de non-régression :** T-V34-09-17/18/21/23 ; sans clic lié au digest, 0 commande mutante. **REJET**, aucun ticket.
+
+### O-019 — Liaison explicite des accessoires à leur sujet (cycle 10)
+
+- **Problème :** la détection d'une fleur, d'une antenne ou d'un œil détaché peut produire un objet séparé, ou un faux rattachement ; S-028 impose de conserver les accessoires, mais ne spécifie pas le contrôle utilisateur sur la **relation**.
+- **Scénario :** une planche de 12 escargots propose 12 sujets et 3 accessoires ambigus ; sélectionner « Fleur ? », voir deux parents candidats, choisir [Lier à escargot 02] ou [Conserver séparé]. Les pixels et le masque float32 ne changent pas par cette liaison.
+- **Gain :** évite perte de détails et fusion irréversible ; trace une décision humaine utile au futur nesting.
+- **Interaction :** `[Accessoire 03] [Parent : aucun ▾] [Lier] [Séparer] [Annuler]` ; afficher la région et la provenance de la suggestion, ne pas deviner la sémantique.
+- **Alternatives :** fusion automatique des pixels (rejet), conserver tous les fragments séparés (fallback), relation explicite réversible (retenue).
+- **Effort/dépendances :** moyen ; V34-073, S-028, R33-006, V34-032..040, V34-071/072 ; modèle relationnel V2.
+- **Risques :** relation erronée, cycles, suppression parent, projet stale ; validation graphe acyclique, CAS/epoch, Undo, warnings, pas de `subject_id` dérivé du numéro de vignette.
+- **Recette :** T-V34-10-15/20 ; lier/délier préserve digest float32, Undo retrouve l'état exact, relation orpheline refusée. **P1 / RETENU_POUR_SPEC**.
+
+### O-020 — Contrôle des bords au pixel 1:1 (cycle 10)
+
+- **Problème :** un masque paraît correct en vignette, mais coupe une antenne ou conserve un halo d'arrière-plan. Le prévol de découpe intervient trop tard pour corriger la segmentation.
+- **Scénario :** avant « Accepter », sélectionner [Inspecter les bords] ; le logiciel montre zoom 100 % et points d'inspection reproductibles autour du contour, sans masquer les régions non inspectées.
+- **Gain :** qualité de revue plus fiable sans exiger un nouveau modèle IA ; possible sans GPU.
+- **Interaction :** `[Original] [Masque float32] [Différence] [Bord suivant] [Corriger]` ; avertissement « échantillons indicatifs, pas contrôle exhaustif ».
+- **Alternatives :** accepter sur miniatures (risque), inspecter tous les pixels manuellement (coûteux), échantillonnage déterministe + accès zoom libre (retenu).
+- **Effort/dépendances :** moyen ; V34-076, V34-071/075, S-015/073/079, R33-019 ; index de contour et rendu fidèle.
+- **Risques :** illusion de certification, coût CPU sur 50 objets, biais d'échantillonnage ; aucun badge `QUALIFIE`, quota et navigation accessible.
+- **Recette :** T-V34-10-15/16/27/28 ; même masque+seed = mêmes points, modification du masque invalide le contrôle, aucune mutation lors de l'inspection. **P1 / RETENU_POUR_SPEC**.
+
+### O-021 — Upload cloud automatique : rejet (cycle 10)
+
+- **Problème allégué :** améliorer les masques sans installation locale.
+- **Scénario rejeté :** la photo est téléversée à l'import vers un fournisseur externe, sans action explicite.
+- **Gain :** non démontré ; l'utilisateur perd le contrôle sur les œuvres et images privées.
+- **Interaction rejetée :** aucun bouton ou comportement d'envoi silencieux ; le mode manuel/CPU demeure disponible.
+- **Alternatives :** règles déterministes, correction manuelle, modèles locaux installés uniquement sur consentement séparé.
+- **Effort/risques :** coûts, fuite de données, dépendance réseau, licences et gouvernance disproportionnés ; incompatible avec R33-030.
+- **Recette :** T-V34-10-24/25 ; import et segmentation sans IA = **zéro** appel réseau, aucune donnée de source envoyée. **REJETÉ**, pas de ticket d'implémentation.
 
 ## Gouvernance du registre
 
