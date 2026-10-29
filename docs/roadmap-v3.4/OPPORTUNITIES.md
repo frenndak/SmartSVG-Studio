@@ -28,6 +28,9 @@
 | **O-013** | Fiche « pourquoi cette suggestion ? » : provenance, limites, conséquence sur sortie | Raffine S-071, S-075, S-083, R33-020/034 et V34-056 ; distinct de O-007 (capacités installées) et O-009 (Undo) : justification **avant** validation d'intention | 4/4/4/4/2/2 → 64 | **P1 / RETENU_POUR_SPEC** |
 | **O-014** | Préférences par intention avec portée et reconfirmation des dimensions/matériaux | Raffine S-081/083, R33-032/039 et V34-055/057 ; distinct des préréglages globaux : **pas de réutilisation silencieuse** de données physiques ou d'outil | 4/3/4/4/3/2 → 32 | **P1 / RETENU_POUR_SPEC** |
 | **O-015** | Assistant micro toujours à l'écoute, déclenchement automatique | Hors cœur Explore 5 ; confidentialité, accessibilité, complexité et latence disproportionnées ; aucune nécessité pour langage naturel **saisi** | 1/2/2/1/5/5 → 0,16 | **REJETÉ** |
+| **O-016** | Diff exact des mutations projet avant confirmation d'un plan | Raffine S-071/075/083, R33-019/020 et V34-062/065 ; différent de O-013 (raison de suggestion), car expose **les champs réellement modifiés** | 4/4/4/4/3/2 → 42,67 | **P1 / RETENU_POUR_SPEC** |
+| **O-017** | Refus réparateur avec action sûre et explicite | Raffine S-072/077/084, R33-020/022/034, V34-061/066 ; distinct de O-007 (diagnostic de capacité) et O-013 (justification d'une suggestion) | 4/4/4/4/2/2 → 64 | **P1 / RETENU_POUR_SPEC** |
+| **O-018** | Exécution automatique des plans suggérés sans clic | Rejet : incompatible avec l'autorité utilisateur, les mutations transactionnelles et les prévols matériels | 2/3/1/1/5/5 → 0,24 | **REJETÉ** |
 
 ### O-001 — Journal local de transfert
 
@@ -183,6 +186,37 @@
 - **Effort/risques :** élevé, permissions micro, confidentialité, fausses activations, accessibilité, maintenance ; aucun avantage démontré sur RTX 3070 ou Explore 5.
 - **Interaction rejetée :** aucun bouton d'écoute automatique ; si étudié ultérieurement, opt-in explicite et étude de besoin séparée.
 - **Recette de non-régression :** aucun accès au microphone ni permission demandée à l'ouverture ; tests T-V34-08-04/05/17 (frontière de confiance). **REJET**, aucun ticket d'implémentation.
+
+### O-016 — Diff des mutations avant validation (cycle 09)
+
+- **Problème :** une proposition « fais une planche » peut modifier des paramètres du projet sans que l'utilisateur comprenne lesquels ; une explication de la suggestion (O-013) ne décrit pas ses **effets réels**.
+- **Scénario :** après simulation, voir « intention : non définie → stickers ; largeur : absente → 40 mm ; aucun export, aucun téléchargement » ; comparaison des IDs/calques touchés et possibilité de refuser.
+- **Gain :** réduire les confirmations aveugles et les Undo ; utile en mode novice et expert.
+- **Interaction :** [Voir les changements] [Confirmer les changements visibles] [Modifier] [Annuler] ; accessible clavier et lecteur d'écran.
+- **Alternatives :** simple résumé textuel (fallback), diff structuré (retenu P1), application silencieuse (rejet).
+- **Effort/dépendances :** moyen ; V34-062/065, SessionPresenter, CommandPort et snapshot V2 ; risque de diff incomplet ou de décalage entre aperçu et commit.
+- **Recette :** T-V34-09-15/25/26 ; toute modification non affichée invalide la confirmation ; un plan périmé exige nouveau diff ; aucun badge de fabrication certifiée.
+
+### O-017 — Refus réparateur contextualisé (cycle 09)
+
+- **Problème :** « PLANNER_MISSING_DIMENSION » ne dit pas au débutant comment corriger le blocage ; l'assistant ne doit pas contourner la contrainte.
+- **Scénario :** boîte sans épaisseur : « Il manque l'épaisseur du carton pour préparer les plis » → [Saisir l'épaisseur] [Rester en brouillon] ; SCORE non vérifié → [Ouvrir le guide Design Space].
+- **Gain :** moins d'impasses sans diminuer le niveau de sécurité.
+- **Interaction :** message localisé FR, champ/objet concerné, prochaine action autorisée, aucun dialogue en boucle.
+- **Alternatives :** code brut (fallback expert), action corrective guidée (retenu), valeur inventée (rejet).
+- **Effort/dépendances :** faible à moyen ; V34-061/066, moteur de prévol, mapping de codes d'erreur.
+- **Risques :** suggérer un achat inutile ou présenter une compatibilité non vérifiée ; ne proposer qu'une action sûre et ne pas prétendre configurer la machine.
+- **Recette :** T-V34-09-27/28 ; le refus ne modifie aucun SHA, conserve l'erreur bloquante et annonce explicitement les étapes manuelles Score/Attacher.
+
+### O-018 — Autovalidation des plans : rejet (cycle 09)
+
+- **Problème allégué :** gagner un clic en laissant l'IA confirmer et exécuter les changements.
+- **Scénario rejeté :** un modèle déduit matière/dimensions et applique plusieurs commandes sans revue humaine.
+- **Gain :** marginal par rapport à la confirmation groupée, sans bénéfice démontré sur la fabrication.
+- **Alternatives :** plan non mutant, aperçu/diff, confirmation explicite unique sur groupe transactionnel sûr.
+- **Effort/risques :** risque critique d'erreur matérielle, faux consentement, attaque par injection, écriture hors CAS.
+- **Interaction rejetée :** pas de bouton « toujours exécuter les suggestions » ; le mode expert conserve les mêmes autorisations.
+- **Recette de non-régression :** T-V34-09-17/18/21/23 ; sans clic lié au digest, 0 commande mutante. **REJET**, aucun ticket.
 
 ## Gouvernance du registre
 
