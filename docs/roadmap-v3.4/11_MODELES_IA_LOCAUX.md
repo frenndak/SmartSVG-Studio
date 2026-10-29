@@ -97,7 +97,7 @@ Failures: LICENSE_BLOCKED / HASH_MISMATCH / NETWORK_DENIED / OOM
   "project_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "purpose": "BACKGROUND_MASK",
   "model_handle": "local-verified-handle-01",
-  "model_revision_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "model_revision_sha": "cccccccccccccccccccccccccccccccccccccccc",
   "input_roi": {"x": 0, "y": 0, "width": 512, "height": 512},
   "network_allowed": false,
   "output_kind": "PROPOSAL_ONLY",
@@ -105,7 +105,7 @@ Failures: LICENSE_BLOCKED / HASH_MISMATCH / NETWORK_DENIED / OOM
 }
 ~~~
 
-**Schema strict futur :** propriétés inconnues rejetées ; ID et chemin normalisés ; URL autorisée uniquement au gestionnaire de téléchargement avec allowlist HTTPS/redirects contrôlés ; SHA-256 hex 64 caractères obligatoire **avant** `download_allowed=true` ; `revision_sha` Git commit complet, jamais `main`; `size_bytes` entier positif ; aucune taille cachée. Le second JSON est un **exemple de contrat de requête**, pas un handle réel ni un modèle effectivement vérifié. Les `budget` sont des plafonds de conception à mesurer et ajuster, pas des benchmarks.
+**Schema strict futur :** propriétés inconnues rejetées ; ID et chemin normalisés ; URL autorisée uniquement au gestionnaire de téléchargement avec allowlist HTTPS/redirects contrôlés ; SHA-256 hex 64 caractères obligatoire **avant** `download_allowed=true` ; `revision_sha` Git commit complet, jamais `main`; `size_bytes` entier positif ; aucune taille cachée. Le second JSON est un **exemple de contrat de requête**, pas un handle réel ni un modèle effectivement vérifié. `model_revision_sha` désigne un commit Git de 40 caractères hexadécimaux dans cet exemple ; les SHA-256 de fichiers et de source restent des empreintes de 64 caractères. Les `budget` sont des plafonds de conception à mesurer et ajuster, pas des benchmarks.
 
 **Ports :**
 - `ModelCatalogPort.list/get/recommend(purpose, hardware, policy)` : lecture seule, retour de statuts et motifs.
