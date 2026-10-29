@@ -19,6 +19,9 @@
 
 | **O-008** | Contrôle de portabilité et confidentialité avant partage d'un projet .smartsvg | Raffine S-017, S-041, S-042, S-061, R33-010/015 et V34-031 ; distinct de O-007 (capacités locales), car il vérifie **les ressources embarquées et les références externes du projet à partager** | 4/3/4/4/3/2 → 32 | **P1 / RETENU_POUR_SPEC** |
 
+| **O-009** | Aperçu non mutant d'un Undo groupé, historique lisible des gestes et opérations | Raffine S-008, S-071, R33-019, V34-035/038 ; distinct de l'Undo pinceau historique car traverse tous les espaces et prévisualise **un groupe complet** | 4/4/4/4/3/2 → 42,67 | **P1 / RETENU_POUR_SPEC** |
+| **O-010** | Boîte de réception locale des propositions de jobs devenues périmées, avec comparaison/relance explicite | Raffine R33-005, R33-011/012, V34-036/039 ; distinct de O-006 (comparaison ComfyUI vs natif) et du cache de jobs | 4/3/4/4/3/2 → 32 | **P1 / RETENU_POUR_SPEC** |
+
 ### O-001 — Journal local de transfert
 
 - **Problème :** un export local peut être correct alors que l'utilisateur choisit une mauvaise opération ou un mauvais support dans Design Space ; l'incident est ensuite impossible à reproduire.
@@ -96,6 +99,29 @@
 - **Effort/dépendances :** moyen ; schéma V2, inventaire de ressources et liens, tests V34-031, `T-V34-05-02,06,07,19`. L'implémentation serait P1 après les garanties d'intégrité P0.
 - **Risques :** faux sentiment de conformité, copie de médias sous droits, chemins privés et métadonnées EXIF ; affichage explicite « droits à vérifier », aucun upload, aucun nettoyage destructif de l'original.
 - **Recette :** fixture avec 2 dépendances externes et un chemin privé : statut `NON_PORTABLE`, rapport expurgé, archive inchangée ; fixture sans dépendance : statut `PORTABILITE_STRUCTURELLE_VERIFIEE` uniquement, **pas** certification de Design Space.
+
+
+### O-009 — Historique groupé et aperçu d'annulation (cycle 06)
+
+- **Problème :** un utilisateur ne sait pas si « Annuler » retirera un coup de pinceau, douze sujets acceptés ou une opération SCORE entière ; une annulation partielle peut détruire la cohérence d'un patron.
+- **Scénario :** après AcceptSubjectsBatch ou AssignOperation(CUT+SCORE), ouvrir « Historique », sélectionner le dernier groupe et voir une superposition avant/après **sans modifier le projet** ; confirmer Undo. La même vue est accessible au clavier et en Express/Expert.
+- **Gain :** rendre prévisible une action destructive et faciliter la correction sans perte d'identités ou de masques float32 ; **pas** un Undo de fabrication physique.
+- **Interaction :** [Historique] [Groupe : 12 sujets] [Avant / Après] [Annuler le groupe] [Retour] ; un export déjà transmis affiche « ne peut pas être annulé dans Design Space ».
+- **Alternatives :** Ctrl+Z sans aperçu (insuffisant pour groupes), snapshot complet à chaque geste (coût RAM/ZIP élevé) ; retenir patches exacts et preview dérivée non autoritaire.
+- **Effort/dépendances :** moyen, V34-035, V34-037 et V34-038 ; corpus de masques float32 et groupes Score/Cut ; tests T-V34-06-13..16,21,23. P1, non bloquant pour le moteur P0.
+- **Risques/limites :** historique trop volumineux, preuve sujet périmée, faux Undo d'une découpe ; quotas visibles, vérification de digests et avertissement explicite.
+- **Recette :** aperçu n'incrémente aucune révision ; Undo du groupe CUT+SCORE restaure toutes les assignations ; Undo/Redo float32 est bit-identique ; aucun export externe effacé.
+
+### O-010 — Propositions de jobs périmées récupérables (cycle 06)
+
+- **Problème :** pendant une segmentation locale longue, l'utilisateur retouche son projet ; le résultat IA arrive sur une révision ancienne. Le jeter sans explication gaspille du temps, l'appliquer silencieusement corrompt les liens d'identité.
+- **Scénario :** job commencé en r8, projet passé en r9 ; la proposition est isolée en « À revoir », avec source, révision, date, différences de géométrie et boutons « Comparer », « Relancer sur r9 », « Ignorer ». Aucun rebind automatique de masque ou de sujet.
+- **Gain :** transparence et récupération de travail sans sacrifier CAS, compatibilité CPU/manuelle et confidentialité.
+- **Interaction :** [1 proposition obsolète] [Comparer r8/r9] [Relancer — consentement si IA] [Supprimer la proposition] ; stockage local temporaire avec durée/volume affichés.
+- **Alternatives :** appliquer automatiquement (REJET, risque d'identité), relancer silencieusement (REJET, GPU/consentement), supprimer sans signaler (moins utile).
+- **Effort/dépendances :** moyen, V34-036/037/039, corpus jobs annulés/OOM ; T-V34-06-17..20,27 ; P1 après sécurité P0.
+- **Risques/limites :** images privées en cache, propositions incompatibles, accumulation disque ; TTL et quotas contrôlés, purge explicite, aucune donnée publiée ni modèle téléchargé sans accord.
+- **Recette :** proposition r8 n'altère jamais r9 ; action Relancer crée un nouveau job et exige consentement ; absence de modèle IA laisse la voie manuelle ; suppression n'altère pas le .smartsvg.
 
 ## Gouvernance du registre
 
