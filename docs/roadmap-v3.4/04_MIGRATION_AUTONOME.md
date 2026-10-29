@@ -32,6 +32,14 @@
 
 **Décision conditionnelle :** `ProjectAuthority` reste unique et sérialise toutes les mutations ; la façade n'exécute aucun code tiers directement. `NativeTransport` est en priorité **IPC/in-process** à privilèges minimaux ; un service HTTP local ne sera accepté qu'après un spike sécurité, liaison loopback explicite et authentification GET/POST. Les deux transports ne doivent pas écrire simultanément le même fichier sans verrou et CAS communs.
 
+### 3.1. Correction d'architecture découverte à la contre-expertise : import du paquet `engine`
+
+**Point bloquant avant M1/M2 :** en Python, `import engine.smartsvg_core` exécute d'abord `engine/__init__.py`, qui charge `node_v21154` et `torch`. Placer simplement le futur `smartsvg_app` sous `engine/` **ne garantit donc pas** un démarrage autonome. Le futur bootstrap doit éviter ce parent, pas seulement les appels explicites à ComfyUI.
+
+**ADR-034-05a (à arbitrer par spike, non décidée) :** (A) packaging natif avec `engine/` comme racine d'import explicite et `smartsvg_core` importé en paquet top-level, sans `import engine` ; (B) packaging séparé `src/smartsvg_app/` avec noyau réutilisé comme dépendance installable. Interdire deux identités de module simultanées (`smartsvg_core.LoadedProject` et `engine.smartsvg_core.LoadedProject`) dans un même processus. Une modification de `engine/__init__.py` serait un micro-lot de code ultérieur soumis aux protections historiques, **pas** une action de cette campagne.
+
+**Conséquence sur les chemins pressentis :** les futurs `engine/smartsvg_app/...` ci-dessous sont **provisoires**, et pourront devenir `src/smartsvg_app/...` après spike de packaging. Aucun chemin futur n'est considéré validé tant que T-V34-04-01 n'est pas passé en environnement propre sur Windows. Ce point constitue un **NO-GO technique** pour annoncer « autonome » avant le spike.
+
 ## 4. Frontières, ports et composants futurs
 
 ```text
