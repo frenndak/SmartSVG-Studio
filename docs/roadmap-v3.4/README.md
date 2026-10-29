@@ -12,6 +12,7 @@
 - [Lot 06 : bus de commandes, receipts/epochs, Undo/Redo, jobs, concurrence et 30 tests proposés](06_COMMAND_BUS.md)
 - [Lot 07 : accueil Importer/Créer/Reprendre, Express, navigation, états UX, accessibilité et 28 tests proposés](07_UX_EXPRESS_NAVIGATION.md)
 - [Lot 08 : assistant contextuel facultatif, clarification, préférences locales, sécurité, 30 tests et 9 tickets proposés](08_ASSISTANT_CONTEXTUEL.md)
+- [Lot 09 : planificateur sécurisé, catalogue fermé, simulation, consentement et 30 tests proposés](09_PLANIFICATEUR_SECURISÉ.md)
 - [Registre d'opportunités et arbitrages](OPPORTUNITIES.md)
 - [Index individuel des 141 exigences V3.3](HERITAGE_INDEX.md)
 - [Journal des cycles et reprises](PROGRESS.md)
