@@ -1,4 +1,4 @@
-# SmartSVG V3.4 — Dossier de conception en cours
+# SmartSVG V3.4 — Dossier de conception finalisé (DRAFT, non promu)
 
 **DRAFT NON NORMATIF.** La [V3.3](../ROADMAP_MASTER_v3_3.md) demeure la roadmap active. Les archives et chemins protégés restent inchangés.
 
@@ -27,10 +27,14 @@
 - [Lot 21 : installation Windows, bootstrap hors ComfyUI, fonctionnement hors ligne, mise à jour réversible et récupération sans nouveau périmètre](21_WINDOWS_OFFLINE_RECOVERY.md)
 - [Lot 22 : corpus autorisé, validation auto/UX/Windows/RTX/Design Space/physique et preuves orthogonales (sans nouveau périmètre)](22_VALIDATION_CORPUS_PREUVES.md)
 - [Lot 23 : matrice 141 exigences ↔ tickets V34 ↔ recettes, index inverse des 140 tickets, backlog par vertical slices sans extension de périmètre](23_TRACEABILITE_BACKLOG.md)
+- [Lot 24 : contre-expertise finale, réconciliation bidirectionnelle, preuves manquantes et passation de développement (DRAFT)](24_CONTRE_EXPERTISE_PASSATION.md)
 - [Registre d'opportunités et arbitrages](OPPORTUNITIES.md)
 - [Index individuel des 141 exigences V3.3](HERITAGE_INDEX.md)
 - [Journal des cycles et reprises](PROGRESS.md)
 - [Issue de suivi #72](https://github.com/frenndak/SmartSVG-Studio/issues/72)
+
+## État de clôture
+**24/24 lots documentés.** La V3.4 reste une **proposition non normative** ; la V3.3 demeure ACTIVE. La matrice du lot 23 a été corrigée pour réconcilier 97 renvois ; **141 exigences, 140 tickets et 0 arête unilatérale** après correction. Les **437 tests spécifiés** ne sont pas des tests exécutés ; les liens fins de 403 recettes locales aux tickets doivent être qualifiés lors des PR de code. Aucun test Windows, RTX, Design Space ou physique n'a été exécuté pendant la campagne. Aucun merge, promotion ni 25e lot.
 
 ## Discipline
 Chaque cycle doit relire le HEAD et le journal, produire un micro-lot vérifiable et documenter la prochaine étape. Aucun test logiciel, Windows, GPU, Design Space ou Cricut physique n'est présumé réussi. Les quatre sorties historiques restent distinctes : PNG Print Then Cut, SVG Basic Cut, SVG Cut multicouche, SVG d'édition. La sémantique des opérations de fabrication est une couche additionnelle, pas un remplacement silencieux. La migration hors ComfyUI est incrémentale et réversible. Aucune fusion autonome ni promotion V3.4.
