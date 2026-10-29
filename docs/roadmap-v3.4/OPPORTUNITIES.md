@@ -47,6 +47,10 @@
 | **O-029** | Verrouillage de trous/îlots jugés essentiels avant simplification vectorielle | Raffine S-033/034, V34-097/102 ; différent de O-020 inspection du masque et O-026 diff alpha : protège une **intention géométrique explicite** pendant l'édition Bézier | 4/3/4/4/3/2 → 32 | **P1 / RETENU_POUR_SPEC** |
 | **O-030** | Transformer automatiquement chaque couleur d'un dessin en chemin de coupe | Confond SVG d'édition et fabrication, ignore matériau/outil, crée doublons et microformes ; contredit R33-008, V34-101 | 2/3/2/1/4/5 → 0,6 | **REJETÉ** |
 
+| **O-031** | Détecteur de conflit d'opérations sur un segment partagé | Raffine S-030/085, R33-022, V34-108/109 ; distinct de O-004 prévisualisation et O-028 budget de paths : contrôle l'ambiguïté **sémantique d'un même trait** | 5/4/4/4/3/2 → 53,33 | **P1 / RETENU_POUR_SPEC** |
+| **O-032** | Contrôle guidé des dimensions et du groupe Attacher **après import** dans Design Space | Raffine S-012/084, R33-022/034, V34-111/114 ; distinct de O-001 journal : vérifie les points de contrôle **avant fabrication**, sans accès automatique à Design Space | 4/3/4/4/3/2 → 32 | **P1 / RETENU_POUR_SPEC** |
+| **O-033** | Affecter automatiquement Score depuis pointillés ou couleur SVG | Ambigu : pointillés décoratifs, guides, dessins ; contredit séparation géométrie/opération, V34-106/109 | 1/3/2/1/4/5 → 0,3 | **REJETÉ** |
+
 ### O-001 — Journal local de transfert
 
 - **Problème :** un export local peut être correct alors que l'utilisateur choisit une mauvaise opération ou un mauvais support dans Design Space ; l'incident est ensuite impossible à reproduire.
@@ -349,3 +353,35 @@
 - **Effort/risque :** faible pour créer des paths, mais risque élevé et QA disproportionnée ; valeur utilisateur négative sur dessins complexes.
 - **Interaction rejetée :** pas de bouton `Convertir toutes les couleurs en coupes automatiquement` sans simulation et validation matière.
 - **Recette négative :** T-V34-13-11/13/26 : un changement de palette ou une extraction de couche n'assigne aucune opération `CUT` et ne transforme jamais un guide de pli en `SCORE`. **REJETÉ**, aucun ticket propre.
+
+### O-031 — Détection des conflits sémantiques sur un même segment (cycle 14)
+
+- **Problème :** deux calques différents peuvent désigner le même trait géométrique avec des opérations incompatibles ; un SVG visuellement propre peut provoquer une double coupe ou une opération non voulue.
+- **Scénario :** une ligne de pli d'une boîte recouvre exactement un segment de coupe ; le prévol identifie les deux IDs, leurs supports et leurs opérations et demande une décision ciblée.
+- **Gain :** moins de gâchis matière et de risque de fabrication ; le contrôle complète le prévol existant plutôt que dupliquer une prévisualisation.
+- **Alternatives :** avertissement générique sur tout croisement (trop de faux positifs), suppression automatique d'un trait (destructif), détection contextualisée avec réparation réversible (retenue).
+- **Effort/dépendances :** moyen ; V34-097/106/108/109/114, S-030/085, R33-022 ; exige comparaison géométrique déterministe et identité de support.
+- **Risques :** les croisements de pli avec contour peuvent être intentionnels ; distinguer intersection ponctuelle, superposition exacte, double coupe et proximité, avec tolérance paramétrée et preuve matière non inventée.
+- **Interaction :** `[Conflit CUT/SCORE — ligne 04] [Localiser] [Séparer] [Conserver guide] [Annuler]` ; mêmes contrôles au clavier.
+- **Recette :** T-V34-14-08/09/24 ; doublon CUT/CUT signalé, croisement intentionnel non bloqué sans motif, aucune mutation avant confirmation. **P1 / RETENU_POUR_SPEC**, score 53,33.
+
+### O-032 — Points de contrôle après import Design Space (cycle 14)
+
+- **Problème :** l'export ne garantit pas que Design Space conserve la taille et l'alignement, ni que Score/Draw/Foil ont été configurés ; une simple mention « importé » ne suffit pas.
+- **Scénario :** après import du patron, le guide demande de comparer une largeur et une hauteur en mm, puis de confirmer le groupe Attacher dans l'interface Design Space ; chaque étape reste explicitement manuelle.
+- **Gain :** réduit les erreurs d'échelle et d'alignement sans automatiser un logiciel externe ; complément de O-001 (journal facultatif) et O-002 (orientation A4 avant coupe).
+- **Alternatives :** lecture non documentée de l'état de Design Space (rejet), simple bouton « OK » sans critères (insuffisant), checklist guidée avec cotes attendues (retenue).
+- **Effort/dépendances :** faible à moyen ; V34-111/114, S-012/084, R33-022/034 ; lot 17 pour le guide final.
+- **Risques :** saisie humaine erronée, variations de versions/locale Design Space ; pas de statut `preuve_design_space=PASS` sans protocole de vérification et éléments datés.
+- **Interaction :** `[Largeur attendue : 140 mm] [Largeur DS : ____] [Hauteur attendue : 100 mm] [Attacher vérifié ?] [Conserver brouillon]`.
+- **Recette :** T-V34-14-13/14/30 ; taille et Attacher doivent être explicitement contrôlés, aucune étape cochée automatiquement. **P1 / RETENU_POUR_SPEC**, score 32.
+
+### O-033 — Score inféré des couleurs/pointillés : rejet (cycle 14)
+
+- **Problème allégué :** éviter de choisir manuellement les lignes de pli.
+- **Scénario rejeté :** importer un SVG contenant des traits pointillés bleus et les convertir automatiquement en rainurages.
+- **Raison :** la même convention graphique sert aux décors, lignes de coupe, traits de stylo ou guides ; aucune preuve de sémantique matérielle.
+- **Alternative :** `SCORE_CANDIDATE` proposé à l'utilisateur, jamais `SCORE` confirmé sans acceptation et contrôle machine/matière.
+- **Effort/risque :** faible à coder, élevé à qualifier ; peut provoquer des opérations involontaires et un mauvais résultat.
+- **Interaction refusée :** aucun bouton « Rainurer automatiquement tous les pointillés » sans revue des candidats.
+- **Recette négative :** T-V34-14-01/02/30 ; couleur/pointillés seuls n'assignent jamais Score. **REJETÉ**, aucun ticket propre, score 0,3.
