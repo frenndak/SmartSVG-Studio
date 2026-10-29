@@ -22,6 +22,9 @@
 | **O-009** | Aperçu non mutant d'un Undo groupé, historique lisible des gestes et opérations | Raffine S-008, S-071, R33-019, V34-035/038 ; distinct de l'Undo pinceau historique car traverse tous les espaces et prévisualise **un groupe complet** | 4/4/4/4/3/2 → 42,67 | **P1 / RETENU_POUR_SPEC** |
 | **O-010** | Boîte de réception locale des propositions de jobs devenues périmées, avec comparaison/relance explicite | Raffine R33-005, R33-011/012, V34-036/039 ; distinct de O-006 (comparaison ComfyUI vs natif) et du cache de jobs | 4/3/4/4/3/2 → 32 | **P1 / RETENU_POUR_SPEC** |
 
+| **O-011** | Bac à sable d'import local jetable avant création de projet canonique | Raffine S-003, S-023, S-067, R33-003/025/033 ; distinct de la reprise de job O-010 : essais d'intention et de format **avant** mutation du projet ; V34-048 | 4/4/4/4/3/2 → 42,67 | **P1 / RETENU_POUR_SPEC** |
+| **O-012** | Légende Cut/Score/Draw/Foil à double codage texte + motif, indépendante des couleurs | Raffine S-072, S-077, S-080, R33-019/022 ; distinct de la preview O-004 : accessibilité des **types d'opération** dans toutes les vues ; V34-049 | 4/5/5/4/2/1 → 200 | **P1 / RETENU_POUR_SPEC** |
+
 ### O-001 — Journal local de transfert
 
 - **Problème :** un export local peut être correct alors que l'utilisateur choisit une mauvaise opération ou un mauvais support dans Design Space ; l'incident est ensuite impossible à reproduire.
@@ -122,6 +125,28 @@
 - **Effort/dépendances :** moyen, V34-036/037/039, corpus jobs annulés/OOM ; T-V34-06-17..20,27 ; P1 après sécurité P0.
 - **Risques/limites :** images privées en cache, propositions incompatibles, accumulation disque ; TTL et quotas contrôlés, purge explicite, aucune donnée publiée ni modèle téléchargé sans accord.
 - **Recette :** proposition r8 n'altère jamais r9 ; action Relancer crée un nouveau job et exige consentement ; absence de modèle IA laisse la voie manuelle ; suppression n'altère pas le .smartsvg.
+
+### O-011 — Bac à sable d'import avant projet (cycle 07)
+
+- **Problème :** l'utilisateur veut essayer une image, voir si elle convient et changer d'intention sans créer de projets vides ni polluer sa bibliothèque.
+- **Scénario :** déposer une photo, inspecter format/orientation/alpha, prévisualiser « sticker / silhouette / SVG », décider « Créer le projet » ou « Abandonner » ; le fichier original reste inchangé. Un brouillon temporaire ne possède ni receipt de commit ni statut « enregistré ».
+- **Gain :** moins de projets parasites et d'actions inutiles ; possibilité d'essayer sans IA, sans téléchargement, sans coût réseau.
+- **Interaction :** `[Essayer l'image] [Choisir une intention] [Créer un projet] [Abandonner et nettoyer]` ; statut permanent `BROUILLON NON ENREGISTRÉ`.
+- **Alternatives :** création immédiate d'un `.smartsvg` (plus simple techniquement, mais bibliothèque polluée), état volatile seul (perdu au crash), espace temporaire local à quota (recommandé sous réserve de tests).
+- **Effort/dépendances :** moyen ; V34-025, V34-041/042/048 ; formats d'entrée sécurisés et stratégie de suppression des copies temporaires.
+- **Risques :** accumulation de données privées, chemin externe/ZIP hostile, fausse promesse de récupération ; quotas, purge explicite et avertissement de non-sauvegarde.
+- **Recette :** T-V34-07-02/03/09/28 ; aucune mutation du SHA original, abandon nettoie la copie temporaire, crash ne crée aucun projet canonique ; aucune publication de média personnel.
+
+### O-012 — Opérations lisibles sans dépendance à la couleur (cycle 07)
+
+- **Problème :** des calques Cut, Score, Draw et Foil représentés uniquement par couleurs peuvent être confondus, notamment en cas de daltonisme, impression monochrome ou contraste faible.
+- **Scénario :** patron carton ouvert en Fabrique : CUT = trait plein + ciseaux, SCORE = pointillé + pli, DRAW = motif fin + stylo, FOIL = motif distinct + texte ; la légende accompagne la liste accessible et l'export du guide, sans modifier les opérations sémantiques.
+- **Gain :** réduction des erreurs d'interprétation et meilleure accessibilité ; utile même sans IA et sans connexion.
+- **Interaction :** `[Afficher les opérations] [☑ Icônes] [☑ Motifs] [☑ Noms]` ; le texte reste toujours présent dans la liste accessible. Les motifs sont des **aides visuelles**, pas des instructions de coupe exportées comme chemins.
+- **Alternatives :** couleurs seules (REJET accessibilité), légende textuelle seule (fallback minimal), couleurs+motifs+texte (recommandé).
+- **Effort/dépendances :** faible à moyen ; V34-012, V34-041/045/049 ; aucun changement du moteur géométrique.
+- **Risques :** confusion si motifs SVG sont exportés dans la géométrie de fabrication ; séparation stricte overlay UI vs chemins de production. Pas de prétention à la compatibilité outil sans profil.
+- **Recette :** T-V34-07-17/19/22/27 ; les quatre opérations sont distinguables sans couleur, l'export géométrique reste inchangé, le lecteur d'écran annonce l'opération.
 
 ## Gouvernance du registre
 
