@@ -17,6 +17,8 @@
 | **O-006** | Comparateur de migration lisible « ancien vs autonome » sur un même projet, opt-in | Raffine S-022, S-046, S-063, R33-003/009, V34-021 ; distinct de la preuve dual-run car il explique les écarts à l'utilisateur | 4/2/4/4/3/2 → 21,33 | **P1 / RETENU_POUR_SPEC** |
 | **O-007** | Diagnostic de capacités hors ligne et recommandations réparatrices sans installation automatique | Raffine S-022, S-084, R33-034, V34-024 ; étend le diagnostic ComfyUI actuel au mode natif et distingue présence/essai/licence | 5/4/4/4/2/2 → 80 | **P1 / RETENU_POUR_SPEC** |
 
+| **O-008** | Contrôle de portabilité et confidentialité avant partage d'un projet .smartsvg | Raffine S-017, S-041, S-042, S-061, R33-010/015 et V34-031 ; distinct de O-007 (capacités locales), car il vérifie **les ressources embarquées et les références externes du projet à partager** | 4/3/4/4/3/2 → 32 | **P1 / RETENU_POUR_SPEC** |
+
 ### O-001 — Journal local de transfert
 
 - **Problème :** un export local peut être correct alors que l'utilisateur choisit une mauvaise opération ou un mauvais support dans Design Space ; l'incident est ensuite impossible à reproduire.
@@ -83,6 +85,17 @@
 - **Effort/dépendances :** moyen ; V34-019, V34-023, V34-024, cycle 11 pour le catalogue de modèles ; T-V34-04-08..10 et 15.
 - **Risques :** faux statut « compatible » déduit de la simple présence d'une librairie, exposition des chemins/versions privés ; différencier `PRESENT`, `CONTRACT_CHECKED`, `RUNTIME_TESTED`, `UNVERIFIED`.
 - **Recette :** aucun téléchargement ni accès réseau hors consentement ; démarrage manuel/CPU si IA absente ; aucune preuve RTX/Cricut créée par le diagnostic.
+
+### O-008 — Vérification de portabilité et confidentialité avant partage (cycle 05)
+
+- **Problème :** un projet fonctionne sur un PC mais devient inutilisable ailleurs lorsque ses sources ou polices restent externes ; un export de diagnostic peut exposer des chemins personnels. Un ZIP valide ne signifie pas « projet autonome ».
+- **Scénario :** depuis la bibliothèque, choisir « Vérifier avant partage » ; l'inspecteur signale les ressources embarquées, les dépendances manquantes, les chemins locaux, la taille et les licences déclarées. Le contrôle reste hors ligne et ne modifie pas l'archive.
+- **Gain :** éviter des projets incomplets, des fuites de chemins et des promesses de portabilité non prouvées ; utile aux projets éducatifs, stickers et patrons.
+- **Interaction :** `[Projet portable ? À vérifier]` `[Ressources 12/12 présentes]` `[Dépendances externes 2]` `[Rapport expurgé]` `[Annuler]`. Ne pas afficher « 100 % portable » sans validation du lecteur cible.
+- **Alternatives :** recopier tout le dossier de travail (dépendances et secrets involontaires) ou partager sans vérification (échecs non reproductibles) ; rejetées. La création d'un package partageable est une évolution distincte à qualifier, **pas** un zip automatique.
+- **Effort/dépendances :** moyen ; schéma V2, inventaire de ressources et liens, tests V34-031, `T-V34-05-02,06,07,19`. L'implémentation serait P1 après les garanties d'intégrité P0.
+- **Risques :** faux sentiment de conformité, copie de médias sous droits, chemins privés et métadonnées EXIF ; affichage explicite « droits à vérifier », aucun upload, aucun nettoyage destructif de l'original.
+- **Recette :** fixture avec 2 dépendances externes et un chemin privé : statut `NON_PORTABLE`, rapport expurgé, archive inchangée ; fixture sans dépendance : statut `PORTABILITE_STRUCTURELLE_VERIFIEE` uniquement, **pas** certification de Design Space.
 
 ## Gouvernance du registre
 
