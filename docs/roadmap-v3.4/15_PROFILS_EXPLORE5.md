@@ -1,7 +1,7 @@
 # SmartSVG V3.4 — Cycle 15/24 : profils Cricut Explore 5, outils, matières et supports
 
 **STATUT : DRAFT DE SPÉCIFICATION — NON IMPLÉMENTÉ, NON QUALIFIÉ.**
-**Références :** roadmap V3.3 active (G4/F07/F13/F15, P01/P02/P04/P09, R33-022/023/034) ; [lot 14](14_LANGAGE_FABRICATION.md), [lot 04](04_MIGRATION_AUTONOME.md), [guide de livraison optimisée V3.3](../ROADMAP_EXECUTION_FASTPATH_v3_3.md). Date d'examen des sources : 29 octobre 2026.
+**Références :** roadmap V3.3 active (G4/F07/F13/F15, P01/P02/P04/P09, R33-022/023/034) ; [lot 14](14_LANGAGE_FABRICATION.md), [lot 04](04_MIGRATION_AUTONOME.md), [guide de livraison optimisée V3.3, déjà fusionné sur main](https://github.com/frenndak/SmartSVG-Studio/blob/main/docs/ROADMAP_EXECUTION_FASTPATH_v3_3.md). Date d'examen des sources : 29 octobre 2026.
 **Directive prioritaire :** **aucune nouvelle fonction** ; préciser les profils matériels déjà prévus et éviter tout nouveau gate pour l'édition G3.3e-b2a. L'ensemble est un contrat d'adaptateur de fabrication futur, jamais un prérequis au pinceau/masques.
 
 ## 1. Contre-expertise du cycle 14 — clarifications sans extension
