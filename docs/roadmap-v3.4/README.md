@@ -9,6 +9,7 @@
 - [Lot 04 : migration autonome, adaptateurs, dual-run, sécurité et rollback](04_MIGRATION_AUTONOME.md)
 - [Annexe 04 : inventaire du dépôt et graphe de dépendances ciblé — exhaustivité encore ouverte](04_DEPENDENCY_INVENTORY.md)
 - [Lot 05 : schéma .smartsvg, identités, ressources, CAS, migration V1→V2 et 20 tests proposés](05_PROJECT_SCHEMA.md)
+- [Lot 06 : bus de commandes, receipts/epochs, Undo/Redo, jobs, concurrence et 28 tests proposés](06_COMMAND_BUS.md)
 - [Registre d'opportunités et arbitrages](OPPORTUNITIES.md)
 - [Index individuel des 141 exigences V3.3](HERITAGE_INDEX.md)
 - [Journal des cycles et reprises](PROGRESS.md)
