@@ -60,7 +60,7 @@ L'[index exhaustif](HERITAGE_INDEX.md) conserve les 141 dossiers individuels. **
   "v34_tickets": ["V34-004"],
   "existing_code": ["engine/smartsvg_core/subject_identity_g33e.py"],
   "proof_axes": {
-    "auto": "NON_VERIFIE",
+    "auto": "NON_EXECUTE",
     "windows": "NON_EXECUTE",
     "design_space": "NON_EXECUTE",
     "physical": "NON_EXECUTE"
@@ -68,7 +68,7 @@ L'[index exhaustif](HERITAGE_INDEX.md) conserve les 141 dossiers individuels. **
 }
 ~~~
 
-**Invariants :** IDs source immuables, historique intact, preuve PASS avec SHA+environnement+commande/protocole+résultat, statut de maturité distinct des quatre axes de preuve, N/A justifié, aucune priorité historique modifiée sans ADR. Les liens V34↔S/R33 doivent fonctionner dans les deux sens.
+**Invariants :** IDs source immuables, historique intact, preuve PASS avec SHA du code testé + environnement + commande/protocole + résultat, statut de maturité distinct des quatre axes de preuve, N/A justifié, aucune priorité historique modifiée sans ADR. Les liens V34↔S/R33 doivent fonctionner dans les deux sens. Les axes de preuve emploient exclusivement `PASS/FAIL/NON_EXECUTE/NON_APPLICABLE/BLOQUE` (V3.3) ; `NON_VERIFIE` est un état de décision de qualification, non un axe de preuve. `source_sha` désigne la source normative, `tested_code_sha` le code testé et `test_run_id` l’exécution de preuve ; aucune égalité artificielle entre ces SHA n’est exigée.
 
 ## 6. Événements, erreurs et pseudo-code de spécification
 
@@ -82,7 +82,8 @@ L'[index exhaustif](HERITAGE_INDEX.md) conserve les 141 dossiers individuels. **
 # PSEUDO-CODE DE SPECIFICATION, NON EXECUTE
 def append_coverage_delta(registry, proposed, proof):
     assert proposed.requirement_id in registry.canonical_ids
-    assert proposed.source_sha == proof.base_sha
+    # La référence documentaire et le SHA du code testé sont distincts.
+    require(proposed.source_sha, proof.tested_code_sha, proof.test_run_id)
     if proof.claim == "PASS":
         require(proof.sha, proof.environment, proof.protocol, proof.result)
     return registry.append_immutable(proposed, proof)
