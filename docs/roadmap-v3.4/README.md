@@ -21,6 +21,7 @@
 - [Lot 15 : profils Explore 5, outils/supports/matières, résolution tri-state, 18 tests et 10 tickets proposés (sans nouvelle capacité)](15_PROFILS_EXPLORE5.md)
 - [Lot 16 : patrons paramétriques carte/boîte, mm, plis/languettes, prévol, 10 tests et 3 tickets proposés (sans nouveau périmètre)](16_PATRONS_PARAMETRIQUES.md)
 - [Lot 17 : quatre contrats d'export distincts, transfert guidé Design Space, provenance/reprise, 13 tests et 3 tickets proposés (sans nouveau périmètre)](17_EXPORTS_DESIGNSPACE.md)
+- [Lot 18 : Atelier graphique, canevas, état projet unique, calques/propriétés, Undo sans duplication et 10 tests proposés](18_ATELIER_GRAPHIQUE.md)
 - [Registre d'opportunités et arbitrages](OPPORTUNITIES.md)
 - [Index individuel des 141 exigences V3.3](HERITAGE_INDEX.md)
 - [Journal des cycles et reprises](PROGRESS.md)
