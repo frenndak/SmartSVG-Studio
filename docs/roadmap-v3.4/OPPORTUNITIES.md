@@ -25,6 +25,10 @@
 | **O-011** | Bac à sable d'import local jetable avant création de projet canonique | Raffine S-003, S-023, S-067, R33-003/025/033 ; distinct de la reprise de job O-010 : essais d'intention et de format **avant** mutation du projet ; V34-048 | 4/4/4/4/3/2 → 42,67 | **P1 / RETENU_POUR_SPEC** |
 | **O-012** | Légende Cut/Score/Draw/Foil à double codage texte + motif, indépendante des couleurs | Raffine S-072, S-077, S-080, R33-019/022 ; distinct de la preview O-004 : accessibilité des **types d'opération** dans toutes les vues ; V34-049 | 4/5/5/4/2/1 → 200 | **P1 / RETENU_POUR_SPEC** |
 
+| **O-013** | Fiche « pourquoi cette suggestion ? » : provenance, limites, conséquence sur sortie | Raffine S-071, S-075, S-083, R33-020/034 et V34-056 ; distinct de O-007 (capacités installées) et O-009 (Undo) : justification **avant** validation d'intention | 4/4/4/4/2/2 → 64 | **P1 / RETENU_POUR_SPEC** |
+| **O-014** | Préférences par intention avec portée et reconfirmation des dimensions/matériaux | Raffine S-081/083, R33-032/039 et V34-055/057 ; distinct des préréglages globaux : **pas de réutilisation silencieuse** de données physiques ou d'outil | 4/3/4/4/3/2 → 32 | **P1 / RETENU_POUR_SPEC** |
+| **O-015** | Assistant micro toujours à l'écoute, déclenchement automatique | Hors cœur Explore 5 ; confidentialité, accessibilité, complexité et latence disproportionnées ; aucune nécessité pour langage naturel **saisi** | 1/2/2/1/5/5 → 0,16 | **REJETÉ** |
+
 ### O-001 — Journal local de transfert
 
 - **Problème :** un export local peut être correct alors que l'utilisateur choisit une mauvaise opération ou un mauvais support dans Design Space ; l'incident est ensuite impossible à reproduire.
@@ -147,6 +151,38 @@
 - **Effort/dépendances :** faible à moyen ; V34-012, V34-041/045/049 ; aucun changement du moteur géométrique.
 - **Risques :** confusion si motifs SVG sont exportés dans la géométrie de fabrication ; séparation stricte overlay UI vs chemins de production. Pas de prétention à la compatibilité outil sans profil.
 - **Recette :** T-V34-07-17/19/22/27 ; les quatre opérations sont distinguables sans couleur, l'export géométrique reste inchangé, le lecteur d'écran annonce l'opération.
+
+### O-013 — Explication de chaque suggestion (cycle 08)
+
+- **Problème :** un novice ne sait pas pourquoi « sticker » entraîne PNG Print Then Cut plutôt que SVG Basic Cut ; un modèle pourrait proposer une opération sur la base d'une hypothèse non vérifiée.
+- **Scénario :** « Je veux découper mes escargots » → carte « Découpe seule » avec [Pourquoi ?] : mots reconnus, effet sur couleurs, contrat de sortie, limites Cricut et besoin de confirmer la taille.
+- **Gain :** décisions plus sûres et compréhensibles, correction d'une mauvaise suggestion avant toute commande.
+- **Interaction :** [Pourquoi cette suggestion ?] [Autre résultat] [Ignorer] ; badge USER_EXPLICIT/RULE_MATCH/MODEL_SUGGESTION/UNKNOWN et avertissement non certifié.
+- **Alternatives :** explication opaque d'un LLM (REJET, non vérifiable), aucun contexte (moins utile), justification par règles/contrats (recommandée).
+- **Effort/dépendances :** faible à moyen ; V34-051..054/056, S-071/075/083, R33-020/034 ; T-V34-08-11/13/21/22.
+- **Risques :** explication trompeuse ou trop verbeuse ; limiter à source, effet, incertitude, une phrase initiale et détail repliable.
+- **Recette :** suggestion d'un SVG Basic Cut précise que les couleurs internes ne sont pas conservées ; source modèle jamais présentée comme preuve ; changement de profil invalide l'ancienne justification.
+
+### O-014 — Préférences d'intention à reconfirmation (cycle 08)
+
+- **Problème :** répéter les mêmes choix ralentit les utilisateurs, mais réutiliser une cote, une épaisseur ou un outil sans vérification peut produire une fabrication erronée.
+- **Scénario :** après plusieurs stickers, suggérer « largeur utilisée précédemment : 40 mm » **sans préremplir silencieusement** ; si une autre matière ou machine est sélectionnée, la suggestion est réévaluée.
+- **Gain :** moins de saisie répétée, conservation du contrôle utilisateur et du contexte.
+- **Interaction :** [Utiliser 40 mm pour ce projet] [Autre taille] [Ne plus suggérer] ; portée explicite « ce type de projet », date et provenance locale.
+- **Alternatives :** défaut automatique (REJET), aucune mémoire (fallback), rappel local à confirmation (recommandé).
+- **Effort/dépendances :** moyen ; V34-052/055/057, R33-032/039, T-V34-08-19..21.
+- **Risques :** préférences obsolètes, données privées, faux profil machine ; stockage local versionné, suppression et expiration, jamais certification.
+- **Recette :** sans clic de confirmation, aucune dimension n'entre dans la commande ; changement de machine/profil force nouvelle vérification ; suppression des préférences ne change pas le .smartsvg.
+
+### O-015 — Écoute permanente au microphone : rejet (cycle 08)
+
+- **Problème allégué :** rendre le dialogue mains libres.
+- **Scénario proposé :** capturer automatiquement la voix à l'ouverture de SmartSVG.
+- **Gain réaliste :** marginal pour les workflows de création au clavier/souris.
+- **Alternatives :** champ texte, boutons de choix, commandes clavier, dictée OS volontaire si disponible (hors intégration produit).
+- **Effort/risques :** élevé, permissions micro, confidentialité, fausses activations, accessibilité, maintenance ; aucun avantage démontré sur RTX 3070 ou Explore 5.
+- **Interaction rejetée :** aucun bouton d'écoute automatique ; si étudié ultérieurement, opt-in explicite et étude de besoin séparée.
+- **Recette de non-régression :** aucun accès au microphone ni permission demandée à l'ouverture ; tests T-V34-08-04/05/17 (frontière de confiance). **REJET**, aucun ticket d'implémentation.
 
 ## Gouvernance du registre
 
