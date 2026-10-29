@@ -14,6 +14,9 @@
 | **O-004** | Prévisualisation par opération et séquence physique Cut/Score/Draw/Foil avec alertes contextualisées | Raffine S-085, R33-022..023 et V34-012 ; visualise la sémantique métier, sans inventer de commande machine | 5/4/4/4/2/2 → 80 | **P1 / RETENU_POUR_SPEC** |
 | **O-005** | Aperçu de pliage 3D purement géométrique d'un patron carton, sans IA | Raffine le parcours boîte V34-008 et future géométrie cycle 16 ; distinct d'une prévisualisation 2D des plis | 3/2/3/3/4/3 → 4,5 | **P2 / REPORTE** |
 
+| **O-006** | Comparateur de migration lisible « ancien vs autonome » sur un même projet, opt-in | Raffine S-022, S-046, S-063, R33-003/009, V34-021 ; distinct de la preuve dual-run car il explique les écarts à l'utilisateur | 4/2/4/4/3/2 → 21,33 | **P1 / RETENU_POUR_SPEC** |
+| **O-007** | Diagnostic de capacités hors ligne et recommandations réparatrices sans installation automatique | Raffine S-022, S-084, R33-034, V34-024 ; étend le diagnostic ComfyUI actuel au mode natif et distingue présence/essai/licence | 5/4/4/4/2/2 → 80 | **P1 / RETENU_POUR_SPEC** |
+
 ### O-001 — Journal local de transfert
 
 - **Problème :** un export local peut être correct alors que l'utilisateur choisit une mauvaise opération ou un mauvais support dans Design Space ; l'incident est ensuite impossible à reproduire.
@@ -58,6 +61,28 @@
 - **Effort/dépendances :** élevé ; moteur paramétrique cycle 16, contraintes de charnières, collision, performance UI ; ne pas faire dépendre le socle P0 de la 3D.
 - **Risques :** fausse confiance sur jeu matière, pliage réel, épaisseur, collage ; simulation étiquetée « indicative » et validée seulement sur géométries simples.
 - **Recette future :** cube synthétique à dimensions connues : panneaux raccordés sans trou topologique ; carton physique **NON QUALIFIÉ** par l'aperçu ; erreur d'épaisseur inconnue signalée. Statut **REPORTÉ**, aucun ticket d'implémentation immédiat.
+
+### O-006 — Comparateur de migration compréhensible (cycle 04)
+
+- **Problème :** lors du passage de ComfyUI au mode autonome, une différence de contour ou d'identité est difficile à diagnostiquer sans savoir si elle est significative.
+- **Scénario :** un utilisateur avancé active volontairement « Comparer les résultats » sur un projet synthétique ou privé, exécute deux transports sur des copies isolées et visualise les écarts de masques, dimensions, IDs, export et provenance.
+- **Gain :** décider de conserver le chemin historique ou d'accepter une proposition autonome, sans écraser la source.
+- **Interaction :** `[Ancien] [Autonome] [Superposition] [Écarts mesurés] [Garder mon projet] [Exporter rapport privé]`. Aucune exécution IA supplémentaire sans consentement.
+- **Alternatives :** rapport JSON brut (moins ergonomique) ; comparaison automatique silencieuse (rejetée : double charge GPU et risques de téléchargement).
+- **Effort/dépendances :** moyen ; V34-017, V34-020, V34-021, corpus autorisé ; tests T-V34-04-11..14 ; P1 après parité déterministe P0.
+- **Risques :** révélation de données personnelles dans un rapport, non-déterminisme IA, comparaison de SHA ZIP non pertinente ; expurger, comparer sémantiquement, indiquer limites.
+- **Recette :** aucune divergence IA n'est affichée « échec » sans métrique définie ; le dual-run ne modifie pas le projet ; les différences de dimensions mm et d'IDs sont visibles ; rapport local supprimable.
+
+### O-007 — Diagnostic de capacités autonome, sans téléchargement implicite (cycle 04)
+
+- **Problème :** « modèle disponible », « extension installée » et « capacité testée » sont confondus ; l'utilisateur ne sait pas pourquoi une fonction n'est pas utilisable.
+- **Scénario :** ouverture hors ligne sans ComfyUI, affichage de `MANUEL DISPONIBLE`, `COMFYUI ABSENT`, `IA NON INSTALLÉE`, `LICENCE NON QUALIFIÉE`, `GPU NON TESTÉ`, avec solutions locales sans installation forcée.
+- **Gain :** compréhension des limites et choix éclairé du mode CPU/manuel ou du futur téléchargement volontaire.
+- **Interaction :** `[Fonctions disponibles] [Diagnostic détaillé] [Continuer sans IA] [Installer plus tard] [Exporter diagnostic expurgé]`.
+- **Alternatives :** afficher une erreur générique (rejeté), lancer automatiquement un installateur (rejeté).
+- **Effort/dépendances :** moyen ; V34-019, V34-023, V34-024, cycle 11 pour le catalogue de modèles ; T-V34-04-08..10 et 15.
+- **Risques :** faux statut « compatible » déduit de la simple présence d'une librairie, exposition des chemins/versions privés ; différencier `PRESENT`, `CONTRACT_CHECKED`, `RUNTIME_TESTED`, `UNVERIFIED`.
+- **Recette :** aucun téléchargement ni accès réseau hors consentement ; démarrage manuel/CPU si IA absente ; aucune preuve RTX/Cricut créée par le diagnostic.
 
 ## Gouvernance du registre
 
