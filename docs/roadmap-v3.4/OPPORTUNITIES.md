@@ -35,6 +35,9 @@
 | **O-019** | Revue des relations accessoires↔sujets avec liaison réversible et justification | Raffine S-028 et V34-073 : S-028 exige de conserver les accessoires, mais pas le **geste explicite de liaison/déliaison sans fusion des pixels** ; différent de O-013 explication d'intention | 4/4/4/4/3/2 → 42,67 | **P1 / RETENU_POUR_SPEC** |
 | **O-020** | Inspection de masques à 100 % avec échantillons de bord reproductibles | Raffine S-073/079 et V34-076 : contrôle de **l'intégrité du bord du masque avant acceptation**, pas le prévol physique ni le comparateur de migration O-006 | 4/4/4/4/3/2 → 42,67 | **P1 / RETENU_POUR_SPEC** |
 | **O-021** | Envoi automatique des photos importées à une API cloud pour « améliorer » la segmentation | Contradiction avec traitement local/offline, consentement réseau et confidentialité ; ne complète ni S-005 ni V34-074 | 1/3/2/1/5/5 → 0,24 | **REJETÉ** |
+| **O-022** | Comparaison de résultat IA vs sans IA **sur même ROI** avant toute recommandation de modèle | Raffine S-005/027, R33-018, V34-084 ; différent de O-006 (ancien vs autonome) et O-020 (inspection du masque) : mesure **le gain marginal du modèle** | 4/3/3/4/3/3 → 16 | **P1 / RETENU_POUR_SPEC** |
+| **O-023** | Vérification de provenance des modèles déjà présents avant inférence (hash, licence, runtime, révocation) | Raffine S-042/067/084, R33-025/030, V34-086 ; différent de O-007 diagnostic de capacités générales : vérifie **l'artefact exact** | 5/4/4/5/3/2 → 66,67 | **P1 / RETENU_POUR_SPEC** |
+| **O-024** | Installer silencieusement le « meilleur modèle » dès l'import | Contradiction avec consentement réseau, licences et parcours sans IA ; alternative catalogue sur demande | 2/3/2/2/4/5 → 1,2 | **REJETÉ** |
 
 ### O-001 — Journal local de transfert
 
@@ -257,3 +260,28 @@
 ## Gouvernance du registre
 
 À chaque cycle, ajouter 1 à 3 idées distinctes **ou consigner l'absence d'idée pertinente** ; éviter les scores mécaniques et les promotions automatiques. Une opportunité retenue ne devient implémentable qu'avec exigence liée, ticket, tests et Definition of Done. Les références Cricut du cycle 02 sont consignées dans [02_VISION_PARCOURS.md](02_VISION_PARCOURS.md#10-références-externes-vérifiées-et-incertitudes-29-octobre-2026). Aucune licence de modèle IA n'est validée par ce registre.
+
+### O-022 — Comparateur de valeur marginale d'un modèle (cycle 11)
+
+- **Problème :** l'utilisateur peut télécharger plusieurs centaines de Mo sans savoir si la qualité s'améliore réellement sur son image ; le modèle n'est pas systématiquement meilleur que le détourage manuel.
+- **Scénario :** sur une ROI autorisée et déjà dotée d'une vérité terrain ou d'une retouche manuelle de référence, comparer règles/manuel et un modèle local **déjà installé** ; afficher IoU/bords/temps/VRAM lorsque mesurés. Sans référence, afficher « aperçu visuel uniquement, gain non quantifié ».
+- **Gain :** choix informé, moins d'installations et de retouches inutiles. **Alternative :** classement générique de modèles (rejeté comme preuve de gain sur une image donnée).
+- **UX :** `[Sans IA] [Avec modèle local] [Comparer à 100 %] [Conserver la version manuelle]` ; aucune suggestion de téléchargement déclenchée par le comparateur.
+- **Effort/dépendances :** moyen ; V34-071/074/076/081/084, corpus, métriques alignées et provenance. **Risques :** temps supplémentaire, faux scores sur masques sans vérité terrain, biais de sélection.
+- **Recette :** T-V34-11-27/28 ; comparer le même SHA/ROI, ne jamais afficher une métrique IoU sans vérité terrain, aucune mutation ni réseau ; si aucun modèle installé, rester sur règles/manuel. **P1**, pas de dépendance P0.
+
+### O-023 — Gate de provenance des modèles locaux déjà installés (cycle 11)
+
+- **Problème :** un modèle déjà présent peut avoir été modifié, être devenu incompatible avec le runtime, ou ne pas avoir de licence exploitable ; « présent » ne signifie pas « sûr ».
+- **Scénario :** à la demande d'inférence, contrôle offline du hash de tous les fichiers, révision, licence approuvée, SBOM et runtime, puis `READY_QUALIFIED` seulement si la preuve liée à l'environnement existe.
+- **Gain :** réduction du risque d'exécution non autorisée et meilleure reproductibilité ; **alternative :** simple contrôle d'existence de fichier (insuffisant).
+- **UX :** `[Modèle présent — provenance non vérifiée] [Vérifier localement] [Passer en manuel]`, sans connexion ni mise à jour implicite.
+- **Effort/dépendances :** moyen ; V34-078/080/086, manifests épinglés et hashing streaming. **Risques :** coût de re-hash sur gros fichiers, erreurs de droits Windows ; cache de vérification seulement si intégrité du cache prouvée, sinon re-hash.
+- **Recette :** T-V34-11-02/04/10/15/16/17 ; 1 octet altéré = `CORRUPT` et inférence bloquée, modèle inconnu = `MANUAL`, 0 réseau, 0 mutation projet. **P1** comme raffinement d'une gate de sécurité P0.
+
+### O-024 — Installation automatique à l'import : rejet (cycle 11)
+
+- **Problème allégué :** économiser un clic de configuration. **Scénario refusé :** l'utilisateur importe une photo et le programme télécharge automatiquement un modèle « optimal ».
+- **Pourquoi rejet :** poids/licences/usage commercial non qualifiés, réseau et espace disque non consentis, exécution possible de code distant, latence et confusion UX. **Alternative :** `[Continuer sans IA]` et fiche facultative avec consentement explicite.
+- **Effort/risque :** implémentation moyenne, risque juridique/sécurité élevé, valeur faible ; **UX alternative** `[Installer maintenant] [Plus tard] [Jamais]`.
+- **Recette de non-régression :** T-V34-11-01/02/07 ; 0 requête réseau au simple import, même avec modèle absent ou suggestions actives. Aucun ticket pour l'installation silencieuse.
