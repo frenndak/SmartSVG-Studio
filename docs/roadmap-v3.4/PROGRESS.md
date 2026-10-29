@@ -200,7 +200,19 @@
 - **Risques ouverts :** V2/CAS/receipts, bootstrap hors ComfyUI, géométrie mm, profil combiné machine-outil-matière-support, ordre réel Design Space, A4 non rectangulaire, import et tests physiques, traçabilité inverse exhaustive. Les opérations Maker-only restent refusées pour Explore 5 ; profils multi-machines différés.
 - **Prochain micro-lot 15 :** matrice versionnée Explore 5 × outils × matériaux × supports × opérations, disponibilité déclarée/qualifiée, Smart Materials, tapis carte, Pen/Foil/Score, guide de tests et critères de `UNKNOWN`/refus ; contre-expertiser ADR-034-17 avant stabilisation.
 
-## Cycles 15–24
+## Cycle 15 / 24 — Profils Cricut Explore 5, compatibilités et prévol sans nouveau périmètre
 
-À renseigner seulement après production et vérification effective des livrables de chaque cycle.
+- **Reprise depuis le dernier cycle documenté par Codex :** 14/24 ; branche documentaire `codex/docs-roadmap-v3-4-campaign` et PR draft #73 conservées. `main` relu à `fff374e5147689165839bd76e742713d714ff147` ; l'ancien point de départ de la PR est `fdbda304beb77d97340a8be4dd5c5e9cefde15f4`. Le guide d'accélération V3.3 (PR #74) est intégré à `main` : **V3.3 reste la seule roadmap active**.
+- **Document réellement écrit :** [15_PROFILS_EXPLORE5.md](15_PROFILS_EXPLORE5.md), commit initial `5c60b406a5cd12fe1a147f22e6d1930bcaad5bd4`. Vérification de l'existence du fichier GitHub effectuée. `README.md` lié au lot 15 via commit `28dbe135375112c9fa514e158f2748c7f6674721`.
+- **Contenu :** contre-expertise du lot 14/ADR-034-17, séparation compatibilité générale/combinaison complète/disponibilité utilisateur/preuve physique, contrat de profil tri-state, JSON de spécification, scénarios 12 escargots→stickers et boîte→Score+Cut, guides UX novice/expert, anti-doublon avec résolveur du lot 14.
+- **Source externe réellement consultée :** pages officielles Cricut Explore 5 (commandes/outils, tapis, Scoring Tool + Attach, Print Then Cut, Smart Materials) réexaminées le 29/10/2026. Ne pas déduire des paramètres de pression ou des essais de coupe de ces pages.
+- **Tickets proposés V34-116..125 :** 10 IDs uniques continus, **SPECIFIE**, réutilisation obligatoire du résolveur V34-107 ; regroupables par parcours pour ne pas créer dix PR inutiles. **Tests proposés T-V34-15-01..18 :** 18 IDs uniques continus, **NON_EXECUTE**. L'unique bloc JSON a été parsé avec succès lors de la relecture du fichier. Ces vérifications sont documentaires et non une CI logicielle.
+- **Aucun changement de moteur, `.smartsvg`, fichiers protégés, roadmap active, workflows ou historique V3.2.** La tâche de développement V3.3 est indépendante. Le mandat utilisateur le plus récent interdit toute nouvelle fonctionnalité ou dépendance artificielle ; la recherche de 1–3 opportunités par cycle n'est plus exigée, sans supprimer les idées historiques.
+- **Preuves absentes :** qualification réelle Windows, Design Space, RTX 3070, Explore 5 et matière/outils physiques **NON_EXECUTE** ; aucune licence modèle ni profil réel certifié.
+- **Dépendances ouvertes déjà connues :** bootstrap autonome, schéma V2 futur, identité/CAS/Undo, mesures mm et guides DS ; aucune n'est ajoutée au chemin critique G3.3e-b2a.
+- **Prochain lot 16 :** patrons paramétriques **déjà prévus**, séparation plis/coupes et vérifications mm ; réutiliser les règles géométriques et la sémantique du lot 14 sans deuxième moteur ni produit étendu. Maintenir les 24 cycles calendaires existants et la PR #73 draft ; ne pas redémarrer les 14 premiers lots.
+
+## Cycles 16–24
+
+À renseigner uniquement après production et vérification effectives des livrables de chaque cycle.
 
