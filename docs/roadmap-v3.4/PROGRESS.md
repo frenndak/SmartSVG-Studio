@@ -212,7 +212,19 @@
 - **Dépendances ouvertes déjà connues :** bootstrap autonome, schéma V2 futur, identité/CAS/Undo, mesures mm et guides DS ; aucune n'est ajoutée au chemin critique G3.3e-b2a.
 - **Prochain lot 16 :** patrons paramétriques **déjà prévus**, séparation plis/coupes et vérifications mm ; réutiliser les règles géométriques et la sémantique du lot 14 sans deuxième moteur ni produit étendu. Maintenir les 24 cycles calendaires existants et la PR #73 draft ; ne pas redémarrer les 14 premiers lots.
 
-## Cycles 16–24
+## Cycle 16 / 24 — Patrons paramétriques cartes/boîtes, mm, plis, languettes et prévol (29 octobre 2026)
+
+- **Reprise réelle :** dernier lot achevé 15/24 au démarrage ; lot 16 absent de README et du journal. Branche `codex/docs-roadmap-v3-4-campaign`, PR draft #73, issue #72 relue. Référence `main@fff374e5147689165839bd76e742713d714ff147` ; comparaison après rédaction : branche **73 commits d'avance et 1 commit de retard** sur main, 21 fichiers changés tous dans `docs/roadmap-v3.4/`. Le retard n'est pas fusionné ni résolu automatiquement.
+- **Livrable principal :** [16_PATRONS_PARAMETRIQUES.md](16_PATRONS_PARAMETRIQUES.md), commit `20df29df51deefc9c448b9d784f9ec90aa91e3e1` ; index README actualisé au commit `ad39039f80cca95ec9b36269056ab2b96865ce9c`. Spécification d'une boîte ouverte et d'une carte pliée, sans élargissement de périmètre, avec géométrie en mm, CUT/SCORE distincts, interfaces réutilisées, messages FR, reprise/rollback et transfert Design Space guidé.
+- **Contre-expertise ciblée :** (1) bbox illustratif du lot 14 remplacé pour la fixture du lot 16 par **140 × 110 mm** vérifiés pour base 80 × 50, parois 30, languettes 10 ; (2) inspecteur G2.7/QA SVG et QA de masques **ne sont pas** des générateurs paramétriques ; (3) bootstrap autonome, V2 et bus complet **ne bloquent pas** un calcul/aperçu/export brouillon isolé, ni G3.3e-b2a. Pas de deuxième prévol ni de store indépendant.
+- **Vérifications documentaires réellement exécutées :** lecture GitHub du document et de l'index après commits ; parsing du **JSON** de fixture ; calcul du contour par formule de Shoelace **13 000 mm²**, recherche de croisements stricts du polygone extérieur **0**, 4 fentes/8 plis, 5 chemins CUT attendus ; 10 tests `T-V34-16-01..10` uniques, 3 tickets `V34-126..128` uniques ; index héritage **141/141** (101 S + 40 R33) sans doublon ; lien README présent ; diff GitHub uniquement documentaire V3.4. **Ces vérifications ne constituent pas une exécution des tests du produit ni une validation physique.**
+- **Tests futurs :** 10 assertions spécifiées, toutes `NON_EXECUTE`. Preuves `auto`, `Windows`, `DesignSpace`, `physique` distinctes et **NON_EXECUTE** pour ce lot. Aucune inférence RTX 3070, aucun import Design Space, aucun rainurage/coupe réel, aucune CI V3.4 prétendue.
+- **Sources externes consultées le 29/10/2026 :** documentation officielle Cricut Explore 5 Scoring Tool (Score, Attach, changement d'outil) et « How to use Attach in Design Space » (positions relatives). URLs dans le lot 16 ; pas de certification de matière, d'épaisseur ou de jeu de pli.
+- **Accès effectifs :** GitHub OK lecture/écriture ; Superpowers indisponible (`skills__list` vide). Aucun code, AGENTS.md, V3.3, archives, .github/, .automation/, workflow, données privées ou tâche planifiée modifié. La V3.3 reste ACTIVE.
+- **Risques ouverts :** fentes CUT ouvertes et jonctions Score/Cut à qualifier dans Design Space, compensation épaisseur/grain/colle non mesurée, inspection limitée à 64 chemins/300 mm pour le composant G2.7, profil machine/matière/tapis UNKNOWN, reprise éditable V1/V2 non qualifiée ; main possède 1 commit supplémentaire à réexaminer avant toute intégration.
+- **Prochain lot 17 :** quatre contrats d'export distincts, transferts guidés Design Space, Score/Attacher/Draw/Foil et provenance ; réutiliser le guide du lot 14/15/16 sans driver Cricut ni second moteur d'export.
+
+## Cycles 17–24
 
 À renseigner uniquement après production et vérification effectives des livrables de chaque cycle.
 
