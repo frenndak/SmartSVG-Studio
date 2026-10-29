@@ -32,6 +32,20 @@
 - **Décision :** DRAFT uniquement ; ne pas fusionner, ne pas modifier main, AGENTS, workflows, archives, code moteur ou automatisations.
 - **Prochain micro-lot 03 :** ADR et architecture cible, frontières exactes et schéma minimal `Path→Operation→Tool→Material→Machine`, inventaire des dépendances et comparaison d'options UI par critères/prototype. Ne pas déclarer le lot 03 terminé sans fichier vérifiable.
 
-## Cycles 03–24
+## Cycle 03 / 24 — Architecture, ADR, contrats et prévol minimal
+
+- **Base main effectivement relue :** `fdbda304beb77d97340a8be4dd5c5e9cefde15f4` ; **HEAD branche avant le cycle :** `5f82b88ef2d2c79f445bb0a6df6fe4dbcc434040` ; comparaison `main...codex/docs-roadmap-v3-4-campaign` : 10 commits d'avance, 0 de retard avant écriture. Commits du lot : `c62d03b45c0b1810f2ef0fda4dea47aab1098885` (architecture), `d1ae873611e1a4abc9f7a2e9179a51f1b3c50755` (opportunités). Ce journal constitue un commit supplémentaire.
+- **Lot produit :** [03_ARCHITECTURE_ADR.md](03_ARCHITECTURE_ADR.md) — quatre ADR proposées : autorité projet unique, contrat de fabrication minimal `geometry→operation→tool→material→machine`, décision de framework différée à des spikes mesurés, IA proposant des changements sans écrire le projet. Schéma logique, JSON de référence validé syntaxiquement, enveloppes commande/événement, concurrence/CAS, idempotence, annulation, sécurité, rollback, deux parcours verticaux et 16 tests **à créer**.
+- **Inventaire réel de code relu :** `project_contracts.py`, `project_archive.py`, `project_workspace_g22.py`, `project_recovery.py`, `mask_snapshot_g24.py`, `subject_identity_g33e.py`, `project_routes_g22.py`, `provider_v2112.py`, `auto_masks_v2111.py`, `smartsvg_express_atelier_preview.html`, `engine/__init__.py`. Dépendances directes principales recensées ; graphe exhaustif encore à établir.
+- **Contre-expertise du cycle 02 :** clarifié la différence entre export **brouillon** et planche Print Then Cut garantie lorsque région A4 inconnue ; états `preflight` distincts des preuves V3.3 ; Score ≠ Cut et aucun pilotage machine ; limitation actuelle `MAX_MASKS=32` incompatible avec l'hypothèse naïve d'un unique traitement de 50 sujets.
+- **Nouveaux tickets proposés :** `V34-011..V34-016` (six IDs uniques, `SPECIFIE`, non implémentés). Tests `T-V34-03-01..16` (16 IDs uniques, **non exécutés**). Opportunités `O-004` (prévisualisation par opération, P1 retenue) et `O-005` (simulation 3D indicative de pliage, P2 reportée) ajoutées au registre sans doubler `O-001..003`.
+- **Contrôles réellement exécutés :** relecture GitHub des fichiers du lot ; vérification des 6 IDs tickets, 16 IDs tests, 5 opportunités distinctes, 12 sections et parsing JSON du contrat de fabrication ; contrôle du périmètre de la PR (chemins documentaires). Aucun script de test logiciel ni CI du HEAD n'a été exécuté.
+- **Preuves NON obtenues :** tests automatisés de produit, Windows, RTX 3070, Design Space, Cricut physique ; aucun prototype Qt/Tauri ; aucune licence IA qualifiée. La roadmap V3.3 et les archives sont inchangées.
+- **Outils :** GitHub **OK** en lecture/écriture sur la branche ; Superpowers **INDISPONIBLE** dans ce runtime (liste des skills vide et lectures URI refusées) ; discipline ADR/alternatives/tests/contre-expertise appliquée sans prétendre avoir chargé les skills. Sources Cricut du lot 02 réutilisées, sans nouvelle certification matérielle.
+- **Risques ouverts :** choix UI différé, compatibilité archive `smartsvg-project/1`, journal de commandes persistant à définir, sécurité du transport natif, graphe imports incomplet, CI V3.4 absente, profils machine et zone A4 non qualifiés, mapping bidirectionnel 141 exigences à compléter.
+- **Décision :** architecture proposée en DRAFT uniquement ; aucune implémentation, aucune fusion, aucune modification de main/AGENTS/workflows/.automation/automatisations.
+- **Prochain lot 04 :** graphe des imports exhaustif, contrats adaptateur natif/ComfyUI, protocole dual-run sur corpus synthétique, séquence de migration, authentification locale, gates de parité et rollback ; contre-expertiser ADR-034-01..04 avant de les figer.
+
+## Cycles 04–24
 
 À renseigner seulement après production et vérification effective des livrables de chaque cycle.
