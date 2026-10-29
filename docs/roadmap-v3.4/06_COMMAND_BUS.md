@@ -113,6 +113,22 @@ Le payload_sha256 porte sur une **sérialisation canonique définie et versionn�
 
 **Ordonnancement :** file bornée, priorité interactive > batch, fairness pour les jobs longs, budget CPU/RAM/VRAM par fournisseur, backpressure ; estimation p95 à mesurer. L'annulation libère les ressources temporaires quand le worker confirme son arrêt, sans effacer les ressources déjà validées du projet. Une reprise après crash relit snapshot/ressources, **ne réexécute jamais silencieusement** une IA non déterministe ou un téléchargement ; demande un nouveau lancement explicite, et un job_id de reprise lié à la tentative précédente.
 
+**Idempotence des jobs et succès partiel :** pendant une session, job_id + digest canonique de JobSpec identifie une tentative ; soumission identique renvoie l'état courant sans relancer le worker, soumission de même ID avec digest différent => JOB_ID_CONFLICT. Après redémarrage, une tentative non confirmée est INTERRUPTED : l'UI exige une nouvelle tentative explicitement consentie, avec nouveau attempt_id et lien de provenance, sans prétendre fournir une garantie exactly-once pour une inférence GPU. Un batch 12/24/50 contient un résultat **par sujet** (ACCEPTABLE, FAILED, CANCELLED, STALE) et un digest de chaque proposition ; les succès partiels restent **des propositions**, jamais des commits. AcceptSubjectsBatch sélectionne explicitement les éléments valides, les vérifie ensemble et publie **tout ou rien** ; les éléments échoués peuvent être relancés sans dupliquer les identités déjà acceptées. La reprise d'un lot est un nouveau job sur le snapshot courant, pas un replay silencieux d'une ancienne sortie.
+
+~~~json
+{
+  "job_id": "job-50-001",
+  "attempt_id": "attempt-01",
+  "pinned_project_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "state": "PROPOSAL_READY",
+  "items": [
+    {"item_key": "subject-slot-01", "state": "ACCEPTABLE", "proposal_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+    {"item_key": "subject-slot-02", "state": "FAILED", "error_code": "SEGMENTATION_FAILED"}
+  ],
+  "auto_commit": false
+}
+~~~
+
 **Conflit à l'acceptation :** si pinned SHA ou empreinte d'objet a changé, proposition STALE, aucune mutation. Proposer comparer/relancer sur la nouvelle révision ou copier le résultat dans un brouillon **isolé**, sans rebind automatique d'identité. Si le projet est inchangé, l'acceptation passe par le CommandPort normal et reçoit receipt/Undo. Deux fenêtres concurrentes lisent le même snapshot ; un seul CAS peut publier ; la seconde voit un message compréhensible « projet modifié ailleurs » et recharge après choix utilisateur.
 
 **Exemples :** 12 escargots : détection/masques proposés par job, validation utilisateur, AcceptSubjectsBatch atomique, 12 IDs/proofs contrôlés ; réarrangement de planche = commande distincte, export PNG non mutant. Boîte : génération paramétrique déterministe, groupe AssignOperation(CUT/SCORE), Undo restaure l'ensemble ; Design Space exige toujours sélection manuelle Score et Attacher. 50 sujets : lots de calcul avec propositions partielles, jamais 50 masques injectés dans un snapshot V1 limité à 32 ; consolidation V2 uniquement après validation des packs.
@@ -180,6 +196,8 @@ Chaque test devra préciser fixture synthétique autorisée, commit, OS, mode, j
 | T-V34-06-26 | deux interfaces reçoivent même état canonique, et perte d'événement déclenche resync | UI, Windows |
 | T-V34-06-27 | tentative assistant sans confirmation utilisateur → aucune commande mutante | auto, UI |
 | T-V34-06-28 | disque plein, lecture seule, symlink et ZIP hostile → aucun projet source détruit | auto, Windows |
+| T-V34-06-29 | même job_id et même JobSpec pendant session → un worker ; digest différent → JOB_ID_CONFLICT | auto |
+| T-V34-06-30 | batch 50 dont 48 succès/2 échecs → propositions par item, 0 commit avant acceptation, relance ciblée sans doublon | auto, Windows |
 
 **Corpus futur, non présent :** tests/fixtures/v34_commands/{lost_ack,duplicate_id,stale_cas,dual_writer,pending_backup,checkpoint_crash,epoch_closed,receipt_limit,float32_undo,score_cut_undo,job_stale,job_cancel,oom_simulated,12_subjects,50_subjects,malicious_archive,full_disk}. Fixtures générées sans médias protégés. Pour la fabrication physique : tests de commandes **NON_APPLICABLE** si justifié, mais tests des exports Score/Print Then Cut restent **NON_EXECUTE** tant que Design Space/Explore 5 n'ont pas été utilisés.
 
@@ -193,7 +211,7 @@ Chaque DoD exige tests **effectivement exécutés** sur les axes annoncés lors 
 | **V34-033 P0** Writer unique CAS et publication | S-026, S-053, S-095 ; R33-009,013,014 ; V34-022,027,029 | docs/roadmap-v3.4/specs/WRITER_TRANSACTION.md ; futur engine/smartsvg_app/project_writer_v2.py | T-V34-06-04..08,28 ; auto+Windows ; DoD : un commit au plus, pending récupérable ; rollback V1 historique |
 | **V34-034 P0** Receipts/epoch/compaction | S-053, S-095 ; R33-011,012,014 ; V34-013,029 | docs/roadmap-v3.4/specs/RECEIPTS_EPOCH.md ; futur engine/smartsvg_app/receipt_store.py | T-V34-06-01..03,09..12 ; auto+Windows ; DoD : aucun retry ancien réappliqué ; rollback refuser mutations V2 |
 | **V34-035 P0** Undo/Redo patches float32 | S-008, S-023, S-052 ; R33-004,006 ; V34-028,032 | docs/roadmap-v3.4/specs/UNDO_HISTORY.md ; futur engine/smartsvg_app/history.py | T-V34-06-13..16,21 ; auto ; DoD : bit-identité float32, groupes atomiques ; rollback lecture seule historique |
-| **V34-036 P0** Orchestrateur jobs et garde-fous | S-027, S-028, S-070 ; R33-005,007,011,012,017 ; V34-016,021,023 | docs/roadmap-v3.4/specs/JOBS.md ; futur engine/smartsvg_app/job_scheduler.py | T-V34-06-17..20,27 ; auto+Windows, RTX après équipement ; DoD : aucun worker n'écrit le projet ; rollback manuel/CPU |
+| **V34-036 P0** Orchestrateur jobs et garde-fous | S-027, S-028, S-070 ; R33-005,007,011,012,017 ; V34-016,021,023 | docs/roadmap-v3.4/specs/JOBS.md ; futur engine/smartsvg_app/job_scheduler.py | T-V34-06-17..20,27,29,30 ; auto+Windows, RTX après équipement ; DoD : aucun worker n'écrit le projet ; rollback manuel/CPU |
 | **V34-037 P0** Reconnexion UI et événements | S-067, S-069, S-074 ; R33-003,014,019 ; V34-015,024,032 | docs/roadmap-v3.4/specs/EVENTS.md ; futur engine/smartsvg_app/event_port.py | T-V34-06-23,26 ; UI+Windows ; DoD : perte/rejeu d'événement sans divergence ; rollback rechargement complet |
 | **V34-038 P1** Historique groupé et aperçu d'Undo | S-008, S-071, S-074 ; R33-019 ; V34-035,037 | docs/roadmap-v3.4/specs/HISTORY_UX.md ; futur engine/web/js/smartsvg_history_v34.mjs | T-V34-06-13..15,23 ; UI+Windows ; DoD : geste unique réversible, pas de faux Undo physique ; rollback UI sans timeline |
 | **V34-039 P1** Boîte de réception des propositions périmées | S-027, S-028, S-069 ; R33-005,007 ; V34-036,037 | docs/roadmap-v3.4/specs/PROPOSAL_INBOX.md ; futur engine/web/js/smartsvg_proposal_inbox_v34.mjs | T-V34-06-17,18,20,27 ; UI+Windows ; DoD : comparer/relancer, zéro rebind automatique ; rollback abandon sûr |
