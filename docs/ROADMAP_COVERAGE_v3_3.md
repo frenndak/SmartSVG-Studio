@@ -1,6 +1,6 @@
 # SmartSVG Studio Matrice de couverture V3.3
 
-**Navigation :** [Maître V3.3](ROADMAP_MASTER_v3_3.md) · [Registre de traçabilité](ROADMAP_TRACEABILITY_v3_3.md) · [Annexe historique](ROADMAP_HERITAGE_v3_3.md).
+**Navigation :** [Maître V3.3](ROADMAP_MASTER_v3_3.md) · [Registre de traçabilité](ROADMAP_TRACEABILITY_v3_3.md) · [Annexe historique](ROADMAP_HERITAGE_v3_3.md) · [Guide opérationnel d'accélération (non normatif)](ROADMAP_EXECUTION_FASTPATH_v3_3.md).
 
 ## 1 Mode d'emploi
 
