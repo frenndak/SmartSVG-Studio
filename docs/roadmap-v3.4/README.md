@@ -23,6 +23,7 @@
 - [Lot 17 : quatre contrats d'export distincts, transfert guidé Design Space, provenance/reprise, 13 tests et 3 tickets proposés (sans nouveau périmètre)](17_EXPORTS_DESIGNSPACE.md)
 - [Lot 18 : Atelier graphique, canevas, état projet unique, calques/propriétés, Undo sans duplication et 10 tests proposés](18_ATELIER_GRAPHIQUE.md)
 - [Lot 19 : planches 12/24/50, nesting déterministe, placements verrouillés, cache/jobs bornés et reprise sans duplication](19_PLANCHES_NESTING.md)
+- [Lot 20 : bibliothèque, modèles, variantes/CSV, catalogue reconstructible, duplication sûre et reprise sans nouveau périmètre](20_BIBLIOTHEQUE_VARIANTES_CSV.md)
 - [Registre d'opportunités et arbitrages](OPPORTUNITIES.md)
 - [Index individuel des 141 exigences V3.3](HERITAGE_INDEX.md)
 - [Journal des cycles et reprises](PROGRESS.md)
