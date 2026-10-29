@@ -39,6 +39,10 @@
 | **O-023** | Vérification de provenance des modèles déjà présents avant inférence (hash, licence, runtime, révocation) | Raffine S-042/067/084, R33-025/030, V34-086 ; différent de O-007 diagnostic de capacités générales : vérifie **l'artefact exact** | 5/4/4/5/3/2 → 66,67 | **P1 / RETENU_POUR_SPEC** |
 | **O-024** | Installer silencieusement le « meilleur modèle » dès l'import | Contradiction avec consentement réseau, licences et parcours sans IA ; alternative catalogue sur demande | 2/3/2/2/4/5 → 1,2 | **REJETÉ** |
 
+| **O-025** | Aperçu des franges RGB finales sur blanc/noir/damier et taille imprimée indicative | Raffine S-015/016, V34-095 ; distinct de O-020 (masque avant acceptation) et O-002 (A4/transfert) : examine le **PNG final** | 4/4/4/4/3/2 → 42,67 | **P1 / RETENU_POUR_SPEC** |
+| **O-026** | Diff de topologie alpha multi-seuil (0/20/128) entre proposition et PNG publié | Raffine S-015/073, R33-019, V34-095 ; distinct de QA statique historique : diagnostique **la régression entre deux étapes** | 5/4/4/4/3/2 → 53,33 | **P1 / RETENU_POUR_SPEC** |
+| **O-027** | Upscale IA automatique à 600 ppp pour chaque import | Contredit le consentement explicite et confond pixels interpolés avec détails acquis ; alternative CPU/manuel et modèle opt-in | 2/4/2/2/4/4 → 2 | **REJETÉ** |
+
 ### O-001 — Journal local de transfert
 
 - **Problème :** un export local peut être correct alors que l'utilisateur choisit une mauvaise opération ou un mauvais support dans Design Space ; l'incident est ensuite impossible à reproduire.
@@ -285,3 +289,27 @@
 - **Pourquoi rejet :** poids/licences/usage commercial non qualifiés, réseau et espace disque non consentis, exécution possible de code distant, latence et confusion UX. **Alternative :** `[Continuer sans IA]` et fiche facultative avec consentement explicite.
 - **Effort/risque :** implémentation moyenne, risque juridique/sécurité élevé, valeur faible ; **UX alternative** `[Installer maintenant] [Plus tard] [Jamais]`.
 - **Recette de non-régression :** T-V34-11-01/02/07 ; 0 requête réseau au simple import, même avec modèle absent ou suggestions actives. Aucun ticket pour l'installation silencieuse.
+
+### O-025 — Contrôle de franges à l'échelle de sortie (cycle 12)
+
+- **Problème :** un sticker propre en miniature peut présenter un liseré sombre ou blanc une fois imprimé ; l'aperçu du masque seul ne révèle pas la couleur RGB des pixels semi-transparents.
+- **Scénario :** après préparation de 12 escargots, sélectionner [Fond blanc] [Fond noir] [Damier] [Zoom 100 %] [Échelle indicative mm] ; afficher la **texture PNG finale**, les pixels à alpha intermédiaire et la provenance du redimensionnement. Aucun affichage ne promet le rendu exact de l'imprimante.
+- **Gain :** détecter des halos avant export et éviter des réimpressions. **Alternatives :** aperçu sur damier seulement (insuffisant), épreuve papier physique (plus fiable mais coûteuse), comparateur multi-fonds (retenu).
+- **Effort/dépendances :** moyen ; V34-088/089/091/095, gestion ICC et alpha. **Risques :** confusion simulation/rendu réel, faux sentiment de qualité ; badge `SIMULATION` obligatoire.
+- **Recette :** T-V34-12-06/11/12/27 ; franges visibles sur fixture R12-B, aucune mutation de la coupe, clavier et tailles accessibles. **P1 / RETENU_POUR_SPEC**.
+
+### O-026 — Diff topologique entre alpha accepté et export (cycle 12)
+
+- **Problème :** un rééchantillonnage peut supprimer un petit trou, fusionner deux îlots ou ajouter un pixel faible non visible en vignette ; la QA statique n'indique pas **à quelle transformation** l'écart est apparu.
+- **Scénario :** [Voir les changements de coupe] affiche `avant/après` sur les mêmes coordonnées, compte composantes/trous aux seuils 0/20/128, signale la première transformation divergente et propose [Revenir à la coupe acceptée].
+- **Gain :** diagnostic reproductible des régressions, sans fausse preuve Cricut. **Alternatives :** comparer seulement à 128 (perd les franges), QA finale seule (pas de localisation), diff multi-seuil (retenu).
+- **Effort/dépendances :** moyen ; V34-088/090/095, digest de contour, budget CPU. **Risques :** coût sur 50 ROI, faux positifs aux seuils bas ; rapport borné et warning sans seuil arbitraire de certification.
+- **Recette :** T-V34-12-09/17/20 ; une microcomposante ajoutée est détectée au seuil concerné, ancien digest inchangé, aucune correction sans commande explicite. **P1 / RETENU_POUR_SPEC**.
+
+### O-027 — Upscale IA systématique à l'import : rejet (cycle 12)
+
+- **Problème allégué :** rendre chaque dessin « HD » sans effort.
+- **Scénario rejeté :** chaque JPG/PNG déclenche automatiquement une inférence et inscrit 600 ppp, même lorsque l'original est net ou la machine est hors ligne.
+- **Raison du rejet :** licence/VRAM/consentement, latence et hallucination de détails ; 600 ppp interpolés ne signifient pas résolution native, et la qualité physique dépend de l'impression.
+- **Alternative UX :** [Conserver] [Rééchantillonnage CPU] [Essayer un modèle local déjà installé] avec comparaison et avertissement de résolution source.
+- **Recette de non-régression :** T-V34-12-13/14/15 ; 0 modèle lancé au simple import, OOM non mutant, aucun badge « détail réel augmenté ». **REJETÉ**, aucun ticket dédié.
