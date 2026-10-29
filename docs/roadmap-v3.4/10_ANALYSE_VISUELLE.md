@@ -239,6 +239,10 @@ Métriques à mesurer : recall/precision de sujets, IoU par sujet **après appar
 
 **Risques P0 à traiter avant implémentation :** ROI V2 et preuve float32 sans casser le schéma V1 ; qualité des masques sur photos réelles ; `MAX_MASKS=32` vs 50 et `MAX_VALUES=8 M` vs 12 masques de 2 MP ; orientation/ICC ; budget RAM et libération GPU ; identité d'accessoires et corrections ; limites des sources protégées et licences de modèles ; tests Windows/RTX 3070 ; matrice inverse 141 héritées. Décisions en attente : stratégie V2 ROI et seuils de fusion/IoU après prototype, choix fournisseur et licences au lot 11, benchmarks réels.
 
+### Complément de contre-expertise du cycle 11 — consentement IA et réseau
+
+**Précision de sécurité (DRAFT, pas une implémentation) :** `AnalysisRequest.mode=RULES_FIRST` et `ai_consent=NONE` sont des intentions contractuelles, **pas** des garanties de confinement réseau. Le `provider_v2112.py` legacy peut appeler des nœuds ComfyUI qui téléchargent des poids au premier usage. Tant que l'absence de téléchargement n'est pas prouvée sur la version exacte, `AnalysisPort` doit **refuser le backend legacy** et poursuivre avec règles/manuel. L'inférence native n'accepte qu'un `model_handle` local déjà vérifié (révision, hash, licence, code approuvé) et un budget ressources. `available()` ne vaut ni preuve de poids présents ni de capacité d'inférence. Cette précision affine T-V34-10-24/25 et V34-074 sans changer le contrat ROI/identité, ni rendre un modèle obligatoire. Voir [lot 11](11_MODELES_IA_LOCAUX.md), ADR-034-14.
+
 ## 11. Sources vérifiées le 29 octobre 2026 et limites
 
 - Code source `main` : `auto_masks_v2111.py`, `provider_v2112.py`, `mask_snapshot_g24.py`, `subject_identity_g33e.py`, `mask_binding_g33e.py`, `contracts.py` ; AGENTS.md, README, maître/traceability/coverage/heritage/audit V3.3, ETAT_ACTUEL, lot 09 et issue #72.
