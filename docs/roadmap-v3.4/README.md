@@ -26,6 +26,7 @@
 - [Lot 20 : bibliothèque, modèles, variantes/CSV, catalogue reconstructible, duplication sûre et reprise sans nouveau périmètre](20_BIBLIOTHEQUE_VARIANTES_CSV.md)
 - [Lot 21 : installation Windows, bootstrap hors ComfyUI, fonctionnement hors ligne, mise à jour réversible et récupération sans nouveau périmètre](21_WINDOWS_OFFLINE_RECOVERY.md)
 - [Lot 22 : corpus autorisé, validation auto/UX/Windows/RTX/Design Space/physique et preuves orthogonales (sans nouveau périmètre)](22_VALIDATION_CORPUS_PREUVES.md)
+- [Lot 23 : matrice 141 exigences ↔ tickets V34 ↔ recettes, index inverse des 140 tickets, backlog par vertical slices sans extension de périmètre](23_TRACEABILITE_BACKLOG.md)
 - [Registre d'opportunités et arbitrages](OPPORTUNITIES.md)
 - [Index individuel des 141 exigences V3.3](HERITAGE_INDEX.md)
 - [Journal des cycles et reprises](PROGRESS.md)
