@@ -237,7 +237,20 @@
 - **Risques ouverts :** multicouche non représentable dans `Artifact.use` V1 ; qualification du paquet externe et des collisions ; prévol SVG complexe ; dimensions/Print Then Cut A4 réels ; upload externe dépendant d'Internet ; essais Windows/Design Space/physiques non réalisés ; retard de 1 commit sur main à réexaminer avant fusion.
 - **Prochain lot 18 :** Atelier, canevas/calques/propriétés/Undo sur état projet unique et code G2/G3 existant ; aucune dépendance V2/assistant ajoutée aux retouches V3.3.
 
-## Cycles 18–24
+## Cycle 18 / 24 — Atelier graphique, état unique, calques et Undo (29 octobre 2026)
+
+- **Reprise vérifiée :** lot 17 publié, lot 18 absent au début ; issue #72, PR #73 DRAFT, AGENTS.md et V3.3 active relus. Base `main@fff374e5147689165839bd76e742713d714ff147`, branche documentaire avant création `c7dbd7ffd0fed5c4dc56a04e77997f343384876d` ; PR en avance de 77 commits et en retard de 1 sur `main`. Aucun rapprochement automatique.
+- **Livrable :** [18_ATELIER_GRAPHIQUE.md](18_ATELIER_GRAPHIQUE.md), commit `701360db95078b4375ad6d37caf739be03498d95` ; index [README.md](README.md), commit `d28dcbdd803478a47eba2d58ec3257c6a7d788f8`. Lot ciblé sur état projet unique, canevas, propriétés, calques et Undo sans nouveau périmètre.
+- **Trois écarts réels et corrections :** (1) sélection des 12 escargots fictifs séparée des vrais sujets G3.3e et du panneau G2.2 : distinguer DEMO/PROJECT@SHA et partager une seule projection ; (2) replay pinceau `strokes.py` indexé par `object`, tandis que `Subject` G1.2 possède une identité persistante : résoudre l'index sous SHA/proof float32 ; (3) `save_editor_document` enregistre des traits, pas un Undo durable ni une mutation du snapshot float32 : séparer annulation de brouillon et Undo b2b réellement implémenté.
+- **Réemploi et dépendances :** G2.2 `project_workspace_g22.py`/`project_recovery.py`, G2.3 `editor_session_g23.py`, G2.4 `mask_snapshot_g24.py`, G3.3e `mask_binding_g33e.py`/`subject_identity_g33e.py`, `strokes.py`, HTML Atelier et G2.7. V34-041/044/045/035/038 sont réutilisés, non dupliqués ; aucun V2, assistant, GPU ou bootstrap autonome exigé pour b2a. Exports G4 sur fixtures parallélisables.
+- **Tickets proposés :** V34-132 P0 (vrai sujet + aperçu) et V34-133 P1 (calques/propriétés dérivés) ; **10 tests** `T-V34-18-01..10` spécifiés, tous **NON_EXECUTE** ; mapping test→ticket local explicite. Les tickets sont SPECIFIE, pas implémentés.
+- **Contrôles documentaires réellement faits :** relecture du fichier créé sur GitHub (16 394 caractères, blob `d70fffede2ef1ae501e444b2f3faa234f538ecd5`), validation du JSON d'exemple, 10 IDs tests uniques et consécutifs, 2 tickets uniques V34-132/133 ; index héritage **141 lignes uniques** (101 S + 40 R33) sans lacune ; diff de la branche limité à `docs/roadmap-v3.4/` après création. Aucun test du moteur ni de l'interface n'a été exécuté.
+- **Preuves non obtenues :** auto/CPU, UI, Windows/ComfyUI, RTX 3070, Design Space, Cricut physique = **NON_EXECUTE** pour le lot 18 ; pas de certification, pas de migration V1/V2, pas de code ou archive modifiés.
+- **Outils :** GitHub accessible en lecture/écriture, PR #73 DRAFT ; `skills__list` a retourné une liste vide, donc **Superpowers indisponible**. Aucune modification de `main`, AGENTS.md, V3.3, V3.2, .github/, .automation/, code, workflows, données privées ou tâches planifiées.
+- **Risques ouverts :** cohérence des sélections entre vues/onglets, adaptation index→ID, Undo b2b non qualifié, propriétés vectorielles non raccordées, performances et accessibilité Windows non mesurées, retard d'un commit sur main.
+- **Prochain lot 19 :** planches 12/24/50, nesting/cache/jobs, mémoire et reprise par lots bornés, sans 50 masques dans un tenseur limité à 32.
+
+## Cycles 19–24
 
 À renseigner uniquement après production et vérification effectives des livrables de chaque cycle.
 
