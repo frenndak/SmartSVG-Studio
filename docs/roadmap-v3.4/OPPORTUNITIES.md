@@ -43,6 +43,10 @@
 | **O-026** | Diff de topologie alpha multi-seuil (0/20/128) entre proposition et PNG publié | Raffine S-015/073, R33-019, V34-095 ; distinct de QA statique historique : diagnostique **la régression entre deux étapes** | 5/4/4/4/3/2 → 53,33 | **P1 / RETENU_POUR_SPEC** |
 | **O-027** | Upscale IA automatique à 600 ppp pour chaque import | Contredit le consentement explicite et confond pixels interpolés avec détails acquis ; alternative CPU/manuel et modèle opt-in | 2/4/2/2/4/4 → 2 | **REJETÉ** |
 
+| **O-028** | Conseiller de budget de chemins SVG avant import Design Space | Raffine S-030/034/056, V34-101/103 ; différent de la QA topologique O-026 : prédit **le risque de dépassement du plafond officiel de 5 000 paths**, après expansion | 4/4/4/4/3/2 → 42,67 | **P1 / RETENU_POUR_SPEC** |
+| **O-029** | Verrouillage de trous/îlots jugés essentiels avant simplification vectorielle | Raffine S-033/034, V34-097/102 ; différent de O-020 inspection du masque et O-026 diff alpha : protège une **intention géométrique explicite** pendant l'édition Bézier | 4/3/4/4/3/2 → 32 | **P1 / RETENU_POUR_SPEC** |
+| **O-030** | Transformer automatiquement chaque couleur d'un dessin en chemin de coupe | Confond SVG d'édition et fabrication, ignore matériau/outil, crée doublons et microformes ; contredit R33-008, V34-101 | 2/3/2/1/4/5 → 0,6 | **REJETÉ** |
+
 ### O-001 — Journal local de transfert
 
 - **Problème :** un export local peut être correct alors que l'utilisateur choisit une mauvaise opération ou un mauvais support dans Design Space ; l'incident est ensuite impossible à reproduire.
@@ -313,3 +317,35 @@
 - **Raison du rejet :** licence/VRAM/consentement, latence et hallucination de détails ; 600 ppp interpolés ne signifient pas résolution native, et la qualité physique dépend de l'impression.
 - **Alternative UX :** [Conserver] [Rééchantillonnage CPU] [Essayer un modèle local déjà installé] avec comparaison et avertissement de résolution source.
 - **Recette de non-régression :** T-V34-12-13/14/15 ; 0 modèle lancé au simple import, OOM non mutant, aucun badge « détail réel augmenté ». **REJETÉ**, aucun ticket dédié.
+
+### O-028 — Conseiller de budget de chemins SVG (cycle 13)
+
+- **Problème :** une illustration détaillée peut produire des milliers de chemins, parfois au-delà de la limite de **5 000 paths** annoncée par Cricut pour l'upload SVG ; l'utilisateur découvre l'erreur après l'export.
+- **Scénario :** l'utilisateur choisit « Tous les traits » sur un dessin synthétique très dense ; le panneau montre `1 820 chemins après expansion`, `limite documentaire Cricut : 5 000`, `performance non qualifiée`, et propose `Réduire les détails` ou `Séparer en fichiers`. **Ne jamais affirmer que 4 999 chemins s'importent vite ou se découpent correctement.**
+- **Gain :** anticiper l'échec d'upload et aider à simplifier sans perdre silencieusement des éléments ; aucune preuve machine.
+- **Alternatives :** avertir après export (tardif), simplifier automatiquement sans aperçu (perte), conseiller avant export avec comparaison/Undo (retenu).
+- **Effort/dépendances :** moyen ; V34-098/100/101/103, S-030/034/056, profil Cricut daté ; comptage après expansion et hiérarchie, quotas CPU.
+- **Risques :** confondre nombre de paths et nombre de segments ; compter avant expansion ; sous-estimer la complexité ; avertissement sans garantie.
+- **Interaction :** `[Complexité : 1 820 paths] [Voir par calque] [Simplifier avec aperçu] [Conserver] [Répartir]`.
+- **Recette :** T-V34-13-16/17 : fixture 5 001 paths bloquée en profil Cricut ; 64 chemins G2.7 n'est pas annoncé comme limite universelle ; aucun export automatique sans validation. **P1 / RETENU_POUR_SPEC**.
+
+### O-029 — Verrouillage des trous utiles (cycle 13)
+
+- **Problème :** une simplification qui préserve l'aspect général peut effacer un petit trou d'une silhouette ou souder deux ouvertures, modifiant l'usage prévu.
+- **Scénario :** l'utilisateur sélectionne le trou central d'un anneau et choisit `Préserver ce trou`; une simplification ultérieure qui le détruirait passe en `REVIEW_REQUIRED` et propose un réglage plus conservateur.
+- **Gain :** préservation d'une intention utilisateur sans imposer des tolérances identiques à tous les matériaux ; complète S-033/034 et le moteur topologique, pas une nouvelle famille fonctionnelle.
+- **Alternatives :** simplifier sans contrôle (rejet), bloquer toute simplification (trop restrictif), marquer des contraintes locales réversibles (retenu).
+- **Effort/dépendances :** moyen ; V34-097/098/102, S-033/034, R33-004/008 ; identités persistantes des anneaux et recalcul d'empreinte.
+- **Risques :** trous trop petits pour être découpés malgré préservation mathématique ; ne pas promettre fabricabilité. Changement de source/révision invalide la contrainte périmée.
+- **Interaction :** `[Trou 03] [🔒 Préserver] [Voir avant/après] [Annuler]` ; raccourcis clavier équivalents et avertissement machine distinct.
+- **Recette :** T-V34-13-04/09/25 : trou marqué jamais supprimé silencieusement, Undo rétablit le statut, changement de masque force une revue ; preuve physique indépendante. **P1 / RETENU_POUR_SPEC**.
+
+### O-030 — Une coupe par couleur sans choix : rejet (cycle 13)
+
+- **Problème allégué :** automatiser la fabrication d'une image multicolore.
+- **Scénario rejeté :** à l'import, transformer chaque région de couleur en `CUT` sans demander matière, opération ou simplification ; un œil de 0,5 mm devient une coupe et des zones se superposent.
+- **Gain :** non démontré ; forte probabilité de doubles chemins, détails impossibles et erreurs de fabrication.
+- **Alternative :** vectoriser les couches **pour édition**, puis proposer une fabrication multicouche distincte avec prévol et confirmation.
+- **Effort/risque :** faible pour créer des paths, mais risque élevé et QA disproportionnée ; valeur utilisateur négative sur dessins complexes.
+- **Interaction rejetée :** pas de bouton `Convertir toutes les couleurs en coupes automatiquement` sans simulation et validation matière.
+- **Recette négative :** T-V34-13-11/13/26 : un changement de palette ou une extraction de couche n'assigne aucune opération `CUT` et ne transforme jamais un guide de pli en `SCORE`. **REJETÉ**, aucun ticket propre.
