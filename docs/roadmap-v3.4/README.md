@@ -11,6 +11,7 @@
 - [Lot 05 : schéma .smartsvg, identités, ressources, CAS, migration V1→V2 et 20 tests proposés](05_PROJECT_SCHEMA.md)
 - [Lot 06 : bus de commandes, receipts/epochs, Undo/Redo, jobs, concurrence et 30 tests proposés](06_COMMAND_BUS.md)
 - [Lot 07 : accueil Importer/Créer/Reprendre, Express, navigation, états UX, accessibilité et 28 tests proposés](07_UX_EXPRESS_NAVIGATION.md)
+- [Lot 08 : assistant contextuel facultatif, clarification, préférences locales, sécurité, 30 tests et 9 tickets proposés](08_ASSISTANT_CONTEXTUEL.md)
 - [Registre d'opportunités et arbitrages](OPPORTUNITIES.md)
 - [Index individuel des 141 exigences V3.3](HERITAGE_INDEX.md)
 - [Journal des cycles et reprises](PROGRESS.md)
