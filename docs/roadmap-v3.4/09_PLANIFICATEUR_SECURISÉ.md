@@ -71,7 +71,7 @@ Version proposée **v34.planner-catalog/0.1-draft**, à figer après prototypes.
 
 **Important :** PRINT n'est pas équivalent à PNG Print Then Cut ; l'opération PRINT d'un plan de fabrication et le contrat d'export PNG sont distincts. SCORE est une intention sur une ligne de pli, pas une propriété SVG que Design Space est garanti de conserver. FOIL et DRAW restent conditionnés aux profils officiels et aux essais ultérieurs. La validation d'un brouillon n'autorise pas sa fabrication.
 
-**Plan multi-actions :** au plus **8 étapes** dans cette première proposition, au plus **4 mutations**, ordre séquentiel strict, aucun DAG arbitraire, aucune boucle ni branchement dynamique. Une action AcceptSubjectsBatch couvre 12/24/50 sujets sans générer 50 commandes. Un plan avec des étapes incompatibles est rejeté ; pas de réordonnancement implicite par LLM. Ces limites sont **budgets à éprouver**, non capacités garanties.
+**Plan multi-actions :** au plus **8 étapes** dans cette première proposition, au plus **4 mutations**, ordre séquentiel strict, aucun DAG arbitraire, aucune boucle ni branchement dynamique. Une action AcceptSubjectsBatch **peut représenter logiquement** 12/24/50 sujets sans générer 50 commandes, **mais ne garantit pas que 50 masques soient matérialisables dans les formats V1 ou le moteur V21.11** : la disponibilité de propositions validées, leurs digests float32 et le support V2/ROI restent des préconditions explicites du lot 10. Sans celles-ci, bloquer l'acceptation avec un diagnostic plutôt que tronquer le lot. Un plan avec des étapes incompatibles est rejeté ; pas de réordonnancement implicite par LLM. Ces limites sont **budgets à éprouver**, non capacités garanties.
 
 ## 4. Contrats de données et validation stricte
 
