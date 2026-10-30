@@ -75,12 +75,35 @@ def _validate_path_data(d: str) -> None:
         arity = _PATH_ARITY[command.upper()]
         groups = 0
         while i < len(tokens) and not isinstance(tokens[i], str):
+            if command.upper() == 'A':
+                # SVG arc flags are single digits and may touch each other or x.
+                # Split only those positions, leaving other numeric tokens intact.
+                for flag_index in (i + 3, i + 4):
+                    if flag_index >= len(tokens) or isinstance(tokens[flag_index], str):
+                        raise SVGRejected('INVALID_PATH_DATA')
+                    raw_flag = tokens[flag_index][0]
+                    if not raw_flag or raw_flag[0] not in '01':
+                        raise SVGRejected('INVALID_PATH_DATA')
+                    if len(raw_flag) > 1:
+                        remainder = raw_flag[1:]
+                        try:
+                            remainder_value = float(remainder)
+                        except ValueError as exc:
+                            raise SVGRejected('INVALID_PATH_DATA') from exc
+                        if not math.isfinite(remainder_value):
+                            raise SVGRejected('NONFINITE_PATH_DATA')
+                        tokens[flag_index:flag_index + 1] = [
+                            (raw_flag[0], float(raw_flag[0])),
+                            (remainder, remainder_value),
+                        ]
+                        if len(tokens) > 100_000:
+                            raise SVGRejected('PATH_TOO_COMPLEX')
             if i + arity > len(tokens) or any(isinstance(t, str) for t in tokens[i:i + arity]):
                 raise SVGRejected('INVALID_PATH_DATA')
             group = tokens[i:i + arity]
             if command.upper() == 'A':
-                if (group[0][1] <= 0 or group[1][1] <= 0 or
-                        group[3][0] not in ('0', '1') or group[4][0] not in ('0', '1')):
+                # SVG 2 normalizes zero/negative radii; this is syntax only.
+                if group[3][0] not in ('0', '1') or group[4][0] not in ('0', '1'):
                     raise SVGRejected('INVALID_PATH_DATA')
             if command.upper() != 'M' or groups:
                 drawing_segments += 1
