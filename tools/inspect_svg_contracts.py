@@ -21,8 +21,8 @@ VECTOR_ELEMENTS = {"path", "rect", "circle", "ellipse", "polygon", "polyline", "
 # Geometry inside these SVG containers is not directly rendered. Counting it
 # would falsely pass a file containing definitions but no visible cut shapes.
 NON_RENDERING_CONTAINERS = {"defs", "symbol", "clipPath", "mask", "pattern", "marker"}
-FORBIDDEN = {"script", "style", "a", "foreignObject", "image", "use", "animate", "animateMotion",
-             "animateTransform", "set", "filter", "feImage", "textPath"}
+FORBIDDEN = {"script", "style", "a", "foreignObject", "image", "use", "animate", "animateColor",
+             "animateMotion", "animateTransform", "set", "discard", "filter", "feImage", "textPath"}
 DIMENSION = re.compile(r"^(\d+(?:\.\d+)?)mm$")
 
 

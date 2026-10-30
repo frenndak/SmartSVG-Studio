@@ -329,6 +329,31 @@ class SVGContractTests(unittest.TestCase):
 
 
 
+    def test_legacy_svg_animation_and_discard_rejected(self):
+        # SVG 1.1 animateColor and SVG Tiny 1.2 discard are active content.
+        # Both used to bypass the static-only gate while other SMIL tags failed.
+        active_elements = (
+            '<circle r="8"><animateColor attributeName="fill" '
+            'from="red" to="blue" dur="1s"/></circle>',
+            '<g><circle r="8"/><discard begin="0s"/></g>',
+        )
+        for profile in ("cut", "editable"):
+            for active in active_elements:
+                with self.subTest(profile=profile, active=active):
+                    p = self.write(self.base(
+                        '<rect width="2" height="2"/>' + active))
+                    with self.assertRaisesRegex(
+                        SVGRejected, "EMBEDDED_RESOURCE_OR_ACTIVE_CONTENT"
+                    ):
+                        inspect_svg(p, profile=profile)
+
+    def test_static_svg_shapes_remain_accepted_after_animation_guard(self):
+        p = self.write(self.base(
+            '<rect width="2" height="2"/><circle r="8"/>'))
+        for profile in ("cut", "editable"):
+            with self.subTest(profile=profile):
+                self.assertEqual(inspect_svg(p, profile=profile)["vector_elements"], 2)
+
     def test_primitive_geometry_numeric_validation(self):
         # Previously accepted as cut geometry despite malformed/empty shapes.
         invalid = (
