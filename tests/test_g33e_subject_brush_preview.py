@@ -11,10 +11,11 @@ import struct
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 import zlib
 
 from smartsvg_core.project_archive import load_project
-from smartsvg_core.project_workspace_g22 import ManagedWorkspace
+from smartsvg_core.project_workspace_g22 import ManagedWorkspace, WorkspaceError
 from smartsvg_core.subject_brush_preview_g33e import (
     SubjectBrushPreviewError, preview_subject_brush,
 )
@@ -180,6 +181,69 @@ class SubjectBrushPreviewTests(unittest.TestCase):
         with self.assertRaisesRegex(SubjectBrushPreviewError, "INVALID_SUBJECT_PROOF"):
             preview_subject_brush(forged, **values)
         self.assertEqual(self.path.read_bytes(), before)
+
+
+    def test_workspace_preview_pins_revision_and_hides_float32_from_ui(self):
+        _, values = self.command()
+        original = self.path.read_bytes()
+        revision = sha256(original).hexdigest()
+        backup_path = self.path.with_name("brush-preview.previous.smartsvg")
+        backup = backup_path.read_bytes() if backup_path.exists() else None
+        with patch("smartsvg_core.project_workspace_g22.preview_subject_brush",
+                   return_value={"preview_float32": b"internal-only",
+                                 "before_png_l8": b"before",
+                                 "after_png_l8": b"after",
+                                 "changed_pixels": 1}) as replay:
+            result = self.workspace.preview_subject_brush_readonly(
+                "brush-preview", expected_sha256=revision, **values)
+        replay.assert_called_once()
+        self.assertEqual(result["project_sha256"], revision)
+        self.assertEqual(result["name"], "brush-preview")
+        self.assertEqual(result["after_png_l8"], b"after")
+        self.assertNotIn("preview_float32", result)
+        self.assertFalse(result["persisted"])
+        self.assertFalse(result["cricut_certified"])
+        self.assertEqual(self.path.read_bytes(), original)
+        self.assertEqual(backup_path.read_bytes() if backup_path.exists() else None,
+                         backup)
+
+    def test_workspace_preview_rejects_stale_revision_before_replay(self):
+        _, values = self.command()
+        original = self.path.read_bytes()
+        with patch("smartsvg_core.project_workspace_g22.preview_subject_brush") as replay:
+            with self.assertRaisesRegex(WorkspaceError, "PROJECT_CHANGED"):
+                self.workspace.preview_subject_brush_readonly(
+                    "brush-preview", expected_sha256="0" * 64, **values)
+            with self.assertRaisesRegex(WorkspaceError,
+                                        "EXPECTED_REVISION_REQUIRED"):
+                self.workspace.preview_subject_brush_readonly(
+                    "brush-preview", expected_sha256=True, **values)
+            replay.assert_not_called()
+        self.assertEqual(self.path.read_bytes(), original)
+
+    def test_workspace_preview_rejects_late_result_after_concurrent_change(self):
+        _, values = self.command()
+        revision = sha256(self.path.read_bytes()).hexdigest()
+        def concurrent_change(_project, **_kwargs):
+            # Simulate another writer committing while the CPU preview runs.
+            self.path.write_bytes(self.path.read_bytes() + b"changed")
+            return {"preview_float32": b"never-return", "changed_pixels": 1}
+        with patch("smartsvg_core.project_workspace_g22.preview_subject_brush",
+                   side_effect=concurrent_change) as replay:
+            with self.assertRaisesRegex(WorkspaceError,
+                                        "PROJECT_CHANGED_DURING_PREVIEW"):
+                self.workspace.preview_subject_brush_readonly(
+                    "brush-preview", expected_sha256=revision, **values)
+        replay.assert_called_once()
+
+    def test_workspace_preview_rejects_invalid_stroke_without_cpu_runtime(self):
+        _, values = self.command()
+        original = self.path.read_bytes()
+        with self.assertRaisesRegex(WorkspaceError, "INVALID_PREVIEW_STROKE"):
+            self.workspace.preview_subject_brush_readonly(
+                "brush-preview", expected_sha256=sha256(original).hexdigest(),
+                **{**values, "radius": -0.01})
+        self.assertEqual(self.path.read_bytes(), original)
 
 
 class SubjectBrushPreviewAdmissionTests(unittest.TestCase):
