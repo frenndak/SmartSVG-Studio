@@ -203,6 +203,8 @@ class SVGContractTests(unittest.TestCase):
             'M0 0 L1 2 garbage', 'M0 0 L1e999 2',
             'M0 0 A 0 4 0 0 1 2 3', 'M0 0 A 4 4 0 2 1 2 3',
             'M0 0 L1 2 Z 4 5', 'M0 0 L1 2,,3 4',
+            'M,0 0 L1 2', 'M0 0,L1 2', 'M0 0 L1 2,Z',
+            'M0 0 L1 2,M3 4',
         )
         for data in bad_paths:
             with self.subTest(data=data):
