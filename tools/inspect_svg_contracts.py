@@ -234,6 +234,12 @@ def inspect_svg(path: Path, *, profile: str = "cut", max_bytes: int = 2_000_000)
         tag = node.tag.split("}", 1)[1]
         if tag in FORBIDDEN:
             raise SVGRejected("EMBEDDED_RESOURCE_OR_ACTIVE_CONTENT")
+        if tag == "svg" and node is not root:
+            # A nested <svg> creates another viewport with its own viewBox,
+            # clipping and size semantics. This static cut preflight checks
+            # only the root viewport: fail closed rather than count a shape
+            # that can be invisible or rescaled by an unchecked nested SVG.
+            raise SVGRejected("UNVERIFIED_NESTED_VIEWPORT")
         # display:none suppresses rendering of the whole subtree. Unlike
         # visibility:hidden, descendants cannot override this with CSS.
         # Reject escaped CSS earlier; match safe inline declarations here.
