@@ -4,6 +4,7 @@ Requirement: V3.3 stable subject identity, exact float32, non-destructive edit.
 Ticket: #71 (b2a backend slice); UI/route/CAS remain for later micro-lots.
 """
 from dataclasses import replace
+import importlib.util
 from hashlib import sha256
 from pathlib import Path
 import struct
@@ -30,7 +31,8 @@ def _png(width=16, height=12):
             + chunk(b"IEND", b""))
 
 
-class SubjectBrushPreviewTests(unittest.TestCase):
+@unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
+                     'CPU brush dependencies not installed in stdlib-only G0')\nclass SubjectBrushPreviewTests(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
@@ -151,6 +153,19 @@ class SubjectBrushPreviewTests(unittest.TestCase):
         with self.assertRaisesRegex(SubjectBrushPreviewError, "INVALID_SUBJECT_PROOF"):
             preview_subject_brush(forged, **values)
         self.assertEqual(self.path.read_bytes(), before)
+
+
+class SubjectBrushPreviewAdmissionTests(unittest.TestCase):
+    def test_fail_closed_identity_without_optional_cpu_dependencies(self):
+        # G0 must validate imports and reject malformed identity without
+        # installing numpy/Pillow or executing the production replay.
+        with self.assertRaisesRegex(SubjectBrushPreviewError,
+                                    "INVALID_PREVIEW_IDENTITY"):
+            preview_subject_brush(
+                None, subject_id="not-a-subject", mask_id="base-mask-00",
+                mask_sha256_float32="a" * 64, source_id="source-original",
+                source_sha256="b" * 64, mode="add", radius=0.05,
+                points=[[0.5, 0.5]])
 
 
 if __name__ == "__main__":
