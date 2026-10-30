@@ -10,9 +10,6 @@ from hashlib import sha256
 import json
 import re
 
-import numpy as np
-
-from smartsvg_editor.strokes import StrokeError, apply_strokes, decode
 from .mask_binding_g33e import snapshot_mask_bindings
 from .mask_snapshot_g24 import (
     SNAPSHOT_KEY, SNAPSHOT_PATH, MaskSnapshotError, decode_snapshot,
@@ -94,6 +91,13 @@ def preview_subject_brush(
         "strokes": [{"object": index, "mode": mode,
                      "radius": radius, "points": points}],
     }
+    # Admission/preflight deliberately use stdlib only. Load the existing
+    # CPU replay dependencies only when a real preview is requested.
+    try:
+        import numpy as np
+        from smartsvg_editor.strokes import StrokeError, apply_strokes, decode
+    except ImportError as exc:
+        raise SubjectBrushPreviewError("BRUSH_RUNTIME_UNAVAILABLE") from exc
     try:
         validated = decode(json.dumps(command, allow_nan=False),
                            width=width, height=height, count=count,
@@ -103,7 +107,7 @@ def preview_subject_brush(
         base = np.frombuffer(raw, dtype="<f4").reshape(count, height, width)
         base.flags.writeable = False
         corrected = apply_strokes(base, validated)
-    except (StrokeError, TypeError, ValueError, OverflowError) as exc:
+    except (StrokeError, TypeError, ValueError, OverflowError, RecursionError) as exc:
         raise SubjectBrushPreviewError("INVALID_PREVIEW_STROKE") from exc
     if not np.array_equal(corrected[:index], base[:index]) or not np.array_equal(
             corrected[index + 1:], base[index + 1:]):
