@@ -21,13 +21,167 @@ VECTOR_ELEMENTS = {"path", "rect", "circle", "ellipse", "polygon", "polyline", "
 # Geometry inside these SVG containers is not directly rendered. Counting it
 # would falsely pass a file containing definitions but no visible cut shapes.
 NON_RENDERING_CONTAINERS = {"defs", "symbol", "clipPath", "mask", "pattern", "marker"}
-FORBIDDEN = {"script", "style", "a", "foreignObject", "image", "use", "animate", "animateMotion",
-             "animateTransform", "set", "filter", "feImage", "textPath"}
+FORBIDDEN = {"script", "style", "a", "foreignObject", "image", "use", "animate", "animateColor",
+             "animateMotion", "animateTransform", "set", "discard", "filter", "feImage", "textPath"}
 DIMENSION = re.compile(r"^(\d+(?:\.\d+)?)mm$")
 
 
 class SVGRejected(ValueError):
     pass
+
+
+# Strict syntax check only; no geometric/topological or machine certification.
+_PATH_NUMBER = re.compile(r'[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?')
+_PATH_COMMANDS = 'MmLlHhVvCcSsQqTtAaZz'
+_PATH_ARITY = {'M': 2, 'L': 2, 'H': 1, 'V': 1, 'C': 6, 'S': 4,
+               'Q': 4, 'T': 2, 'A': 7}
+
+
+def _validate_path_data(d: str) -> None:
+    tokens = []
+    pos = 0
+    if re.search(r'^\s*,|,\s*,|,\s*$|,\s*[A-Za-z]|[A-Za-z]\s*,', d):
+        raise SVGRejected('INVALID_PATH_DATA')
+    while pos < len(d):
+        if d[pos].isspace() or d[pos] == ',':
+            pos += 1
+            continue
+        if d[pos] in _PATH_COMMANDS:
+            tokens.append(d[pos])
+            pos += 1
+            continue
+        match = _PATH_NUMBER.match(d, pos)
+        if match is None:
+            raise SVGRejected('INVALID_PATH_DATA')
+        number = float(match.group())
+        if not math.isfinite(number):
+            raise SVGRejected('NONFINITE_PATH_DATA')
+        tokens.append((match.group(), number))
+        pos = match.end()
+        if len(tokens) > 100_000:
+            raise SVGRejected('PATH_TOO_COMPLEX')
+    if not tokens or tokens[0] not in ('M', 'm'):
+        raise SVGRejected('INVALID_PATH_DATA')
+    i, command, drawing_segments = 0, None, 0
+    while i < len(tokens):
+        if isinstance(tokens[i], str):
+            command = tokens[i]
+            i += 1
+            if command in 'Zz':
+                command = None
+                continue
+        if command is None:
+            raise SVGRejected('INVALID_PATH_DATA')
+        arity = _PATH_ARITY[command.upper()]
+        groups = 0
+        while i < len(tokens) and not isinstance(tokens[i], str):
+            if command.upper() == 'A':
+                # SVG arc flags are single digits and may touch each other or x.
+                # Split only those positions, leaving other numeric tokens intact.
+                for flag_index in (i + 3, i + 4):
+                    if flag_index >= len(tokens) or isinstance(tokens[flag_index], str):
+                        raise SVGRejected('INVALID_PATH_DATA')
+                    raw_flag = tokens[flag_index][0]
+                    if not raw_flag or raw_flag[0] not in '01':
+                        raise SVGRejected('INVALID_PATH_DATA')
+                    if len(raw_flag) > 1:
+                        remainder = raw_flag[1:]
+                        try:
+                            remainder_value = float(remainder)
+                        except ValueError as exc:
+                            raise SVGRejected('INVALID_PATH_DATA') from exc
+                        if not math.isfinite(remainder_value):
+                            raise SVGRejected('NONFINITE_PATH_DATA')
+                        tokens[flag_index:flag_index + 1] = [
+                            (raw_flag[0], float(raw_flag[0])),
+                            (remainder, remainder_value),
+                        ]
+                        if len(tokens) > 100_000:
+                            raise SVGRejected('PATH_TOO_COMPLEX')
+            if i + arity > len(tokens) or any(isinstance(t, str) for t in tokens[i:i + arity]):
+                raise SVGRejected('INVALID_PATH_DATA')
+            group = tokens[i:i + arity]
+            if command.upper() == 'A':
+                # SVG 2 normalizes zero/negative radii; this is syntax only.
+                if group[3][0] not in ('0', '1') or group[4][0] not in ('0', '1'):
+                    raise SVGRejected('INVALID_PATH_DATA')
+            if command.upper() != 'M' or groups:
+                drawing_segments += 1
+            groups += 1
+            i += arity
+        if not groups:
+            raise SVGRejected('INVALID_PATH_DATA')
+    if not drawing_segments:
+        raise SVGRejected('NO_DRAWING_PATH')
+
+
+def _validate_points_data(points: str, *, closed: bool) -> None:
+    """Check SVG polyline/polygon point-pair syntax, not topology or cut quality."""
+    if re.search(r'^\s*,|,\s*,|,\s*$', points):
+        raise SVGRejected('INVALID_POINTS_DATA')
+    pos, count = 0, 0
+    while pos < len(points):
+        if points[pos].isspace() or points[pos] == ',':
+            pos += 1
+            continue
+        match = _PATH_NUMBER.match(points, pos)
+        if match is None:
+            raise SVGRejected('INVALID_POINTS_DATA')
+        if not math.isfinite(float(match.group())):
+            raise SVGRejected('NONFINITE_POINTS_DATA')
+        pos = match.end()
+        count += 1
+        if count > 100_000:
+            raise SVGRejected('POINTS_TOO_COMPLEX')
+        # SVG points permit a negative Y directly after X (e.g. '10-5'),
+        # but require a separator between consecutive coordinate pairs.
+        if pos < len(points) and not (
+            points[pos].isspace() or points[pos] == ','
+            or (points[pos] == '-' and count % 2 == 1)
+        ):
+            raise SVGRejected('INVALID_POINTS_DATA')
+    if count % 2 or count < (6 if closed else 4):
+        raise SVGRejected('INVALID_POINTS_DATA')
+
+
+
+# This is a syntax/finite-value guard, not a geometric renderer. Standard SVG
+# length units are accepted; their physical resolution is NOT verified here.
+_SHAPE_LENGTH = re.compile(
+    r"^([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)"
+    r"(?:px|mm|cm|in|pt|pc|em|ex|%)?$"
+)
+_SHAPE_FIELDS = {
+    "rect": ("x", "y", "width", "height", "rx", "ry"),
+    "circle": ("cx", "cy", "r"),
+    "ellipse": ("cx", "cy", "rx", "ry"),
+    "line": ("x1", "y1", "x2", "y2"),
+}
+_SHAPE_POSITIVE = {"rect": ("width", "height"), "circle": ("r",),
+                   "ellipse": ("rx", "ry")}
+_SHAPE_NONNEGATIVE = {"rect": ("rx", "ry")}
+
+
+def _validate_primitive_shape(tag: str, attrs: dict) -> None:
+    if tag == "rect" and not all(key in attrs for key in ("width", "height")):
+        raise SVGRejected("INVALID_SHAPE_GEOMETRY")
+    if tag == "circle" and "r" not in attrs:
+        raise SVGRejected("INVALID_SHAPE_GEOMETRY")
+    if tag == "ellipse" and not ("rx" in attrs or "ry" in attrs):
+        raise SVGRejected("INVALID_SHAPE_GEOMETRY")
+    for key in _SHAPE_FIELDS[tag]:
+        if key not in attrs:
+            continue
+        match = _SHAPE_LENGTH.fullmatch(attrs[key].strip())
+        if match is None:
+            raise SVGRejected("INVALID_SHAPE_GEOMETRY")
+        value = float(match.group(1))
+        if not math.isfinite(value):
+            raise SVGRejected("NONFINITE_SHAPE_GEOMETRY")
+        if key in _SHAPE_POSITIVE.get(tag, ()) and value <= 0:
+            raise SVGRejected("INVALID_SHAPE_GEOMETRY")
+        if key in _SHAPE_NONNEGATIVE.get(tag, ()) and value < 0:
+            raise SVGRejected("INVALID_SHAPE_GEOMETRY")
 
 
 def inspect_svg(path: Path, *, profile: str = "cut", max_bytes: int = 2_000_000) -> dict:
@@ -49,12 +203,16 @@ def inspect_svg(path: Path, *, profile: str = "cut", max_bytes: int = 2_000_000)
         raise SVGRejected("INVALID_XML") from exc
     if root.tag != f"{{{SVG_NS}}}svg":
         raise SVGRejected("NOT_SVG_NAMESPACE")
-    view = root.attrib.get("viewBox", "").replace(",", " ").split()
-    try:
-        coords = tuple(float(v) for v in view)
-    except ValueError as exc:
-        raise SVGRejected("INVALID_VIEWBOX") from exc
-    if len(coords) != 4 or not all(math.isfinite(v) for v in coords) or coords[2] <= 0 or coords[3] <= 0:
+    raw_view = root.attrib.get("viewBox", "")
+    # SVG viewBox requires four numbers separated by comma and/or whitespace.
+    # Replacing commas with spaces would silently accept doubled/trailing commas.
+    if re.search(r"^[ \t\r\n\f]*,|,[ \t\r\n\f]*,|,[ \t\r\n\f]*$", raw_view):
+        raise SVGRejected("INVALID_VIEWBOX")
+    view = re.split(r"[, \t\r\n\f]+", raw_view.strip(" \t\r\n\f"))
+    if len(view) != 4 or any(_PATH_NUMBER.fullmatch(v) is None for v in view):
+        raise SVGRejected("INVALID_VIEWBOX")
+    coords = tuple(float(v) for v in view)
+    if not all(math.isfinite(v) for v in coords) or coords[2] <= 0 or coords[3] <= 0:
         raise SVGRejected("INVALID_VIEWBOX")
     sizes = []
     for key in ("width", "height"):
@@ -76,6 +234,12 @@ def inspect_svg(path: Path, *, profile: str = "cut", max_bytes: int = 2_000_000)
         tag = node.tag.split("}", 1)[1]
         if tag in FORBIDDEN:
             raise SVGRejected("EMBEDDED_RESOURCE_OR_ACTIVE_CONTENT")
+        if tag == "svg" and node is not root:
+            # A nested <svg> creates another viewport with its own viewBox,
+            # clipping and size semantics. This static cut preflight checks
+            # only the root viewport: fail closed rather than count a shape
+            # that can be invisible or rescaled by an unchecked nested SVG.
+            raise SVGRejected("UNVERIFIED_NESTED_VIEWPORT")
         # display:none suppresses rendering of the whole subtree. Unlike
         # visibility:hidden, descendants cannot override this with CSS.
         # Reject escaped CSS earlier; match safe inline declarations here.
@@ -94,13 +258,26 @@ def inspect_svg(path: Path, *, profile: str = "cut", max_bytes: int = 2_000_000)
             # static preflight cannot safely interpret arbitrary CSS: fail closed.
             if "\\" in val or "/*" in val or "*/" in val:
                 raise SVGRejected("OBFUSCATED_CSS_REFERENCE")
+            if local == 'transform' or (local == 'style' and re.search(
+                r'(?:^|;)\s*(?:transform(?:-origin|-box)?|translate|rotate|scale|'
+                r'offset-(?:path|distance|rotate|anchor))\s*:', val, re.I
+            )):
+                # SVG/CSS geometry transforms are not evaluated by this preflight.
+                raise SVGRejected('UNVERIFIED_TRANSFORM')
             if local.lower().startswith("on") or attr.startswith("{" + XLINK_NS + "}"):
                 raise SVGRejected("EVENT_OR_EXTERNAL_REFERENCE")
             if local in ("href", "src") or "url(" in lower or "javascript:" in lower or "data:" in lower:
                 raise SVGRejected("EVENT_OR_EXTERNAL_REFERENCE")
         if tag in VECTOR_ELEMENTS:
-            if tag == "path" and not node.attrib.get("d", "").strip():
-                raise SVGRejected("EMPTY_PATH")
+            if tag in _SHAPE_FIELDS:
+                _validate_primitive_shape(tag, node.attrib)
+            if tag in ('polygon', 'polyline'):
+                _validate_points_data(node.attrib.get('points', ''), closed=(tag == 'polygon'))
+            if tag == "path":
+                data = node.attrib.get("d", "")
+                if not data.strip():
+                    raise SVGRejected("EMPTY_PATH")
+                _validate_path_data(data)
             if not inside_definition:
                 shapes.append(tag)
     if not shapes:
@@ -118,6 +295,9 @@ def inspect_svg(path: Path, *, profile: str = "cut", max_bytes: int = 2_000_000)
         "design_space_import_verified": False,
         "physical_cut_verified": False,
         "vector_editability_guaranteed": False,
+        "path_syntax_checked": True,
+        "geometry_verified": False,
+        "blade_path_verified": False,
     }
 
 
