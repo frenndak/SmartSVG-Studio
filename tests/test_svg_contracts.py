@@ -282,6 +282,44 @@ class SVGContractTests(unittest.TestCase):
 
 
 
+    def test_polygon_polyline_point_lists(self):
+        # Syntax-only: point pairs must be finite and sufficiently numerous.
+        valid = (
+            ('polygon', '0,0 10,0 10,10'),
+            ('polygon', '0 0, 10 0, 10 10, 0 10'),
+            ('polyline', '0,0 10,10'),
+            ('polyline', '-1.5,2e1 10,0 20,5'),
+        )
+        for tag, points in valid:
+            with self.subTest(tag=tag, points=points):
+                p = self.write(self.base(f'<{tag} points="{points}"/>'))
+                result = inspect_svg(p)
+                self.assertEqual(result['vector_elements'], 1)
+                self.assertFalse(result['geometry_verified'])
+
+    def test_malformed_polygon_polyline_point_lists_rejected(self):
+        invalid = (
+            ('polygon', 'garbage'),
+            ('polygon', ''),
+            ('polygon', '0,0 10,10'),        # fewer than three pairs
+            ('polygon', '0,0 10,0 10'),     # odd coordinate count
+            ('polygon', '0,0 10,0 10,nan'),
+            ('polygon', '0,0 10,0 10,1e999'),
+            ('polygon', '0,0,,10,0 10,10'),
+            ('polygon', '0,0 10,0 10,10,'),
+            ('polyline', '0,0'),            # fewer than two pairs
+            ('polyline', '0,0 10,foo'),
+        )
+        for tag, points in invalid:
+            with self.subTest(tag=tag, points=points):
+                p = self.write(self.base(f'<{tag} points="{points}"/>'))
+                with self.assertRaisesRegex(
+                    SVGRejected, 'INVALID_POINTS_DATA|NONFINITE_POINTS_DATA'
+                ):
+                    inspect_svg(p)
+
+
+
 
 if __name__ == "__main__":
     unittest.main()
