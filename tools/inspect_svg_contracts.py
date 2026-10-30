@@ -133,7 +133,12 @@ def _validate_points_data(points: str, *, closed: bool) -> None:
         count += 1
         if count > 100_000:
             raise SVGRejected('POINTS_TOO_COMPLEX')
-        if pos < len(points) and not (points[pos].isspace() or points[pos] == ','):
+        # SVG points permit a negative Y directly after X (e.g. '10-5'),
+        # but require a separator between consecutive coordinate pairs.
+        if pos < len(points) and not (
+            points[pos].isspace() or points[pos] == ','
+            or (points[pos] == '-' and count % 2 == 1)
+        ):
             raise SVGRejected('INVALID_POINTS_DATA')
     if count % 2 or count < (6 if closed else 4):
         raise SVGRejected('INVALID_POINTS_DATA')
