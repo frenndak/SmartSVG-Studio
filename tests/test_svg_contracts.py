@@ -289,6 +289,11 @@ class SVGContractTests(unittest.TestCase):
             ('polygon', '0 0, 10 0, 10 10, 0 10'),
             ('polyline', '0,0 10,10'),
             ('polyline', '-1.5,2e1 10,0 20,5'),
+            # SVG 1.1 coordinate-pair grammar permits compact negative Y.
+            ('polygon', '0-10 10-10 10-20'),
+            ('polygon', '0-10,10-20,20-30'),
+            ('polyline', '0-10 20-30'),
+            ('polyline', '0,0 20-30'),
         )
         for tag, points in valid:
             with self.subTest(tag=tag, points=points):
@@ -309,6 +314,9 @@ class SVGContractTests(unittest.TestCase):
             ('polygon', '0,0 10,0 10,10,'),
             ('polyline', '0,0'),            # fewer than two pairs
             ('polyline', '0,0 10,foo'),
+            ('polyline', '0+10 20+30'),  # positive Y needs a separator
+            ('polyline', '0-10-20 30'),  # pairs need separators
+            ('polygon', '0-10-20-30 30 40'),
         )
         for tag, points in invalid:
             with self.subTest(tag=tag, points=points):
