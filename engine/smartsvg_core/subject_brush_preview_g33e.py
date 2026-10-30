@@ -10,6 +10,7 @@ from hashlib import sha256
 import json
 import re
 
+from .editor_session_g23 import EditorSessionError, parse_editor_document
 from .mask_binding_g33e import snapshot_mask_bindings
 from .mask_snapshot_g24 import (
     SNAPSHOT_KEY, SNAPSHOT_PATH, MaskSnapshotError, decode_snapshot,
@@ -91,15 +92,24 @@ def preview_subject_brush(
         "strokes": [{"object": index, "mode": mode,
                      "radius": radius, "points": points}],
     }
-    # Admission/preflight deliberately use stdlib only. Load the existing
-    # CPU replay dependencies only when a real preview is requested.
+    # Validate the same G2.3 stroke contract before importing optional CPU
+    # dependencies. Invalid user gestures must not be reported as a missing
+    # NumPy/Pillow runtime, and G0 can exercise these failures with stdlib.
+    try:
+        _, canonical = parse_editor_document(
+            json.dumps(command, allow_nan=False),
+            source_dimensions=(width, height),
+        )
+    except (EditorSessionError, TypeError, ValueError, OverflowError,
+            RecursionError) as exc:
+        raise SubjectBrushPreviewError("INVALID_PREVIEW_STROKE") from exc
     try:
         import numpy as np
         from smartsvg_editor.strokes import StrokeError, apply_strokes, decode
     except ImportError as exc:
         raise SubjectBrushPreviewError("BRUSH_RUNTIME_UNAVAILABLE") from exc
     try:
-        validated = decode(json.dumps(command, allow_nan=False),
+        validated = decode(canonical,
                            width=width, height=height, count=count,
                            fingerprint=source_sha256)
         # The G2.4 snapshot is little-endian float32. The replay engine
