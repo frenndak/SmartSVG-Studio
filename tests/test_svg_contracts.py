@@ -62,6 +62,34 @@ class SVGContractTests(unittest.TestCase):
         with self.assertRaisesRegex(SVGRejected, "INVALID_VIEWBOX"):
             inspect_svg(p)
 
+    def test_viewbox_separator_grammar(self):
+        # W3C SVG 2 viewBox: exactly four finite numbers, separated by
+        # whitespace and/or single commas. Never infer a valid viewport from
+        # a malformed comma list.
+        valid = (
+            "0 0 200 250",
+            "0,0,200,250",
+            "0, 0 200,250",
+            " -10 , +5 , 200 , 250 ",
+            "0e0 0 2e2 2.5e2",
+        )
+        for view in valid:
+            with self.subTest(valid=view):
+                result = inspect_svg(self.write(self.base('<circle r="8"/>', view=view)))
+                self.assertEqual(result["vector_elements"], 1)
+                self.assertFalse(result["geometry_verified"])
+
+        invalid = (
+            "0,,0,200,250", "0, ,0,200,250", ",0,0,200,250",
+            "0,0,200,250,", "0 0 200 250, ",
+            "0 0 200 250 99", "0-10 200 250",
+            "0 0 200 250\u00a0", "0 0 0 250", "0 0 200 1e999",
+        )
+        for view in invalid:
+            with self.subTest(invalid=view):
+                with self.assertRaisesRegex(SVGRejected, "INVALID_VIEWBOX"):
+                    inspect_svg(self.write(self.base('<circle r="8"/>', view=view)))
+
     def test_script_forbidden(self):
         p = self.write(self.base("<script>alert('x')</script><circle r='8'/>"))
         with self.assertRaisesRegex(SVGRejected, "EMBEDDED_RESOURCE"):

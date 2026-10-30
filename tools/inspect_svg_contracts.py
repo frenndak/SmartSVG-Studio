@@ -203,12 +203,16 @@ def inspect_svg(path: Path, *, profile: str = "cut", max_bytes: int = 2_000_000)
         raise SVGRejected("INVALID_XML") from exc
     if root.tag != f"{{{SVG_NS}}}svg":
         raise SVGRejected("NOT_SVG_NAMESPACE")
-    view = root.attrib.get("viewBox", "").replace(",", " ").split()
-    try:
-        coords = tuple(float(v) for v in view)
-    except ValueError as exc:
-        raise SVGRejected("INVALID_VIEWBOX") from exc
-    if len(coords) != 4 or not all(math.isfinite(v) for v in coords) or coords[2] <= 0 or coords[3] <= 0:
+    raw_view = root.attrib.get("viewBox", "")
+    # SVG viewBox requires four numbers separated by comma and/or whitespace.
+    # Replacing commas with spaces would silently accept doubled/trailing commas.
+    if re.search(r"^[ \t\r\n\f]*,|,[ \t\r\n\f]*,|,[ \t\r\n\f]*$", raw_view):
+        raise SVGRejected("INVALID_VIEWBOX")
+    view = re.split(r"[, \t\r\n\f]+", raw_view.strip(" \t\r\n\f"))
+    if len(view) != 4 or any(_PATH_NUMBER.fullmatch(v) is None for v in view):
+        raise SVGRejected("INVALID_VIEWBOX")
+    coords = tuple(float(v) for v in view)
+    if not all(math.isfinite(v) for v in coords) or coords[2] <= 0 or coords[3] <= 0:
         raise SVGRejected("INVALID_VIEWBOX")
     sizes = []
     for key in ("width", "height"):
