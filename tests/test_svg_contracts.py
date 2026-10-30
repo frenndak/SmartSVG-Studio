@@ -254,6 +254,23 @@ class SVGContractTests(unittest.TestCase):
                 with self.assertRaisesRegex(SVGRejected, 'UNVERIFIED_TRANSFORM'):
                     inspect_svg(p)
 
+    def test_css_geometry_transforms_rejected(self):
+        # CSS transforms can move cut paths just like SVG transform attributes.
+        styles = (
+            'transform:scale(2)',
+            'fill:red; TRANSFORM : rotate(30deg)',
+            'translate:10px 5px',
+            'rotate:45deg',
+            'scale:2',
+            'offset-path:path(&quot;M0 0 L10 0&quot;)',
+        )
+        for style in styles:
+            with self.subTest(style=style):
+                p = self.write(self.base(
+                    '<path d="M0 0 L2 2" style="' + style + '"/>'))
+                with self.assertRaisesRegex(SVGRejected, 'UNVERIFIED_TRANSFORM'):
+                    inspect_svg(p)
+
     def test_static_path_gate_never_certifies_geometry(self):
         p = self.write(self.base('<path d="M0 0 L0 0"/>'))
         result = inspect_svg(p)

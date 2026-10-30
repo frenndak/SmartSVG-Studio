@@ -179,7 +179,11 @@ def inspect_svg(path: Path, *, profile: str = "cut", max_bytes: int = 2_000_000)
             # static preflight cannot safely interpret arbitrary CSS: fail closed.
             if "\\" in val or "/*" in val or "*/" in val:
                 raise SVGRejected("OBFUSCATED_CSS_REFERENCE")
-            if local == 'transform':
+            if local == 'transform' or (local == 'style' and re.search(
+                r'(?:^|;)\s*(?:transform(?:-origin|-box)?|translate|rotate|scale|'
+                r'offset-(?:path|distance|rotate|anchor))\s*:', val, re.I
+            )):
+                # SVG/CSS geometry transforms are not evaluated by this preflight.
                 raise SVGRejected('UNVERIFIED_TRANSFORM')
             if local.lower().startswith("on") or attr.startswith("{" + XLINK_NS + "}"):
                 raise SVGRejected("EVENT_OR_EXTERNAL_REFERENCE")
