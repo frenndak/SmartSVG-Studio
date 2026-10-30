@@ -61,6 +61,20 @@ def _number(v, label, lower=0.0, upper=1.0):
     return float(v)
 
 
+def _unique_json_pairs(items):
+    """Fail closed on ambiguous JSON keys at any nesting depth.
+
+    G2.3 editor sessions already reject duplicate fields. V21.6 replay must
+    enforce the same rule before a brush command can affect mask pixels.
+    """
+    result = {}
+    for key, value in items:
+        if key in result:
+            raise StrokeError('Champs JSON dupliqués dans les retouches')
+        result[key] = value
+    return result
+
+
 def decode(document, *, width, height, count, fingerprint):
     """Exact versioned schema. Empty string is an empty edit set.
 
@@ -72,8 +86,12 @@ def decode(document, *, width, height, count, fingerprint):
     if not document.strip():
         return []
     try:
-        doc = json.loads(document, parse_constant=lambda x: (_ for _ in ()).throw(ValueError(x)))
-    except (ValueError, TypeError) as exc:
+        doc = json.loads(
+            document,
+            object_pairs_hook=_unique_json_pairs,
+            parse_constant=lambda x: (_ for _ in ()).throw(ValueError(x)),
+        )
+    except (ValueError, TypeError, RecursionError) as exc:
         raise StrokeError('JSON de retouches illisible') from exc
     if not isinstance(doc, dict) or set(doc) != {'version','width','height','count','source','strokes'} or type(doc['version']) is not int or doc['version'] != 1:
         raise StrokeError('Format de corrections incompatible : schéma V21.6 requis')

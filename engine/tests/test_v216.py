@@ -81,6 +81,35 @@ class V216(unittest.TestCase):
             with self.subTest(marks=len(marks)):
                 with self.assertRaises(strokes.StrokeError):node.SmartSVGMaskEditorV216().run(img,document(img,1,marks))
         with self.assertRaises(strokes.StrokeError):node.SmartSVGMaskEditorV216().run(img,'{}')
+    def test_duplicate_brush_json_fields_fail_closed_without_mask_mutation(self):
+        # G2.3 rejects duplicate JSON keys. V21.6 replay must not silently
+        # accept a last-wins stroke command (G3.3e-b2a prerequisite, #71).
+        img=image()
+        base=torch.full((1,48,64),.25,dtype=torch.float32)
+        original=base.clone()
+        valid=document(img,1,[stroke()],base)
+        for old,new in (
+            ('"version": 1', '"version": 2, "version": 1'),
+            ('"mode": "add"', '"mode": "erase", "mode": "add"'),
+            ('"object": 0', '"object": 99, "object": 0'),
+            ('"radius": 0.12', '"radius": 0.01, "radius": 0.12'),
+        ):
+            self.assertIn(old,valid)
+            with self.subTest(field=old):
+                with self.assertRaises(strokes.StrokeError):
+                    node.SmartSVGMaskEditorV216().run(
+                        img,valid.replace(old,new,1),base)
+                self.assertTrue(torch.equal(base,original))
+        # Maliciously deep JSON must produce a bounded user-facing error,
+        # not leak an uncaught RecursionError from the JSON decoder.
+        with self.assertRaises(strokes.StrokeError):
+            node.SmartSVGMaskEditorV216().run(img,'['*1200+']'*1200,base)
+        self.assertTrue(torch.equal(base,original))
+        # A valid canonical document still replays the intended brush.
+        result=node.SmartSVGMaskEditorV216().run(img,valid,base)['result'][0]
+        self.assertEqual(result[0,24,32].item(),1)
+        self.assertTrue(torch.equal(base,original))
+
     def test_empty_document_keeps_base_identically(self):
         img=image();base=torch.rand((2,48,64))
         result=node.SmartSVGMaskEditorV216().run(img,'',base)['result'][0]
