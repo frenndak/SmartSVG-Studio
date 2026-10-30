@@ -114,7 +114,10 @@ class SubjectBrushPreviewTests(unittest.TestCase):
         self.assertGreater(result["changed_pixels"], 0)
         values_after = struct.unpack("<192f", result["preview_float32"])
         self.assertEqual(values_after[6 * 16 + 8], 0.0)
-        self.assertEqual(values_after[0], self.first[0])
+        # The archive stores IEEE-754 float32; compare encoded values rather
+        # than Python's float64 representation of a soft alpha (0.35).
+        self.assertEqual(struct.pack("<f", values_after[0]),
+                         struct.pack("<f", self.first[0]))
         self.assertEqual(self.path.read_bytes(), archive)
         second_project, second_values = self.command(1, mode="erase",
                                                       points=[[0.125, 0.18]])
@@ -143,6 +146,25 @@ class SubjectBrushPreviewTests(unittest.TestCase):
         for changes, code in cases:
             with self.subTest(changes=str(changes)), self.assertRaisesRegex(
                     SubjectBrushPreviewError, code):
+                preview_subject_brush(project, **{**values, **changes})
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_invalid_strokes_rejected_before_optional_cpu_runtime(self):
+        # G2.3 preflight must fail closed even when NumPy/Pillow are absent.
+        project, values = self.command()
+        before = self.path.read_bytes()
+        invalid = [
+            {"radius": -0.01},
+            {"radius": 0.3},
+            {"radius": True},
+            {"radius": float("nan")},
+            {"points": [[1.1, 0.5]]},
+            {"points": [[True, 0.5]]},
+            {"points": [[0.5]]},
+        ]
+        for changes in invalid:
+            with self.subTest(changes=str(changes)), self.assertRaisesRegex(
+                    SubjectBrushPreviewError, "INVALID_PREVIEW_STROKE"):
                 preview_subject_brush(project, **{**values, **changes})
         self.assertEqual(self.path.read_bytes(), before)
 
