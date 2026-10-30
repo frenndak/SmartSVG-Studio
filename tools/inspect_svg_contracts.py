@@ -40,7 +40,7 @@ _PATH_ARITY = {'M': 2, 'L': 2, 'H': 1, 'V': 1, 'C': 6, 'S': 4,
 def _validate_path_data(d: str) -> None:
     tokens = []
     pos = 0
-    if re.search(r'^\s*,|,\s*,|,\s*$', d):
+    if re.search(r'^\s*,|,\s*,|,\s*$|,\s*[A-Za-z]|[A-Za-z]\s*,', d):
         raise SVGRejected('INVALID_PATH_DATA')
     while pos < len(d):
         if d[pos].isspace() or d[pos] == ',':
