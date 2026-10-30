@@ -38,6 +38,30 @@ class SVGContractTests(unittest.TestCase):
         self.assertFalse(result["vector_editability_guaranteed"])
         self.assertEqual(result["width_mm"], 110)
 
+    def test_nested_svg_viewport_is_not_silently_counted(self):
+        # Nested SVG establishes a second viewport, whose clipping, size and
+        # viewBox are not inspected by this deliberately static cut preflight.
+        # A zero-size nested viewport can hide an otherwise valid path.
+        nested_cases = (
+            '<svg width="0" height="0" viewBox="0 0 10 10">'
+            '<path d="M0 0 L10 10"/></svg>',
+            '<svg width="10" height="10" viewBox="0 0 10 10">'
+            '<path d="M0 0 L10 10"/></svg>',
+            '<svg><g><path d="M0 0 L10 10"/></g></svg>',
+        )
+        for nested in nested_cases:
+            with self.subTest(nested=nested[:80]):
+                p = self.write(self.base(nested))
+                with self.assertRaisesRegex(SVGRejected, "UNVERIFIED_NESTED_VIEWPORT"):
+                    inspect_svg(p)
+
+    def test_plain_group_still_counts_visible_cut_shape(self):
+        p = self.write(self.base('<g><path d="M0 0 L10 10"/></g>'))
+        result = inspect_svg(p)
+        self.assertEqual(result["vector_elements"], 1)
+        self.assertFalse(result["geometry_verified"])
+        self.assertFalse(result["physical_cut_verified"])
+
     def test_missing_namespace(self):
         p = self.write('<svg width="20mm" height="25mm" viewBox="0 0 20 25"><path d="M0 0 L1 1"/></svg>')
         with self.assertRaisesRegex(SVGRejected, "NOT_SVG_NAMESPACE"):
