@@ -32,7 +32,8 @@ def _png(width=16, height=12):
 
 
 @unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
-                     'CPU brush dependencies not installed in stdlib-only G0')\nclass SubjectBrushPreviewTests(unittest.TestCase):
+                     'CPU brush dependencies not installed in stdlib-only G0')
+class SubjectBrushPreviewTests(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
