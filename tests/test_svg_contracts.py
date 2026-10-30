@@ -201,7 +201,8 @@ class SVGContractTests(unittest.TestCase):
         bad_paths = (
             'garbage', 'L1 2', 'M0 0 L', 'M0 0 L1',
             'M0 0 L1 2 garbage', 'M0 0 L1e999 2',
-            'M0 0 A 0 4 0 0 1 2 3', 'M0 0 A 4 4 0 2 1 2 3',
+            'M0 0 A 4 4 0 2 1 2 3', 'M0 0 A 4 4 0 0 2 2 3',
+            'M0 0 A4 4 0 20 2 3', 'M0 0 A4 4 0 02 2 3',
             'M0 0 L1 2 Z 4 5', 'M0 0 L1 2,,3 4',
             'M,0 0 L1 2', 'M0 0,L1 2', 'M0 0 L1 2,Z',
             'M0 0 L1 2,M3 4',
@@ -227,6 +228,13 @@ class SVGContractTests(unittest.TestCase):
             'm0 0 1 1 2 2',
             'M0 0 A 4 4 0 1 0 10 10',
             'M0 0 C0 0 2 2 3 3 S5 5 8 8',
+            'M0 0 A4 4 0 01 2 3',       # adjacent arc flags
+            'M0 0 A4 4 0 0110 10',     # flags and x adjacent
+            'M0 0 A4 4 0 0 110 10',    # sweep flag and x adjacent
+            'M0 0 A4 4 0 01-10 10',    # signed x adjacent
+            'M0 0 A0 4 0 01 2 3',      # zero radius becomes line
+            'M0 0 A-4 4 0 01 2 3',     # negative radius normalized
+            'M0 0 A4 4 0 01 2 3 4 4 0 10 5 6',  # repeated arc
         )
         for data in paths:
             with self.subTest(data=data):
