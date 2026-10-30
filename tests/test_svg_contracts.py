@@ -329,5 +329,45 @@ class SVGContractTests(unittest.TestCase):
 
 
 
+    def test_primitive_geometry_numeric_validation(self):
+        # Previously accepted as cut geometry despite malformed/empty shapes.
+        invalid = (
+            '<rect width="garbage" height="5"/>',
+            '<rect width="-5" height="5"/>',
+            '<rect width="0" height="5"/>',
+            '<rect height="5"/>',
+            '<rect width="1e999" height="5"/>',
+            '<rect width="5" height="5" rx="-1"/>',
+            '<circle r="nan"/>',
+            '<circle r="-1"/>',
+            '<circle r="0"/>',
+            '<circle cx="1e999" r="5"/>',
+            '<circle/>',
+            '<ellipse rx="-2" ry="3"/>',
+            '<ellipse rx="0" ry="3"/>',
+            '<ellipse/>',
+            '<line x1="nope" x2="5"/>',
+            '<line x1="1e999" x2="5"/>',
+        )
+        for shape in invalid:
+            with self.subTest(shape=shape):
+                with self.assertRaisesRegex(
+                    SVGRejected, "INVALID_SHAPE_GEOMETRY|NONFINITE_SHAPE_GEOMETRY"
+                ):
+                    inspect_svg(self.write(self.base(shape)))
+
+    def test_primitive_geometry_svg_lengths_still_allowed(self):
+        valid = (
+            '<rect x="-2.5" y=".5" width="10mm" height="2cm" rx="0"/>',
+            '<circle cx="1e1" cy="-2" r="5px"/>',
+            '<ellipse rx="10" ry="5%"/>',
+            '<line x1="-2" y1=".5" x2="10" y2="20"/>',
+        )
+        for shape in valid:
+            with self.subTest(shape=shape):
+                result = inspect_svg(self.write(self.base(shape)))
+                self.assertEqual(result["vector_elements"], 1)
+                self.assertFalse(result["geometry_verified"])
+
 if __name__ == "__main__":
     unittest.main()

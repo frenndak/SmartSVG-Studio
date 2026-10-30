@@ -145,6 +145,45 @@ def _validate_points_data(points: str, *, closed: bool) -> None:
 
 
 
+# This is a syntax/finite-value guard, not a geometric renderer. Standard SVG
+# length units are accepted; their physical resolution is NOT verified here.
+_SHAPE_LENGTH = re.compile(
+    r"^([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)"
+    r"(?:px|mm|cm|in|pt|pc|em|ex|%)?$"
+)
+_SHAPE_FIELDS = {
+    "rect": ("x", "y", "width", "height", "rx", "ry"),
+    "circle": ("cx", "cy", "r"),
+    "ellipse": ("cx", "cy", "rx", "ry"),
+    "line": ("x1", "y1", "x2", "y2"),
+}
+_SHAPE_POSITIVE = {"rect": ("width", "height"), "circle": ("r",),
+                   "ellipse": ("rx", "ry")}
+_SHAPE_NONNEGATIVE = {"rect": ("rx", "ry")}
+
+
+def _validate_primitive_shape(tag: str, attrs: dict) -> None:
+    if tag == "rect" and not all(key in attrs for key in ("width", "height")):
+        raise SVGRejected("INVALID_SHAPE_GEOMETRY")
+    if tag == "circle" and "r" not in attrs:
+        raise SVGRejected("INVALID_SHAPE_GEOMETRY")
+    if tag == "ellipse" and not ("rx" in attrs or "ry" in attrs):
+        raise SVGRejected("INVALID_SHAPE_GEOMETRY")
+    for key in _SHAPE_FIELDS[tag]:
+        if key not in attrs:
+            continue
+        match = _SHAPE_LENGTH.fullmatch(attrs[key].strip())
+        if match is None:
+            raise SVGRejected("INVALID_SHAPE_GEOMETRY")
+        value = float(match.group(1))
+        if not math.isfinite(value):
+            raise SVGRejected("NONFINITE_SHAPE_GEOMETRY")
+        if key in _SHAPE_POSITIVE.get(tag, ()) and value <= 0:
+            raise SVGRejected("INVALID_SHAPE_GEOMETRY")
+        if key in _SHAPE_NONNEGATIVE.get(tag, ()) and value < 0:
+            raise SVGRejected("INVALID_SHAPE_GEOMETRY")
+
+
 def inspect_svg(path: Path, *, profile: str = "cut", max_bytes: int = 2_000_000) -> dict:
     if profile not in {"cut", "editable"}:
         raise SVGRejected("UNKNOWN_PROFILE")
@@ -220,6 +259,8 @@ def inspect_svg(path: Path, *, profile: str = "cut", max_bytes: int = 2_000_000)
             if local in ("href", "src") or "url(" in lower or "javascript:" in lower or "data:" in lower:
                 raise SVGRejected("EVENT_OR_EXTERNAL_REFERENCE")
         if tag in VECTOR_ELEMENTS:
+            if tag in _SHAPE_FIELDS:
+                _validate_primitive_shape(tag, node.attrib)
             if tag in ('polygon', 'polyline'):
                 _validate_points_data(node.attrib.get('points', ''), closed=(tag == 'polygon'))
             if tag == "path":
