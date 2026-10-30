@@ -31,8 +31,6 @@ def _png(width=16, height=12):
             + chunk(b"IEND", b""))
 
 
-@unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
-                     'CPU brush dependencies not installed in stdlib-only G0')
 class SubjectBrushPreviewTests(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
@@ -78,6 +76,8 @@ class SubjectBrushPreviewTests(unittest.TestCase):
         values.update(overrides)
         return project, values
 
+    @unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
+                         'CPU brush dependencies not installed in stdlib-only G0')
     def test_add_preview_is_deterministic_and_does_not_write_archive_or_backup(self):
         project, values = self.command()
         archive = self.path.read_bytes()
@@ -105,6 +105,8 @@ class SubjectBrushPreviewTests(unittest.TestCase):
         self.assertEqual(struct.pack("<f", preview[-1]),
                          struct.pack("<f", self.first[-1]))
 
+    @unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
+                         'CPU brush dependencies not installed in stdlib-only G0')
     def test_erase_preview_preserves_other_subject_and_base_float32(self):
         project, values = self.command(mode="erase")
         archive = self.path.read_bytes()
@@ -121,6 +123,8 @@ class SubjectBrushPreviewTests(unittest.TestCase):
         self.assertEqual(self.path.read_bytes(), archive)
         self.assertEqual(load_project(self.path).resources, project.resources)
 
+    @unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
+                         'CPU brush dependencies not installed in stdlib-only G0')
     def test_fail_closed_on_identity_revision_source_and_stroke(self):
         project, values = self.command()
         before = self.path.read_bytes()
