@@ -125,8 +125,10 @@ export async function requestSubjectBrushPreview(api,report,mask,{
   let timer,abortListener;
   const timeout=new Promise((_,reject)=>{
     timer=setTimeout(()=>{
-      controller.abort();
+      // Settle the timeout first: aborting fetch can synchronously reject
+      // with AbortError, otherwise masking the recoverable timeout reason.
       reject(Error('PREVIEW_TIMEOUT'));
+      controller.abort();
     },timeoutMs);
   });
   const cancelled=signal?new Promise((_,reject)=>{
