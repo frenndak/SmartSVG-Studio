@@ -126,6 +126,7 @@ class PreviewRouteTests(unittest.IsolatedAsyncioTestCase):
                                        ENGINE/'project_routes_g22.py')
         module = module_from_spec(spec)
         spec.loader.exec_module(module)
+        self.route_module = module
         self.routes = Routes()
         self.workspace = module.register_project_routes(
             self.routes, self.temp.name)
@@ -222,7 +223,11 @@ class PreviewRouteTests(unittest.IsolatedAsyncioTestCase):
             try:
                 self.assertTrue(await asyncio.to_thread(entered.wait,2),
                                 'two CPU preview workers did not start')
-                third = await self.handler(Request(command()))
+                # Busy requests must be rejected before scheduling a third
+                # executor job, not merely inside the queued worker.
+                with patch.object(self.route_module.asyncio, 'to_thread',
+                                  side_effect=AssertionError('queued third worker')):
+                    third = await self.handler(Request(command()))
                 self.assertEqual(third.status,429)
                 self.assertEqual(third.payload['error_code'],'PREVIEW_BUSY')
                 self.assertEqual(replay.call_count,2)
@@ -231,6 +236,52 @@ class PreviewRouteTests(unittest.IsolatedAsyncioTestCase):
                 results = await asyncio.gather(first,second,
                                                return_exceptions=True)
             self.assertEqual([r.status for r in results],[200,200])
+
+    async def test_timeout_keeps_admission_closed_until_cpu_workers_exit(self):
+        # wait_for timeout cancels HTTP delivery, NOT the underlying CPU
+        # thread. A third request must not enter the executor queue.
+        entered, release = Event(), Event()
+        lock = Lock()
+        active = 0
+        def slow(*_args, **_kwargs):
+            nonlocal active
+            with lock:
+                active += 1
+                if active == 2:
+                    entered.set()
+            release.wait(3)
+            return {
+                'name':'subject-project','project_sha256':SHA,
+                'subject_id':'subject-'+'d'*32,'mask_id':'base-mask-00',
+                'source_sha256':'f'*64,'dimensions_px':[16,12],
+                'changed_pixels':1,'before_png_l8':BEFORE,
+                'after_png_l8':AFTER,
+            }
+        original_wait_for = asyncio.wait_for
+        async def short_timeout(awaitable, *, timeout):
+            return await original_wait_for(awaitable, timeout=0.05)
+        with patch.object(self.workspace, 'preview_subject_brush_readonly',
+                          side_effect=slow) as replay, patch.object(
+                self.route_module.asyncio, 'wait_for',
+                side_effect=short_timeout):
+            first = asyncio.create_task(self.handler(Request(command())))
+            second = asyncio.create_task(self.handler(Request(command())))
+            try:
+                self.assertTrue(await asyncio.to_thread(entered.wait, 2),
+                                'two CPU workers did not start')
+                responses = await asyncio.gather(first, second)
+                self.assertEqual([r.status for r in responses], [504, 504])
+                self.assertEqual([r.payload['error_code'] for r in responses],
+                                 ['PREVIEW_TIMEOUT', 'PREVIEW_TIMEOUT'])
+                with patch.object(self.route_module.asyncio, 'to_thread',
+                                  side_effect=AssertionError('queued after timeout')):
+                    third = await self.handler(Request(command()))
+                self.assertEqual(third.status, 429)
+                self.assertEqual(third.payload['error_code'], 'PREVIEW_BUSY')
+                self.assertEqual(replay.call_count, 2)
+            finally:
+                release.set()
+                await asyncio.sleep(0.05)
 
     async def test_conflict_runtime_failure_and_non_png_fail_closed(self):
         from importlib import import_module
