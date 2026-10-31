@@ -56,6 +56,7 @@ export function createEditorProjectControls(api,app,node){
     MASQUES_CHANGES:'Image ou masques modifiés : relancer le nœud avant toute opération.',
     EDITEUR_ABSENT:'Champ de retouches introuvable sur le nœud actuel.',
     PROJECT_CHANGED:'Le projet a évolué : le rouvrir puis réessayer.',
+    EDITOR_CHANGED_DURING_SAVE:'Les retouches, la source ou le projet ont changé pendant le contrôle : aucun enregistrement envoyé. Relancer la sauvegarde.',
     INVALID_EDITOR_STROKE:'Retouches invalides : corriger le dessin dans l’éditeur.',
     INCOMPATIBLE_EDITOR_SOURCE:'Dimensions ou empreinte de source différentes.',
     EDITOR_SESSION_NOT_FOUND:'Aucune retouche enregistrée dans ce projet.',
@@ -65,16 +66,32 @@ export function createEditorProjectControls(api,app,node){
   save.addEventListener('click',async()=>{
     try{
       const {name,widget}=preflight();
+      const metaAtStart=meta, linksAtStart=linksAtRun, valueAtStart=widget.value;
+      const sourceAtStart=meta.source, widthAtStart=meta.width,
+            heightAtStart=meta.height, countAtStart=meta.count;
+      const unchanged=()=>meta===metaAtStart && linksAtRun===linksAtStart &&
+        links()===linksAtStart && field.value.trim()===name &&
+        (node.widgets||[]).find(x=>x.name==='retouches_json')===widget &&
+        widget.value===valueAtStart && meta.source===sourceAtStart &&
+        meta.width===widthAtStart && meta.height===heightAtStart &&
+        meta.count===countAtStart;
       const document=widget.value?.trim()
         ? String(widget.value)
         : encodeDocument(meta,[]);
       decodeDocument(meta,document);
       const info=(await request('/project?name='+encodeURIComponent(name))).project;
+      // The GET is asynchronous: never overwrite a project with a snapshot
+      // from before the user edited the brush, source, links or project name.
+      if(!unchanged())throw Error('EDITOR_CHANGED_DURING_SAVE');
       if(info.status!=='PROJECT_HEALTHY'||!info.sha256)
         throw Error('PROJECT_CHANGED');
       if(info.document?.width_mm===undefined)throw Error('PROJECT_CHANGED');
       const result=await post('/editor/save',{name,editor_json:document,
         expected_sha256:info.sha256});
+      if(!unchanged()){
+        note('Ancien état enregistré. Les modifications récentes restent à sauvegarder.');
+        return;
+      }
       note('Retouches conservées : '+String(result.result.strokes_saved)+
         ' trait(s). Masques de base externes, aucune découpe certifiée.');
     }catch(error){note(translate(error.message));}
