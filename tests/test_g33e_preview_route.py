@@ -156,7 +156,7 @@ class PreviewRouteTests(unittest.IsolatedAsyncioTestCase):
                  'ORIGIN_REJECTED',403),
                 (Request([*command()[:-1],('points','not-json')]),
                  'INVALID_PREVIEW_REQUEST',400),
-                (Request([*command(),('points','[]')]),
+                (Request([*command()[:-2],('points','[]'),('points','[]')]),
                  'DUPLICATE_FIELD',400),
                 (Request([(k,'2' if k=='preview_version' else v)
                           for k,v in command()]),
