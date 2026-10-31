@@ -11,6 +11,7 @@ import base64
 import json
 import os
 import re
+import threading
 from urllib.parse import urlsplit
 
 from .smartsvg_core.project_workspace_g22 import ManagedWorkspace, WorkspaceError, MAX_IMAGE_BYTES
@@ -82,6 +83,9 @@ def register_project_routes(routes, trusted_output_root):
     from aiohttp import web
 
     workspace = ManagedWorkspace(trusted_output_root)
+    # Worker-held semaphore: a timed-out HTTP request cannot release a slot
+    # until its non-cancellable read-only CPU thread actually exits.
+    preview_slots = threading.BoundedSemaphore(2)
     prefix = '/smartsvg/g22'
 
     def json_error(code, status=400):
@@ -223,17 +227,24 @@ def register_project_routes(routes, trusted_output_root):
             # by the existing G2.4 snapshot and G2.3 single-stroke limits.
             # Timeout cancels delivery, not the already-running read-only CPU
             # thread. No state is ever persisted by this route.
-            preview = await asyncio.wait_for(asyncio.to_thread(
-                workspace.preview_subject_brush_readonly,
-                fields.get('name'),
-                expected_sha256=fields.get('expected_sha256'),
-                subject_id=fields.get('subject_id'),
-                mask_id=fields.get('mask_id'),
-                mask_sha256_float32=fields.get('mask_sha256_float32'),
-                source_id=fields.get('source_id'),
-                source_sha256=fields.get('source_sha256'),
-                mode=fields.get('mode'),radius=radius,points=points,
-            ),timeout=15)
+            def calculate_preview():
+                if not preview_slots.acquire(blocking=False):
+                    raise WorkspaceError('PREVIEW_BUSY')
+                try:
+                    return workspace.preview_subject_brush_readonly(
+                        fields.get('name'),
+                        expected_sha256=fields.get('expected_sha256'),
+                        subject_id=fields.get('subject_id'),
+                        mask_id=fields.get('mask_id'),
+                        mask_sha256_float32=fields.get('mask_sha256_float32'),
+                        source_id=fields.get('source_id'),
+                        source_sha256=fields.get('source_sha256'),
+                        mode=fields.get('mode'),radius=radius,points=points,
+                    )
+                finally:
+                    preview_slots.release()
+            preview = await asyncio.wait_for(
+                asyncio.to_thread(calculate_preview),timeout=15)
             before, after = preview['before_png_l8'], preview['after_png_l8']
             signature = b'\x89PNG\r\n\x1a\n'
             if any(type(blob) is not bytes or
@@ -264,7 +275,8 @@ def register_project_routes(routes, trusted_output_root):
             status = (409 if code in ('PROJECT_CHANGED',
                        'PROJECT_CHANGED_DURING_PREVIEW',
                        'PROJECT_NOT_HEALTHY') else
-                      503 if code == 'BRUSH_RUNTIME_UNAVAILABLE' else 400)
+                      503 if code == 'BRUSH_RUNTIME_UNAVAILABLE' else
+                      429 if code == 'PREVIEW_BUSY' else 400)
             return error(code,status)
 
     @routes.get(prefix+'/editor')
