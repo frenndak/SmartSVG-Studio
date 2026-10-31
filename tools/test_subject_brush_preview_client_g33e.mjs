@@ -163,7 +163,8 @@ test('Atelier recovers visibly when the preview module cannot load',async()=>{
   const end=html.indexOf('      previewBox.appendChild(calculate);',start);
   assert.ok(start>=0&&end>start);
   const actual=html.slice(start,end);
-  assert.match(actual,/import\\("\\.\\/smartsvg_subject_brush_preview_g33e\\.mjs"\\)/);
+  assert.ok(actual.includes('await import("./smartsvg_subject_brush_preview_g33e.mjs")'),
+    'preview module import must be exercised');
   const failing=actual.replaceAll(
     './smartsvg_subject_brush_preview_g33e.mjs',
     './__smartsvg_intentionally_missing_preview_module__.mjs');
