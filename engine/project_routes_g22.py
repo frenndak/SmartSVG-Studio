@@ -85,8 +85,10 @@ def register_project_routes(routes, trusted_output_root):
     from aiohttp import web
 
     workspace = ManagedWorkspace(trusted_output_root)
-    # Worker-held semaphore: a timed-out HTTP request cannot release a slot
-    # until its non-cancellable read-only CPU thread actually exits.
+    # Limit BOTH submitted executor jobs and actually running CPU previews.
+    # A timed-out/cancelled HTTP request must not free either slot while its
+    # non-cancellable worker is still running.
+    preview_admission_slots = threading.BoundedSemaphore(2)
     preview_slots = threading.BoundedSemaphore(2)
     prefix = '/smartsvg/g22'
 
@@ -283,8 +285,22 @@ def register_project_routes(routes, trusted_output_root):
                     return preview
                 finally:
                     preview_slots.release()
-            preview = await asyncio.wait_for(
-                asyncio.to_thread(calculate_preview),timeout=15)
+            # Reject overload BEFORE queueing an executor job. Worker-only
+            # admission would let arbitrary requests accumulate in the pool.
+            if not preview_admission_slots.acquire(blocking=False):
+                return error('PREVIEW_BUSY',429)
+            async def guarded_preview():
+                try:
+                    return await asyncio.to_thread(calculate_preview)
+                finally:
+                    # This task is shielded from client timeout/cancellation:
+                    # release only after the underlying worker has finished.
+                    preview_admission_slots.release()
+            task = asyncio.create_task(guarded_preview())
+            # Observe errors even if the HTTP request timed out or disconnected.
+            task.add_done_callback(lambda done: (
+                None if done.cancelled() else done.exception()))
+            preview = await asyncio.wait_for(asyncio.shield(task),timeout=15)
             before, after = preview['before_png_l8'], preview['after_png_l8']
             result = {
                 'command_id':command_id,
