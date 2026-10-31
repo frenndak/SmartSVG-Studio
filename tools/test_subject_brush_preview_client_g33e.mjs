@@ -5,6 +5,8 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {webcrypto} from 'node:crypto';
+if(!globalThis.crypto)globalThis.crypto=webcrypto;
 import {requestSubjectBrushPreview,brushPreviewMessage} from
   '../engine/web/js/smartsvg_subject_brush_preview_g33e.mjs';
 
