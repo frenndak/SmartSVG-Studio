@@ -21,6 +21,7 @@ const PNG64='iVBORw0KGgo'+'A'.repeat(80);
 const mask=Object.freeze({
   mask_index:0,mask_id:'base-mask-00',mask_sha256_float32:MASK_SHA,
   subject_id:SUBJECT,subject_ambiguous:false,has_foreground:true,
+  subject_proof_status:'verified',
 });
 function report(){
   return {
@@ -89,6 +90,7 @@ test('invalid proof or empty mask is rejected before any CPU request',async()=>{
   for(const changes of [
     {subject_proof_status:'mismatch'},
     {subject_proof_status:'missing'},
+    {subject_proof_status:undefined},
     {has_foreground:false},
     {subject_ambiguous:true},
   ]){
@@ -104,7 +106,9 @@ test('selected mask proof diverges from verified catalog: no CPU request',async(
   // A caller may hold a changed selection while the catalog remains valid.
   // Validate both snapshots, not only the catalog entry.
   const api=fakeApi();
-  for(const changes of [{has_foreground:false},{subject_ambiguous:true}]){
+  for(const changes of [{has_foreground:false},{subject_ambiguous:true},
+                        {subject_proof_status:undefined},
+                        {subject_proof_status:'unbound'}]){
     await assert.rejects(
       requestSubjectBrushPreview(api,report(),{...mask,...changes}),
       /PREVIEW_SELECTION_STALE/);
