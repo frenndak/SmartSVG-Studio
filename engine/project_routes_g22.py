@@ -235,7 +235,7 @@ def register_project_routes(routes, trusted_output_root):
                 mode=fields.get('mode'),radius=radius,points=points,
             ),timeout=15)
             before, after = preview['before_png_l8'], preview['after_png_l8']
-            signature = b'\\x89PNG\\r\\n\\x1a\\n'
+            signature = b'\x89PNG\r\n\x1a\n'
             if any(type(blob) is not bytes or
                    not blob.startswith(signature) or
                    len(blob)>12*1024*1024 for blob in (before,after)):
