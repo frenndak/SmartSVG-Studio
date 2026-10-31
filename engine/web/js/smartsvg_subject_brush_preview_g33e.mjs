@@ -10,6 +10,7 @@ const MAX_PNG64=4*Math.ceil((12*1024*1024)/3);
 
 export const BRUSH_PREVIEW_MESSAGES=Object.freeze({
   PREVIEW_ABORTED:'Aperçu annulé : aucun masque enregistré.',
+  PREVIEW_SELECTION_STALE:'Diagnostic ou sujet modifié pendant le calcul : actualiser les sujets avant de réessayer.',
   PREVIEW_TIMEOUT:'Aperçu trop long : réessayer sur un sujet plus petit.',
   PREVIEW_BUSY:'Deux aperçus sont déjà calculés : réessayer dans un instant.',
   PROJECT_CHANGED:'Projet modifié : actualiser les sujets avant de réessayer.',
@@ -146,6 +147,12 @@ export async function requestSubjectBrushPreview(api,report,mask,{
     catch{throw Error('INVALID_PREVIEW_OUTPUT');}
     if(!response.ok||body?.ok!==true)
       throw Error(body?.error_code||'PREVIEW_UNAVAILABLE');
+    // The report and mask can be mutated while the HTTP request is pending.
+    // Recheck the full selection proof and its expiry before delivering PNGs.
+    // A successful server response is not authority for a stale browser state.
+    const stillCurrent=validatedCommand(report,mask,{mode,radius,points});
+    if(Object.keys(command).some(key=>stillCurrent[key]!==command[key]))
+      throw Error('PREVIEW_SELECTION_STALE');
     return validatedResponse(body,command,commandId,report);
   })();
   try{
