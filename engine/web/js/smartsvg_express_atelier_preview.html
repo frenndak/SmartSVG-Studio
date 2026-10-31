@@ -424,6 +424,145 @@ function paintRealSubjects(){
       });
       card.appendChild(propose);
     }
+    // G3.3e-b2a: a deliberately simple ONE-POINT gesture on a verified
+    // persistent Subject. Only preview PNGs are returned; no project save.
+    if(!reportAtPaint.identityActionStale&&linkedIdentity&&
+       linkedIdentity.has_foreground===true&&
+       linkedIdentity.subject_ambiguous===false&&
+       (linkedIdentity.subject_proof_status===undefined||
+        linkedIdentity.subject_proof_status==="verified")&&
+       /^subject-[a-f0-9]{32}$/.test(linkedIdentity.subject_id||"")&&
+       Number.isSafeInteger(reportAtPaint.expires_at_ms)&&
+       Date.now()<reportAtPaint.expires_at_ms){
+      const previewBox=document.createElement("section");
+      previewBox.setAttribute("aria-label","Aperçu temporaire du pinceau · sujet "+item.numero);
+      const previewTitle=document.createElement("p");
+      previewTitle.textContent="Pinceau · aperçu uniquement (aucune sauvegarde, aucune découpe certifiée).";
+      previewBox.appendChild(previewTitle);
+      const modeLabel=document.createElement("label");
+      modeLabel.textContent="Geste ";
+      const modeInput=document.createElement("select");
+      for(const [value,label] of [["add","Ajouter"],["erase","Effacer"]]){
+        const option=document.createElement("option");option.value=value;
+        option.textContent=label;modeInput.appendChild(option);
+      }
+      modeLabel.appendChild(modeInput);previewBox.appendChild(modeLabel);
+      const coordinate=(labelText)=>{
+        const label=document.createElement("label");
+        label.textContent=labelText+" (%) ";
+        const input=document.createElement("input");
+        input.type="number";input.min="0";input.max="100";input.step="1";
+        input.value="50";input.style.width="70px";
+        label.appendChild(input);previewBox.appendChild(label);
+        return input;
+      };
+      const xInput=coordinate("Position horizontale");
+      const yInput=coordinate("Position verticale");
+      const calculate=document.createElement("button");
+      calculate.type="button";calculate.textContent="Calculer l’aperçu";
+      const cancel=document.createElement("button");
+      cancel.type="button";cancel.textContent="Annuler";cancel.disabled=true;
+      const previewStatus=document.createElement("p");
+      previewStatus.setAttribute("role","status");
+      previewStatus.setAttribute("aria-live","polite");
+      const previews=document.createElement("div");
+      previews.className="toolbar";
+      const before=document.createElement("img"),after=document.createElement("img");
+      for(const [image,label] of [[before,"Masque avant retouche"],[after,"Masque après retouche temporaire"]]){
+        image.alt=label+" du sujet "+item.numero;
+        image.hidden=true;image.style.maxWidth="180px";
+        image.style.maxHeight="180px";image.style.objectFit="contain";
+        previews.appendChild(image);
+      }
+      let pending=false,abort=null,serial=0;
+      const ready=()=>{
+        pending=false;abort=null;
+        calculate.disabled=reportAtPaint.identityActionStale||
+          realSubjectsData!==reportAtPaint;
+        cancel.disabled=before.hidden&&after.hidden;
+        modeInput.disabled=false;
+        xInput.disabled=false;yInput.disabled=false;
+      };
+      const discardPreview=()=>{
+        before.hidden=true;after.hidden=true;
+        before.removeAttribute("src");after.removeAttribute("src");
+      };
+      cancel.addEventListener("click",()=>{
+        if(!pending&&before.hidden&&after.hidden)return;
+        serial++;abort?.abort();discardPreview();
+        previewStatus.textContent="Aperçu effacé : aucun changement enregistré.";
+        ready();
+      });
+      const invalidateGesture=()=>{
+        if(pending||(before.hidden&&after.hidden))return;
+        discardPreview();
+        previewStatus.textContent="Geste modifié : recalculer l’aperçu.";
+        ready();
+      };
+      for(const input of [modeInput,xInput,yInput]){
+        input.addEventListener("input",invalidateGesture);
+        input.addEventListener("change",invalidateGesture);
+      }
+      button.addEventListener("click",()=>{
+        if(!pending&&before.hidden&&after.hidden)return;
+        serial++;abort?.abort();discardPreview();ready();
+        previewStatus.textContent="Sélection modifiée : aperçu effacé, projet inchangé.";
+      });
+      calculate.addEventListener("click",async()=>{
+        if(pending)return;
+        if(realSubjectsData!==reportAtPaint||reportAtPaint.identityActionStale||
+           Date.now()>=reportAtPaint.expires_at_ms){
+          previewStatus.textContent="Diagnostic périmé : recevoir un nouveau rapport avant l’aperçu.";
+          calculate.disabled=true;return;
+        }
+        const rawX=xInput.value,rawY=yInput.value;
+        const x=Number(rawX)/100,y=Number(rawY)/100;
+        if(rawX===""||rawY===""||!Number.isFinite(x)||!Number.isFinite(y)||
+           x<0||x>1||y<0||y>1){
+          previewStatus.textContent="Coordonnées invalides : choisir 0 à 100 %.";
+          return;
+        }
+        const selectedAtStart=chosenRealSubjects.has(item.numero);
+        const current=++serial;
+        const controller=new AbortController();
+        abort=controller;pending=true;
+        calculate.disabled=true;cancel.disabled=false;
+        modeInput.disabled=true;xInput.disabled=true;yInput.disabled=true;
+        discardPreview();
+        previewStatus.textContent="Calcul CPU en cours… aucun enregistrement.";
+        let previewMessage=null;
+        try{
+          const previewModule=await import("./smartsvg_subject_brush_preview_g33e.mjs");
+          previewMessage=previewModule.brushPreviewMessage;
+          const {requestSubjectBrushPreview}=previewModule;
+          const {api}=await import("../../scripts/api.js");
+          const result=await requestSubjectBrushPreview(
+            api,reportAtPaint,linkedIdentity,{
+              mode:modeInput.value,radius:0.05,points:[[x,y]],
+              signal:controller.signal,timeoutMs:12000,
+            });
+          if(current!==serial||realSubjectsData!==reportAtPaint||
+             reportAtPaint.identityActionStale||
+             chosenRealSubjects.has(item.numero)!==selectedAtStart)return;
+          before.src=result.beforeSrc;after.src=result.afterSrc;
+          before.hidden=false;after.hidden=false;
+          previewStatus.textContent="Aperçu prêt · "+result.changedPixels+
+            " pixel(s) concernés · projet inchangé. Annuler ou refaire un geste.";
+        }catch(error){
+          if(current!==serial||realSubjectsData!==reportAtPaint)return;
+          // The preview module itself may be unavailable. Never retry the
+          // same failed import from the error handler or leave a spinner.
+          previewStatus.textContent=typeof previewMessage==="function"
+            ?previewMessage(error?.message)
+            :"Module de prévisualisation indisponible : recharger l’Atelier avant de réessayer. Aucun changement enregistré.";
+        }finally{
+          if(current===serial)ready();
+        }
+      });
+      previewBox.appendChild(calculate);previewBox.appendChild(cancel);
+      previewBox.appendChild(previewStatus);previewBox.appendChild(previews);
+      card.appendChild(previewBox);
+    }
     const details=document.createElement("details");
     const summary=document.createElement("summary");summary.textContent="Zones à examiner ("+
       (item.zones_a_examiner.length+item.zones_non_affichees)+")";
