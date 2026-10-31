@@ -246,9 +246,13 @@ class PreviewRouteTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(response.status,503)
             self.assertEqual(response.payload['error_code'],'BRUSH_RUNTIME_UNAVAILABLE')
         with patch.object(self.workspace,'preview_subject_brush_readonly',
-                          return_value={'dimensions_px':[16,12],
-                                        'before_png_l8':b'not-png',
-                                        'after_png_l8':AFTER}):
+                          return_value={
+                              'name':'subject-project','project_sha256':SHA,
+                              'subject_id':'subject-'+'d'*32,
+                              'mask_id':'base-mask-00','source_sha256':'f'*64,
+                              'dimensions_px':[16,12], 'changed_pixels':1,
+                              'before_png_l8':b'not-png',
+                              'after_png_l8':AFTER}):
             response=await self.handler(Request(command()))
             self.assertEqual(response.status,400)
             self.assertEqual(response.payload['error_code'],'INVALID_PREVIEW_OUTPUT')
@@ -271,7 +275,10 @@ class PreviewRouteTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(label=label), patch.object(
                     self.workspace, 'preview_subject_brush_readonly',
                     return_value={
-                        'dimensions_px':[16,12],
+                        'name':'subject-project','project_sha256':SHA,
+                        'subject_id':'subject-'+'d'*32,
+                        'mask_id':'base-mask-00','source_sha256':'f'*64,
+                        'dimensions_px':[16,12], 'changed_pixels':1,
                         'before_png_l8':before, 'after_png_l8':after,
                     }) as replay:
                 response = await self.handler(Request(command()))
