@@ -43,6 +43,10 @@ export function createEditorProjectControls(api,app,node){
     for(const [name,value] of Object.entries(parts))form.append(name,value);
     return request(route,{method:'POST',headers:{'X-SmartSVG-UI':'1'},body:form});
   };
+  // Capture exact publication references as well as source SHA: the metadata
+  // object can be mutated in place while a network request is pending.
+  const publication=()=>JSON.stringify([meta?.version,meta?.source,meta?.width,meta?.height,
+    meta?.count,meta?.preview_width,meta?.preview_height,meta?.image,meta?.masks]);
   const preflight=()=>{
     const name=field.value.trim();
     if(!validName(name))throw Error('NOM_INVALIDE');
@@ -56,25 +60,41 @@ export function createEditorProjectControls(api,app,node){
     MASQUES_CHANGES:'Image ou masques modifiés : relancer le nœud avant toute opération.',
     EDITEUR_ABSENT:'Champ de retouches introuvable sur le nœud actuel.',
     PROJECT_CHANGED:'Le projet a évolué : le rouvrir puis réessayer.',
+    EDITOR_CHANGED_DURING_SAVE:'Les retouches, la source ou le projet ont changé pendant le contrôle : aucun enregistrement envoyé. Relancer la sauvegarde.',
+    EDITOR_CHANGED_DURING_RESTORE:'Le projet, la source ou les retouches ont changé pendant le chargement : aucun rechargement appliqué. Réessayer.',
     INVALID_EDITOR_STROKE:'Retouches invalides : corriger le dessin dans l’éditeur.',
     INCOMPATIBLE_EDITOR_SOURCE:'Dimensions ou empreinte de source différentes.',
     EDITOR_SESSION_NOT_FOUND:'Aucune retouche enregistrée dans ce projet.',
+    EDITOR_RESTORE_APPLY_FAILED:'Rechargement interrompu : retouches locales préservées. Vérifier l’affichage puis réessayer.',
     API_INDISPONIBLE:'Service de projets désactivé ou indisponible.',
   })[code]||'Opération refusée : vérifier le projet, sa source et la connexion ComfyUI.';
 
   save.addEventListener('click',async()=>{
     try{
       const {name,widget}=preflight();
+      const metaAtStart=meta, linksAtStart=linksAtRun, valueAtStart=widget.value,
+          publicationAtStart=publication();
+      const unchanged=()=>meta===metaAtStart && linksAtRun===linksAtStart &&
+        links()===linksAtStart && field.value.trim()===name &&
+        (node.widgets||[]).find(x=>x.name==='retouches_json')===widget &&
+        widget.value===valueAtStart && publication()===publicationAtStart;
       const document=widget.value?.trim()
         ? String(widget.value)
         : encodeDocument(meta,[]);
       decodeDocument(meta,document);
       const info=(await request('/project?name='+encodeURIComponent(name))).project;
+      // The GET is asynchronous: never overwrite a project with a snapshot
+      // from before the user edited the brush, source, links or project name.
+      if(!unchanged())throw Error('EDITOR_CHANGED_DURING_SAVE');
       if(info.status!=='PROJECT_HEALTHY'||!info.sha256)
         throw Error('PROJECT_CHANGED');
       if(info.document?.width_mm===undefined)throw Error('PROJECT_CHANGED');
       const result=await post('/editor/save',{name,editor_json:document,
         expected_sha256:info.sha256});
+      if(!unchanged()){
+        note('Ancien état enregistré. Les modifications récentes restent à sauvegarder.');
+        return;
+      }
       note('Retouches conservées : '+String(result.result.strokes_saved)+
         ' trait(s). Masques de base externes, aucune découpe certifiée.');
     }catch(error){note(translate(error.message));}
@@ -82,7 +102,15 @@ export function createEditorProjectControls(api,app,node){
   restore.addEventListener('click',async()=>{
     try{
       const {name,widget}=preflight();
+      const metaAtStart=meta, linksAtStart=linksAtRun, valueAtStart=widget.value,
+          publicationAtStart=publication();
+      const unchanged=()=>meta===metaAtStart && linksAtRun===linksAtStart &&
+        links()===linksAtStart && field.value.trim()===name &&
+        (node.widgets||[]).find(x=>x.name==='retouches_json')===widget &&
+        widget.value===valueAtStart && publication()===publicationAtStart;
       const session=(await request('/editor?name='+encodeURIComponent(name))).session;
+      // Never apply an asynchronous response to a different local editor state.
+      if(!unchanged())throw Error('EDITOR_CHANGED_DURING_RESTORE');
       if(!session||session.base_masks_persisted!==false)
         throw Error('SESSION_INCOMPATIBLE');
       // Critical: node model checks exact sha256(image + base masks), dimensions,
@@ -91,14 +119,21 @@ export function createEditorProjectControls(api,app,node){
       if(typeof window?.confirm!=='function' ||
          !window.confirm('Remplacer les retouches de ce nœud par '+
              validated.length+' trait(s) du projet ?'))return;
-      if(links()!==linksAtRun)throw Error('MASQUES_CHANGES');
+      if(!unchanged())throw Error('EDITOR_CHANGED_DURING_RESTORE');
       const previous=widget.value;
       try{
         widget.value=session.editor_json;
         widget.callback?.(session.editor_json);
-      }catch(error){widget.value=previous;throw error;}
-      app.graph?.change?.();
-      node.setDirtyCanvas?.(true,true);
+        app.graph?.change?.();
+        node.setDirtyCanvas?.(true,true);
+      }catch(error){
+        // A failing UI notification must not discard unsaved local strokes.
+        widget.value=previous;
+        try{widget.callback?.(previous);}catch(_rollbackError){
+          // Preserve the widget value even if an external callback fails.
+        }
+        throw Error('EDITOR_RESTORE_APPLY_FAILED');
+      }
       note('Retouches rechargées. Relancer le workflow pour appliquer les masques corrigés.');
     }catch(error){note(translate(error.message));}
   });
