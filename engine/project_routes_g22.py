@@ -6,7 +6,11 @@ never read/write arbitrary files requested by a browser.
 """
 from __future__ import annotations
 
+import asyncio
+import base64
+import json
 import os
+import re
 from urllib.parse import urlsplit
 
 from .smartsvg_core.project_workspace_g22 import ManagedWorkspace, WorkspaceError, MAX_IMAGE_BYTES
@@ -33,7 +37,9 @@ async def _multipart_fields(request, *, image=False):
                'expected_recovery_sha256','expected_pending_sha256',
                'expected_primary_sha256','expected_previous_sha256',
                'confirmed','editor_json','source_id','source_sha256',
-               'mask_index','mask_id','mask_sha256_float32','expires_at_ms'}
+               'mask_index','mask_id','mask_sha256_float32','expires_at_ms',
+               'subject_id','mode','radius','points','preview_version',
+               'command_id'}
     total = 0
     for _ in range(12):
         part = await reader.next()
@@ -44,7 +50,7 @@ async def _multipart_fields(request, *, image=False):
             raise WorkspaceError('UNKNOWN_FIELD')
         if key in fields:
             raise WorkspaceError('DUPLICATE_FIELD')
-        limit = MAX_IMAGE_BYTES if key == 'image' and image else (350000 if key == 'editor_json' else 2000)
+        limit = MAX_IMAGE_BYTES if key == 'image' and image else (350000 if key == 'editor_json' else (4096 if key == 'points' else 2000))
         if key == 'image' and not image:
             raise WorkspaceError('UNEXPECTED_IMAGE')
         chunks = []
@@ -184,6 +190,82 @@ def register_project_routes(routes, trusted_output_root):
                 headers={'Cache-Control':'no-store'})
         except (WorkspaceError,ValueError,TypeError) as exc:
             return json_error(getattr(exc,'code','INVALID_SUBJECT_IDENTITY_REQUEST'))
+
+    @routes.post(prefix+'/subject/preview')
+    async def subject_preview(request):
+        """G3.3e-b2a: opt-in, read-only CPU preview; never save or queue ComfyUI.
+
+        PNGs are transported as base64 only; exact float32 and archive bytes
+        never cross this HTTP boundary. The command_id lets the client discard
+        stale responses; it is not a persistence or deduplication token.
+        """
+        headers = {'Cache-Control':'no-store',
+                   'X-Content-Type-Options':'nosniff'}
+        def error(code, status=400):
+            return web.json_response(
+                {'ok':False,'error_code':code,'certified':False},
+                status=status,headers=headers)
+        if not _browser_origin_ok(request):
+            return error('ORIGIN_REJECTED',403)
+        try:
+            fields = await _multipart_fields(request)
+            if fields.get('preview_version') != '1':
+                raise WorkspaceError('INVALID_PREVIEW_VERSION')
+            command_id = fields.get('command_id')
+            if (type(command_id) is not str or
+                    re.fullmatch(r'[0-9a-f]{32}',command_id) is None):
+                raise WorkspaceError('INVALID_PREVIEW_COMMAND_ID')
+            points = json.loads(fields.get('points',''))
+            if not isinstance(points,list) or not 1 <= len(points) <= 64:
+                raise WorkspaceError('INVALID_PREVIEW_STROKE')
+            radius = float(fields.get('radius',''))
+            # CPU replay is isolated from the async event loop and bounded
+            # by the existing G2.4 snapshot and G2.3 single-stroke limits.
+            # Timeout cancels delivery, not the already-running read-only CPU
+            # thread. No state is ever persisted by this route.
+            preview = await asyncio.wait_for(asyncio.to_thread(
+                workspace.preview_subject_brush_readonly,
+                fields.get('name'),
+                expected_sha256=fields.get('expected_sha256'),
+                subject_id=fields.get('subject_id'),
+                mask_id=fields.get('mask_id'),
+                mask_sha256_float32=fields.get('mask_sha256_float32'),
+                source_id=fields.get('source_id'),
+                source_sha256=fields.get('source_sha256'),
+                mode=fields.get('mode'),radius=radius,points=points,
+            ),timeout=15)
+            before, after = preview['before_png_l8'], preview['after_png_l8']
+            signature = b'\\x89PNG\\r\\n\\x1a\\n'
+            if any(type(blob) is not bytes or
+                   not blob.startswith(signature) or
+                   len(blob)>12*1024*1024 for blob in (before,after)):
+                raise WorkspaceError('INVALID_PREVIEW_OUTPUT')
+            result = {
+                'command_id':command_id,
+                'name':preview['name'],
+                'project_sha256':preview['project_sha256'],
+                'subject_id':preview['subject_id'],
+                'mask_id':preview['mask_id'],
+                'source_sha256':preview['source_sha256'],
+                'dimensions_px':preview['dimensions_px'],
+                'changed_pixels':preview['changed_pixels'],
+                'before_png_base64':base64.b64encode(before).decode('ascii'),
+                'after_png_base64':base64.b64encode(after).decode('ascii'),
+                'persisted':False,'cricut_certified':False,
+            }
+            return web.json_response(
+                {'ok':True,'preview':result,'certified':False},
+                headers=headers)
+        except asyncio.TimeoutError:
+            return error('PREVIEW_TIMEOUT',504)
+        except (WorkspaceError,ValueError,TypeError,KeyError,
+                RecursionError,OverflowError) as exc:
+            code = getattr(exc,'code','INVALID_PREVIEW_REQUEST')
+            status = (409 if code in ('PROJECT_CHANGED',
+                       'PROJECT_CHANGED_DURING_PREVIEW',
+                       'PROJECT_NOT_HEALTHY') else
+                      503 if code == 'BRUSH_RUNTIME_UNAVAILABLE' else 400)
+            return error(code,status)
 
     @routes.get(prefix+'/editor')
     async def editor(request):
