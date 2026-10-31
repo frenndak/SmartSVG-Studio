@@ -5,6 +5,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {webcrypto} from 'node:crypto';
 if(!globalThis.crypto)globalThis.crypto=webcrypto;
 import {requestSubjectBrushPreview,brushPreviewMessage} from
@@ -134,4 +135,56 @@ test('explicit cancellation discards the late HTTP response',async()=>{
   controller.abort();
   await assert.rejects(request,/PREVIEW_ABORTED/);
   assert.match(brushPreviewMessage('PREVIEW_ABORTED'),/annulé/);
+});
+
+test('Atelier preview dismissal and gesture changes never leave stale PNGs visible',()=>{
+  // Execute the real UI event-handler block without a browser dependency.
+  // A success preview must be dismissible; changing a gesture or subject
+  // invalidates displayed images and aborts an in-flight preview.
+  const html=readFileSync(
+    new URL('../engine/web/js/smartsvg_express_atelier_preview.html',import.meta.url),'utf8');
+  const start=html.indexOf('      let pending=false,abort=null,serial=0;');
+  const end=html.indexOf('      previewBox.appendChild(calculate);',start);
+  assert.ok(start>=0&&end>start,'Atelier preview event handlers found');
+  const el=()=>({
+    hidden:true,disabled:false,src:'',textContent:'',events:{},
+    addEventListener(event,handler){(this.events[event]??=[]).push(handler);},
+    removeAttribute(key){delete this[key];},
+    fire(event){for(const handler of this.events[event]||[])handler();},
+  });
+  const ctx={
+    modeInput:el(),xInput:el(),yInput:el(),calculate:el(),cancel:el(),
+    before:el(),after:el(),previewStatus:el(),button:el(),
+    reportAtPaint:{identityActionStale:false,expires_at_ms:Date.now()+60000},
+    chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},
+  };
+  ctx.realSubjectsData=ctx.reportAtPaint;
+  const names=Object.keys(ctx);
+  const bind=new Function(...names,html.slice(start,end)+
+    '\\nreturn {ready,setPending(v){pending=v},setAbort(v){abort=v},getSerial(){return serial}};');
+  const ui=bind(...names.map(name=>ctx[name]));
+  ctx.before.hidden=false;ctx.after.hidden=false;
+  ctx.before.src='data:image/png;base64,old';ctx.after.src='data:image/png;base64,old';
+  ui.ready();
+  assert.equal(ctx.cancel.disabled,false,'successful preview remains dismissible');
+  ctx.modeInput.fire('input');
+  assert.equal(ctx.before.hidden,true);
+  assert.equal(ctx.after.hidden,true);
+  assert.equal(ctx.before.src,undefined);
+  assert.equal(ctx.cancel.disabled,true);
+  assert.match(ctx.previewStatus.textContent,/Geste modifié/);
+  ctx.before.hidden=false;ctx.after.hidden=false;ui.ready();
+  ctx.cancel.fire('click');
+  assert.equal(ctx.before.hidden,true);
+  assert.equal(ctx.cancel.disabled,true);
+  ctx.before.hidden=false;ctx.after.hidden=false;ui.ready();
+  ctx.xInput.fire('change');
+  assert.equal(ctx.after.hidden,true,'coordinate changes invalidate previews');
+  let aborted=false;
+  ui.setPending(true);ui.setAbort({abort(){aborted=true;}});
+  const previousSerial=ui.getSerial();
+  ctx.button.fire('click');
+  assert.equal(aborted,true,'selection change aborts pending request');
+  assert.equal(ui.getSerial(),previousSerial+1,'late result is invalidated');
+  assert.equal(ctx.cancel.disabled,true);
 });
