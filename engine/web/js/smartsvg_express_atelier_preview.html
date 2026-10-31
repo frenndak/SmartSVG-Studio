@@ -526,8 +526,11 @@ function paintRealSubjects(){
         modeInput.disabled=true;xInput.disabled=true;yInput.disabled=true;
         discardPreview();
         previewStatus.textContent="Calcul CPU en cours… aucun enregistrement.";
+        let previewMessage=null;
         try{
-          const {requestSubjectBrushPreview}=await import("./smartsvg_subject_brush_preview_g33e.mjs");
+          const previewModule=await import("./smartsvg_subject_brush_preview_g33e.mjs");
+          previewMessage=previewModule.brushPreviewMessage;
+          const {requestSubjectBrushPreview}=previewModule;
           const {api}=await import("../../scripts/api.js");
           const result=await requestSubjectBrushPreview(
             api,reportAtPaint,linkedIdentity,{
@@ -543,8 +546,11 @@ function paintRealSubjects(){
             " pixel(s) concernés · projet inchangé. Annuler ou refaire un geste.";
         }catch(error){
           if(current!==serial||realSubjectsData!==reportAtPaint)return;
-          const {brushPreviewMessage}=await import("./smartsvg_subject_brush_preview_g33e.mjs");
-          previewStatus.textContent=brushPreviewMessage(error?.message);
+          // The preview module itself may be unavailable. Never retry the
+          // same failed import from the error handler or leave a spinner.
+          previewStatus.textContent=typeof previewMessage==="function"
+            ?previewMessage(error?.message)
+            :"Module de prévisualisation indisponible : recharger l’Atelier avant de réessayer. Aucun changement enregistré.";
         }finally{
           if(current===serial)ready();
         }
