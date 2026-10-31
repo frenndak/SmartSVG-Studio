@@ -45,7 +45,7 @@ export function createEditorProjectControls(api,app,node){
   };
   // Capture exact publication references as well as source SHA: the metadata
   // object can be mutated in place while a network request is pending.
-  const publication=()=>JSON.stringify([meta?.source,meta?.width,meta?.height,
+  const publication=()=>JSON.stringify([meta?.version,meta?.source,meta?.width,meta?.height,
     meta?.count,meta?.preview_width,meta?.preview_height,meta?.image,meta?.masks]);
   const preflight=()=>{
     const name=field.value.trim();

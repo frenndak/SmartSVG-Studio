@@ -155,3 +155,18 @@ test('in-place publication reference changes invalidate pending save and restore
       ? /aucun enregistrement envoyé/ : /aucun rechargement appliqué/,stage);
   }
 });
+
+test('in-place metadata schema change invalidates pending save and restore',async()=>{
+  for(const stage of ['get','restore']){
+    const h=makePanel(stage);
+    const pending=(stage==='get'?h.save:h.restore).fire('click');
+    assert.equal(h.calls.length,1,stage);
+    h.metadata.version=2;
+    const before=h.widget.value;
+    h.release();await pending;
+    assert.equal(posts(h).length,0,stage);
+    assert.equal(h.widget.value,before,stage);
+    assert.match(h.status.textContent,stage==='get'
+      ? /aucun enregistrement envoyé/ : /aucun rechargement appliqué/,stage);
+  }
+});
