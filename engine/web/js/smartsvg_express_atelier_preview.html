@@ -427,6 +427,10 @@ function paintRealSubjects(){
     // G3.3e-b2a: a deliberately simple ONE-POINT gesture on a verified
     // persistent Subject. Only preview PNGs are returned; no project save.
     if(!reportAtPaint.identityActionStale&&linkedIdentity&&
+       linkedIdentity.has_foreground===true&&
+       linkedIdentity.subject_ambiguous===false&&
+       (linkedIdentity.subject_proof_status===undefined||
+        linkedIdentity.subject_proof_status==="verified")&&
        /^subject-[a-f0-9]{32}$/.test(linkedIdentity.subject_id||"")&&
        Number.isSafeInteger(reportAtPaint.expires_at_ms)&&
        Date.now()<reportAtPaint.expires_at_ms){

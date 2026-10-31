@@ -20,7 +20,7 @@ const SUBJECT='subject-'+'d'.repeat(32);
 const PNG64='iVBORw0KGgo'+'A'.repeat(80);
 const mask=Object.freeze({
   mask_index:0,mask_id:'base-mask-00',mask_sha256_float32:MASK_SHA,
-  subject_id:SUBJECT,subject_ambiguous:false,
+  subject_id:SUBJECT,subject_ambiguous:false,has_foreground:true,
 });
 function report(){
   return {
@@ -82,6 +82,22 @@ test('stale report and unverified subject never call the server',async()=>{
   await assert.rejects(
     requestSubjectBrushPreview(api,report(),{...mask,subject_id:null}),
     /PREVIEW_SELECTION_STALE/);
+  assert.equal(api.calls,0);
+});
+test('invalid proof or empty mask is rejected before any CPU request',async()=>{
+  const api=fakeApi();
+  for(const changes of [
+    {subject_proof_status:'mismatch'},
+    {subject_proof_status:'missing'},
+    {has_foreground:false},
+    {subject_ambiguous:true},
+  ]){
+    const invalid={...mask,...changes};
+    const current=report();
+    current.mask_catalog.items=[invalid];
+    await assert.rejects(requestSubjectBrushPreview(api,current,invalid),
+      /PREVIEW_SELECTION_STALE/);
+  }
   assert.equal(api.calls,0);
 });
 test('invalid coordinates and NaN fail before CPU request',async()=>{
