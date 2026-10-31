@@ -282,5 +282,40 @@ class PreviewRouteTests(unittest.IsolatedAsyncioTestCase):
                 replay.assert_called_once()
 
 
+    async def test_preview_rejects_mismatched_identity_and_invalid_change_counts(self):
+        # A late or faulty CPU result must not be labelled as the selected
+        # Subject/revision. The HTTP boundary must fail closed before PNG
+        # base64 is sent, even when both preview PNGs are structurally valid.
+        valid = {
+            'name':'subject-project','project_sha256':SHA,
+            'subject_id':'subject-'+'d'*32,'mask_id':'base-mask-00',
+            'source_sha256':'f'*64,'dimensions_px':[16,12],
+            'changed_pixels':3,'before_png_l8':BEFORE,'after_png_l8':AFTER,
+        }
+        cases = [
+            ('project', {'name':'another-project'}),
+            ('revision', {'project_sha256':'b'*64}),
+            ('subject', {'subject_id':'subject-'+'e'*32}),
+            ('mask', {'mask_id':'base-mask-01'}),
+            ('source', {'source_sha256':'e'*64}),
+            ('missing_subject', {'subject_id':None}),
+            ('negative_count', {'changed_pixels':-1}),
+            ('oversized_count', {'changed_pixels':193}),
+            ('bool_count', {'changed_pixels':True}),
+            ('float_count', {'changed_pixels':1.5}),
+        ]
+        for label, change in cases:
+            with self.subTest(label=label), patch.object(
+                    self.workspace,'preview_subject_brush_readonly',
+                    return_value={**valid, **change}) as replay:
+                response=await self.handler(Request(command()))
+                self.assertEqual(response.status,400)
+                self.assertEqual(response.payload['error_code'],
+                                 'INVALID_PREVIEW_OUTPUT')
+                self.assertNotIn('preview',response.payload)
+                self.assertEqual(response.headers['Cache-Control'],'no-store')
+                replay.assert_called_once()
+
+
 if __name__ == '__main__':
     unittest.main()
