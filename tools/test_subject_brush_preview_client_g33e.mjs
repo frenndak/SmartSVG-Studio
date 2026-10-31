@@ -96,6 +96,29 @@ test('mismatched late result fails closed without displaying images',async()=>{
   await assert.rejects(requestSubjectBrushPreview(api,report(),mask),
     /INVALID_PREVIEW_OUTPUT/);
 });
+test('late response after proof expiry is rejected before PNG delivery',async()=>{
+  const current=report();
+  const api=fakeApi(p=>{
+    current.expires_at_ms=Date.now()-1;
+    return p;
+  });
+  await assert.rejects(requestSubjectBrushPreview(api,current,mask),
+    /PREVIEW_SELECTION_STALE/);
+  assert.equal(api.calls,1);
+  assert.match(brushPreviewMessage('PREVIEW_SELECTION_STALE'),/modifié/);
+});
+test('late response after subject proof changes is rejected',async()=>{
+  const current=report();
+  const api=fakeApi(p=>{
+    current.mask_catalog.items=[{
+      ...mask,mask_sha256_float32:'0'.repeat(64),
+    }];
+    return p;
+  });
+  await assert.rejects(requestSubjectBrushPreview(api,current,mask),
+    /PREVIEW_SELECTION_STALE/);
+  assert.equal(api.calls,1);
+});
 test('timeout rejects a nonresponding preview and does not certify output',async()=>{
   const api={fetchApi:()=>new Promise(()=>{})};
   await assert.rejects(
