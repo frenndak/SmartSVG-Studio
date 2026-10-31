@@ -475,7 +475,8 @@ function paintRealSubjects(){
         pending=false;abort=null;
         calculate.disabled=reportAtPaint.identityActionStale||
           realSubjectsData!==reportAtPaint;
-        cancel.disabled=true;modeInput.disabled=false;
+        cancel.disabled=before.hidden&&after.hidden;
+        modeInput.disabled=false;
         xInput.disabled=false;yInput.disabled=false;
       };
       const discardPreview=()=>{
@@ -483,10 +484,25 @@ function paintRealSubjects(){
         before.removeAttribute("src");after.removeAttribute("src");
       };
       cancel.addEventListener("click",()=>{
-        if(!pending)return;
+        if(!pending&&before.hidden&&after.hidden)return;
         serial++;abort?.abort();discardPreview();
-        previewStatus.textContent="Aperçu annulé : aucun changement enregistré.";
+        previewStatus.textContent="Aperçu effacé : aucun changement enregistré.";
         ready();
+      });
+      const invalidateGesture=()=>{
+        if(pending||(before.hidden&&after.hidden))return;
+        discardPreview();
+        previewStatus.textContent="Geste modifié : recalculer l’aperçu.";
+        ready();
+      };
+      for(const input of [modeInput,xInput,yInput]){
+        input.addEventListener("input",invalidateGesture);
+        input.addEventListener("change",invalidateGesture);
+      }
+      button.addEventListener("click",()=>{
+        if(!pending&&before.hidden&&after.hidden)return;
+        serial++;abort?.abort();discardPreview();ready();
+        previewStatus.textContent="Sélection modifiée : aperçu effacé, projet inchangé.";
       });
       calculate.addEventListener("click",async()=>{
         if(pending)return;
