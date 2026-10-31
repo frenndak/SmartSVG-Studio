@@ -126,6 +126,21 @@ test('timeout rejects a nonresponding preview and does not certify output',async
     requestSubjectBrushPreview(api,report(),mask,{timeoutMs:10}),
     /PREVIEW_TIMEOUT/);
 });
+test('timeout remains PREVIEW_TIMEOUT when fetch rejects on abort',async()=>{
+  let aborted=false;
+  const api={fetchApi:(_url,{signal})=>new Promise((_resolve,reject)=>{
+    signal.addEventListener('abort',()=>{
+      aborted=true;
+      reject(Error('AbortError'));
+    },{once:true});
+  })};
+  await assert.rejects(
+    requestSubjectBrushPreview(api,report(),mask,{timeoutMs:10}),
+    /PREVIEW_TIMEOUT/);
+  assert.equal(aborted,true,'timeout cancels the underlying HTTP request');
+  assert.match(brushPreviewMessage('PREVIEW_TIMEOUT'),/trop long/);
+});
+
 test('explicit cancellation discards the late HTTP response',async()=>{
   const controller=new AbortController();
   const api={fetchApi:()=>new Promise(()=>{})};
