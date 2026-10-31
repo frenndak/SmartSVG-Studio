@@ -48,8 +48,8 @@ function validatedCommand(report,mask,{mode,radius,points}){
      !SHA.test(mask.mask_sha256_float32||'')||
      linked.subject_ambiguous!==false||linked.has_foreground!==true||
      mask.subject_ambiguous!==false||mask.has_foreground!==true||
-     (linked.subject_proof_status!==undefined&&linked.subject_proof_status!=='verified')||
-     (mask.subject_proof_status!==undefined&&mask.subject_proof_status!=='verified')||
+     linked.subject_proof_status!=='verified'||
+     mask.subject_proof_status!=='verified'||
      !Number.isSafeInteger(report.expires_at_ms)||
      Date.now()>=report.expires_at_ms)
     throw Error('PREVIEW_SELECTION_STALE');
