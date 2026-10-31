@@ -43,6 +43,10 @@ export function createEditorProjectControls(api,app,node){
     for(const [name,value] of Object.entries(parts))form.append(name,value);
     return request(route,{method:'POST',headers:{'X-SmartSVG-UI':'1'},body:form});
   };
+  // Capture exact publication references as well as source SHA: the metadata
+  // object can be mutated in place while a network request is pending.
+  const publication=()=>JSON.stringify([meta?.source,meta?.width,meta?.height,
+    meta?.count,meta?.preview_width,meta?.preview_height,meta?.image,meta?.masks]);
   const preflight=()=>{
     const name=field.value.trim();
     if(!validName(name))throw Error('NOM_INVALIDE');
@@ -67,15 +71,12 @@ export function createEditorProjectControls(api,app,node){
   save.addEventListener('click',async()=>{
     try{
       const {name,widget}=preflight();
-      const metaAtStart=meta, linksAtStart=linksAtRun, valueAtStart=widget.value;
-      const sourceAtStart=meta.source, widthAtStart=meta.width,
-            heightAtStart=meta.height, countAtStart=meta.count;
+      const metaAtStart=meta, linksAtStart=linksAtRun, valueAtStart=widget.value,
+          publicationAtStart=publication();
       const unchanged=()=>meta===metaAtStart && linksAtRun===linksAtStart &&
         links()===linksAtStart && field.value.trim()===name &&
         (node.widgets||[]).find(x=>x.name==='retouches_json')===widget &&
-        widget.value===valueAtStart && meta.source===sourceAtStart &&
-        meta.width===widthAtStart && meta.height===heightAtStart &&
-        meta.count===countAtStart;
+        widget.value===valueAtStart && publication()===publicationAtStart;
       const document=widget.value?.trim()
         ? String(widget.value)
         : encodeDocument(meta,[]);
@@ -100,15 +101,12 @@ export function createEditorProjectControls(api,app,node){
   restore.addEventListener('click',async()=>{
     try{
       const {name,widget}=preflight();
-      const metaAtStart=meta, linksAtStart=linksAtRun, valueAtStart=widget.value;
-      const sourceAtStart=meta.source, widthAtStart=meta.width,
-            heightAtStart=meta.height, countAtStart=meta.count;
+      const metaAtStart=meta, linksAtStart=linksAtRun, valueAtStart=widget.value,
+          publicationAtStart=publication();
       const unchanged=()=>meta===metaAtStart && linksAtRun===linksAtStart &&
         links()===linksAtStart && field.value.trim()===name &&
         (node.widgets||[]).find(x=>x.name==='retouches_json')===widget &&
-        widget.value===valueAtStart && meta.source===sourceAtStart &&
-        meta.width===widthAtStart && meta.height===heightAtStart &&
-        meta.count===countAtStart;
+        widget.value===valueAtStart && publication()===publicationAtStart;
       const session=(await request('/editor?name='+encodeURIComponent(name))).session;
       // Never apply an asynchronous response to a different local editor state.
       if(!unchanged())throw Error('EDITOR_CHANGED_DURING_RESTORE');

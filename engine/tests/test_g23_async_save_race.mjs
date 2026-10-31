@@ -55,8 +55,9 @@ function makePanel(stage='get'){
   const panel=createEditorProjectControls(api,{graph:{}},node);
   const [,name,save,restore,status]=panel.root.children;
   name.value='snails';
-  panel.refresh(meta);
-  return {panel,name,save,restore,status,calls,widget,node,release};
+  const metadata={...meta,image:{...meta.image},masks:meta.masks.map(x=>({...x}))};
+  panel.refresh(metadata);
+  return {panel,name,save,restore,status,calls,widget,node,release,metadata};
 }
 const posts=h=>h.calls.filter(x=>x.route.endsWith('/editor/save'));
 async function untilPost(h){
@@ -134,4 +135,23 @@ test('restore refuses edits made during the confirmation callback',async()=>{
   await h.restore.fire('click');
   assert.equal(h.widget.value,documentAt(0.8));
   assert.match(h.status.textContent,/aucun rechargement appliqué/);
+});
+
+test('in-place publication reference changes invalidate pending save and restore',async()=>{
+  for(const stage of ['get','restore']){
+    const h=makePanel(stage);
+    const pending=(stage==='get'?h.save:h.restore).fire('click');
+    assert.equal(h.calls.length,1,stage);
+    const newId='e'.repeat(24);
+    h.metadata.image.filename=`ed_${newId}_image.png`;
+    h.metadata.masks.forEach((ref,index)=>{
+      ref.filename=`ed_${newId}_mask${String(index).padStart(2,'0')}.png`;
+    });
+    const before=h.widget.value;
+    h.release();await pending;
+    assert.equal(posts(h).length,0,stage);
+    assert.equal(h.widget.value,before,stage);
+    assert.match(h.status.textContent,stage==='get'
+      ? /aucun enregistrement envoyé/ : /aucun rechargement appliqué/,stage);
+  }
 });
