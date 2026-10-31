@@ -100,6 +100,17 @@ test('invalid proof or empty mask is rejected before any CPU request',async()=>{
   }
   assert.equal(api.calls,0);
 });
+test('selected mask proof diverges from verified catalog: no CPU request',async()=>{
+  // A caller may hold a changed selection while the catalog remains valid.
+  // Validate both snapshots, not only the catalog entry.
+  const api=fakeApi();
+  for(const changes of [{has_foreground:false},{subject_ambiguous:true}]){
+    await assert.rejects(
+      requestSubjectBrushPreview(api,report(),{...mask,...changes}),
+      /PREVIEW_SELECTION_STALE/);
+  }
+  assert.equal(api.calls,0);
+});
 test('invalid coordinates and NaN fail before CPU request',async()=>{
   const api=fakeApi();
   for(const points of [[[NaN,0.5]],[[1.01,0.5]],[],[[true,0.5]]]){
