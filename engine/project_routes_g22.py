@@ -14,7 +14,9 @@ import re
 import threading
 from urllib.parse import urlsplit
 
-from .smartsvg_core.project_workspace_g22 import ManagedWorkspace, WorkspaceError, MAX_IMAGE_BYTES
+from .smartsvg_core.project_workspace_g22 import (
+    ManagedWorkspace, WorkspaceError, MAX_IMAGE_BYTES, _verify_png,
+)
 
 
 def _browser_origin_ok(request):
@@ -231,7 +233,7 @@ def register_project_routes(routes, trusted_output_root):
                 if not preview_slots.acquire(blocking=False):
                     raise WorkspaceError('PREVIEW_BUSY')
                 try:
-                    return workspace.preview_subject_brush_readonly(
+                    preview = workspace.preview_subject_brush_readonly(
                         fields.get('name'),
                         expected_sha256=fields.get('expected_sha256'),
                         subject_id=fields.get('subject_id'),
@@ -241,16 +243,30 @@ def register_project_routes(routes, trusted_output_root):
                         source_sha256=fields.get('source_sha256'),
                         mode=fields.get('mode'),radius=radius,points=points,
                     )
+                    # Verify the complete L8 PNG payload (CRC, pixels and
+                    # dimensions) before returning it to the browser. Keep
+                    # this potentially expensive work inside the bounded CPU
+                    # worker, not on aiohttp's event loop.
+                    dims = preview.get('dimensions_px')
+                    if (type(dims) is not list or len(dims) != 2 or
+                            any(type(v) is not int or v < 1 for v in dims)):
+                        raise WorkspaceError('INVALID_PREVIEW_OUTPUT')
+                    for key in ('before_png_l8', 'after_png_l8'):
+                        blob = preview.get(key)
+                        if type(blob) is not bytes or len(blob) > MAX_IMAGE_BYTES:
+                            raise WorkspaceError('INVALID_PREVIEW_OUTPUT')
+                        try:
+                            width, height, mode = _verify_png(blob)
+                        except WorkspaceError as exc:
+                            raise WorkspaceError('INVALID_PREVIEW_OUTPUT') from exc
+                        if (width, height, mode) != (dims[0], dims[1], 'L'):
+                            raise WorkspaceError('INVALID_PREVIEW_OUTPUT')
+                    return preview
                 finally:
                     preview_slots.release()
             preview = await asyncio.wait_for(
                 asyncio.to_thread(calculate_preview),timeout=15)
             before, after = preview['before_png_l8'], preview['after_png_l8']
-            signature = b'\x89PNG\r\n\x1a\n'
-            if any(type(blob) is not bytes or
-                   not blob.startswith(signature) or
-                   len(blob)>12*1024*1024 for blob in (before,after)):
-                raise WorkspaceError('INVALID_PREVIEW_OUTPUT')
             result = {
                 'command_id':command_id,
                 'name':preview['name'],
