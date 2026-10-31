@@ -247,6 +247,21 @@ def register_project_routes(routes, trusted_output_root):
                     # dimensions) before returning it to the browser. Keep
                     # this potentially expensive work inside the bounded CPU
                     # worker, not on aiohttp's event loop.
+                    # The UI must never associate a result with another
+                    # project, revision or Subject, even if an internal
+                    # worker returns a stale/malformed result.
+                    expected = {
+                        'name': fields.get('name'),
+                        'project_sha256': fields.get('expected_sha256'),
+                        'subject_id': fields.get('subject_id'),
+                        'mask_id': fields.get('mask_id'),
+                        'source_sha256': fields.get('source_sha256'),
+                    }
+                    if (type(preview) is not dict or any(
+                            type(preview.get(key)) is not str or
+                            preview[key] != value
+                            for key, value in expected.items())):
+                        raise WorkspaceError('INVALID_PREVIEW_OUTPUT')
                     dims = preview.get('dimensions_px')
                     if (type(dims) is not list or len(dims) != 2 or
                             any(type(v) is not int or v < 1 for v in dims)):
