@@ -266,6 +266,10 @@ def register_project_routes(routes, trusted_output_root):
                     if (type(dims) is not list or len(dims) != 2 or
                             any(type(v) is not int or v < 1 for v in dims)):
                         raise WorkspaceError('INVALID_PREVIEW_OUTPUT')
+                    changed = preview.get('changed_pixels')
+                    if (type(changed) is not int or
+                            not 0 <= changed <= dims[0] * dims[1]):
+                        raise WorkspaceError('INVALID_PREVIEW_OUTPUT')
                     for key in ('before_png_l8', 'after_png_l8'):
                         blob = preview.get(key)
                         if type(blob) is not bytes or len(blob) > MAX_IMAGE_BYTES:
