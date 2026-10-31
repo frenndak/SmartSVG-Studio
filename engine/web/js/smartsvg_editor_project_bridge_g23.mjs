@@ -65,6 +65,7 @@ export function createEditorProjectControls(api,app,node){
     INVALID_EDITOR_STROKE:'Retouches invalides : corriger le dessin dans l’éditeur.',
     INCOMPATIBLE_EDITOR_SOURCE:'Dimensions ou empreinte de source différentes.',
     EDITOR_SESSION_NOT_FOUND:'Aucune retouche enregistrée dans ce projet.',
+    EDITOR_RESTORE_APPLY_FAILED:'Rechargement interrompu : retouches locales préservées. Vérifier l’affichage puis réessayer.',
     API_INDISPONIBLE:'Service de projets désactivé ou indisponible.',
   })[code]||'Opération refusée : vérifier le projet, sa source et la connexion ComfyUI.';
 
@@ -123,9 +124,16 @@ export function createEditorProjectControls(api,app,node){
       try{
         widget.value=session.editor_json;
         widget.callback?.(session.editor_json);
-      }catch(error){widget.value=previous;throw error;}
-      app.graph?.change?.();
-      node.setDirtyCanvas?.(true,true);
+        app.graph?.change?.();
+        node.setDirtyCanvas?.(true,true);
+      }catch(error){
+        // A failing UI notification must not discard unsaved local strokes.
+        widget.value=previous;
+        try{widget.callback?.(previous);}catch(_rollbackError){
+          // Preserve the widget value even if an external callback fails.
+        }
+        throw Error('EDITOR_RESTORE_APPLY_FAILED');
+      }
       note('Retouches rechargées. Relancer le workflow pour appliquer les masques corrigés.');
     }catch(error){note(translate(error.message));}
   });

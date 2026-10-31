@@ -52,12 +52,13 @@ function makePanel(stage='get'){
     }
     throw Error('Unexpected route: '+route);
   }};
-  const panel=createEditorProjectControls(api,{graph:{}},node);
+  const app={graph:{}};
+  const panel=createEditorProjectControls(api,app,node);
   const [,name,save,restore,status]=panel.root.children;
   name.value='snails';
   const metadata={...meta,image:{...meta.image},masks:meta.masks.map(x=>({...x}))};
   panel.refresh(metadata);
-  return {panel,name,save,restore,status,calls,widget,node,release,metadata};
+  return {panel,name,save,restore,status,calls,widget,node,release,metadata,app};
 }
 const posts=h=>h.calls.filter(x=>x.route.endsWith('/editor/save'));
 async function untilPost(h){
@@ -168,5 +169,18 @@ test('in-place metadata schema change invalidates pending save and restore',asyn
     assert.equal(h.widget.value,before,stage);
     assert.match(h.status.textContent,stage==='get'
       ? /aucun enregistrement envoyé/ : /aucun rechargement appliqué/,stage);
+  }
+});
+
+test('restore preserves local strokes when UI callbacks or redraw fail',async()=>{
+  for(const failing of ['callback','graph','canvas']){
+    const h=makePanel('none');
+    const local=h.widget.value;
+    if(failing==='callback')h.widget.callback=()=>{throw Error('callback unavailable');};
+    if(failing==='graph')h.app.graph.change=()=>{throw Error('graph unavailable');};
+    if(failing==='canvas')h.node.setDirtyCanvas=()=>{throw Error('canvas unavailable');};
+    await h.restore.fire('click');
+    assert.equal(h.widget.value,local,failing);
+    assert.match(h.status.textContent,/retouches locales préservées/i,failing);
   }
 });
