@@ -152,6 +152,44 @@ test('explicit cancellation discards the late HTTP response',async()=>{
   assert.match(brushPreviewMessage('PREVIEW_ABORTED'),/annulé/);
 });
 
+
+test('Atelier recovers visibly when the preview module cannot load',async()=>{
+  // Exercise the actual event handler with a deliberately unavailable module.
+  // Previously catch() repeated the failed import, leaving "Calcul CPU en
+  // cours" on screen and rejecting the click handler a second time.
+  const html=readFileSync(
+    new URL('../engine/web/js/smartsvg_express_atelier_preview.html',import.meta.url),'utf8');
+  const start=html.indexOf('      let pending=false,abort=null,serial=0;');
+  const end=html.indexOf('      previewBox.appendChild(calculate);',start);
+  assert.ok(start>=0&&end>start);
+  const actual=html.slice(start,end);
+  assert.match(actual,/import\\("\\.\\/smartsvg_subject_brush_preview_g33e\\.mjs"\\)/);
+  const failing=actual.replaceAll(
+    './smartsvg_subject_brush_preview_g33e.mjs',
+    './__smartsvg_intentionally_missing_preview_module__.mjs');
+  const el=()=>({
+    hidden:true,disabled:false,src:'',textContent:'',events:{},
+    addEventListener(event,handler){(this.events[event]??=[]).push(handler);},
+    removeAttribute(key){delete this[key];},
+  });
+  const ctx={
+    modeInput:el(),xInput:el(),yInput:el(),calculate:el(),cancel:el(),
+    before:el(),after:el(),previewStatus:el(),button:el(),
+    reportAtPaint:{identityActionStale:false,expires_at_ms:Date.now()+60000},
+    chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},
+  };
+  ctx.realSubjectsData=ctx.reportAtPaint;
+  ctx.modeInput.value='add';ctx.xInput.value='50';ctx.yInput.value='50';
+  const names=Object.keys(ctx);
+  new Function(...names,failing)(...names.map(name=>ctx[name]));
+  assert.equal(ctx.calculate.events.click.length,1);
+  await ctx.calculate.events.click[0]();
+  assert.match(ctx.previewStatus.textContent,/Module de prévisualisation indisponible/);
+  assert.match(ctx.previewStatus.textContent,/Aucun changement enregistré/);
+  assert.equal(ctx.calculate.disabled,false,'retry is possible after import failure');
+  assert.equal(ctx.cancel.disabled,true);
+});
+
 test('Atelier preview dismissal and gesture changes never leave stale PNGs visible',()=>{
   // Execute the real UI event-handler block without a browser dependency.
   // A success preview must be dismissible; changing a gesture or subject
