@@ -7,6 +7,8 @@ import asyncio
 import base64
 from importlib.util import module_from_spec, spec_from_file_location
 import json
+import struct
+import zlib
 from pathlib import Path
 import sys
 import tempfile
@@ -18,6 +20,21 @@ from unittest.mock import patch
 ENGINE = Path(__file__).resolve().parents[1] / 'engine'
 PNG = b'\x89PNG\r\n\x1a\n'
 SHA = 'a' * 64
+
+
+def png(width=16, height=12, *, shade=128, color=0):
+    channels = {0:1, 2:3}[color]
+    def chunk(kind, data):
+        return (struct.pack('>I',len(data)) + kind + data
+                + struct.pack('>I',zlib.crc32(kind+data)&0xffffffff))
+    header = struct.pack('>IIBBBBB',width,height,8,color,0,0,0)
+    rows = (b'\x00'+bytes([shade])*(width*channels))*height
+    return (PNG+chunk(b'IHDR',header)+chunk(b'IDAT',zlib.compress(rows))
+            + chunk(b'IEND',b''))
+
+
+BEFORE = png(shade=30)
+AFTER = png(shade=210)
 
 
 class Web:
@@ -116,8 +133,8 @@ class PreviewRouteTests(unittest.IsolatedAsyncioTestCase):
             ('POST','/smartsvg/g22/subject/preview')]
 
     async def test_success_is_opt_in_and_png_only_with_pinned_metadata(self):
-        before = PNG + b'before'
-        after = PNG + b'after'
+        before = BEFORE
+        after = AFTER
         result = {
             'name':'subject-project', 'project_sha256':SHA,
             'subject_id':'subject-'+'d'*32, 'mask_id':'base-mask-00',
@@ -195,8 +212,8 @@ class PreviewRouteTests(unittest.IsolatedAsyncioTestCase):
                 'name':'subject-project','project_sha256':SHA,
                 'subject_id':'subject-'+'d'*32,'mask_id':'base-mask-00',
                 'source_sha256':'f'*64,'dimensions_px':[16,12],
-                'changed_pixels':1,'before_png_l8':PNG+b'before',
-                'after_png_l8':PNG+b'after',
+                'changed_pixels':1,'before_png_l8':BEFORE,
+                'after_png_l8':AFTER,
             }
         with patch.object(self.workspace,'preview_subject_brush_readonly',
                           side_effect=slow) as replay:
@@ -229,11 +246,40 @@ class PreviewRouteTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(response.status,503)
             self.assertEqual(response.payload['error_code'],'BRUSH_RUNTIME_UNAVAILABLE')
         with patch.object(self.workspace,'preview_subject_brush_readonly',
-                          return_value={'before_png_l8':b'not-png',
-                                        'after_png_l8':PNG+b'ok'}):
+                          return_value={'dimensions_px':[16,12],
+                                        'before_png_l8':b'not-png',
+                                        'after_png_l8':AFTER}):
             response=await self.handler(Request(command()))
             self.assertEqual(response.status,400)
             self.assertEqual(response.payload['error_code'],'INVALID_PREVIEW_OUTPUT')
+
+
+    async def test_preview_png_integrity_dimensions_and_grayscale_fail_closed(self):
+        # A PNG signature alone is insufficient: reject corrupted CRC,
+        # truncated pixels, mismatched sizes and non-L8 formats.
+        bad_crc = bytearray(BEFORE)
+        bad_crc[-1] ^= 1
+        cases = [
+            ('truncated', BEFORE[:-1], AFTER),
+            ('bad_crc', bytes(bad_crc), AFTER),
+            ('wrong_dimensions', png(width=15), AFTER),
+            ('rgb_not_l8', png(color=2), AFTER),
+            ('trailing_bytes', BEFORE + b'extra', AFTER),
+            ('invalid_after', BEFORE, AFTER[:-3]),
+        ]
+        for label, before, after in cases:
+            with self.subTest(label=label), patch.object(
+                    self.workspace, 'preview_subject_brush_readonly',
+                    return_value={
+                        'dimensions_px':[16,12],
+                        'before_png_l8':before, 'after_png_l8':after,
+                    }) as replay:
+                response = await self.handler(Request(command()))
+                self.assertEqual(response.status,400)
+                self.assertEqual(response.payload['error_code'],
+                                 'INVALID_PREVIEW_OUTPUT')
+                self.assertEqual(response.headers['Cache-Control'],'no-store')
+                replay.assert_called_once()
 
 
 if __name__ == '__main__':
