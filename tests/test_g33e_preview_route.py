@@ -3,12 +3,14 @@
 V3.3 #71: browser opt-in, same-origin, bounded command, pinned Subject,
 non-persistent PNG previews; CPU replay correctness is tested separately.
 """
+import asyncio
 import base64
 from importlib.util import module_from_spec, spec_from_file_location
 import json
 from pathlib import Path
 import sys
 import tempfile
+from threading import Event, Lock
 from types import ModuleType, SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -177,6 +179,41 @@ class PreviewRouteTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(response.payload['error_code'],code)
                     self.assertEqual(response.headers['Cache-Control'],'no-store')
             replay.assert_not_called()
+
+    async def test_cpu_preview_concurrency_is_bounded_without_leaking_slots(self):
+        entered, release = Event(), Event()
+        lock = Lock()
+        active = 0
+        def slow(*_args, **_kwargs):
+            nonlocal active
+            with lock:
+                active += 1
+                if active == 2:
+                    entered.set()
+            release.wait(3)
+            return {
+                'name':'subject-project','project_sha256':SHA,
+                'subject_id':'subject-'+'d'*32,'mask_id':'base-mask-00',
+                'source_sha256':'f'*64,'dimensions_px':[16,12],
+                'changed_pixels':1,'before_png_l8':PNG+b'before',
+                'after_png_l8':PNG+b'after',
+            }
+        with patch.object(self.workspace,'preview_subject_brush_readonly',
+                          side_effect=slow) as replay:
+            first = asyncio.create_task(self.handler(Request(command())))
+            second = asyncio.create_task(self.handler(Request(command())))
+            try:
+                self.assertTrue(await asyncio.to_thread(entered.wait,2),
+                                'two CPU preview workers did not start')
+                third = await self.handler(Request(command()))
+                self.assertEqual(third.status,429)
+                self.assertEqual(third.payload['error_code'],'PREVIEW_BUSY')
+                self.assertEqual(replay.call_count,2)
+            finally:
+                release.set()
+                results = await asyncio.gather(first,second,
+                                               return_exceptions=True)
+            self.assertEqual([r.status for r in results],[200,200])
 
     async def test_conflict_runtime_failure_and_non_png_fail_closed(self):
         from importlib import import_module
