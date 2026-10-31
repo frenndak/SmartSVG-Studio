@@ -161,7 +161,7 @@ test('Atelier preview dismissal and gesture changes never leave stale PNGs visib
   ctx.realSubjectsData=ctx.reportAtPaint;
   const names=Object.keys(ctx);
   const bind=new Function(...names,html.slice(start,end)+
-    '\\nreturn {ready,setPending(v){pending=v},setAbort(v){abort=v},getSerial(){return serial}};');
+    '\nreturn {ready,setPending(v){pending=v},setAbort(v){abort=v},getSerial(){return serial}};');
   const ui=bind(...names.map(name=>ctx[name]));
   ctx.before.hidden=false;ctx.after.hidden=false;
   ctx.before.src='data:image/png;base64,old';ctx.after.src='data:image/png;base64,old';
