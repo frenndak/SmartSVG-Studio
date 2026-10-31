@@ -57,6 +57,7 @@ export function createEditorProjectControls(api,app,node){
     EDITEUR_ABSENT:'Champ de retouches introuvable sur le nœud actuel.',
     PROJECT_CHANGED:'Le projet a évolué : le rouvrir puis réessayer.',
     EDITOR_CHANGED_DURING_SAVE:'Les retouches, la source ou le projet ont changé pendant le contrôle : aucun enregistrement envoyé. Relancer la sauvegarde.',
+    EDITOR_CHANGED_DURING_RESTORE:'Le projet, la source ou les retouches ont changé pendant le chargement : aucun rechargement appliqué. Réessayer.',
     INVALID_EDITOR_STROKE:'Retouches invalides : corriger le dessin dans l’éditeur.',
     INCOMPATIBLE_EDITOR_SOURCE:'Dimensions ou empreinte de source différentes.',
     EDITOR_SESSION_NOT_FOUND:'Aucune retouche enregistrée dans ce projet.',
@@ -99,7 +100,18 @@ export function createEditorProjectControls(api,app,node){
   restore.addEventListener('click',async()=>{
     try{
       const {name,widget}=preflight();
+      const metaAtStart=meta, linksAtStart=linksAtRun, valueAtStart=widget.value;
+      const sourceAtStart=meta.source, widthAtStart=meta.width,
+            heightAtStart=meta.height, countAtStart=meta.count;
+      const unchanged=()=>meta===metaAtStart && linksAtRun===linksAtStart &&
+        links()===linksAtStart && field.value.trim()===name &&
+        (node.widgets||[]).find(x=>x.name==='retouches_json')===widget &&
+        widget.value===valueAtStart && meta.source===sourceAtStart &&
+        meta.width===widthAtStart && meta.height===heightAtStart &&
+        meta.count===countAtStart;
       const session=(await request('/editor?name='+encodeURIComponent(name))).session;
+      // Never apply an asynchronous response to a different local editor state.
+      if(!unchanged())throw Error('EDITOR_CHANGED_DURING_RESTORE');
       if(!session||session.base_masks_persisted!==false)
         throw Error('SESSION_INCOMPATIBLE');
       // Critical: node model checks exact sha256(image + base masks), dimensions,
@@ -108,7 +120,7 @@ export function createEditorProjectControls(api,app,node){
       if(typeof window?.confirm!=='function' ||
          !window.confirm('Remplacer les retouches de ce nœud par '+
              validated.length+' trait(s) du projet ?'))return;
-      if(links()!==linksAtRun)throw Error('MASQUES_CHANGES');
+      if(!unchanged())throw Error('EDITOR_CHANGED_DURING_RESTORE');
       const previous=widget.value;
       try{
         widget.value=session.editor_json;

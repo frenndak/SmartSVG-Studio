@@ -41,6 +41,11 @@ function makePanel(stage='get'){
         status:'PROJECT_HEALTHY',sha256:'a'.repeat(64),
         document:{width_mm:40}}})};
     }
+    if(route.includes('/editor?')){
+      if(stage==='restore')await gate;
+      return {ok:true,json:async()=>({ok:true,session:{
+        base_masks_persisted:false,editor_json:documentAt(0.4)}})};
+    }
     if(route.endsWith('/editor/save')){
       if(stage==='post')await gate;
       return {ok:true,json:async()=>({ok:true,result:{strokes_saved:1}})};
@@ -48,10 +53,10 @@ function makePanel(stage='get'){
     throw Error('Unexpected route: '+route);
   }};
   const panel=createEditorProjectControls(api,{graph:{}},node);
-  const [,name,save,,status]=panel.root.children;
+  const [,name,save,restore,status]=panel.root.children;
   name.value='snails';
   panel.refresh(meta);
-  return {panel,name,save,status,calls,widget,node,release};
+  return {panel,name,save,restore,status,calls,widget,node,release};
 }
 const posts=h=>h.calls.filter(x=>x.route.endsWith('/editor/save'));
 async function untilPost(h){
@@ -100,4 +105,33 @@ test('edits during POST are not falsely reported as the current saved state',asy
   assert.equal(h.widget.value,documentAt(0.7));
   assert.match(h.status.textContent,/Ancien état enregistré/);
   assert.match(h.status.textContent,/modifications récentes restent à sauvegarder/);
+});
+
+test('unchanged restore applies the validated session',async()=>{
+  const h=makePanel('none');
+  await h.restore.fire('click');
+  assert.equal(h.widget.value,documentAt(0.4));
+  assert.match(h.status.textContent,/Retouches rechargées/);
+});
+test('asynchronous restore cannot overwrite edits or switch projects',async()=>{
+  for(const changed of ['widget','name','links','source']){
+    const h=makePanel('restore');
+    const pending=h.restore.fire('click');
+    assert.equal(h.calls.length,1,changed);
+    if(changed==='widget')h.widget.value=documentAt(0.7);
+    if(changed==='name')h.name.value='another_project';
+    if(changed==='links')h.node.inputs[1].link=99;
+    if(changed==='source')h.panel.refresh({...meta,source:'b'.repeat(64)});
+    const expected=h.widget.value;
+    h.release();await pending;
+    assert.equal(h.widget.value,expected,changed);
+    assert.match(h.status.textContent,/aucun rechargement appliqué/,changed);
+  }
+});
+test('restore refuses edits made during the confirmation callback',async()=>{
+  const h=makePanel('none');
+  globalThis.window.confirm=()=>{h.widget.value=documentAt(0.8);return true;};
+  await h.restore.fire('click');
+  assert.equal(h.widget.value,documentAt(0.8));
+  assert.match(h.status.textContent,/aucun rechargement appliqué/);
 });
