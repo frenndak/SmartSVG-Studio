@@ -109,9 +109,13 @@ export async function requestSubjectBrushPreview(api,report,mask,{
     throw Error('PREVIEW_UNAVAILABLE');
   if(signal?.aborted)throw Error('PREVIEW_ABORTED');
   const command=validatedCommand(report,mask,{mode,radius,points});
-  if(typeof globalThis.crypto?.randomUUID!=='function')
+  // getRandomValues is available even on non-secure HTTP LAN origins,
+  // unlike randomUUID() (secure contexts only). Never use Math.random().
+  if(typeof globalThis.crypto?.getRandomValues!=='function')
     throw Error('PREVIEW_UNAVAILABLE');
-  const commandId=globalThis.crypto.randomUUID().replace(/-/g,'');
+  const nonce=new Uint8Array(16);
+  globalThis.crypto.getRandomValues(nonce);
+  const commandId=Array.from(nonce,b=>b.toString(16).padStart(2,'0')).join('');
   const form=new FormData();
   for(const [key,value] of Object.entries({
     preview_version:'1',command_id:commandId,...command,
