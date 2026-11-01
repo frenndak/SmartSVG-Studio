@@ -74,5 +74,69 @@ class TestDeliveryManifestAtomicG34(unittest.TestCase):
         self.assert_no_staging()
 
 
+
+class TestDeliveryManifestSheetStatusG34(unittest.TestCase):
+    """A complete delivery requires every requested sheet to pass preflight."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.png = self.root / 'sticker.png'
+        self.svg = self.root / 'contour.svg'
+        self.sheet = self.root / 'sheet.png'
+        for path in (self.png, self.svg, self.sheet):
+            path.write_bytes(b'synthetic non-empty fixture')
+
+    def report(self, sheets):
+        return {
+            'dossier': str(self.root),
+            'objets': [{'png': str(self.png), 'svg_contour': str(self.svg)}],
+            'import_direct_cricut_v218': {
+                'objets': [{
+                    'fichier_import': str(self.png),
+                    'statut': 'PRET_POUR_IMPORT_LOCAL',
+                }],
+                'planches': sheets,
+            },
+        }
+
+    def test_failed_sheet_does_not_mark_complete_delivery(self):
+        manifest = delivery.delivery_manifest(self.report([
+            {'statut': 'A_VERIFIER', 'fichier_import': str(self.sheet)},
+        ]))
+        self.assertEqual(manifest['png_import_precontroles'], 1)
+        self.assertEqual(manifest['planches_precontrolees'], 0)
+        self.assertEqual(manifest['statut'], 'REVISIONS_NECESSAIRES')
+
+    def test_missing_requested_sheet_does_not_mark_complete_delivery(self):
+        manifest = delivery.delivery_manifest(self.report([
+            {'statut': 'PRET_POUR_IMPORT_LOCAL',
+             'fichier_import': str(self.root / 'missing.png')},
+        ]))
+        self.assertEqual(manifest['statut'], 'REVISIONS_NECESSAIRES')
+        self.assertEqual(manifest['planches_precontrolees'], 0)
+
+    def test_all_valid_sheets_and_no_sheet_request_are_complete(self):
+        for sheets in (
+            [],
+            [{'statut': 'PRET_POUR_IMPORT_LOCAL',
+              'fichier_import': str(self.sheet)}],
+        ):
+            with self.subTest(sheets=sheets):
+                manifest = delivery.delivery_manifest(self.report(sheets))
+                self.assertEqual(manifest['statut'],
+                                 'CONTROLE_LOCAL_COMPLET_A_REVISER')
+                self.assertEqual(manifest['planches_precontrolees'],
+                                 len(sheets))
+
+    def test_malformed_sheet_collection_fails_closed(self):
+        for sheets in ('not-a-list', [None], [{'statut': 'A_VERIFIER'}, None]):
+            with self.subTest(sheets=sheets):
+                with self.assertRaisesRegex(delivery.DeliveryError,
+                                            'Collection de planches'):
+                    delivery.delivery_manifest(self.report(sheets))
+
+
 if __name__ == '__main__':
     unittest.main()
