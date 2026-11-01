@@ -94,6 +94,21 @@ def delivery_manifest(report):
                 entry['fichier']={'chemin':str(page.relative_to(root)), 'octets':page.stat().st_size,'sha256':_hash(page)}
             except (DeliveryError,OSError) as err:
                 entry['statut']='A_VERIFIER';entry['avertissement']=str(err)[:120]
+        # Equal sheet counts do not establish that the transferred sheet is
+        # the one manufactured at this index. Check current bytes for both,
+        # without mutating either file or trusting handoff metadata alone.
+        if source_sheets_declared and i <= len(source_sheets):
+            manufactured=source_sheets[i-1]
+            if not isinstance(manufactured,dict):
+                sheets_reconciled=False
+            else:
+                try:
+                    original_sheet=_owned_file(root,manufactured.get('fichier'))
+                    if ('fichier' not in entry or
+                            _hash(original_sheet)!=entry['fichier']['sha256']):
+                        sheets_reconciled=False
+                except (OSError,DeliveryError):
+                    sheets_reconciled=False
         sheets.append(entry)
     # An upstream batch can be A_VERIFIER even when its individual PNGs passed
     # (e.g. failed README/report publication or a malformed sheet collection).
