@@ -23,6 +23,19 @@ _SHA = re.compile(r"^[0-9a-f]{64}$")
 MAX_PREVIEW_POINTS = 64
 
 
+def _other_masks_bit_identical(raw, masks, target_index, stride):
+    """Reject any non-target float32 byte change, including signed zero.
+
+    Numeric equality is insufficient for G2.4 snapshots: +0.0 and -0.0
+    compare equal as floats but are different persisted IEEE-754 payloads.
+    Iterate one mask at a time to avoid allocating a second full snapshot.
+    """
+    for index, candidate in enumerate(masks):
+        if index != target_index and candidate != raw[index * stride:(index + 1) * stride]:
+            return False
+    return True
+
+
 class SubjectBrushPreviewError(ValueError):
     def __init__(self, code):
         self.code = code
@@ -119,8 +132,13 @@ def preview_subject_brush(
         corrected = apply_strokes(base, validated)
     except (StrokeError, TypeError, ValueError, OverflowError, RecursionError) as exc:
         raise SubjectBrushPreviewError("INVALID_PREVIEW_STROKE") from exc
-    if not np.array_equal(corrected[:index], base[:index]) or not np.array_equal(
-            corrected[index + 1:], base[index + 1:]):
+    # Compare raw IEEE-754 payloads, not numerical values: np.array_equal
+    # would accept a change from +0.0 to -0.0 in an untouched Subject.
+    # Keep the G2.4 byte-for-byte invariant without copying every mask at once.
+    if (corrected.shape != base.shape or corrected.dtype != base.dtype or
+            not _other_masks_bit_identical(
+                raw, (corrected[i].tobytes(order="C") for i in range(count)),
+                index, stride)):
         raise SubjectBrushPreviewError("PREVIEW_TOUCHED_OTHER_SUBJECT")
     after_bytes = np.ascontiguousarray(corrected[index], dtype="<f4").tobytes()
     changed = int(np.count_nonzero(corrected[index] != base[index]))
