@@ -242,6 +242,25 @@ class TestDeliveryManifestSheetStatusG34(unittest.TestCase):
         self.assertIn('PLANCHES_FABRIQUEES_NON_RECONCILIEES',
                       manifest['avertissements'])
 
+    def test_falsy_malformed_manufactured_sheets_never_become_complete(self):
+        # An explicitly declared empty mapping/string/None must not be treated
+        # as an absent optional collection by the truthy fallback.
+        for key in ('planches', 'planches_cricut'):
+            for invalid in ({}, '', None):
+                with self.subTest(key=key, invalid=repr(invalid)):
+                    report = self.report([])
+                    report[key] = invalid
+                    with self.assertRaisesRegex(delivery.DeliveryError,
+                                                'Collection de planches fabriquees'):
+                        delivery.delivery_manifest(report)
+        # Validate both aliases, even if a valid empty list takes precedence.
+        report = self.report([])
+        report['planches'] = []
+        report['planches_cricut'] = {}
+        with self.assertRaisesRegex(delivery.DeliveryError,
+                                    'Collection de planches fabriquees'):
+            delivery.delivery_manifest(report)
+
     def test_malformed_manufactured_sheet_collection_fails_closed(self):
         report = self.report([])
         report['planches'] = {'unexpected': 'mapping'}
