@@ -81,9 +81,12 @@ def delivery_manifest(report):
     # check the original report when it explicitly declares a sheet collection.
     # Older single-sticker reports without either key remain compatible.
     source_sheets_declared=('planches' in report or 'planches_cricut' in report)
+    # Validate each explicitly declared collection before truthy fallback:
+    # an empty dict/string/None must not disappear into [] and look complete.
+    for key in ('planches', 'planches_cricut'):
+        if key in report and not isinstance(report[key],list):
+            raise DeliveryError('Collection de planches fabriquees invalide')
     source_sheets=report.get('planches') or report.get('planches_cricut') or []
-    if source_sheets_declared and not isinstance(source_sheets,list):
-        raise DeliveryError('Collection de planches fabriquees invalide')
     sheets_reconciled=(not source_sheets_declared or
                        len(source_sheets)==len(requested_sheets))
     for i,check in enumerate(requested_sheets,1):
