@@ -191,6 +191,25 @@ def _write_text_preserving_existing(dest, contents):
         staging.unlink(missing_ok=True)
 
 
+def _classify_handoff_status(result: dict, *, pages_well_formed: bool) -> str:
+    """A batch is ready only if every requested object AND sheet passed preflight.
+
+    Individual PNGs can remain usable in a partial batch, but the batch-level
+    status must not advertise readiness when a sheet failed or was malformed.
+    """
+    objects_ready = result['fichiers_prets'] == result['nombre_objets']
+    pages_ready = pages_well_formed and all(
+        page.get('statut') == 'PRET_POUR_IMPORT_LOCAL'
+        for page in result['planches']
+    )
+    if objects_ready and pages_ready:
+        return ('PRET_POUR_IMPORT_LOCAL_AVEC_CADRES'
+                if result['cartes_rectangulaires'] else 'PRET_POUR_IMPORT_LOCAL')
+    if result['fichiers_prets'] or result['planches_pretes']:
+        return 'PARTIEL'
+    return 'A_VERIFIER'
+
+
 def prepare_cricut_import(report:dict,dpi:int) ->dict:
     """Publish only locally preflighted original Print Then Cut PNGs.
 
@@ -285,9 +304,8 @@ def prepare_cricut_import(report:dict,dpi:int) ->dict:
                 rec['raison']=str(exc)[:200]
                 if 'Destination deja existante' in rec['raison'] or 'Destination creee concurremment' in rec['raison']:
                     rec['avertissement']='ANCIEN PNG EVENTUELLEMENT PRESENT : ne pas l importer sans comparer au rapport courant'
-    result['statut']=('PRET_POUR_IMPORT_LOCAL_AVEC_CADRES' if result['fichiers_prets']==len(objs) and result['cartes_rectangulaires'] else
-                      'PRET_POUR_IMPORT_LOCAL' if result['fichiers_prets']==len(objs) else
-                      'PARTIEL' if result['fichiers_prets'] else 'A_VERIFIER')
+    result['statut'] = _classify_handoff_status(
+        result, pages_well_formed=isinstance(pages, list))
     readme=(
         'SMARTSVG — IMPORT CRICUT EN 1 FICHIER (V21.8)\n\n'
         '0. Lire RAPPORT_IMPORT_CRICUT_V21_8.json : si PARTIEL ou A_VERIFIER,\n'
