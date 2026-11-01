@@ -75,6 +75,30 @@ class TestDeliveryManifestAtomicG34(unittest.TestCase):
         self.assertFalse(self.final.exists())
         self.assert_no_staging()
 
+    def test_fallback_failure_preserves_concurrent_replacement(self):
+        # A competitor replaces the exclusive target after it was opened.
+        # Failure cleanup must never unlink that competitor's file.
+        competitor = b'CONCURRENT MANIFEST MUST SURVIVE'
+        original_fsync = delivery.os.fsync
+        calls = 0
+
+        def replace_and_fail(fd):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return original_fsync(fd)  # fsync of staging file
+            self.final.unlink()
+            self.final.write_bytes(competitor)
+            raise OSError(errno.ENOSPC, 'simulated fallback write failure')
+
+        with patch.object(delivery.os, 'link',
+                          side_effect=OSError(errno.EOPNOTSUPP, 'unsupported')):
+            with patch.object(delivery.os, 'fsync', side_effect=replace_and_fail):
+                with self.assertRaises(OSError):
+                    delivery.write_delivery(self.root, {'version': 1})
+        self.assertEqual(self.final.read_bytes(), competitor)
+        self.assert_no_staging()
+
     def test_invalid_manifest_does_not_publish(self):
         with self.assertRaises(TypeError):
             delivery.write_delivery(self.root, {'invalid': object()})
