@@ -60,6 +60,32 @@ function fakeApi(mutate){
     },
   };
 }
+test('Atelier offers a brush preview only for an explicitly verified Subject',()=>{
+  // Execute the actual HTML eligibility predicate, not a duplicated policy.
+  // Before this regression, a legacy subject without proof still displayed
+  // an enabled preview control although the request client rejects it.
+  const html=readFileSync(
+    new URL('../engine/web/js/smartsvg_express_atelier_preview.html',import.meta.url),'utf8');
+  const marker='    if(!reportAtPaint.identityActionStale&&linkedIdentity&&';
+  const start=html.indexOf(marker);
+  const end=html.indexOf('){\\n      const previewBox',start);
+  assert.ok(start>=0&&end>start,'actual Atelier preview gate exists');
+  const predicate=html.slice(start+7,end);
+  const visible=new Function('reportAtPaint','linkedIdentity',
+    'return Boolean('+predicate+');');
+  const reportAtPaint={identityActionStale:false,expires_at_ms:Date.now()+60000};
+  const base={has_foreground:true,subject_ambiguous:false,
+    subject_id:'subject-'+'a'.repeat(32)};
+  assert.equal(visible(reportAtPaint,{...base,subject_proof_status:'verified'}),true);
+  assert.equal(visible(reportAtPaint,base),false,'missing proof must not offer a dead-end button');
+  assert.equal(visible(reportAtPaint,{...base,subject_proof_status:'unbound'}),false);
+  assert.equal(visible(reportAtPaint,{...base,subject_proof_status:'ambiguous'}),false);
+  assert.equal(visible({...reportAtPaint,identityActionStale:true},
+    {...base,subject_proof_status:'verified'}),false);
+  assert.equal(visible({...reportAtPaint,expires_at_ms:Date.now()-1},
+    {...base,subject_proof_status:'verified'}),false);
+});
+
 test('valid single-stroke request pins identity and only returns PNGs',async()=>{
   const api=fakeApi();
   const result=await requestSubjectBrushPreview(api,report(),mask);
