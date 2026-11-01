@@ -80,7 +80,13 @@ def delivery_manifest(report):
             except (DeliveryError,OSError) as err:
                 entry['statut']='A_VERIFIER';entry['avertissement']=str(err)[:120]
         sheets.append(entry)
-    complete=(all(e['etat']=='PRECONTROLE_LOCAL_A_VERIFIER' for e in entries)
+    # An upstream batch can be A_VERIFIER even when its individual PNGs passed
+    # (e.g. failed README/report publication or a malformed sheet collection).
+    # Do not promote that incomplete handoff to a complete delivery.
+    upstream_ready=imported.get('statut') in (
+        'PRET_POUR_IMPORT_LOCAL', 'PRET_POUR_IMPORT_LOCAL_AVEC_CADRES')
+    complete=(upstream_ready
+              and all(e['etat']=='PRECONTROLE_LOCAL_A_VERIFIER' for e in entries)
               and all(s['statut']=='PRET_POUR_IMPORT_LOCAL' and 'fichier' in s for s in sheets))
     return {'version':'21.12.2','sujets_fabriques':len(entries),
             'png_import_precontroles':sum(e['etat']=='PRECONTROLE_LOCAL_A_VERIFIER' for e in entries),
