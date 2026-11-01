@@ -77,6 +77,15 @@ def delivery_manifest(report):
     if requested_sheets is None:requested_sheets=[]
     if not isinstance(requested_sheets,list) or any(not isinstance(sheet,dict) for sheet in requested_sheets):
         raise DeliveryError('Collection de planches Cricut invalide')
+    # A stale/truncated handoff may silently omit manufactured sheets. Cross-
+    # check the original report when it explicitly declares a sheet collection.
+    # Older single-sticker reports without either key remain compatible.
+    source_sheets_declared=('planches' in report or 'planches_cricut' in report)
+    source_sheets=report.get('planches') or report.get('planches_cricut') or []
+    if source_sheets_declared and not isinstance(source_sheets,list):
+        raise DeliveryError('Collection de planches fabriquees invalide')
+    sheets_reconciled=(not source_sheets_declared or
+                       len(source_sheets)==len(requested_sheets))
     for i,check in enumerate(requested_sheets,1):
         entry={'index':i,'statut':check.get('statut'),'avertissement':check.get('raison')}
         if check.get('fichier_import'):
@@ -91,7 +100,7 @@ def delivery_manifest(report):
     # Do not promote that incomplete handoff to a complete delivery.
     upstream_ready=imported.get('statut') in (
         'PRET_POUR_IMPORT_LOCAL', 'PRET_POUR_IMPORT_LOCAL_AVEC_CADRES')
-    complete=(upstream_ready
+    complete=(upstream_ready and sheets_reconciled
               and all(e['etat']=='PRECONTROLE_LOCAL_A_VERIFIER' for e in entries)
               and all(s['statut']=='PRET_POUR_IMPORT_LOCAL' and 'fichier' in s for s in sheets))
     return {'version':'21.12.2','sujets_fabriques':len(entries),
@@ -99,6 +108,7 @@ def delivery_manifest(report):
             'planches_precontrolees':sum(s['statut']=='PRET_POUR_IMPORT_LOCAL' and 'fichier' in s for s in sheets),
             'statut':'CONTROLE_LOCAL_COMPLET_A_REVISER' if complete else 'REVISIONS_NECESSAIRES',
             'certification_cricut':False,'validation_physique':False,
+            'avertissements':([] if sheets_reconciled else ['PLANCHES_FABRIQUEES_NON_RECONCILIEES']),
             'action':'Importer les PNG dans Design Space comme Flat Graphic, contrôler l’aperçu et la dimension avant de découper.',
             'objets':entries,'planches':sheets}
 
