@@ -201,6 +201,47 @@ class TestDeliveryManifestSheetStatusG34(unittest.TestCase):
         self.assertEqual(manifest['planches_precontrolees'], 1)
         self.assertEqual(manifest['avertissements'], [])
 
+    def test_equal_sheet_counts_do_not_hide_wrong_sheet_bytes(self):
+        # A stale handoff can repeat one page while omitting another; the
+        # counts and per-page preflight statuses still appear correct.
+        original = self.root / 'manufactured_other.png'
+        original.write_bytes(b'other manufactured sheet bytes')
+        report = self.report([
+            {'statut': 'PRET_POUR_IMPORT_LOCAL', 'fichier_import': str(self.sheet)},
+        ])
+        report['planches'] = [{'statut': 'CREATION_OK', 'fichier': str(original)}]
+        manifest = delivery.delivery_manifest(report)
+        self.assertEqual(manifest['planches_precontrolees'], 1)
+        self.assertEqual(manifest['statut'], 'REVISIONS_NECESSAIRES')
+        self.assertIn('PLANCHES_FABRIQUEES_NON_RECONCILIEES',
+                      manifest['avertissements'])
+        self.assertEqual(original.read_bytes(), b'other manufactured sheet bytes')
+
+    def test_sheet_copy_with_identical_bytes_is_reconciled(self):
+        copied = self.root / 'copied_sheet.png'
+        copied.write_bytes(self.sheet.read_bytes())
+        report = self.report([
+            {'statut': 'PRET_POUR_IMPORT_LOCAL', 'fichier_import': str(copied)},
+        ])
+        report['planches_cricut'] = [
+            {'statut': 'CREATION_OK', 'fichier': str(self.sheet)},
+        ]
+        manifest = delivery.delivery_manifest(report)
+        self.assertEqual(manifest['statut'], 'CONTROLE_LOCAL_COMPLET_A_REVISER')
+        self.assertEqual(manifest['avertissements'], [])
+
+    def test_missing_manufactured_sheet_cannot_be_claimed_ready(self):
+        report = self.report([
+            {'statut': 'PRET_POUR_IMPORT_LOCAL', 'fichier_import': str(self.sheet)},
+        ])
+        report['planches'] = [
+            {'statut': 'CREATION_OK', 'fichier': str(self.root / 'missing_source.png')},
+        ]
+        manifest = delivery.delivery_manifest(report)
+        self.assertEqual(manifest['statut'], 'REVISIONS_NECESSAIRES')
+        self.assertIn('PLANCHES_FABRIQUEES_NON_RECONCILIEES',
+                      manifest['avertissements'])
+
     def test_malformed_manufactured_sheet_collection_fails_closed(self):
         report = self.report([])
         report['planches'] = {'unexpected': 'mapping'}
