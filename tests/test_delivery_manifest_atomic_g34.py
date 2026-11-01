@@ -88,11 +88,12 @@ class TestDeliveryManifestSheetStatusG34(unittest.TestCase):
         for path in (self.png, self.svg, self.sheet):
             path.write_bytes(b'synthetic non-empty fixture')
 
-    def report(self, sheets):
+    def report(self, sheets, *, upstream_status='PRET_POUR_IMPORT_LOCAL'):
         return {
             'dossier': str(self.root),
             'objets': [{'png': str(self.png), 'svg_contour': str(self.svg)}],
             'import_direct_cricut_v218': {
+                'statut': upstream_status,
                 'objets': [{
                     'fichier_import': str(self.png),
                     'statut': 'PRET_POUR_IMPORT_LOCAL',
@@ -129,6 +130,20 @@ class TestDeliveryManifestSheetStatusG34(unittest.TestCase):
                                  'CONTROLE_LOCAL_COMPLET_A_REVISER')
                 self.assertEqual(manifest['planches_precontrolees'],
                                  len(sheets))
+
+    def test_failed_or_missing_upstream_batch_status_never_becomes_complete(self):
+        # A failed handoff metadata write can leave individually valid PNGs.
+        # Delivery must not erase that batch-level warning.
+        for upstream in ('PARTIEL', 'A_VERIFIER', None, 'INFORMATION_INDISPONIBLE'):
+            with self.subTest(upstream=upstream):
+                report = self.report([], upstream_status=upstream)
+                manifest = delivery.delivery_manifest(report)
+                self.assertEqual(manifest['png_import_precontroles'], 1)
+                self.assertEqual(manifest['statut'], 'REVISIONS_NECESSAIRES')
+        missing = self.report([])
+        del missing['import_direct_cricut_v218']['statut']
+        self.assertEqual(delivery.delivery_manifest(missing)['statut'],
+                         'REVISIONS_NECESSAIRES')
 
     def test_malformed_sheet_collection_fails_closed(self):
         for sheets in ('not-a-list', [None], [{'statut': 'A_VERIFIER'}, None]):
