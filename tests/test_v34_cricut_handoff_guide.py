@@ -7,8 +7,11 @@ It does NOT qualify Design Space, Windows, or physical cutting.
 from __future__ import annotations
 
 import ast
+import math
 from pathlib import Path
+import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 
 
 SOURCE = (Path(__file__).resolve().parents[1]
@@ -125,6 +128,75 @@ class TestV34HandoffBatchStatus(unittest.TestCase):
         self.assertTrue(any(keyword.arg == "pages_well_formed"
                             for keyword in calls[0].keywords))
 
+
+
+
+class TestV34PhysicalWidthFailClosed(unittest.TestCase):
+    """Exercise real dependency-free production helpers without cv2/Pillow."""
+
+    @staticmethod
+    def helpers():
+        tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
+        names = {"_positive_mm", "_svg_preflight"}
+        nodes = [node for node in tree.body
+                 if isinstance(node, ast.FunctionDef) and node.name in names]
+        if {node.name for node in nodes} != names:
+            raise AssertionError("Missing production physical-width helpers")
+        class ImportAuditError(ValueError):
+            pass
+        namespace = dict(math=math, Path=Path, ET=ET,
+                         ImportAuditError=ImportAuditError)
+        exec(compile(ast.Module(body=nodes, type_ignores=[]),
+                     str(SOURCE), "exec"), namespace)
+        return namespace
+
+    def test_nonfinite_and_nonpositive_dimensions_are_rejected(self):
+        ns = self.helpers()
+        validate = ns["_positive_mm"]
+        for value in ("nan", "NaN", "inf", "-inf", "1e309",
+                      "0", "-1", "not-a-number", None):
+            with self.subTest(value=value):
+                with self.assertRaises(ns["ImportAuditError"]):
+                    validate(value, "Largeur physique")
+        self.assertEqual(validate(25.4, "Largeur physique"), 25.4)
+        self.assertEqual(validate("25.4", "Largeur physique"), 25.4)
+
+    def test_svg_width_nan_cannot_be_reported_ok_local(self):
+        ns = self.helpers()
+        inspect = ns["_svg_preflight"]
+        with tempfile.TemporaryDirectory() as td:
+            project = Path(td)
+            svg = project / "contour.svg"
+            for value in ("NaN", "Infinity", "-1", "0", "1e309"):
+                with self.subTest(width=value):
+                    svg.write_text(
+                        '<svg xmlns="http://www.w3.org/2000/svg" '
+                        f'width="{value}mm"><path d="M0 0 L1 1"/></svg>',
+                        encoding="utf-8")
+                    self.assertEqual(
+                        inspect(project / "unused.png", str(svg),
+                                project, 25.4)["statut"], "A_VERIFIER")
+            svg.write_text(
+                '<svg xmlns="http://www.w3.org/2000/svg" '
+                'width="25.4mm"><path d="M0 0 L1 1"/></svg>',
+                encoding="utf-8")
+            self.assertEqual(
+                inspect(project / "unused.png", str(svg),
+                        project, 25.4)["statut"], "OK_LOCAL")
+
+    def test_png_handoff_validates_physical_width_before_copy(self):
+        tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
+        function = next(node for node in tree.body
+                        if isinstance(node, ast.FunctionDef)
+                        and node.name == "prepare_cricut_import")
+        calls = [node for node in ast.walk(function)
+                 if isinstance(node, ast.Call)
+                 and isinstance(node.func, ast.Name)
+                 and node.func.id == "_positive_mm"]
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(any(isinstance(arg, ast.Constant)
+                            and arg.value == "Largeur physique"
+                            for arg in calls[0].args))
 
 
 if __name__ == "__main__":

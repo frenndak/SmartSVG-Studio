@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -103,6 +104,17 @@ def _topology(path):
             'alpha_quasi_rectangle':rectangle_entier and not rectangle_exact}
 
 
+def _positive_mm(raw, label):
+    """Reject non-finite or non-positive physical dimensions before preflight."""
+    try:
+        width = float(raw)
+    except (TypeError, ValueError, OverflowError):
+        raise ImportAuditError(f'{label} invalide') from None
+    if not math.isfinite(width) or width <= 0:
+        raise ImportAuditError(f'{label} invalide')
+    return width
+
+
 def _svg_preflight(png:Path,svg_raw,project,expected_width_mm):
     if not svg_raw:return {'statut':'INFORMATION_INDISPONIBLE','raison':'SVG de controle non renseigne'}
     try:
@@ -115,7 +127,7 @@ def _svg_preflight(png:Path,svg_raw,project,expected_width_mm):
         if root.tag.rsplit('}',1)[-1]!='svg':raise ImportAuditError('Racine SVG incorrecte')
         width=root.get('width','')
         if not width.endswith('mm'):raise ImportAuditError('SVG sans largeur physique mm')
-        width=float(width[:-2])
+        width=_positive_mm(width[:-2], 'Largeur SVG')
         paths=[e for e in root.iter() if e.tag.rsplit('}',1)[-1]=='path']
         if not paths:raise ImportAuditError('SVG sans chemin')
         if any(e.tag.rsplit('}',1)[-1] not in ('svg','path','g','title','desc') for e in root.iter()):
@@ -240,7 +252,7 @@ def prepare_cricut_import(report:dict,dpi:int) ->dict:
             rec['source']=str(source)
             physical=obj.get('largeur_finale_avec_marge_mm')
             if physical is not None:
-                physical=float(physical)
+                physical=_positive_mm(physical, 'Largeur physique')
                 expected=geo['taille_px'][0]*25.4/dpi
                 rec['largeur_attendue_mm']=round(physical,3)
                 if abs(physical-expected)>.20:
