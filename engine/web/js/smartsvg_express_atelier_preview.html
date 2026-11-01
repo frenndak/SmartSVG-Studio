@@ -429,8 +429,7 @@ function paintRealSubjects(){
     if(!reportAtPaint.identityActionStale&&linkedIdentity&&
        linkedIdentity.has_foreground===true&&
        linkedIdentity.subject_ambiguous===false&&
-       (linkedIdentity.subject_proof_status===undefined||
-        linkedIdentity.subject_proof_status==="verified")&&
+       linkedIdentity.subject_proof_status==="verified"&&
        /^subject-[a-f0-9]{32}$/.test(linkedIdentity.subject_id||"")&&
        Number.isSafeInteger(reportAtPaint.expires_at_ms)&&
        Date.now()<reportAtPaint.expires_at_ms){
