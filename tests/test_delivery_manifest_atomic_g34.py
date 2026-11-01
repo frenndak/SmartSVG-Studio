@@ -102,6 +102,31 @@ class TestDeliveryManifestSheetStatusG34(unittest.TestCase):
             },
         }
 
+    def test_tampered_handoff_png_is_not_marked_ready(self):
+        # Preflight may have run before a copy was replaced or corrupted.
+        altered = self.root / 'altered_import.png'
+        altered.write_bytes(b'different valid-looking file bytes')
+        report = self.report([])
+        report['import_direct_cricut_v218']['objets'][0]['fichier_import'] = str(altered)
+        manifest = delivery.delivery_manifest(report)
+        self.assertEqual(manifest['statut'], 'REVISIONS_NECESSAIRES')
+        self.assertEqual(manifest['png_import_precontroles'], 0)
+        self.assertEqual(manifest['objets'][0]['etat'], 'REVISION_PRIORITAIRE')
+        self.assertIn('PNG_IMPRESSION_DIFFERENT_DU_PNG_FABRICATION',
+                      manifest['objets'][0]['avertissements'])
+        self.assertEqual(altered.read_bytes(), b'different valid-looking file bytes')
+        self.assertEqual(self.png.read_bytes(), b'synthetic non-empty fixture')
+
+    def test_matching_handoff_png_copy_is_still_ready(self):
+        copied = self.root / 'identical_import.png'
+        copied.write_bytes(self.png.read_bytes())
+        report = self.report([])
+        report['import_direct_cricut_v218']['objets'][0]['fichier_import'] = str(copied)
+        manifest = delivery.delivery_manifest(report)
+        self.assertEqual(manifest['statut'], 'CONTROLE_LOCAL_COMPLET_A_REVISER')
+        self.assertEqual(manifest['png_import_precontroles'], 1)
+        self.assertEqual(manifest['objets'][0]['avertissements'], [])
+
     def test_failed_sheet_does_not_mark_complete_delivery(self):
         manifest = delivery.delivery_manifest(self.report([
             {'statut': 'A_VERIFIER', 'fichier_import': str(self.sheet)},
