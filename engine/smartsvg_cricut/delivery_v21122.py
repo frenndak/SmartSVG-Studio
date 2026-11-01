@@ -97,6 +97,30 @@ def write_delivery(root,manifest):
     try:
         with tmp.open('x',encoding='utf8') as file:
             json.dump(manifest,file,indent=2,ensure_ascii=False,allow_nan=False)
-        os.replace(tmp,final)
+            file.flush()
+            os.fsync(file.fileno())
+        # os.replace() overwrites a concurrently created manifest; link() does not.
+        try:
+            os.link(tmp,final)
+        except FileExistsError:
+            raise DeliveryError('Manifeste deja present, aucun ecrasement') from None
+        except OSError:
+            # Filesystems without hard links: publish exclusively, never replace.
+            created=False
+            try:
+                with final.open('xb') as target:
+                    created=True
+                    with tmp.open('rb') as source:
+                        for block in iter(lambda:source.read(1024*1024),b''):
+                            target.write(block)
+                    target.flush()
+                    os.fsync(target.fileno())
+                if _hash(final)!=_hash(tmp):
+                    raise DeliveryError('Manifeste copie non conforme')
+            except FileExistsError:
+                raise DeliveryError('Manifeste deja present, aucun ecrasement') from None
+            except BaseException:
+                if created:final.unlink(missing_ok=True)
+                raise
     finally:tmp.unlink(missing_ok=True)
     return str(final)
