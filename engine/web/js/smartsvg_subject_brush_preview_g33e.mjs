@@ -75,6 +75,7 @@ function validatedResponse(body,command,commandId,report){
      p.command_id!==commandId||p.name!==command.name||
      p.project_sha256!==command.expected_sha256||
      p.subject_id!==command.subject_id||p.mask_id!==command.mask_id||
+     p.base_mask_sha256_float32!==command.mask_sha256_float32||
      p.source_sha256!==command.source_sha256||
      p.persisted!==false||p.cricut_certified!==false||
      !Array.isArray(p.dimensions_px)||p.dimensions_px.length!==2||

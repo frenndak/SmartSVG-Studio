@@ -138,7 +138,7 @@ class PreviewRouteTests(unittest.IsolatedAsyncioTestCase):
         after = AFTER
         result = {
             'name':'subject-project', 'project_sha256':SHA,
-            'subject_id':'subject-'+'d'*32, 'mask_id':'base-mask-00',
+            'subject_id':'subject-'+'d'*32, 'mask_id':'base-mask-00','base_mask_sha256_float32':'e'*64,
             'source_sha256':'f'*64, 'dimensions_px':[16,12],
             'changed_pixels':3, 'before_png_l8':before,
             'after_png_l8':after,
@@ -155,6 +155,7 @@ class PreviewRouteTests(unittest.IsolatedAsyncioTestCase):
         payload = response.payload['preview']
         self.assertEqual(payload['command_id'],'c'*32)
         self.assertEqual(payload['project_sha256'],SHA)
+        self.assertEqual(payload['base_mask_sha256_float32'],'e'*64)
         self.assertEqual(base64.b64decode(payload['before_png_base64']),before)
         self.assertEqual(base64.b64decode(payload['after_png_base64']),after)
         self.assertEqual(payload['persisted'],False)
@@ -211,7 +212,7 @@ class PreviewRouteTests(unittest.IsolatedAsyncioTestCase):
             release.wait(3)
             return {
                 'name':'subject-project','project_sha256':SHA,
-                'subject_id':'subject-'+'d'*32,'mask_id':'base-mask-00',
+                'subject_id':'subject-'+'d'*32,'mask_id':'base-mask-00','base_mask_sha256_float32':'e'*64,
                 'source_sha256':'f'*64,'dimensions_px':[16,12],
                 'changed_pixels':1,'before_png_l8':BEFORE,
                 'after_png_l8':AFTER,
@@ -252,7 +253,7 @@ class PreviewRouteTests(unittest.IsolatedAsyncioTestCase):
             release.wait(3)
             return {
                 'name':'subject-project','project_sha256':SHA,
-                'subject_id':'subject-'+'d'*32,'mask_id':'base-mask-00',
+                'subject_id':'subject-'+'d'*32,'mask_id':'base-mask-00','base_mask_sha256_float32':'e'*64,
                 'source_sha256':'f'*64,'dimensions_px':[16,12],
                 'changed_pixels':1,'before_png_l8':BEFORE,
                 'after_png_l8':AFTER,
@@ -300,7 +301,7 @@ class PreviewRouteTests(unittest.IsolatedAsyncioTestCase):
                           return_value={
                               'name':'subject-project','project_sha256':SHA,
                               'subject_id':'subject-'+'d'*32,
-                              'mask_id':'base-mask-00','source_sha256':'f'*64,
+                              'mask_id':'base-mask-00','base_mask_sha256_float32':'e'*64,'source_sha256':'f'*64,
                               'dimensions_px':[16,12], 'changed_pixels':1,
                               'before_png_l8':b'not-png',
                               'after_png_l8':AFTER}):
@@ -328,7 +329,7 @@ class PreviewRouteTests(unittest.IsolatedAsyncioTestCase):
                     return_value={
                         'name':'subject-project','project_sha256':SHA,
                         'subject_id':'subject-'+'d'*32,
-                        'mask_id':'base-mask-00','source_sha256':'f'*64,
+                        'mask_id':'base-mask-00','base_mask_sha256_float32':'e'*64,'source_sha256':'f'*64,
                         'dimensions_px':[16,12], 'changed_pixels':1,
                         'before_png_l8':before, 'after_png_l8':after,
                     }) as replay:
@@ -346,7 +347,7 @@ class PreviewRouteTests(unittest.IsolatedAsyncioTestCase):
         # base64 is sent, even when both preview PNGs are structurally valid.
         valid = {
             'name':'subject-project','project_sha256':SHA,
-            'subject_id':'subject-'+'d'*32,'mask_id':'base-mask-00',
+            'subject_id':'subject-'+'d'*32,'mask_id':'base-mask-00','base_mask_sha256_float32':'e'*64,
             'source_sha256':'f'*64,'dimensions_px':[16,12],
             'changed_pixels':3,'before_png_l8':BEFORE,'after_png_l8':AFTER,
         }
@@ -355,6 +356,7 @@ class PreviewRouteTests(unittest.IsolatedAsyncioTestCase):
             ('revision', {'project_sha256':'b'*64}),
             ('subject', {'subject_id':'subject-'+'e'*32}),
             ('mask', {'mask_id':'base-mask-01'}),
+            ('base_mask_sha', {'base_mask_sha256_float32':'0'*64}),
             ('source', {'source_sha256':'e'*64}),
             ('missing_subject', {'subject_id':None}),
             ('negative_count', {'changed_pixels':-1}),

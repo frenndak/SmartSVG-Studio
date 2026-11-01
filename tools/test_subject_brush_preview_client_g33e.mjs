@@ -48,6 +48,7 @@ function fakeApi(mutate){
         command_id:fields.command_id,name:fields.name,
         project_sha256:fields.expected_sha256,
         subject_id:fields.subject_id,mask_id:fields.mask_id,
+        base_mask_sha256_float32:fields.mask_sha256_float32,
         source_sha256:fields.source_sha256,
         dimensions_px:[16,12],changed_pixels:3,
         before_png_base64:PNG64,after_png_base64:PNG64,
@@ -122,6 +123,11 @@ test('invalid coordinates and NaN fail before CPU request',async()=>{
       /INVALID_PREVIEW_STROKE/);
   }
   assert.equal(api.calls,0);
+});
+test('wrong float32 mask digest is rejected before preview display',async()=>{
+  const api=fakeApi(p=>({...p,base_mask_sha256_float32:'0'.repeat(64)}));
+  await assert.rejects(requestSubjectBrushPreview(api,report(),mask),
+    /INVALID_PREVIEW_OUTPUT/);
 });
 test('mismatched late result fails closed without displaying images',async()=>{
   const api=fakeApi(p=>({...p,subject_id:'subject-'+'0'.repeat(32)}));

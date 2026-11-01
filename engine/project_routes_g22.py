@@ -257,6 +257,7 @@ def register_project_routes(routes, trusted_output_root):
                         'project_sha256': fields.get('expected_sha256'),
                         'subject_id': fields.get('subject_id'),
                         'mask_id': fields.get('mask_id'),
+                        'base_mask_sha256_float32': fields.get('mask_sha256_float32'),
                         'source_sha256': fields.get('source_sha256'),
                     }
                     if (type(preview) is not dict or any(
@@ -308,6 +309,7 @@ def register_project_routes(routes, trusted_output_root):
                 'project_sha256':preview['project_sha256'],
                 'subject_id':preview['subject_id'],
                 'mask_id':preview['mask_id'],
+                'base_mask_sha256_float32':preview['base_mask_sha256_float32'],
                 'source_sha256':preview['source_sha256'],
                 'dimensions_px':preview['dimensions_px'],
                 'changed_pixels':preview['changed_pixels'],
