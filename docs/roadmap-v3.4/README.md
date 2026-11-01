@@ -1,6 +1,6 @@
-# SmartSVG V3.4 — Dossier de conception finalisé (DRAFT, non promu)
+# SmartSVG V3.4 — Dossier de conception finalisé (24/24 cycles)
 
-**DRAFT NON NORMATIF.** La [V3.3](../ROADMAP_MASTER_v3_3.md) demeure la roadmap active. Les archives et chemins protégés restent inchangés.
+**Autorité courante :** consulter `AGENTS.md` sur `main` et, après son adoption, [`docs/ROADMAP_PROMOTION_v3_4.md`](../ROADMAP_PROMOTION_v3_4.md). La V3.4 a été élaborée en DRAFT le 29 octobre 2026 ; elle devient normative uniquement à l'intégration contrôlée du dossier #73 puis de la promotion #76. Tant que cette intégration n'est pas achevée, la [V3.3](../ROADMAP_MASTER_v3_3.md) reste la référence normative. Les archives et chemins protégés restent inchangés.
 
 ## Livrables
 - [Lot 01 : audit du référentiel et du code](01_BASELINE_AUDIT.md)
@@ -34,10 +34,10 @@
 - [Issue de suivi #72](https://github.com/frenndak/SmartSVG-Studio/issues/72)
 
 ## État de clôture
-**24/24 lots documentés.** La V3.4 reste une **proposition non normative** ; la V3.3 demeure ACTIVE. La matrice du lot 23 a été corrigée pour réconcilier 97 renvois ; **141 exigences, 140 tickets et 0 arête unilatérale** après correction. Les **437 tests spécifiés** ne sont pas des tests exécutés ; les liens fins de 403 recettes locales aux tickets doivent être qualifiés lors des PR de code. Aucun test Windows, RTX, Design Space ou physique n'a été exécuté pendant la campagne. Aucun merge, promotion ni 25e lot.
+**À la clôture documentaire du 29 octobre 2026 : 24/24 lots documentés.** À cette date, la V3.4 était une **proposition non normative** et la V3.3 était ACTIVE. Le statut courant est déterminé par `AGENTS.md` de `main`, pas par cette photographie historique. La matrice du lot 23 a été corrigée pour réconcilier 97 renvois ; **141 exigences, 140 tickets et 0 arête unilatérale** après correction. Les **437 tests spécifiés** ne sont pas des tests exécutés ; les liens fins de 403 recettes locales aux tickets doivent être qualifiés lors des PR de code. Aucun test Windows, RTX, Design Space ou physique n'a été exécuté pendant la campagne. Aucun merge, promotion ni 25e lot.
 
 ## Discipline
-Chaque cycle doit relire le HEAD et le journal, produire un micro-lot vérifiable et documenter la prochaine étape. Aucun test logiciel, Windows, GPU, Design Space ou Cricut physique n'est présumé réussi. Les quatre sorties historiques restent distinctes : PNG Print Then Cut, SVG Basic Cut, SVG Cut multicouche, SVG d'édition. La sémantique des opérations de fabrication est une couche additionnelle, pas un remplacement silencieux. La migration hors ComfyUI est incrémentale et réversible. Aucune fusion autonome ni promotion V3.4.
+Chaque cycle doit relire le HEAD et le journal, produire un micro-lot vérifiable et documenter la prochaine étape. Aucun test logiciel, Windows, GPU, Design Space ou Cricut physique n'est présumé réussi. Les quatre sorties historiques restent distinctes : PNG Print Then Cut, SVG Basic Cut, SVG Cut multicouche, SVG d'édition. La sémantique des opérations de fabrication est une couche additionnelle, pas un remplacement silencieux. La migration hors ComfyUI est incrémentale et réversible. Aucune fusion ni promotion de gouvernance depuis une automatisation ; seule une session de mainteneur explicitement autorisée peut adopter la V3.4 après contrôle et respect des protections.
 
 ## Objectif final
 Une spécification de développement par tranches verticales, avec contrats d'interface, parcours débutant/expert, schémas, pseudocode, risques, critères d'acceptation, tests, dépendances et traçabilité bidirectionnelle des 141 exigences héritées et des nouveaux tickets V34.
