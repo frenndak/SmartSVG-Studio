@@ -106,10 +106,11 @@ def write_delivery(root,manifest):
             raise DeliveryError('Manifeste deja present, aucun ecrasement') from None
         except OSError:
             # Filesystems without hard links: publish exclusively, never replace.
-            created=False
+            created_identity=None
             try:
                 with final.open('xb') as target:
-                    created=True
+                    opened=os.fstat(target.fileno())
+                    created_identity=(opened.st_dev,opened.st_ino)
                     with tmp.open('rb') as source:
                         for block in iter(lambda:source.read(1024*1024),b''):
                             target.write(block)
@@ -120,7 +121,18 @@ def write_delivery(root,manifest):
             except FileExistsError:
                 raise DeliveryError('Manifeste deja present, aucun ecrasement') from None
             except BaseException:
-                if created:final.unlink(missing_ok=True)
+                # Never clean up a different writer's replacement manifest.
+                # Only remove the partial file if it is still the inode we
+                # exclusively created. If identity cannot be checked, preserve
+                # the file rather than risking loss of someone else's data.
+                if created_identity is not None:
+                    try:
+                        current=final.stat(follow_symlinks=False)
+                    except OSError:
+                        pass
+                    else:
+                        if (current.st_dev,current.st_ino)==created_identity:
+                            final.unlink(missing_ok=True)
                 raise
     finally:tmp.unlink(missing_ok=True)
     return str(final)
