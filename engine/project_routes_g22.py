@@ -32,7 +32,8 @@ async def _multipart_fields(request, *, image=False):
     allowed = {'name','profile','width_mm','dpi','notes','expected_sha256',
                'expected_recovery_sha256','expected_pending_sha256',
                'expected_primary_sha256','expected_previous_sha256',
-               'confirmed','editor_json'}
+               'confirmed','editor_json','source_id','source_sha256',
+               'mask_index','mask_id','mask_sha256_float32','expires_at_ms'}
     total = 0
     for _ in range(12):
         part = await reader.next()
@@ -161,6 +162,28 @@ def register_project_routes(routes, trusted_output_root):
                                      headers={'Cache-Control':'no-store'})
         except (WorkspaceError,ValueError) as exc:
             return json_error(getattr(exc,'code','INVALID_REQUEST'))
+
+    @routes.post(prefix+'/subject/identity')
+    async def subject_identity(request):
+        if not _browser_origin_ok(request):
+            return json_error('ORIGIN_REJECTED',403)
+        try:
+            fields=await _multipart_fields(request)
+            result=workspace.register_subject_identity(
+                fields.get('name'),
+                mask_index=int(fields.get('mask_index','')),
+                mask_id=fields.get('mask_id'),
+                mask_sha256_float32=fields.get('mask_sha256_float32'),
+                source_id=fields.get('source_id'),
+                source_sha256=fields.get('source_sha256'),
+                expected_sha256=fields.get('expected_sha256'),
+                confirmed=fields.get('confirmed')=='yes',
+                expires_at_ms=int(fields.get('expires_at_ms','')))
+            return web.json_response(
+                {'ok':True,'result':result,'certified':False},
+                headers={'Cache-Control':'no-store'})
+        except (WorkspaceError,ValueError,TypeError) as exc:
+            return json_error(getattr(exc,'code','INVALID_SUBJECT_IDENTITY_REQUEST'))
 
     @routes.get(prefix+'/editor')
     async def editor(request):

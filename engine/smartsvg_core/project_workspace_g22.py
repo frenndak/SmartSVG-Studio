@@ -12,6 +12,7 @@ import struct
 import zlib
 from pathlib import Path
 import re
+import time
 
 from .project_archive import LoadedProject, ProjectArchiveError, load_project
 from .project_contracts import SourceAsset
@@ -22,6 +23,7 @@ from .mask_snapshot_g24 import (
     SNAPSHOT_KEY, SNAPSHOT_PATH, create_snapshot, decode_snapshot,
     encode_preview_l8, MaskSnapshotError,
 )
+from .subject_identity_g33e import register_subject_identity as bind_subject_identity, SubjectIdentityError
 from .project_recovery import (
     RecoveryError, inspect_project, recover_previous, resolve_pending_backup,
     save_with_recovery,
@@ -481,6 +483,10 @@ class ManagedWorkspace:
         except MaskSnapshotError as exc:
             raise WorkspaceError(exc.code) from exc
         src=previous.sources[0]
+        if previous.subjects:
+            existing_snapshot=previous.document.get(SNAPSHOT_KEY)
+            if existing_snapshot != meta:
+                raise WorkspaceError('SUBJECT_IDENTITIES_REQUIRE_EXPLICIT_REBIND')
         count,height,width=meta['shape']
         if (width,height)!=(src.width_px,src.height_px):
             raise WorkspaceError('MASK_SOURCE_SIZE_MISMATCH')
@@ -522,6 +528,96 @@ class ManagedWorkspace:
         return {'name':name,'status':'full_resolution_masks_saved',
             'sha256':saved['sha256'],'count':count,
             'base_masks_exact':True,'certified':False}
+
+    def register_subject_identity(
+            self, name, *, mask_index, mask_id, mask_sha256_float32,
+            source_id, source_sha256, expected_sha256, confirmed=False,
+            expires_at_ms=None):
+        """Persist one explicit Subject without changing mask resources."""
+        if confirmed is not True:
+            raise WorkspaceError('SUBJECT_IDENTITY_CONFIRMATION_REQUIRED')
+        now_ms = int(time.time() * 1000)
+        if (type(expires_at_ms) is not int or
+                not now_ms < expires_at_ms <= now_ms + 120_000):
+            raise WorkspaceError('SUBJECT_IDENTITY_SESSION_EXPIRED')
+        if (not isinstance(expected_sha256, str) or
+                not re.fullmatch('[0-9a-f]{64}', expected_sha256)):
+            raise WorkspaceError('EXPECTED_REVISION_REQUIRED')
+        path = self._path(name)
+        if not path.is_file():
+            raise WorkspaceError('PROJECT_NOT_FOUND')
+        current_sha = _revision(path)
+        if current_sha != expected_sha256:
+            raise WorkspaceError('PROJECT_CHANGED')
+        try:
+            previous = load_project(path)
+        except (ProjectArchiveError, OSError) as exc:
+            raise WorkspaceError('INVALID_PROJECT_CONTENTS') from exc
+        if previous.project_id != name:
+            raise WorkspaceError('PROJECT_ID_MISMATCH')
+        try:
+            updated, subject, created = bind_subject_identity(
+                previous,
+                mask_index=mask_index,
+                mask_id=mask_id,
+                mask_sha256_float32=mask_sha256_float32,
+                source_id=source_id,
+                source_sha256=source_sha256,
+            )
+        except SubjectIdentityError as exc:
+            raise WorkspaceError(exc.code) from exc
+        if not created:
+            return {
+                'name': name,
+                'status': 'subject_identity_exists',
+                'subject_id': subject.subject_id,
+                'mask_id': subject.mask_id,
+                'bbox_px': list(subject.bbox_px),
+                'sha256': current_sha,
+                'previous_available': inspect_project(path).previous == 'valid',
+                'certified': False,
+            }
+        def verified_subject(reopened):
+            # The saved archive is reloaded UNDER the same OS project lock.
+            # Verify the persisted proof against the exact float32 bytes too;
+            # a structurally valid Subject record alone is not enough.
+            persisted = [item for item in reopened.subjects
+                         if item.subject_id == subject.subject_id]
+            if (len(persisted) != 1 or
+                    persisted[0].mask_id != mask_id or
+                    persisted[0].source_id != source_id or
+                    persisted[0].bbox_px != subject.bbox_px):
+                return False
+            try:
+                catalog = snapshot_mask_bindings(reopened)
+                evidence = catalog["bindings"][mask_index]
+                return (
+                    catalog["subject_proof_schema_valid"] is True and
+                    catalog["source_id"] == source_id and
+                    evidence["subject_id"] == subject.subject_id and
+                    evidence["mask_id"] == mask_id and
+                    evidence["mask_sha256_float32"] == mask_sha256_float32 and
+                    evidence["subject_proof_status"] == "verified"
+                )
+            except (KeyError, IndexError, MaskSnapshotError, TypeError, ValueError):
+                return False
+        try:
+            saved = save_with_recovery(
+                path, updated, expected_sha256=current_sha,
+                verify_saved_project=verified_subject)
+        except (RecoveryError, ProjectArchiveError, OSError) as exc:
+            raise WorkspaceError(getattr(exc, 'code', 'SAVE_FAILED')) from exc
+        return {
+            'name': name,
+            'status': 'subject_identity_created',
+            'subject_id': subject.subject_id,
+            'mask_id': subject.mask_id,
+            'bbox_px': list(subject.bbox_px),
+            'sha256': saved['sha256'],
+            'previous_available': saved['previous_available'],
+            'certified': False,
+        }
+
 
     def base_masks(self,name,*,expected_sha256):
         """Get lossless float32 mask bytes only for the trusted ComfyUI node."""

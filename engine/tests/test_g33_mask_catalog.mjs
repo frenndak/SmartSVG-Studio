@@ -80,6 +80,23 @@ test('fail closed on duplicate, empty, reordered, unsupported or ambiguous float
  for(const bad of cases)assert.equal(makeVerifiedMaskCatalog(bad,report()),null);
 });
 
+test('a corrupted or missing b1 proof invalidates the entire read-only catalog',()=>{
+ const badSchema=project();
+ badSchema.base_masks.mask_identity.subject_proof_schema_valid=false;
+ assert.equal(makeVerifiedMaskCatalog(badSchema,report()),null);
+ for(const status of ['invalid','mismatch','missing']){
+   const broken=project();
+   broken.base_masks.mask_identity.bindings[0].subject_proof_status=status;
+   assert.equal(makeVerifiedMaskCatalog(broken,report()),null,
+     'never offer a new identity when another mask has an invalid proof');
+ }
+ const valid=project();
+ valid.base_masks.mask_identity.subject_proof_schema_valid=true;
+ valid.base_masks.mask_identity.bindings[0].subject_proof_status='unbound';
+ assert.ok(makeVerifiedMaskCatalog(valid,report()),
+   'new snapshots with verified no-proof state remain compatible');
+});
+
 test('report, session, project revision and source fingerprint cannot be silently mismatched',()=>{
  const valid=makeVerifiedMaskCatalog(project(),report());
  for(const bad of [
