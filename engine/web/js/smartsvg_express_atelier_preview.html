@@ -477,7 +477,9 @@ function paintRealSubjects(){
       const ready=()=>{
         pending=false;abort=null;
         calculate.disabled=reportAtPaint.identityActionStale||
-          realSubjectsData!==reportAtPaint;
+          realSubjectsData!==reportAtPaint||
+          !Number.isSafeInteger(reportAtPaint.expires_at_ms)||
+          Date.now()>=reportAtPaint.expires_at_ms;
         cancel.disabled=before.hidden&&after.hidden;
         modeInput.disabled=false;
         xInput.disabled=false;yInput.disabled=false;
