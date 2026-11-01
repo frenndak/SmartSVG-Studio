@@ -18,6 +18,7 @@ from smartsvg_core.project_archive import load_project
 from smartsvg_core.project_workspace_g22 import ManagedWorkspace, WorkspaceError
 from smartsvg_core.subject_brush_preview_g33e import (
     SubjectBrushPreviewError, preview_subject_brush,
+    _other_masks_bit_identical,
 )
 
 
@@ -30,6 +31,21 @@ def _png(width=16, height=12):
             + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
             + chunk(b"IDAT", zlib.compress(row * height))
             + chunk(b"IEND", b""))
+
+
+class SubjectBrushByteIdentityTests(unittest.TestCase):
+    def test_other_subjects_are_bit_identical_even_for_signed_zero(self):
+        # Float equality would miss +0.0 -> -0.0 on an untouched Subject.
+        original = struct.pack("<4f", 0.35, 0.0, 0.0, 1.0)
+        masks = [original[:8], original[8:]]
+        self.assertTrue(_other_masks_bit_identical(original, masks, 0, 8))
+        # The target Subject may change; its untouched neighbour may not.
+        self.assertTrue(_other_masks_bit_identical(
+            original, [b"\\x00" * 8, original[8:]], 0, 8))
+        self.assertFalse(_other_masks_bit_identical(
+            original, [original[:8], struct.pack("<2f", -0.0, 1.0)], 0, 8))
+        self.assertFalse(_other_masks_bit_identical(
+            original, [struct.pack("<2f", 0.35, -0.0), original[8:]], 1, 8))
 
 
 class SubjectBrushPreviewTests(unittest.TestCase):
