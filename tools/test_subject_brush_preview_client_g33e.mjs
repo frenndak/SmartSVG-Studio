@@ -86,6 +86,39 @@ test('Atelier offers a brush preview only for an explicitly verified Subject',()
     {...base,subject_proof_status:'verified'}),false);
 });
 
+test('Atelier cleanup never re-enables a preview after Subject proof expiry',()=>{
+  // Evaluate the actual ready() function: before this regression, an
+  // asynchronous completion re-enabled "Calculer l’aperçu" even after
+  // the diagnostic expired (or had no valid expiry timestamp).
+  const html=readFileSync(
+    new URL('../engine/web/js/smartsvg_express_atelier_preview.html',import.meta.url),'utf8');
+  const start=html.indexOf('      const ready=()=>{',
+    html.indexOf('let pending=false,abort=null,serial=0;'));
+  const end=html.indexOf('      const discardPreview=()=>{',start);
+  assert.ok(start>=0&&end>start,'actual Atelier cleanup function exists');
+  const actual=html.slice(start,end);
+  const run=(expires_at_ms,{stale=false,different=false}={})=>{
+    const reportAtPaint={identityActionStale:stale,expires_at_ms};
+    const state={
+      pending:true,abort:{},calculate:{disabled:true},
+      cancel:{disabled:false},before:{hidden:true},after:{hidden:true},
+      modeInput:{disabled:true},xInput:{disabled:true},yInput:{disabled:true},
+      reportAtPaint,realSubjectsData:different?{}:reportAtPaint,
+    };
+    return new Function(...Object.keys(state),actual+
+      'ready();return {disabled:calculate.disabled,cancelled:cancel.disabled};')(
+        ...Object.values(state));
+  };
+  assert.equal(run(Date.now()+60000).disabled,false,'valid proof permits retry');
+  assert.equal(run(Date.now()-1000).disabled,true,'expired proof stays disabled');
+  assert.equal(run(undefined).disabled,true,'missing expiry stays disabled');
+  assert.equal(run(NaN).disabled,true,'invalid expiry stays disabled');
+  assert.equal(run(Date.now()+60000,{stale:true}).disabled,true);
+  assert.equal(run(Date.now()+60000,{different:true}).disabled,true);
+  assert.equal(run(Date.now()-1000).cancelled,true,
+    'cleanup also disables cancellation when there is no visible preview');
+});
+
 test('valid single-stroke request pins identity and only returns PNGs',async()=>{
   const api=fakeApi();
   const result=await requestSubjectBrushPreview(api,report(),mask);
