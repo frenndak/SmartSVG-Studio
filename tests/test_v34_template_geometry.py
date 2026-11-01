@@ -59,6 +59,22 @@ class TestV34TemplateGeometry(unittest.TestCase):
                                     'INVALID_TEMPLATE_DIMENSION'):
             templates.folded_card(1e308, 148)
 
+    def test_large_integer_derived_area_overflow_fails_closed(self):
+        cases = (
+            (templates.folded_card, (10**200, 10**200)),
+            (templates.open_tray, (10**200, 10**200, 10**200, 10**199)),
+        )
+        for maker, args in cases:
+            with self.subTest(maker=maker.__name__):
+                with self.assertRaisesRegex(templates.TemplateGeometryError,
+                                            'INVALID_TEMPLATE_DIMENSION: derived area'):
+                    maker(*args)
+
+    def test_large_integer_derived_bounds_overflow_fails_closed(self):
+        with self.assertRaisesRegex(templates.TemplateGeometryError,
+                                    'INVALID_TEMPLATE_DIMENSION: derived bounds'):
+            templates.folded_card(10**308, 148)
+
     def test_repeatable_without_mutation_or_persistence(self):
         dimensions = [80, 50, 30, 10]
         original = dimensions[:]

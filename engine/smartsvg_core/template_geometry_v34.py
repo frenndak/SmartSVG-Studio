@@ -25,13 +25,21 @@ def _positive_mm(value, label):
 
 
 def _checked_bounds(width, height):
-    if not math.isfinite(width) or not math.isfinite(height):
+    try:
+        finite = math.isfinite(width) and math.isfinite(height)
+    except (OverflowError, ValueError):
+        finite = False
+    if not finite:
         raise TemplateGeometryError("INVALID_TEMPLATE_DIMENSION: derived bounds")
     return [0, 0, width, height]
 
 
 def _proposal(template_id, parameters, bbox, outer, slits, folds, area):
-    if not math.isfinite(area) or area <= 0:
+    try:
+        finite = math.isfinite(area)
+    except (OverflowError, ValueError):
+        finite = False
+    if not finite or area <= 0:
         raise TemplateGeometryError("INVALID_TEMPLATE_DIMENSION: derived area")
     paths = [{"id": "cut-outer", "operation": "CUT", "closed": True,
               "points_mm": outer}]
