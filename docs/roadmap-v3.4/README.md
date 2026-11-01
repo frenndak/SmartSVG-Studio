@@ -1,6 +1,6 @@
 # SmartSVG V3.4 — Dossier de conception finalisé (24/24 cycles)
 
-**Autorité courante :** consulter `AGENTS.md` sur `main` et, après son adoption, [`docs/ROADMAP_PROMOTION_v3_4.md`](../ROADMAP_PROMOTION_v3_4.md). La V3.4 a été élaborée en DRAFT le 29 octobre 2026 ; elle devient normative uniquement à l'intégration contrôlée du dossier #73 puis de la promotion #76. Tant que cette intégration n'est pas achevée, la [V3.3](../ROADMAP_MASTER_v3_3.md) reste la référence normative. Les archives et chemins protégés restent inchangés.
+**Autorité courante :** consulter `AGENTS.md` sur `main` et, après son adoption, `docs/ROADMAP_PROMOTION_v3_4.md` (une fois ce fichier intégré). La V3.4 a été élaborée en DRAFT le 29 octobre 2026 ; elle devient normative uniquement à l'intégration contrôlée du dossier #73 puis de la promotion #76. Tant que cette intégration n'est pas achevée, la [V3.3](../ROADMAP_MASTER_v3_3.md) reste la référence normative. Les archives et chemins protégés restent inchangés.
 
 ## Livrables
 - [Lot 01 : audit du référentiel et du code](01_BASELINE_AUDIT.md)
