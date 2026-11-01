@@ -60,5 +60,72 @@ class TestV34CricutHandoffGuide(unittest.TestCase):
                 self.assertIn(fragment, guide)
 
 
+
+def handoff_status_classifier():
+    """Execute the real dependency-free production helper, not a mock copy."""
+    module = ast.parse(SOURCE.read_text(encoding="utf-8"))
+    helper = next(node for node in module.body
+                  if isinstance(node, ast.FunctionDef)
+                  and node.name == "_classify_handoff_status")
+    namespace = {}
+    exec(compile(ast.Module(body=[helper], type_ignores=[]),
+                 str(SOURCE), "exec"), namespace)
+    return namespace["_classify_handoff_status"]
+
+
+class TestV34HandoffBatchStatus(unittest.TestCase):
+    def test_failed_requested_sheet_never_marks_whole_batch_ready(self):
+        classify = handoff_status_classifier()
+        result = dict(fichiers_prets=1, nombre_objets=1,
+                      cartes_rectangulaires=0, planches_pretes=0,
+                      planches=[{"statut": "A_VERIFIER"}])
+        self.assertEqual(classify(result, pages_well_formed=True), "PARTIEL")
+        result["planches"] = [{"statut": "PRET_POUR_IMPORT_LOCAL"},
+                              {"statut": "A_VERIFIER"}]
+        result["planches_pretes"] = 1
+        self.assertEqual(classify(result, pages_well_formed=True), "PARTIEL")
+
+    def test_complete_batches_and_no_sheet_request_stay_ready(self):
+        classify = handoff_status_classifier()
+        result = dict(fichiers_prets=1, nombre_objets=1,
+                      cartes_rectangulaires=0, planches_pretes=0,
+                      planches=[])
+        self.assertEqual(classify(result, pages_well_formed=True),
+                         "PRET_POUR_IMPORT_LOCAL")
+        result["planches"] = [{"statut": "PRET_POUR_IMPORT_LOCAL"}]
+        result["planches_pretes"] = 1
+        self.assertEqual(classify(result, pages_well_formed=True),
+                         "PRET_POUR_IMPORT_LOCAL")
+        result["cartes_rectangulaires"] = 1
+        self.assertEqual(classify(result, pages_well_formed=True),
+                         "PRET_POUR_IMPORT_LOCAL_AVEC_CADRES")
+
+    def test_invalid_page_collection_and_partial_items_fail_closed(self):
+        classify = handoff_status_classifier()
+        result = dict(fichiers_prets=1, nombre_objets=1,
+                      cartes_rectangulaires=0, planches_pretes=0,
+                      planches=[])
+        self.assertEqual(classify(result, pages_well_formed=False), "PARTIEL")
+        result["fichiers_prets"] = 0
+        self.assertEqual(classify(result, pages_well_formed=False), "A_VERIFIER")
+        result["planches"] = [{"statut": "PRET_POUR_IMPORT_LOCAL"}]
+        result["planches_pretes"] = 1
+        self.assertEqual(classify(result, pages_well_formed=True), "PARTIEL")
+
+    def test_production_preflight_calls_the_classifier(self):
+        module = ast.parse(SOURCE.read_text(encoding="utf-8"))
+        function = next(node for node in module.body
+                        if isinstance(node, ast.FunctionDef)
+                        and node.name == "prepare_cricut_import")
+        calls = [node for node in ast.walk(function)
+                 if isinstance(node, ast.Call)
+                 and isinstance(node.func, ast.Name)
+                 and node.func.id == "_classify_handoff_status"]
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(any(keyword.arg == "pages_well_formed"
+                            for keyword in calls[0].keywords))
+
+
+
 if __name__ == "__main__":
     unittest.main()
