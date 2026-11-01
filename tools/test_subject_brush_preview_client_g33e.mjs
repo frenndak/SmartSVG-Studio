@@ -68,7 +68,7 @@ test('Atelier offers a brush preview only for an explicitly verified Subject',()
     new URL('../engine/web/js/smartsvg_express_atelier_preview.html',import.meta.url),'utf8');
   const marker='    if(!reportAtPaint.identityActionStale&&linkedIdentity&&';
   const start=html.indexOf(marker);
-  const end=html.indexOf('){\\n      const previewBox',start);
+  const end=html.indexOf('){\n      const previewBox',start);
   assert.ok(start>=0&&end>start,'actual Atelier preview gate exists');
   const predicate=html.slice(start+7,end);
   const visible=new Function('reportAtPaint','linkedIdentity',
