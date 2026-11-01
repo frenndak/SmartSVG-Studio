@@ -67,7 +67,11 @@ def delivery_manifest(report):
                         'fichiers':files,'avertissements':warning+failures,
                         'certification_semantique':False,'decoupe_reelle_verifiee':False})
     sheets=[]
-    for i,check in enumerate(imported.get('planches') or [],1):
+    requested_sheets=imported.get('planches')
+    if requested_sheets is None:requested_sheets=[]
+    if not isinstance(requested_sheets,list) or any(not isinstance(sheet,dict) for sheet in requested_sheets):
+        raise DeliveryError('Collection de planches Cricut invalide')
+    for i,check in enumerate(requested_sheets,1):
         entry={'index':i,'statut':check.get('statut'),'avertissement':check.get('raison')}
         if check.get('fichier_import'):
             try:
@@ -76,7 +80,8 @@ def delivery_manifest(report):
             except (DeliveryError,OSError) as err:
                 entry['statut']='A_VERIFIER';entry['avertissement']=str(err)[:120]
         sheets.append(entry)
-    complete=all(e['etat']=='PRECONTROLE_LOCAL_A_VERIFIER' for e in entries)
+    complete=(all(e['etat']=='PRECONTROLE_LOCAL_A_VERIFIER' for e in entries)
+              and all(s['statut']=='PRET_POUR_IMPORT_LOCAL' and 'fichier' in s for s in sheets))
     return {'version':'21.12.2','sujets_fabriques':len(entries),
             'png_import_precontroles':sum(e['etat']=='PRECONTROLE_LOCAL_A_VERIFIER' for e in entries),
             'planches_precontrolees':sum(s['statut']=='PRET_POUR_IMPORT_LOCAL' and 'fichier' in s for s in sheets),
