@@ -58,6 +58,12 @@ def delivery_manifest(report):
                 except (OSError,DeliveryError) as err:
                     failures.append('FICHIER_'+key.upper()+'_INEXPLOITABLE: '+str(err)[:90])
             else:failures.append('FICHIER_'+key.upper()+'_ABSENT')
+        # A preflighted copy may have been replaced since the preflight ran.
+        # Both hashes are computed from current bytes; a stale/different PNG
+        # must never be reported as a complete local delivery.
+        if ('impression' in files and 'png_fabrication' in files and
+                files['impression']['sha256'] != files['png_fabrication']['sha256']):
+            failures.append('PNG_IMPRESSION_DIFFERENT_DU_PNG_FABRICATION')
         if check.get('type_decoupe_presumee')=='CADRE_RECTANGULAIRE_SANS_DETOURAGE':
             failures.append('CARTE_RECTANGULAIRE_NON_STICKER')
         if check.get('statut')!='PRET_POUR_IMPORT_LOCAL':
