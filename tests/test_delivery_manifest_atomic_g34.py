@@ -178,5 +178,36 @@ class TestDeliveryManifestSheetStatusG34(unittest.TestCase):
                     delivery.delivery_manifest(self.report(sheets))
 
 
+    def test_missing_manufactured_sheet_cannot_be_hidden_by_stale_handoff(self):
+        # An upstream report still declares a manufactured page, while a
+        # stale/truncated handoff claims READY with no pages.
+        report = self.report([])
+        report['planches'] = [{'statut': 'CREATION_OK', 'fichier': str(self.sheet)}]
+        manifest = delivery.delivery_manifest(report)
+        self.assertEqual(manifest['statut'], 'REVISIONS_NECESSAIRES')
+        self.assertEqual(manifest['planches_precontrolees'], 0)
+        self.assertIn('PLANCHES_FABRIQUEES_NON_RECONCILIEES',
+                      manifest['avertissements'])
+
+    def test_manufactured_and_imported_sheets_are_reconciled(self):
+        report = self.report([
+            {'statut': 'PRET_POUR_IMPORT_LOCAL', 'fichier_import': str(self.sheet)},
+        ])
+        report['planches_cricut'] = [
+            {'statut': 'CREATION_OK', 'fichier': str(self.sheet)},
+        ]
+        manifest = delivery.delivery_manifest(report)
+        self.assertEqual(manifest['statut'], 'CONTROLE_LOCAL_COMPLET_A_REVISER')
+        self.assertEqual(manifest['planches_precontrolees'], 1)
+        self.assertEqual(manifest['avertissements'], [])
+
+    def test_malformed_manufactured_sheet_collection_fails_closed(self):
+        report = self.report([])
+        report['planches'] = {'unexpected': 'mapping'}
+        with self.assertRaisesRegex(delivery.DeliveryError,
+                                    'Collection de planches fabriquees'):
+            delivery.delivery_manifest(report)
+
+
 if __name__ == '__main__':
     unittest.main()
