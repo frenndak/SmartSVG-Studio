@@ -104,35 +104,11 @@ def write_delivery(root,manifest):
             os.link(tmp,final)
         except FileExistsError:
             raise DeliveryError('Manifeste deja present, aucun ecrasement') from None
-        except OSError:
-            # Filesystems without hard links: publish exclusively, never replace.
-            created_identity=None
-            try:
-                with final.open('xb') as target:
-                    opened=os.fstat(target.fileno())
-                    created_identity=(opened.st_dev,opened.st_ino)
-                    with tmp.open('rb') as source:
-                        for block in iter(lambda:source.read(1024*1024),b''):
-                            target.write(block)
-                    target.flush()
-                    os.fsync(target.fileno())
-                if _hash(final)!=_hash(tmp):
-                    raise DeliveryError('Manifeste copie non conforme')
-            except FileExistsError:
-                raise DeliveryError('Manifeste deja present, aucun ecrasement') from None
-            except BaseException:
-                # Never clean up a different writer's replacement manifest.
-                # Only remove the partial file if it is still the inode we
-                # exclusively created. If identity cannot be checked, preserve
-                # the file rather than risking loss of someone else's data.
-                if created_identity is not None:
-                    try:
-                        current=final.stat(follow_symlinks=False)
-                    except OSError:
-                        pass
-                    else:
-                        if (current.st_dev,current.st_ino)==created_identity:
-                            final.unlink(missing_ok=True)
-                raise
+        except OSError as exc:
+            # An exclusive-copy fallback exposes a partially written manifest
+            # to other readers before fsync completes. That is not a safe
+            # publish-last operation. No portable atomic no-clobber fallback
+            # exists here when the filesystem rejects hard links: fail closed.
+            raise DeliveryError('Publication atomique impossible sur ce systeme de fichiers') from exc
     finally:tmp.unlink(missing_ok=True)
     return str(final)
