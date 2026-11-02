@@ -89,6 +89,25 @@ def delivery_manifest(report):
     source_sheets=report.get('planches') or report.get('planches_cricut') or []
     sheets_reconciled=(not source_sheets_declared or
                        len(source_sheets)==len(requested_sheets))
+    # Both historical aliases can coexist. A nonempty secondary alias must
+    # not conceal a different manufactured batch behind the primary one.
+    aliases=[report[key] for key in ('planches','planches_cricut') if report.get(key)]
+    if len(aliases)==2:
+        first,second=aliases
+        if len(first)!=len(second):
+            sheets_reconciled=False
+        else:
+            for a,b in zip(first,second):
+                if not isinstance(a,dict) or not isinstance(b,dict):
+                    sheets_reconciled=False
+                    break
+                try:
+                    if _hash(_owned_file(root,a.get('fichier'))) != _hash(_owned_file(root,b.get('fichier'))):
+                        sheets_reconciled=False
+                        break
+                except (OSError,DeliveryError):
+                    sheets_reconciled=False
+                    break
     for i,check in enumerate(requested_sheets,1):
         entry={'index':i,'statut':check.get('statut'),'avertissement':check.get('raison')}
         if check.get('fichier_import'):

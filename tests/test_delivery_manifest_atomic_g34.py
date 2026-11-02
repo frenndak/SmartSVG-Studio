@@ -261,6 +261,49 @@ class TestDeliveryManifestSheetStatusG34(unittest.TestCase):
                                     'Collection de planches fabriquees'):
             delivery.delivery_manifest(report)
 
+    def test_conflicting_manufactured_sheet_aliases_fail_closed(self):
+        # Both legacy aliases are present; a matching first alias must not
+        # conceal a different second source with the same number of sheets.
+        other=self.root/'conflicting_sheet.png'
+        other.write_bytes(b'conflicting manufactured sheet')
+        report=self.report([
+            {'statut':'PRET_POUR_IMPORT_LOCAL','fichier_import':str(self.sheet)},
+        ])
+        report['planches']=[{'statut':'CREATION_OK','fichier':str(self.sheet)}]
+        report['planches_cricut']=[{'statut':'CREATION_OK','fichier':str(other)}]
+        manifest=delivery.delivery_manifest(report)
+        self.assertEqual(manifest['statut'],'REVISIONS_NECESSAIRES')
+        self.assertIn('PLANCHES_FABRIQUEES_NON_RECONCILIEES',
+                      manifest['avertissements'])
+        self.assertEqual(self.sheet.read_bytes(),b'synthetic non-empty fixture')
+        self.assertEqual(other.read_bytes(),b'conflicting manufactured sheet')
+
+    def test_matching_manufactured_sheet_aliases_remain_compatible(self):
+        copy=self.root/'equivalent_sheet.png'
+        copy.write_bytes(self.sheet.read_bytes())
+        report=self.report([
+            {'statut':'PRET_POUR_IMPORT_LOCAL','fichier_import':str(self.sheet)},
+        ])
+        report['planches']=[{'statut':'CREATION_OK','fichier':str(self.sheet)}]
+        report['planches_cricut']=[{'statut':'CREATION_OK','fichier':str(copy)}]
+        manifest=delivery.delivery_manifest(report)
+        self.assertEqual(manifest['statut'],'CONTROLE_LOCAL_COMPLET_A_REVISER')
+        self.assertEqual(manifest['avertissements'],[])
+
+    def test_mismatched_manufactured_sheet_alias_counts_fail_closed(self):
+        report=self.report([
+            {'statut':'PRET_POUR_IMPORT_LOCAL','fichier_import':str(self.sheet)},
+        ])
+        report['planches']=[{'statut':'CREATION_OK','fichier':str(self.sheet)}]
+        report['planches_cricut']=[
+            {'statut':'CREATION_OK','fichier':str(self.sheet)},
+            {'statut':'CREATION_OK','fichier':str(self.sheet)},
+        ]
+        manifest=delivery.delivery_manifest(report)
+        self.assertEqual(manifest['statut'],'REVISIONS_NECESSAIRES')
+        self.assertIn('PLANCHES_FABRIQUEES_NON_RECONCILIEES',
+                      manifest['avertissements'])
+
     def test_malformed_manufactured_sheet_collection_fails_closed(self):
         report = self.report([])
         report['planches'] = {'unexpected': 'mapping'}
