@@ -359,5 +359,58 @@ class TestV34AtomicPngPublication(unittest.TestCase):
             self.assertEqual(list(Path(td).glob(".tmp_*")), [])
 
 
+def manufactured_sheet_count_helper():
+    """Execute the production validator from its exact AST, without cv2."""
+    module = ast.parse(SOURCE.read_text(encoding="utf-8"))
+    helper = next(node for node in module.body
+                  if isinstance(node, ast.FunctionDef)
+                  and node.name == "_sheet_expected_count")
+    class ImportAuditError(ValueError):
+        pass
+    namespace = {"ImportAuditError": ImportAuditError}
+    exec(compile(ast.Module(body=[helper], type_ignores=[]),
+                 str(SOURCE), "exec"), namespace)
+    return namespace["_sheet_expected_count"], ImportAuditError
+
+
+class TestV34ManufacturedSheetCounts(unittest.TestCase):
+    def test_legacy_valid_counts_are_preserved(self):
+        count, _ = manufactured_sheet_count_helper()
+        for page, expected in [
+            ({"elements_source": [0]}, 1),
+            ({"elements_source": [0, 1]}, 2),
+            ({"objets": 2}, 2),
+            ({"objets": "02"}, 2),
+            ({"elements_source": [], "objets": 1}, 1),
+        ]:
+            with self.subTest(page=page):
+                self.assertEqual(count(page), expected)
+
+    def test_malformed_elements_never_pass_by_length_or_raise_typeerror(self):
+        count, error = manufactured_sheet_count_helper()
+        for invalid in (True, False, None, {"one": 1}, "one", 1.5):
+            with self.subTest(value=repr(invalid)):
+                with self.assertRaises(error):
+                    count({"elements_source": invalid, "objets": 1})
+
+    def test_malformed_fallback_count_fails_closed(self):
+        count, error = manufactured_sheet_count_helper()
+        for invalid in (True, False, None, 1.5, "1.5", "9" * 100):
+            with self.subTest(value=repr(invalid)):
+                with self.assertRaises(error):
+                    count({"objets": invalid})
+
+    def test_real_sheet_preflight_uses_validated_count(self):
+        module = ast.parse(SOURCE.read_text(encoding="utf-8"))
+        function = next(node for node in module.body
+                        if isinstance(node, ast.FunctionDef)
+                        and node.name == "prepare_cricut_import")
+        calls = [node for node in ast.walk(function)
+                 if isinstance(node, ast.Call)
+                 and isinstance(node.func, ast.Name)
+                 and node.func.id == "_sheet_expected_count"]
+        self.assertEqual(len(calls), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
