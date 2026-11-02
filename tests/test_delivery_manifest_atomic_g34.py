@@ -170,6 +170,17 @@ class TestDeliveryManifestSheetStatusG34(unittest.TestCase):
         self.assertEqual(delivery.delivery_manifest(missing)['statut'],
                          'REVISIONS_NECESSAIRES')
 
+    def test_explicit_null_imported_sheets_cannot_claim_complete_delivery(self):
+        # A truncated upstream report with `planches: null` is not equivalent
+        # to a legacy report that never declared a sheet collection.
+        with self.assertRaisesRegex(delivery.DeliveryError,
+                                    'Collection de planches Cricut'):
+            delivery.delivery_manifest(self.report(None))
+        legacy = self.report([])
+        del legacy['import_direct_cricut_v218']['planches']
+        self.assertEqual(delivery.delivery_manifest(legacy)['statut'],
+                         'CONTROLE_LOCAL_COMPLET_A_REVISER')
+
     def test_malformed_sheet_collection_fails_closed(self):
         for sheets in ('not-a-list', [None], [{'statut': 'A_VERIFIER'}, None]):
             with self.subTest(sheets=sheets):

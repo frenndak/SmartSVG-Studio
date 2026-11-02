@@ -73,8 +73,9 @@ def delivery_manifest(report):
                         'fichiers':files,'avertissements':warning+failures,
                         'certification_semantique':False,'decoupe_reelle_verifiee':False})
     sheets=[]
-    requested_sheets=imported.get('planches')
-    if requested_sheets is None:requested_sheets=[]
+    # Missing is compatible with legacy single-sticker reports; explicit
+    # null is malformed and must not silently certify a missing sheet batch.
+    requested_sheets=(imported['planches'] if 'planches' in imported else [])
     if not isinstance(requested_sheets,list) or any(not isinstance(sheet,dict) for sheet in requested_sheets):
         raise DeliveryError('Collection de planches Cricut invalide')
     # A stale/truncated handoff may silently omit manufactured sheets. Cross-
