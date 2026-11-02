@@ -32,6 +32,8 @@ def _hash(path):
 
 def delivery_manifest(report):
     """Inspect published files without reading or changing image pixels."""
+    if not isinstance(report,dict):
+        raise DeliveryError("Rapport Cricut incomplet")
     root=report.get('dossier')
     if not isinstance(root,str) or not Path(root).is_absolute():raise DeliveryError('Projet manquant')
     root=Path(root)
@@ -44,6 +46,9 @@ def delivery_manifest(report):
     entries=[]
     records=imported.get('objets')
     if not isinstance(records,list) or len(records)!=len(objects):raise DeliveryError('Nombre objets incorrect')
+    if any(not isinstance(item,dict) or not isinstance(check,dict)
+           for item,check in zip(objects,records)):
+        raise DeliveryError('Objets Cricut malformes')
     for i,(item,check) in enumerate(zip(objects,records),1):
         warning=list(item.get('avertissements') or [])
         failures=[]
