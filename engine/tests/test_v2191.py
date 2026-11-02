@@ -73,12 +73,21 @@ class CricutCopyPatches(unittest.TestCase):
             self.assertIn('ANCIEN PNG',b['objets'][0]['avertissement'])
             self.assertEqual(target.read_bytes(),before)
 
-    def test_portable_exclusive_create_without_hardlinks(self):
+    def test_no_hardlinks_never_publish_partial_png(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td);src=self.create_source(root);dest=root/'target.png'
             with patch.object(mod.os,'link',side_effect=OSError('filesystem has no hardlink support')):
-                mod._copy_atomic(src,dest)
-            self.assertEqual(mod._sha256_file(dest),mod._sha256_file(src))
+                if mod.os.name == 'nt':
+                    # Windows rename refuses an existing destination.
+                    mod._copy_atomic(src,dest)
+                    self.assertEqual(mod._sha256_file(dest),mod._sha256_file(src))
+                else:
+                    # POSIX rename can overwrite; never expose an O_EXCL
+                    # destination while streaming incomplete PNG bytes.
+                    with self.assertRaisesRegex(mod.ImportAuditError,
+                                                'Publication atomique impossible'):
+                        mod._copy_atomic(src,dest)
+                    self.assertFalse(dest.exists())
             self.assertFalse(list(root.glob('.tmp_*')))
 
     def test_concurrent_creation_cannot_overwrite(self):
