@@ -102,6 +102,30 @@ class TestDeliveryManifestSheetStatusG34(unittest.TestCase):
             },
         }
 
+    def test_malformed_object_records_fail_closed_without_file_changes(self):
+        # A truncated JSON report must produce a domain error, not an
+        # AttributeError while dereferencing item.get() or check.get().
+        original = self.png.read_bytes()
+        for side in ('manufactured', 'imported'):
+            for malformed in (None, True, 'not-a-record', [], 1):
+                with self.subTest(side=side, malformed=repr(malformed)):
+                    report = self.report([])
+                    if side == 'manufactured':
+                        report['objets'][0] = malformed
+                    else:
+                        report['import_direct_cricut_v218']['objets'][0] = malformed
+                    with self.assertRaisesRegex(delivery.DeliveryError,
+                                                'Objets Cricut malformes'):
+                        delivery.delivery_manifest(report)
+        for invalid in (None, True, [], 'invalid report'):
+            with self.subTest(report=repr(invalid)):
+                with self.assertRaisesRegex(delivery.DeliveryError,
+                                            'Rapport Cricut incomplet'):
+                    delivery.delivery_manifest(invalid)
+        self.assertEqual(self.png.read_bytes(), original)
+        self.assertEqual(delivery.delivery_manifest(self.report([]))['statut'],
+                         'CONTROLE_LOCAL_COMPLET_A_REVISER')
+
     def test_tampered_handoff_png_is_not_marked_ready(self):
         # Preflight may have run before a copy was replaced or corrupted.
         altered = self.root / 'altered_import.png'
