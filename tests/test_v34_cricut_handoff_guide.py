@@ -166,11 +166,42 @@ class TestV34MalformedManufacturedSheets(unittest.TestCase):
         self.assertEqual(select({"planches": []}), ([], True))
         sheets = [{"statut": "CREATION_OK", "fichier": "/example.png"}]
         self.assertEqual(select({"planches_cricut": sheets}), (sheets, True))
+        # A declared empty alias contradicts a nonempty manufactured batch.
         self.assertEqual(select({"planches": [], "planches_cricut": sheets}),
+                         ([], False))
+        self.assertEqual(select({"planches": sheets, "planches_cricut": []}),
+                         ([], False))
+        self.assertEqual(select({"planches": sheets, "planches_cricut": sheets}),
                          (sheets, True))
         # A malformed second alias must not be ignored behind a valid first.
         self.assertEqual(select({"planches": sheets, "planches_cricut": {}}),
                          ([], False))
+
+    def test_conflicting_manufactured_aliases_cannot_claim_ready(self):
+        select = handoff_pages_selector()
+        classify = handoff_status_classifier()
+        sheet = {"statut": "CREATION_OK", "fichier": "/a.png"}
+        cases = [
+            {"planches": [], "planches_cricut": [sheet]},
+            {"planches": [sheet], "planches_cricut": []},
+            {"planches": [sheet], "planches_cricut":
+             [{"statut": "CREATION_OK", "fichier": "/other.png"}]},
+            {"planches": [sheet], "planches_cricut":
+             [{"statut": "A_VERIFIER", "fichier": "/a.png"}]},
+            {"planches": [sheet], "planches_cricut": [None]},
+        ]
+        for report in cases:
+            with self.subTest(report=report):
+                pages, well_formed = select(report)
+                self.assertEqual((pages, well_formed), ([], False))
+                batch = dict(fichiers_prets=1, nombre_objets=1,
+                             cartes_rectangulaires=0, planches_pretes=0,
+                             planches=pages)
+                self.assertEqual(
+                    classify(batch, pages_well_formed=well_formed), "PARTIEL")
+        self.assertEqual(select({"planches": [sheet],
+                                 "planches_cricut": [dict(sheet)]}),
+                         ([sheet], True))
 
     def test_real_preflight_uses_checked_selector_for_batch_status(self):
         module = ast.parse(SOURCE.read_text(encoding="utf-8"))
