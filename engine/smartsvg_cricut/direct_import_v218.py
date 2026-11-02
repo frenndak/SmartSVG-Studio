@@ -210,10 +210,21 @@ def _select_handoff_pages(report: dict) -> tuple[list, bool]:
     An absent collection is legitimate for a single-sticker handoff; an
     explicitly present None, mapping or string is not.
     """
+    declared = []
     for key in ('planches', 'planches_cricut'):
-        if key in report and not isinstance(report[key], list):
-            return [], False
-    return report.get('planches') or report.get('planches_cricut') or [], True
+        if key in report:
+            pages = report[key]
+            if not isinstance(pages, list) or any(
+                    not isinstance(page, dict) for page in pages):
+                return [], False
+            declared.append(pages)
+    # Both historical names describe the SAME manufactured batch. A truthy
+    # fallback must not silently accept an empty alias, different file or
+    # rejected sheet in the other alias. Distinct paths cannot be proved
+    # equivalent by this metadata-only selector: fail closed at handoff.
+    if len(declared) == 2 and declared[0] != declared[1]:
+        return [], False
+    return (declared[0] if declared else []), True
 
 
 def _classify_handoff_status(result: dict, *, pages_well_formed: bool) -> str:
