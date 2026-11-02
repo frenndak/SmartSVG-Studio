@@ -131,6 +131,67 @@ class TestV34HandoffBatchStatus(unittest.TestCase):
 
 
 
+def handoff_pages_selector():
+    """Run the actual dependency-free production selector from its AST."""
+    module = ast.parse(SOURCE.read_text(encoding="utf-8"))
+    helper = next(node for node in module.body
+                  if isinstance(node, ast.FunctionDef)
+                  and node.name == "_select_handoff_pages")
+    namespace = {}
+    exec(compile(ast.Module(body=[helper], type_ignores=[]),
+                 str(SOURCE), "exec"), namespace)
+    return namespace["_select_handoff_pages"]
+
+
+class TestV34MalformedManufacturedSheets(unittest.TestCase):
+    def test_explicit_falsy_invalid_aliases_are_not_silently_absent(self):
+        select = handoff_pages_selector()
+        classify = handoff_status_classifier()
+        for key in ("planches", "planches_cricut"):
+            for invalid in (None, {}, "", False, 0):
+                with self.subTest(key=key, invalid=repr(invalid)):
+                    pages, well_formed = select({key: invalid})
+                    self.assertEqual(pages, [])
+                    self.assertFalse(well_formed)
+                    result = dict(fichiers_prets=1, nombre_objets=1,
+                                  cartes_rectangulaires=0, planches_pretes=0,
+                                  planches=pages)
+                    self.assertEqual(
+                        classify(result, pages_well_formed=well_formed),
+                        "PARTIEL")
+
+    def test_valid_and_absent_collections_preserve_legacy_handoff(self):
+        select = handoff_pages_selector()
+        self.assertEqual(select({}), ([], True))
+        self.assertEqual(select({"planches": []}), ([], True))
+        sheets = [{"statut": "CREATION_OK", "fichier": "/example.png"}]
+        self.assertEqual(select({"planches_cricut": sheets}), (sheets, True))
+        self.assertEqual(select({"planches": [], "planches_cricut": sheets}),
+                         (sheets, True))
+        # A malformed second alias must not be ignored behind a valid first.
+        self.assertEqual(select({"planches": sheets, "planches_cricut": {}}),
+                         ([], False))
+
+    def test_real_preflight_uses_checked_selector_for_batch_status(self):
+        module = ast.parse(SOURCE.read_text(encoding="utf-8"))
+        function = next(node for node in module.body
+                        if isinstance(node, ast.FunctionDef)
+                        and node.name == "prepare_cricut_import")
+        selector_calls = [node for node in ast.walk(function)
+                          if isinstance(node, ast.Call)
+                          and isinstance(node.func, ast.Name)
+                          and node.func.id == "_select_handoff_pages"]
+        self.assertEqual(len(selector_calls), 1)
+        classifier = next(node for node in ast.walk(function)
+                          if isinstance(node, ast.Call)
+                          and isinstance(node.func, ast.Name)
+                          and node.func.id == "_classify_handoff_status")
+        self.assertTrue(any(keyword.arg == "pages_well_formed"
+                            and isinstance(keyword.value, ast.Name)
+                            and keyword.value.id == "pages_well_formed"
+                            for keyword in classifier.keywords))
+
+
 class TestV34PhysicalWidthFailClosed(unittest.TestCase):
     """Exercise real dependency-free production helpers without cv2/Pillow."""
 
