@@ -304,6 +304,38 @@ class TestDeliveryManifestSheetStatusG34(unittest.TestCase):
         self.assertIn('PLANCHES_FABRIQUEES_NON_RECONCILIEES',
                       manifest['avertissements'])
 
+    def test_empty_vs_nonempty_manufactured_aliases_fail_closed(self):
+        # A truthy-only alias comparison previously accepted either ordering:
+        # one explicit [] contradicted a real manufactured sheet, yet the
+        # other alias matched the imported sheet and was marked complete.
+        for empty_key in ('planches', 'planches_cricut'):
+            with self.subTest(empty_key=empty_key):
+                report=self.report([
+                    {'statut':'PRET_POUR_IMPORT_LOCAL',
+                     'fichier_import':str(self.sheet)},
+                ])
+                report['planches']=[
+                    {'statut':'CREATION_OK','fichier':str(self.sheet)},
+                ]
+                report['planches_cricut']=[
+                    {'statut':'CREATION_OK','fichier':str(self.sheet)},
+                ]
+                report[empty_key]=[]
+                manifest=delivery.delivery_manifest(report)
+                self.assertEqual(manifest['statut'],'REVISIONS_NECESSAIRES')
+                self.assertIn('PLANCHES_FABRIQUEES_NON_RECONCILIEES',
+                              manifest['avertissements'])
+                self.assertEqual(self.sheet.read_bytes(),
+                                 b'synthetic non-empty fixture')
+
+    def test_two_explicitly_empty_manufactured_aliases_remain_compatible(self):
+        report=self.report([])
+        report['planches']=[]
+        report['planches_cricut']=[]
+        manifest=delivery.delivery_manifest(report)
+        self.assertEqual(manifest['statut'],'CONTROLE_LOCAL_COMPLET_A_REVISER')
+        self.assertEqual(manifest['avertissements'],[])
+
     def test_malformed_manufactured_sheet_collection_fails_closed(self):
         report = self.report([])
         report['planches'] = {'unexpected': 'mapping'}

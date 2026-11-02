@@ -89,9 +89,9 @@ def delivery_manifest(report):
     source_sheets=report.get('planches') or report.get('planches_cricut') or []
     sheets_reconciled=(not source_sheets_declared or
                        len(source_sheets)==len(requested_sheets))
-    # Both historical aliases can coexist. A nonempty secondary alias must
-    # not conceal a different manufactured batch behind the primary one.
-    aliases=[report[key] for key in ('planches','planches_cricut') if report.get(key)]
+    # Both historical aliases can coexist. Compare every *declared* alias:
+    # an explicit empty list must not conceal a nonempty manufactured batch.
+    aliases=[report[key] for key in ('planches','planches_cricut') if key in report]
     if len(aliases)==2:
         first,second=aliases
         if len(first)!=len(second):
