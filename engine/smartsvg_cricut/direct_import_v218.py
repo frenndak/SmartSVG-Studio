@@ -173,24 +173,24 @@ def _copy_atomic(src,dest):
             if not dest.is_symlink() and dest.is_file() and _sha256_file(dest)==source_digest:
                 return
             raise ImportAuditError('Destination creee concurremment') from None
-        except OSError:
-            # FAT/network volumes may not support hard links. Use an exclusive
-            # create as a portable, never-overwrite fallback on Windows too.
+        except OSError as exc:
+            # O_EXCL followed by streaming bytes exposes a partially written
+            # PNG to concurrent readers. Only publish a complete staging file.
+            # Windows os.rename refuses an existing destination; POSIX rename
+            # overwrites, so without hard links POSIX must fail closed.
+            if os.name != 'nt':
+                raise ImportAuditError(
+                    'Publication atomique impossible sans liens physiques') from exc
             try:
-                fd=os.open(dest,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
+                os.rename(tmp,dest)
             except FileExistsError:
-                if not dest.is_symlink() and dest.is_file() and _sha256_file(dest)==source_digest:
+                if (not dest.is_symlink() and dest.is_file()
+                        and _sha256_file(dest)==source_digest):
                     return
                 raise ImportAuditError('Destination creee concurremment') from None
-            try:
-                with os.fdopen(fd,'wb') as target, open(tmp,'rb') as original:
-                    shutil.copyfileobj(original,target,length=1024*1024)
-                    target.flush();os.fsync(target.fileno())
-                if _sha256_file(dest)!=source_digest:
-                    raise ImportAuditError('Copie finale non conforme')
-            except BaseException:
-                dest.unlink(missing_ok=True)
-                raise
+            except OSError as rename_exc:
+                raise ImportAuditError(
+                    'Publication atomique impossible sur ce systeme de fichiers') from rename_exc
     finally:
         tmp.unlink(missing_ok=True)
 
