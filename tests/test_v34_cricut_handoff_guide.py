@@ -253,6 +253,14 @@ class TestV34PhysicalWidthFailClosed(unittest.TestCase):
         self.assertEqual(validate(25.4, "Largeur physique"), 25.4)
         self.assertEqual(validate("25.4", "Largeur physique"), 25.4)
 
+    def test_boolean_physical_width_is_not_numeric(self):
+        ns = self.helpers()
+        validate = ns["_positive_mm"]
+        for value in (True, False):
+            with self.subTest(value=value):
+                with self.assertRaises(ns["ImportAuditError"]):
+                    validate(value, "Largeur physique")
+
     def test_svg_width_nan_cannot_be_reported_ok_local(self):
         ns = self.helpers()
         inspect = ns["_svg_preflight"]

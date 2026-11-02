@@ -105,7 +105,9 @@ def _topology(path):
 
 
 def _positive_mm(raw, label):
-    """Reject non-finite or non-positive physical dimensions before preflight."""
+    """Reject non-finite, non-positive or boolean physical dimensions."""
+    if isinstance(raw, bool):
+        raise ImportAuditError(f'{label} invalide')
     try:
         width = float(raw)
     except (TypeError, ValueError, OverflowError):
