@@ -90,6 +90,27 @@ class TestV34TemplateGeometry(unittest.TestCase):
         self.assertTrue(first['handoff']['requires_manual_score_assignment'])
         self.assertTrue(first['handoff']['requires_manual_attach'])
 
+    def test_path_points_do_not_alias_geometry_catalogue(self):
+        # A future UI/preflight consumer may transform one representation;
+        # it must not silently rewrite the other in the same preview result.
+        for factory, args in (
+            (templates.folded_card, (105, 148)),
+            (templates.open_tray, (80, 50, 30, 10)),
+        ):
+            with self.subTest(template=factory.__name__):
+                geometry = factory(*args)['geometry']
+                sources = ([geometry['cut_outer']] + geometry['cut_slits']
+                           + geometry['score_folds'])
+                paths = geometry['paths']
+                self.assertEqual(len(paths), len(sources))
+                for source, path in zip(sources, paths):
+                    self.assertEqual(path['points_mm'], source)
+                    original = source[0][0]
+                    path['points_mm'][0][0] = 999
+                    self.assertEqual(source[0][0], original)
+                    source[0][0] = 777
+                    self.assertEqual(path['points_mm'][0][0], 999)
+
     def test_no_shared_mutable_output(self):
         first = templates.open_tray(80, 50, 30, 10)
         first['geometry']['cut_outer'][0][0] = 999
