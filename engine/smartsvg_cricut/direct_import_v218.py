@@ -203,6 +203,19 @@ def _write_text_preserving_existing(dest, contents):
         staging.unlink(missing_ok=True)
 
 
+def _select_handoff_pages(report: dict) -> tuple[list, bool]:
+    """Do not silently discard explicitly malformed manufactured-sheet data.
+
+    Both historical aliases are validated before choosing the nonempty one.
+    An absent collection is legitimate for a single-sticker handoff; an
+    explicitly present None, mapping or string is not.
+    """
+    for key in ('planches', 'planches_cricut'):
+        if key in report and not isinstance(report[key], list):
+            return [], False
+    return report.get('planches') or report.get('planches_cricut') or [], True
+
+
 def _classify_handoff_status(result: dict, *, pages_well_formed: bool) -> str:
     """A batch is ready only if every requested object AND sheet passed preflight.
 
@@ -287,7 +300,7 @@ def prepare_cricut_import(report:dict,dpi:int) ->dict:
             rec['raison']=str(exc)[:200]
             if 'Destination deja existante' in rec['raison'] or 'Destination creee concurremment' in rec['raison']:
                 rec['avertissement']='ANCIEN PNG EVENTUELLEMENT PRESENT : ne pas l importer sans comparer au rapport courant'
-    pages=report.get('planches') or report.get('planches_cricut') or []
+    pages, pages_well_formed = _select_handoff_pages(report)
     if isinstance(pages,list):
         for i,p in enumerate(pages,1):
             rec={'planche':i,'statut':'A_VERIFIER'};result['planches'].append(rec)
@@ -317,7 +330,7 @@ def prepare_cricut_import(report:dict,dpi:int) ->dict:
                 if 'Destination deja existante' in rec['raison'] or 'Destination creee concurremment' in rec['raison']:
                     rec['avertissement']='ANCIEN PNG EVENTUELLEMENT PRESENT : ne pas l importer sans comparer au rapport courant'
     result['statut'] = _classify_handoff_status(
-        result, pages_well_formed=isinstance(pages, list))
+        result, pages_well_formed=pages_well_formed)
     readme=(
         'SMARTSVG — IMPORT CRICUT EN 1 FICHIER (V21.8)\n\n'
         '0. Lire RAPPORT_IMPORT_CRICUT_V21_8.json : si PARTIEL ou A_VERIFIER,\n'
