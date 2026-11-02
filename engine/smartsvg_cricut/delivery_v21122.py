@@ -88,8 +88,10 @@ def delivery_manifest(report):
         if key in report and not isinstance(report[key],list):
             raise DeliveryError('Collection de planches fabriquees invalide')
     source_sheets=report.get('planches') or report.get('planches_cricut') or []
-    sheets_reconciled=(not source_sheets_declared or
-                       len(source_sheets)==len(requested_sheets))
+    # Legacy reports without a manufactured sheet batch remain supported,
+    # but cannot certify an imported sheet lacking upstream provenance.
+    sheets_reconciled=(len(requested_sheets)==0 if not source_sheets_declared
+                       else len(source_sheets)==len(requested_sheets))
     # Both historical aliases can coexist. Compare every *declared* alias:
     # an explicit empty list must not conceal a nonempty manufactured batch.
     aliases=[report[key] for key in ('planches','planches_cricut') if key in report]

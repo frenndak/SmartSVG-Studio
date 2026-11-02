@@ -150,7 +150,12 @@ class TestDeliveryManifestSheetStatusG34(unittest.TestCase):
               'fichier_import': str(self.sheet)}],
         ):
             with self.subTest(sheets=sheets):
-                manifest = delivery.delivery_manifest(self.report(sheets))
+                report = self.report(sheets)
+                if sheets:
+                    report['planches'] = [
+                        {'statut': 'CREATION_OK', 'fichier': str(self.sheet)},
+                    ]
+                manifest = delivery.delivery_manifest(report)
                 self.assertEqual(manifest['statut'],
                                  'CONTROLE_LOCAL_COMPLET_A_REVISER')
                 self.assertEqual(manifest['planches_precontrolees'],
@@ -199,6 +204,21 @@ class TestDeliveryManifestSheetStatusG34(unittest.TestCase):
         self.assertEqual(manifest['planches_precontrolees'], 0)
         self.assertIn('PLANCHES_FABRIQUEES_NON_RECONCILIEES',
                       manifest['avertissements'])
+
+    def test_imported_sheet_without_manufactured_provenance_fails_closed(self):
+        # A stale or forged handoff must not invent a sheet absent from the
+        # manufacturing report, even when its local PNG is readable.
+        report = self.report([
+            {'statut': 'PRET_POUR_IMPORT_LOCAL',
+             'fichier_import': str(self.sheet)},
+        ])
+        original = self.sheet.read_bytes()
+        manifest = delivery.delivery_manifest(report)
+        self.assertEqual(manifest['planches_precontrolees'], 1)
+        self.assertEqual(manifest['statut'], 'REVISIONS_NECESSAIRES')
+        self.assertIn('PLANCHES_FABRIQUEES_NON_RECONCILIEES',
+                      manifest['avertissements'])
+        self.assertEqual(self.sheet.read_bytes(), original)
 
     def test_manufactured_and_imported_sheets_are_reconciled(self):
         report = self.report([
