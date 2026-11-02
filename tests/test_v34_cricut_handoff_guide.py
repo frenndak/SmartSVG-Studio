@@ -7,10 +7,15 @@ It does NOT qualify Design Space, Windows, or physical cutting.
 from __future__ import annotations
 
 import ast
+import hashlib
 import math
+import os
+import shutil
+import uuid
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 import xml.etree.ElementTree as ET
 
 
@@ -297,6 +302,61 @@ class TestV34PhysicalWidthFailClosed(unittest.TestCase):
         self.assertTrue(any(isinstance(arg, ast.Constant)
                             and arg.value == "Largeur physique"
                             for arg in calls[0].args))
+
+
+def atomic_png_copy_helpers():
+    """Execute the actual production helpers without optional image libraries."""
+    tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
+    names = {"_sha256_file", "_copy_atomic"}
+    nodes = [node for node in tree.body
+             if isinstance(node, ast.FunctionDef) and node.name in names]
+    if {node.name for node in nodes} != names:
+        raise AssertionError("Missing production atomic PNG helpers")
+
+    class ImportAuditError(ValueError):
+        pass
+
+    namespace = dict(hashlib=hashlib, os=os, shutil=shutil, uuid=uuid,
+                     Path=Path, ImportAuditError=ImportAuditError)
+    exec(compile(ast.Module(body=nodes, type_ignores=[]),
+                 str(SOURCE), "exec"), namespace)
+    return namespace
+
+
+class TestV34AtomicPngPublication(unittest.TestCase):
+    def test_normal_publish_is_complete_and_idempotent(self):
+        helpers = atomic_png_copy_helpers()
+        with tempfile.TemporaryDirectory() as td:
+            src = Path(td) / "source.png"
+            dest = Path(td) / "destination.png"
+            src.write_bytes(b"synthetic complete PNG fixture")
+            helpers["_copy_atomic"](src, dest)
+            self.assertEqual(dest.read_bytes(), src.read_bytes())
+            helpers["_copy_atomic"](src, dest)
+            self.assertEqual(dest.read_bytes(), src.read_bytes())
+            self.assertEqual(list(Path(td).glob(".tmp_*")), [])
+
+    @unittest.skipIf(os.name == "nt", "POSIX no-hardlink fallback only")
+    def test_no_hardlinks_fail_closed_before_partial_png_is_visible(self):
+        # The old O_EXCL streaming fallback published the destination after
+        # only a few bytes had been copied; a concurrent reader could consume
+        # a truncated image. POSIX rename would overwrite a concurrent file.
+        helpers = atomic_png_copy_helpers()
+        with tempfile.TemporaryDirectory() as td:
+            src = Path(td) / "source.png"
+            dest = Path(td) / "destination.png"
+            src.write_bytes(b"synthetic complete PNG fixture")
+            with patch.object(os, "link", side_effect=OSError("no hardlinks")):
+                with patch.object(shutil, "copyfileobj",
+                                  side_effect=AssertionError("partial publish")):
+                    with self.assertRaisesRegex(
+                            helpers["ImportAuditError"],
+                            "Publication atomique impossible"):
+                        helpers["_copy_atomic"](src, dest)
+            self.assertFalse(dest.exists())
+            self.assertEqual(src.read_bytes(),
+                             b"synthetic complete PNG fixture")
+            self.assertEqual(list(Path(td).glob(".tmp_*")), [])
 
 
 if __name__ == "__main__":
