@@ -336,6 +336,44 @@ class TestDeliveryManifestSheetStatusG34(unittest.TestCase):
         self.assertEqual(manifest['statut'],'CONTROLE_LOCAL_COMPLET_A_REVISER')
         self.assertEqual(manifest['avertissements'],[])
 
+    def test_stale_preflight_cannot_override_failed_manufacturing_status(self):
+        # The PNG remains byte-identical, but upstream manufacturing rejected it.
+        for status in ('NB_DECOUPES_INCOHERENT_VERIFIER',
+                       'TAILLE_POTENTIELLEMENT_TROP_GRANDE_DESIGN_SPACE',
+                       None):
+            with self.subTest(status=status):
+                report = self.report([
+                    {'statut': 'PRET_POUR_IMPORT_LOCAL',
+                     'fichier_import': str(self.sheet)},
+                ])
+                report['planches'] = [
+                    {'statut': status, 'fichier': str(self.sheet)},
+                ]
+                original = self.sheet.read_bytes()
+                manifest = delivery.delivery_manifest(report)
+                self.assertEqual(manifest['statut'], 'REVISIONS_NECESSAIRES')
+                self.assertIn('PLANCHES_FABRIQUEES_NON_RECONCILIEES',
+                              manifest['avertissements'])
+                self.assertEqual(self.sheet.read_bytes(), original)
+
+    def test_second_alias_rejected_status_is_not_hidden_by_matching_bytes(self):
+        # Two aliases with identical bytes must not conceal a rejected sheet.
+        report = self.report([
+            {'statut': 'PRET_POUR_IMPORT_LOCAL',
+             'fichier_import': str(self.sheet)},
+        ])
+        report['planches'] = [
+            {'statut': 'CREATION_OK', 'fichier': str(self.sheet)},
+        ]
+        report['planches_cricut'] = [
+            {'statut': 'NB_DECOUPES_INCOHERENT_A_VERIFIER',
+             'fichier': str(self.sheet)},
+        ]
+        manifest = delivery.delivery_manifest(report)
+        self.assertEqual(manifest['statut'], 'REVISIONS_NECESSAIRES')
+        self.assertIn('PLANCHES_FABRIQUEES_NON_RECONCILIEES',
+                      manifest['avertissements'])
+
     def test_malformed_manufactured_sheet_collection_fails_closed(self):
         report = self.report([])
         report['planches'] = {'unexpected': 'mapping'}

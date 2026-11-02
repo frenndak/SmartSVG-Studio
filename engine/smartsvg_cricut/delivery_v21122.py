@@ -92,6 +92,11 @@ def delivery_manifest(report):
     # Both historical aliases can coexist. Compare every *declared* alias:
     # an explicit empty list must not conceal a nonempty manufactured batch.
     aliases=[report[key] for key in ('planches','planches_cricut') if key in report]
+    # A stale handoff cannot certify a sheet rejected by manufacturing,
+    # even when its PNG bytes still match the preflighted copy.
+    if any(not isinstance(sheet,dict) or sheet.get('statut')!='CREATION_OK'
+           for collection in aliases for sheet in collection):
+        sheets_reconciled=False
     if len(aliases)==2:
         first,second=aliases
         if len(first)!=len(second):
