@@ -229,6 +229,23 @@ def _select_handoff_pages(report: dict) -> tuple[list, bool]:
     return (declared[0] if declared else []), True
 
 
+def _sheet_expected_count(page: dict) -> int:
+    """Reject malformed manufactured-sheet counts without crashing handoff."""
+    if 'elements_source' in page:
+        elements = page['elements_source']
+        if not isinstance(elements, list):
+            raise ImportAuditError('Liste elements_source invalide')
+        if elements:
+            return len(elements)
+    raw = page.get('objets')
+    if type(raw) is int:
+        return raw
+    # Preserve the historical numeric-string count for legacy reports.
+    if isinstance(raw, str) and raw.isascii() and raw.isdecimal() and len(raw) <= 16:
+        return int(raw)
+    raise ImportAuditError('Nombre objets de planche invalide')
+
+
 def _classify_handoff_status(result: dict, *, pages_well_formed: bool) -> str:
     """A batch is ready only if every requested object AND sheet passed preflight.
 
@@ -322,7 +339,7 @@ def prepare_cricut_import(report:dict,dpi:int) ->dict:
                     raise ImportAuditError('Planche non produite ou avertissement de fabrication')
                 source=_source(root,p.get('fichier'))
                 geo=_topology(source);rec.update(geo)
-                expected=len(p.get('elements_source') or []) or int(p.get('objets') or 0)
+                expected=_sheet_expected_count(p)
                 if not 1<=expected<=MAX_ITEMS or geo['composantes_alpha']!=expected:
                     raise ImportAuditError(f'Ilots de decoupe : {geo["composantes_alpha"]} / attendus {expected}')
                 if geo['trous_transparents_significatifs']:
