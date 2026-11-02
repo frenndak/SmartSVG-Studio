@@ -41,6 +41,14 @@ def _proposal(template_id, parameters, bbox, outer, slits, folds, area):
         finite = False
     if not finite or area <= 0:
         raise TemplateGeometryError("INVALID_TEMPLATE_DIMENSION: derived area")
+    # Tiny positive dimensions can collapse onto the same IEEE-754 coordinate
+    # after addition/subtraction (e.g. 30 - 1e-20 == 30). A zero-length CUT
+    # slit or SCORE fold must not be presented as usable fabrication geometry.
+    for label, line in (("cut_outer", outer), *[( "cut_slit", s) for s in slits],
+                        *[("score_fold", s) for s in folds]):
+        if any(start == end for start, end in zip(line, line[1:])):
+            raise TemplateGeometryError(
+                f"INVALID_TEMPLATE_DIMENSION: collapsed {label}")
     # The geometry catalogue and path descriptors are separate public views.
     # Copy point lists so editing one preview view cannot silently mutate the
     # other before any future export/preflight consumer validates its input.

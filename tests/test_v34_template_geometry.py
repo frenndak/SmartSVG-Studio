@@ -75,6 +75,27 @@ class TestV34TemplateGeometry(unittest.TestCase):
                                     'INVALID_TEMPLATE_DIMENSION: derived bounds'):
             templates.folded_card(10**308, 148)
 
+    def test_tiny_positive_dimensions_cannot_collapse_cut_or_score(self):
+        # The nominal values are positive and areas finite, but rounding
+        # collapses actual path endpoints. Reject before any future export.
+        cases = (
+            (80, 50, 30, 1e-20),  # cut slits disappear: h-t == h
+            (1e-20, 50, 30, 10),  # horizontal SCORE: h+w == h
+            (80, 1e-20, 30, 10),  # vertical SCORE: h+d == h
+        )
+        for dimensions in cases:
+            with self.subTest(dimensions=dimensions):
+                with self.assertRaisesRegex(
+                        templates.TemplateGeometryError,
+                        'INVALID_TEMPLATE_DIMENSION: collapsed'):
+                    templates.open_tray(*dimensions)
+
+    def test_small_representable_tab_width_is_not_rejected(self):
+        proposal = templates.open_tray(80, 50, 30, 1e-6)
+        for path in proposal['geometry']['paths']:
+            points = path['points_mm']
+            self.assertTrue(all(a != b for a, b in zip(points, points[1:])))
+
     def test_repeatable_without_mutation_or_persistence(self):
         dimensions = [80, 50, 30, 10]
         original = dimensions[:]
