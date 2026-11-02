@@ -41,12 +41,17 @@ def _proposal(template_id, parameters, bbox, outer, slits, folds, area):
         finite = False
     if not finite or area <= 0:
         raise TemplateGeometryError("INVALID_TEMPLATE_DIMENSION: derived area")
+    # The geometry catalogue and path descriptors are separate public views.
+    # Copy point lists so editing one preview view cannot silently mutate the
+    # other before any future export/preflight consumer validates its input.
     paths = [{"id": "cut-outer", "operation": "CUT", "closed": True,
-              "points_mm": outer}]
+              "points_mm": [list(point) for point in outer]}]
     paths.extend({"id": f"cut-slit-{i}", "operation": "CUT", "closed": False,
-                  "points_mm": segment} for i, segment in enumerate(slits, 1))
+                  "points_mm": [list(point) for point in segment]}
+                 for i, segment in enumerate(slits, 1))
     paths.extend({"id": f"score-fold-{i}", "operation": "SCORE", "closed": False,
-                  "points_mm": segment} for i, segment in enumerate(folds, 1))
+                  "points_mm": [list(point) for point in segment]}
+                 for i, segment in enumerate(folds, 1))
     return {
         "schema": "smartsvg-template-preview/1-draft", "template_id": template_id,
         "units": "mm", "parameters": parameters,
