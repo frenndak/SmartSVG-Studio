@@ -50,7 +50,10 @@ def delivery_manifest(report):
            for item,check in zip(objects,records)):
         raise DeliveryError('Objets Cricut malformes')
     for i,(item,check) in enumerate(zip(objects,records),1):
-        warning=list(item.get('avertissements') or [])
+        raw_warnings=item.get('avertissements', [])
+        if not isinstance(raw_warnings,list) or any(not isinstance(w,str) for w in raw_warnings):
+            raise DeliveryError('Avertissements Cricut invalides')
+        warning=list(raw_warnings)
         failures=[]
         files={}
         for key,path in [('impression',check.get('fichier_import')),
