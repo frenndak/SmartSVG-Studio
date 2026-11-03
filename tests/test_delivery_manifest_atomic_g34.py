@@ -437,5 +437,50 @@ class TestDeliveryManifestSheetStatusG34(unittest.TestCase):
             delivery.delivery_manifest(report)
 
 
+class TestDeliveryWarningsValidationG34(unittest.TestCase):
+    def test_invalid_warning_metadata_rejected_without_mutation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            png = root / 'image.png'
+            svg = root / 'contour.svg'
+            png.write_bytes(b'synthetic PNG')
+            svg.write_bytes(b'synthetic SVG')
+            for invalid in (3, True, {'unexpected': 'mapping'}, 'text', None,
+                            ['valid', 123]):
+                with self.subTest(invalid=invalid):
+                    report = {
+                        'dossier': str(root),
+                        'objets': [{'png': str(png), 'svg_contour': str(svg),
+                                   'avertissements': invalid}],
+                        'import_direct_cricut_v218': {
+                            'statut': 'PRET_POUR_IMPORT_LOCAL',
+                            'objets': [{'fichier_import': str(png),
+                                       'statut': 'PRET_POUR_IMPORT_LOCAL'}]}}
+                    before = (png.read_bytes(), svg.read_bytes())
+                    with self.assertRaisesRegex(delivery.DeliveryError,
+                                                'Avertissements Cricut invalides'):
+                        delivery.delivery_manifest(report)
+                    self.assertEqual((png.read_bytes(), svg.read_bytes()), before)
+
+    def test_legacy_missing_and_valid_warning_lists(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            png = root / 'image.png'
+            svg = root / 'contour.svg'
+            png.write_bytes(b'synthetic PNG')
+            svg.write_bytes(b'synthetic SVG')
+            report = {
+                'dossier': str(root),
+                'objets': [{'png': str(png), 'svg_contour': str(svg)}],
+                'import_direct_cricut_v218': {
+                    'statut': 'PRET_POUR_IMPORT_LOCAL',
+                    'objets': [{'fichier_import': str(png),
+                               'statut': 'PRET_POUR_IMPORT_LOCAL'}]}}
+            self.assertEqual(delivery.delivery_manifest(report)['objets'][0]['avertissements'], [])
+            report['objets'][0]['avertissements'] = ['Contrôle manuel']
+            self.assertEqual(delivery.delivery_manifest(report)['objets'][0]['avertissements'],
+                             ['Contrôle manuel'])
+
+
 if __name__ == '__main__':
     unittest.main()
