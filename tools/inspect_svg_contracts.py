@@ -249,16 +249,32 @@ def inspect_svg(path: Path, *, profile: str = "cut", max_bytes: int = 2_000_000)
         )
         # Zero group opacity is composited after descendants render: a child
         # cannot restore visibility by specifying its own opacity.
-        opacity_values = [node.attrib.get("opacity", "").strip()]
-        opacity_values.extend(re.findall(
-            r"(?:^|;)\s*opacity\s*:\s*([^;]+)", style, re.I
-        ))
+        # Inline CSS overrides presentation attributes. Within inline CSS,
+        # !important declarations outrank normal ones; the last declaration
+        # wins among declarations of equal importance.
+        opacity = node.attrib.get("opacity", "").strip()
+        chosen_priority = -1
+        for match in re.finditer(r"(?:^|;)\s*opacity\s*:\s*([^;]*)", style, re.I):
+            raw = match.group(1).strip()
+            important = re.search(r"\s*!important\s*$", raw, re.I)
+            priority = 1 if important else 0
+            if priority >= chosen_priority:
+                opacity = raw[:important.start()].strip() if important else raw
+                chosen_priority = priority
         zero_opacity = False
-        for raw_opacity in opacity_values:
-            if not raw_opacity:
-                continue
-            if re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", raw_opacity):
-                zero_opacity = zero_opacity or float(raw_opacity) == 0.0
+        if opacity:
+            numeric = re.fullmatch(
+                r"([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)(%)?",
+                opacity,
+            )
+            if numeric is None:
+                # A static preflight cannot safely resolve CSS variables,
+                # expressions or malformed declarations to visible geometry.
+                raise SVGRejected("UNVERIFIED_OPACITY")
+            value = float(numeric.group(1))
+            if not math.isfinite(value):
+                raise SVGRejected("UNVERIFIED_OPACITY")
+            zero_opacity = value == 0.0
         inside_definition = (inside_definition or tag in NON_RENDERING_CONTAINERS
                              or display_none or zero_opacity)
         pending.extend((child, inside_definition) for child in reversed(node))
