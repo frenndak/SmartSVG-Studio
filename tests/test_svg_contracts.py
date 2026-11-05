@@ -252,6 +252,57 @@ class SVGContractTests(unittest.TestCase):
         body = '<g opacity="0.5"><circle r="8"/></g>'
         self.assertEqual(inspect_svg(self.write(self.base(body)))["vector_elements"], 1)
 
+    def test_empty_invalid_inline_opacity_does_not_override_known_zero(self):
+        for attrs in ('opacity="0" style="opacity:"',
+                      'style="opacity:0;opacity:"',
+                      'opacity="0" style="opacity: !important"'):
+            with self.subTest(attrs=attrs):
+                with self.assertRaisesRegex(SVGRejected,'NO_VECTOR_GEOMETRY'):
+                    inspect_svg(self.write(self.base(f'<g {attrs}><circle r="8"/></g>')))
+
+    def test_negative_opacity_clamps_to_zero_for_visibility(self):
+        for attrs in ('opacity="-0.5"','opacity="-1e-3"','style="opacity:-10%"'):
+            with self.subTest(attrs=attrs):
+                with self.assertRaisesRegex(SVGRejected,'NO_VECTOR_GEOMETRY'):
+                    inspect_svg(self.write(self.base(f'<g {attrs}><circle r="8" opacity="1"/></g>')))
+
+    def test_nested_css_value_cannot_inject_a_top_level_opacity_declaration(self):
+        for style in ('opacity:0; --x:(;opacity:1;)',
+                      'opacity:0; --x:{opacity:1;}',
+                      "opacity:0; --x:';opacity:1;'",
+                      'opacity:0 ! important; --x:(;opacity:1;)'):
+            with self.subTest(style=style):
+                with self.assertRaisesRegex(SVGRejected,'NO_VECTOR_GEOMETRY'):
+                    inspect_svg(self.write(self.base(f'<g style="{style}"><circle r="8"/></g>')))
+
+    def test_unused_nested_values_and_empty_declarations_keep_visible_positive_controls(self):
+        for style in ('opacity:.5; --x:(;opacity:0;)',
+                      "opacity:.5; --x:';opacity:0;'",
+                      'opacity:.5;opacity:', 'opacity:'):
+            with self.subTest(style=style):
+                result=inspect_svg(self.write(self.base(f'<g style="{style}"><circle r="8"/></g>')))
+                self.assertEqual(result['vector_elements'],1)
+
+    def test_css_string_newline_recovery_is_unverified_not_hidden_from_opacity_scan(self):
+        for newline in ('&#10;','&#13;'):
+            style=f"opacity:1;--x:'{newline};opacity:0;--y:'"
+            with self.subTest(newline=newline),self.assertRaises(SVGRejected):
+                inspect_svg(self.write(self.base(f'<g style="{style}"><circle r="8"/></g>')))
+
+    def test_css_opacity_tokens_do_not_use_python_unicode_number_or_whitespace_rules(self):
+        for style in ('&#160;opacity:1','opacity:١','opacity:1&#160;',
+                      'opacity:1!&#160;important','opacity:1.','opacity:1. !important',
+                      'opacity:1!ımportant'):
+            with self.subTest(style=style),self.assertRaises(SVGRejected):
+                inspect_svg(self.write(self.base(f'<g opacity="0" style="{style}"><circle r="8"/></g>')))
+
+    def test_css_ascii_whitespace_and_numeric_positive_controls_remain_supported(self):
+        for style in ('opacity: .5 &#10;! &#9;important','opacity:+1e-1',
+                      'opacity:50%','opacity:0;opacity:1!important'):
+            with self.subTest(style=style):
+                self.assertEqual(inspect_svg(self.write(self.base(
+                    f'<g style="{style}"><circle r="8"/></g>')))['vector_elements'],1)
+
     def test_inline_css_overrides_presentation_opacity(self):
         visible = (
             '<g opacity="0" style="opacity:1"><circle r="8"/></g>',
