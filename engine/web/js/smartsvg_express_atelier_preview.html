@@ -80,6 +80,7 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:.001;overflow:hi
 .subject-card button[aria-pressed=false]{background:#35404b;border-color:#657283;color:#c5ced9}
 .subject-card details{font-size:11px;color:#c7d5e1;overflow-wrap:anywhere}
 @media(max-width:580px){.subjects-live{padding:14px}.subjects-grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}}
+img[role="button"]:focus-visible{outline:3px solid var(--accent,#645cff);outline-offset:3px}
 </style>
 </head>
 <body>
@@ -458,13 +459,22 @@ function paintRealSubjects(){
         const label=document.createElement("label");
         label.textContent=labelText+" (%) ";
         const input=document.createElement("input");
-        input.type="number";input.min="0";input.max="100";input.step="1";
+        input.type="number";input.min="0";input.max="100";input.step="any";
         input.value="50";input.style.width="70px";
         label.appendChild(input);previewBox.appendChild(label);
         return input;
       };
       const xInput=coordinate("Position horizontale");
       const yInput=coordinate("Position verticale");
+      const radiusLabel=document.createElement("label");
+      radiusLabel.textContent="Rayon (% du petit côté) ";
+      const radiusInput=document.createElement("input");
+      radiusInput.type="number";radiusInput.min="0.05";radiusInput.max="20";
+      radiusInput.step="any";radiusInput.value="5";radiusInput.style.width="70px";
+      radiusLabel.appendChild(radiusInput);previewBox.appendChild(radiusLabel);
+      const pointHint=document.createElement("p");
+      pointHint.textContent="Choisir les coordonnées ou cliquer dans un aperçu pour déplacer le point. Les flèches du clavier déplacent le point de 1 %. Recalculer avant d’enregistrer.";
+      previewBox.appendChild(pointHint);
       const calculate=document.createElement("button");
       calculate.type="button";calculate.textContent="Calculer l’aperçu";
       const cancel=document.createElement("button");
@@ -481,10 +491,11 @@ function paintRealSubjects(){
         image.alt=label+" du sujet "+item.numero;
         image.hidden=true;image.style.maxWidth="180px";
         image.style.maxHeight="180px";image.style.objectFit="contain";
+        image.style.objectPosition="50% 50%";image.style.border="0";image.style.padding="0";
         previews.appendChild(image);
       }
       let pending=false,abort=null,serial=0;
-      let acceptedPreview=null,saving=false;
+      let acceptedPreview=null,saving=false,pointPickersReady=false;
       const ready=()=>{
         pending=false;abort=null;
         calculate.disabled=reportAtPaint.identityActionStale||
@@ -494,7 +505,7 @@ function paintRealSubjects(){
         cancel.disabled=before.hidden&&after.hidden;
         saveButton.disabled=saving||!acceptedPreview?.canSave||calculate.disabled;
         modeInput.disabled=false;
-        xInput.disabled=false;yInput.disabled=false;
+        xInput.disabled=false;yInput.disabled=false;radiusInput.disabled=false;
       };
       const discardPreview=()=>{
         acceptedPreview=null;saveButton.disabled=true;
@@ -513,7 +524,7 @@ function paintRealSubjects(){
         previewStatus.textContent="Geste modifié : recalculer l’aperçu.";
         ready();
       };
-      for(const input of [modeInput,xInput,yInput]){
+      for(const input of [modeInput,xInput,yInput,radiusInput]){
         input.addEventListener("input",invalidateGesture);
         input.addEventListener("change",invalidateGesture);
       }
@@ -533,11 +544,16 @@ function paintRealSubjects(){
           previewStatus.textContent="Diagnostic périmé : recevoir un nouveau rapport avant l’aperçu.";
           calculate.disabled=true;return;
         }
-        const rawX=xInput.value,rawY=yInput.value;
+        const rawX=xInput.value,rawY=yInput.value,rawRadius=radiusInput.value;
         const x=Number(rawX)/100,y=Number(rawY)/100;
         if(rawX===""||rawY===""||!Number.isFinite(x)||!Number.isFinite(y)||
            x<0||x>1||y<0||y>1){
           previewStatus.textContent="Coordonnées invalides : choisir 0 à 100 %.";
+          return;
+        }
+        const radius=Number(rawRadius)/100;
+        if(rawRadius===""||!Number.isFinite(radius)||radius<0.0005||radius>0.2){
+          previewStatus.textContent="Rayon invalide : choisir 0,05 à 20 % du petit côté.";
           return;
         }
         const selectedAtStart=chosenRealSubjects.has(item.numero);
@@ -545,7 +561,7 @@ function paintRealSubjects(){
         const controller=new AbortController();
         abort=controller;pending=true;
         calculate.disabled=true;cancel.disabled=false;
-        modeInput.disabled=true;xInput.disabled=true;yInput.disabled=true;
+        modeInput.disabled=true;xInput.disabled=true;yInput.disabled=true;radiusInput.disabled=true;
         discardPreview();
         previewStatus.textContent="Calcul CPU en cours… aucun enregistrement.";
         let previewMessage=null;
@@ -556,7 +572,7 @@ function paintRealSubjects(){
           const {api}=await import("../../scripts/api.js");
           const result=await requestSubjectBrushPreview(
             api,reportAtPaint,linkedIdentity,{
-              mode:modeInput.value,radius:0.05,points:[[x,y]],
+              mode:modeInput.value,radius,points:[[x,y]],
               signal:controller.signal,timeoutMs:12000,
             });
           if(current!==serial||realSubjectsData!==reportAtPaint||
@@ -565,6 +581,21 @@ function paintRealSubjects(){
           before.src=result.beforeSrc;after.src=result.afterSrc;
           acceptedPreview=result;
           before.hidden=false;after.hidden=false;
+          if(!pointPickersReady){
+            for(const image of [before,after])previewModule.bindBrushPointPicker(image,{
+              width:reportAtPaint.width_px,height:reportAtPaint.height_px,
+              isCurrent:()=>!pending&&!saving&&!!acceptedPreview&&
+                realSubjectsData===reportAtPaint&&!reportAtPaint.identityActionStale&&
+                Number.isSafeInteger(reportAtPaint.expires_at_ms)&&Date.now()<reportAtPaint.expires_at_ms,
+              getPoint:()=>[Number(xInput.value)/100,Number(yInput.value)/100],
+              onPoint:point=>{
+                xInput.value=(point[0]*100).toFixed(6);yInput.value=(point[1]*100).toFixed(6);
+                invalidateGesture();xInput.focus();
+              },
+              onKeyboardFocus:axis=>(axis==="y"?yInput:xInput).focus(),
+            });
+            pointPickersReady=true;
+          }
           previewStatus.textContent="Aperçu prêt · "+result.changedPixels+
             " pixel(s) concernés · projet inchangé. Enregistrer, annuler ou refaire le geste.";
         }catch(error){
@@ -595,7 +626,7 @@ function paintRealSubjects(){
         $("brushHistoryButton").disabled=true;
         $("clearSubjects").disabled=true;$("receiveSubjects").disabled=true;
         saving=true;saveButton.disabled=true;calculate.disabled=true;cancel.disabled=true;
-        modeInput.disabled=true;xInput.disabled=true;yInput.disabled=true;
+        modeInput.disabled=true;xInput.disabled=true;yInput.disabled=true;radiusInput.disabled=true;
         previewStatus.textContent="Enregistrement en cours… attendre la confirmation.";
         $("realSubjectsStatus").textContent=previewStatus.textContent;
         let message=null;

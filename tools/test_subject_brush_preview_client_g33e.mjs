@@ -8,7 +8,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {webcrypto} from 'node:crypto';
 if(!globalThis.crypto)globalThis.crypto=webcrypto;
-import {requestSubjectBrushPreview,brushPreviewMessage,saveSubjectBrushPreview} from
+import {requestSubjectBrushPreview,brushPreviewMessage,saveSubjectBrushPreview,
+        brushPointFromPreview,bindBrushPointPicker} from
   '../engine/web/js/smartsvg_subject_brush_preview_g33e.mjs';
 
 const SHA='a'.repeat(64);
@@ -103,7 +104,7 @@ test('Atelier cleanup never re-enables a preview after Subject proof expiry',()=
     const state={
       pending:true,abort:{},calculate:{disabled:true},
       cancel:{disabled:false},before:{hidden:true},after:{hidden:true},
-      modeInput:{disabled:true},xInput:{disabled:true},yInput:{disabled:true},
+      modeInput:{disabled:true},xInput:{disabled:true},yInput:{disabled:true},radiusInput:{disabled:true},
       saveButton:{disabled:true},saving:false,acceptedPreview:null,
       reportAtPaint,realSubjectsData:different?{}:reportAtPaint,
     };
@@ -272,7 +273,7 @@ test('Atelier recovers visibly when the preview module cannot load',async()=>{
     removeAttribute(key){delete this[key];},
   });
   const ctx={
-    modeInput:el(),xInput:el(),yInput:el(),calculate:el(),cancel:el(),saveButton:el(),
+    modeInput:el(),xInput:el(),yInput:el(),radiusInput:{...el(),value:'5'},calculate:el(),cancel:el(),saveButton:el(),
     before:el(),after:el(),previewStatus:el(),button:el(),
     reportAtPaint:{identityActionStale:false,expires_at_ms:Date.now()+60000},
     chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},
@@ -305,7 +306,7 @@ test('Atelier preview dismissal and gesture changes never leave stale PNGs visib
     fire(event){for(const handler of this.events[event]||[])handler();},
   });
   const ctx={
-    modeInput:el(),xInput:el(),yInput:el(),calculate:el(),cancel:el(),saveButton:el(),
+    modeInput:el(),xInput:el(),yInput:el(),radiusInput:{...el(),value:'5'},calculate:el(),cancel:el(),saveButton:el(),
     before:el(),after:el(),previewStatus:el(),button:el(),
     reportAtPaint:{identityActionStale:false,expires_at_ms:Date.now()+60000},
     chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},
@@ -418,7 +419,7 @@ test('Atelier save acknowledgement or uncertainty invalidates the old diagnostic
       removeAttribute(key){delete this[key];}});
     let finish,writes=0;
     const current={identityActionStale:false,expires_at_ms:Date.now()+60000};
-    const ctx={modeInput:el(),xInput:el(),yInput:el(),calculate:el(),cancel:el(),saveButton:el(),
+    const ctx={modeInput:el(),xInput:el(),yInput:el(),radiusInput:{...el(),value:'5'},calculate:el(),cancel:el(),saveButton:el(),
       before:el(),after:el(),previewStatus:el(),button:el(),reportAtPaint:current,realSubjectsData:current,
       chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},
       activeBrushSaves:0,historyUI:null,$:()=>({}),stopSubjectReceive(){},clearRealSubjectExpiry(){},
@@ -455,7 +456,7 @@ test('clearing inspection cannot hide a pending save or its durable outcome',asy
   const controls={clearSubjects:el(),receiveSubjects:el(),realSubjectsStatus:el(),brushHistoryButton:el()};
   let finish,cleared=0;
   const current={identityActionStale:false,expires_at_ms:Date.now()+60000};
-  const ctx={modeInput:el(),xInput:el(),yInput:el(),calculate:el(),cancel:el(),saveButton:el(),
+  const ctx={modeInput:el(),xInput:el(),yInput:el(),radiusInput:{...el(),value:'5'},calculate:el(),cancel:el(),saveButton:el(),
     before:el(),after:el(),previewStatus:el(),button:el(),reportAtPaint:current,realSubjectsData:current,
     chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},activeBrushSaves:0,historyUI:null,
     $:id=>controls[id],stopSubjectReceive(){},clearRealSubjectExpiry(){},paintRealSubjects(){cleared++;},
@@ -469,4 +470,40 @@ test('clearing inspection cannot hide a pending save or its durable outcome',asy
   finish({persisted:true});await saving;
   assert.match(controls.realSubjectsStatus.textContent,/enregistré/);
   assert.doesNotMatch(controls.realSubjectsStatus.textContent,/Aucun masque ni projet modifié/);
+});
+
+test('preview picking maps the contained image rather than its letterbox',()=>{
+  const rect={left:10,top:20,width:100,height:100};
+  assert.deepEqual(brushPointFromPreview(rect,200,100,60,70),[0.5,0.5]);
+  assert.deepEqual(brushPointFromPreview(rect,200,100,10,45),[0,0]);
+  assert.deepEqual(brushPointFromPreview(rect,200,100,110,95),[1,1]);
+  assert.equal(brushPointFromPreview(rect,200,100,60,30),null);
+  assert.equal(brushPointFromPreview(rect,200,100,111,70),null);
+  assert.deepEqual(brushPointFromPreview({left:30,top:40,width:200,height:200},200,100,130,140),[0.5,0.5]);
+});
+test('portrait, degenerate and nonfinite preview geometry fails safely',()=>{
+  assert.deepEqual(brushPointFromPreview({left:0,top:0,width:100,height:100},100,200,50,50),[0.5,0.5]);
+  assert.equal(brushPointFromPreview({left:0,top:0,width:100,height:100},100,200,10,50),null);
+  for(const rect of [{left:0,top:0,width:0,height:100},{left:NaN,top:0,width:100,height:100}])
+    assert.equal(brushPointFromPreview(rect,100,100,50,50),null);
+  assert.equal(brushPointFromPreview({left:0,top:0,width:100,height:100},0,100,50,50),null);
+  assert.equal(brushPointFromPreview({left:0,top:0,width:100,height:100},100,100,NaN,50),null);
+});
+test('point picker edits coordinates only, supports keyboard, and refuses stale state',()=>{
+  const image={hidden:false,alt:'Masque',events:{},setAttribute(){},
+    getBoundingClientRect(){return {left:10,top:20,width:100,height:100};},
+    addEventListener(type,fn){this.events[type]=fn;}};
+  let point=[0.5,0.5],current=true,updates=0,focus=0;
+  const dispose=bindBrushPointPicker(image,{width:200,height:100,
+    isCurrent:()=>current,getPoint:()=>point,
+    onPoint(p){point=p;updates++;},onKeyboardFocus(){focus++;}});
+  image.events.click({button:0,detail:1,clientX:85,clientY:70});
+  assert.deepEqual(point,[0.75,0.5]);assert.equal(updates,1);
+  image.events.click({button:0,detail:1,clientX:60,clientY:30});assert.equal(updates,1);
+  let prevented=false;
+  image.events.keydown({key:'ArrowLeft',preventDefault(){prevented=true;}});
+  assert.equal(prevented,true);assert.deepEqual(point,[0.74,0.5]);
+  image.events.keydown({key:'Enter',preventDefault(){}});assert.ok(focus>0);
+  current=false;image.events.click({button:0,detail:1,clientX:50,clientY:50});assert.equal(updates,2);
+  current=true;dispose();image.events.click({button:0,detail:1,clientX:50,clientY:50});assert.equal(updates,2);
 });
