@@ -95,6 +95,18 @@ class SubjectBrushSaveTests(unittest.TestCase):
             self.save(request)
         self.assertEqual(self.files(), before)
 
+    def test_retry_after_native_edit_without_history_is_rejected(self):
+        from smartsvg_core.project_archive import save_project
+        request = self.request()
+        self.save(request)
+        project = load_project(self.path)
+        save_project(self.path, replace(project, document={
+            **project.document, 'notes': 'native writer changed this'}), overwrite=True)
+        before = self.files()
+        with self.assertRaisesRegex(WorkspaceError, 'PROJECT_CHANGED'):
+            self.save(request)
+        self.assertEqual(self.files(), before)
+
     def test_identical_retry_is_readonly_and_does_not_rotate_backup(self):
         request = self.request()
         first = self.save(request)
@@ -171,6 +183,21 @@ class SubjectBrushSaveTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkspaceError, "PROJECT_NOT_HEALTHY"):
             self.save(request)
         self.assertEqual(self.files(), before)
+
+    def test_unrecognized_history_values_fail_closed_without_raw_exception(self):
+        from smartsvg_core.project_archive import save_project
+        for entry in (None, 7, 'legacy-string', []):
+            with self.subTest(entry=entry):
+                request = self.request()
+                project = load_project(self.path)
+                save_project(self.path, replace(project, operations=[
+                    *project.operations, entry]), overwrite=True)
+                request['expected_sha256'] = sha256(self.path.read_bytes()).hexdigest()
+                before = self.files()
+                with self.assertRaisesRegex(WorkspaceError, 'INVALID_BRUSH_HISTORY'):
+                    self.save(request)
+                self.assertEqual(self.files(), before)
+                save_project(self.path, project, overwrite=True)
 
     def test_concurrent_notes_update_is_not_overwritten_by_brush(self):
         request = self.request()

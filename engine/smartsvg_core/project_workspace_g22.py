@@ -14,7 +14,7 @@ from pathlib import Path
 import re
 import time
 
-from .project_archive import LoadedProject, ProjectArchiveError, load_project
+from .project_archive import LoadedProject, ProjectArchiveError, load_project, _payload
 from .project_contracts import SourceAsset
 from .editor_session_g23 import parse_editor_document, EditorSessionError
 from .project_contracts import Mask
@@ -49,6 +49,12 @@ class WorkspaceError(ValueError):
 
 def _sha(data):
     return sha256(data).hexdigest()
+
+
+def _brush_receipt_state_sha(project):
+    # The existing archive manifest covers every logical field and resource.
+    # Exclude the new receipt at the call site to avoid a self-referential hash.
+    return _sha(_payload(project)['manifest.json'])
 
 
 def _revision(path):
@@ -692,6 +698,8 @@ class ManagedWorkspace:
         if _revision(path) != current_sha:
             raise WorkspaceError('PROJECT_CHANGED')
         kind = 'save_subject_brush_g33e_b2b1'
+        if any(type(op) is not dict for op in project.operations):
+            raise WorkspaceError('INVALID_BRUSH_HISTORY')
         receipts = [op for op in project.operations
                     if op.get('kind') == kind and op.get('command_id') == command_id]
         if receipts:
@@ -737,7 +745,9 @@ class ManagedWorkspace:
                 {'object': index, 'mode': mode, 'radius': radius, 'points': points}]
         }, allow_nan=False), source_dimensions=(width, height))
         if receipts:
-            if session != editor or _revision(path) != current_sha:
+            if (session != editor or _revision(path) != current_sha or
+                    _brush_receipt_state_sha(replace(project, operations=project.operations[:-1]))
+                    != receipt.get('result_state_sha256')):
                 raise WorkspaceError('PROJECT_CHANGED')
             return {'name': name, 'status': 'subject_brush_already_saved',
                     'sha256': current_sha, 'command_id': command_id,
@@ -751,6 +761,8 @@ class ManagedWorkspace:
                 'subject_id': subject_id, 'mask_id': mask_id,
                 'preview_mask_sha256_float32': expected_preview_mask_sha256_float32,
                 'editor_v216': editor}])
+        updated.operations[-1]['result_state_sha256'] = _brush_receipt_state_sha(
+            replace(updated, operations=project.operations))
         def verified(reopened):
             # Verify under the existing OS lock before rotating the backup.
             return (reopened.resources == project.resources and
