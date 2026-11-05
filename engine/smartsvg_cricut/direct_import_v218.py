@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -103,6 +104,19 @@ def _topology(path):
             'alpha_quasi_rectangle':rectangle_entier and not rectangle_exact}
 
 
+def _positive_mm(raw, label):
+    """Reject non-finite, non-positive or boolean physical dimensions."""
+    if isinstance(raw, bool):
+        raise ImportAuditError(f'{label} invalide')
+    try:
+        width = float(raw)
+    except (TypeError, ValueError, OverflowError):
+        raise ImportAuditError(f'{label} invalide') from None
+    if not math.isfinite(width) or width <= 0:
+        raise ImportAuditError(f'{label} invalide')
+    return width
+
+
 def _svg_preflight(png:Path,svg_raw,project,expected_width_mm):
     if not svg_raw:return {'statut':'INFORMATION_INDISPONIBLE','raison':'SVG de controle non renseigne'}
     try:
@@ -115,7 +129,7 @@ def _svg_preflight(png:Path,svg_raw,project,expected_width_mm):
         if root.tag.rsplit('}',1)[-1]!='svg':raise ImportAuditError('Racine SVG incorrecte')
         width=root.get('width','')
         if not width.endswith('mm'):raise ImportAuditError('SVG sans largeur physique mm')
-        width=float(width[:-2])
+        width=_positive_mm(width[:-2], 'Largeur SVG')
         paths=[e for e in root.iter() if e.tag.rsplit('}',1)[-1]=='path']
         if not paths:raise ImportAuditError('SVG sans chemin')
         if any(e.tag.rsplit('}',1)[-1] not in ('svg','path','g','title','desc') for e in root.iter()):
@@ -159,24 +173,24 @@ def _copy_atomic(src,dest):
             if not dest.is_symlink() and dest.is_file() and _sha256_file(dest)==source_digest:
                 return
             raise ImportAuditError('Destination creee concurremment') from None
-        except OSError:
-            # FAT/network volumes may not support hard links. Use an exclusive
-            # create as a portable, never-overwrite fallback on Windows too.
+        except OSError as exc:
+            # O_EXCL followed by streaming bytes exposes a partially written
+            # PNG to concurrent readers. Only publish a complete staging file.
+            # Windows os.rename refuses an existing destination; POSIX rename
+            # overwrites, so without hard links POSIX must fail closed.
+            if os.name != 'nt':
+                raise ImportAuditError(
+                    'Publication atomique impossible sans liens physiques') from exc
             try:
-                fd=os.open(dest,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
+                os.rename(tmp,dest)
             except FileExistsError:
-                if not dest.is_symlink() and dest.is_file() and _sha256_file(dest)==source_digest:
+                if (not dest.is_symlink() and dest.is_file()
+                        and _sha256_file(dest)==source_digest):
                     return
                 raise ImportAuditError('Destination creee concurremment') from None
-            try:
-                with os.fdopen(fd,'wb') as target, open(tmp,'rb') as original:
-                    shutil.copyfileobj(original,target,length=1024*1024)
-                    target.flush();os.fsync(target.fileno())
-                if _sha256_file(dest)!=source_digest:
-                    raise ImportAuditError('Copie finale non conforme')
-            except BaseException:
-                dest.unlink(missing_ok=True)
-                raise
+            except OSError as rename_exc:
+                raise ImportAuditError(
+                    'Publication atomique impossible sur ce systeme de fichiers') from rename_exc
     finally:
         tmp.unlink(missing_ok=True)
 
@@ -189,6 +203,66 @@ def _write_text_preserving_existing(dest, contents):
         _copy_atomic(staging,dest)
     finally:
         staging.unlink(missing_ok=True)
+
+
+def _select_handoff_pages(report: dict) -> tuple[list, bool]:
+    """Do not silently discard explicitly malformed manufactured-sheet data.
+
+    Both historical aliases are validated before choosing the nonempty one.
+    An absent collection is legitimate for a single-sticker handoff; an
+    explicitly present None, mapping or string is not.
+    """
+    declared = []
+    for key in ('planches', 'planches_cricut'):
+        if key in report:
+            pages = report[key]
+            if not isinstance(pages, list) or any(
+                    not isinstance(page, dict) for page in pages):
+                return [], False
+            declared.append(pages)
+    # Both historical names describe the SAME manufactured batch. A truthy
+    # fallback must not silently accept an empty alias, different file or
+    # rejected sheet in the other alias. Distinct paths cannot be proved
+    # equivalent by this metadata-only selector: fail closed at handoff.
+    if len(declared) == 2 and declared[0] != declared[1]:
+        return [], False
+    return (declared[0] if declared else []), True
+
+
+def _sheet_expected_count(page: dict) -> int:
+    """Reject malformed manufactured-sheet counts without crashing handoff."""
+    if 'elements_source' in page:
+        elements = page['elements_source']
+        if not isinstance(elements, list):
+            raise ImportAuditError('Liste elements_source invalide')
+        if elements:
+            return len(elements)
+    raw = page.get('objets')
+    if type(raw) is int:
+        return raw
+    # Preserve the historical numeric-string count for legacy reports.
+    if isinstance(raw, str) and raw.isascii() and raw.isdecimal() and len(raw) <= 16:
+        return int(raw)
+    raise ImportAuditError('Nombre objets de planche invalide')
+
+
+def _classify_handoff_status(result: dict, *, pages_well_formed: bool) -> str:
+    """A batch is ready only if every requested object AND sheet passed preflight.
+
+    Individual PNGs can remain usable in a partial batch, but the batch-level
+    status must not advertise readiness when a sheet failed or was malformed.
+    """
+    objects_ready = result['fichiers_prets'] == result['nombre_objets']
+    pages_ready = pages_well_formed and all(
+        page.get('statut') == 'PRET_POUR_IMPORT_LOCAL'
+        for page in result['planches']
+    )
+    if objects_ready and pages_ready:
+        return ('PRET_POUR_IMPORT_LOCAL_AVEC_CADRES'
+                if result['cartes_rectangulaires'] else 'PRET_POUR_IMPORT_LOCAL')
+    if result['fichiers_prets'] or result['planches_pretes']:
+        return 'PARTIEL'
+    return 'A_VERIFIER'
 
 
 def prepare_cricut_import(report:dict,dpi:int) ->dict:
@@ -221,7 +295,7 @@ def prepare_cricut_import(report:dict,dpi:int) ->dict:
             rec['source']=str(source)
             physical=obj.get('largeur_finale_avec_marge_mm')
             if physical is not None:
-                physical=float(physical)
+                physical=_positive_mm(physical, 'Largeur physique')
                 expected=geo['taille_px'][0]*25.4/dpi
                 rec['largeur_attendue_mm']=round(physical,3)
                 if abs(physical-expected)>.20:
@@ -256,7 +330,7 @@ def prepare_cricut_import(report:dict,dpi:int) ->dict:
             rec['raison']=str(exc)[:200]
             if 'Destination deja existante' in rec['raison'] or 'Destination creee concurremment' in rec['raison']:
                 rec['avertissement']='ANCIEN PNG EVENTUELLEMENT PRESENT : ne pas l importer sans comparer au rapport courant'
-    pages=report.get('planches') or report.get('planches_cricut') or []
+    pages, pages_well_formed = _select_handoff_pages(report)
     if isinstance(pages,list):
         for i,p in enumerate(pages,1):
             rec={'planche':i,'statut':'A_VERIFIER'};result['planches'].append(rec)
@@ -265,7 +339,7 @@ def prepare_cricut_import(report:dict,dpi:int) ->dict:
                     raise ImportAuditError('Planche non produite ou avertissement de fabrication')
                 source=_source(root,p.get('fichier'))
                 geo=_topology(source);rec.update(geo)
-                expected=len(p.get('elements_source') or []) or int(p.get('objets') or 0)
+                expected=_sheet_expected_count(p)
                 if not 1<=expected<=MAX_ITEMS or geo['composantes_alpha']!=expected:
                     raise ImportAuditError(f'Ilots de decoupe : {geo["composantes_alpha"]} / attendus {expected}')
                 if geo['trous_transparents_significatifs']:
@@ -285,17 +359,23 @@ def prepare_cricut_import(report:dict,dpi:int) ->dict:
                 rec['raison']=str(exc)[:200]
                 if 'Destination deja existante' in rec['raison'] or 'Destination creee concurremment' in rec['raison']:
                     rec['avertissement']='ANCIEN PNG EVENTUELLEMENT PRESENT : ne pas l importer sans comparer au rapport courant'
-    result['statut']=('PRET_POUR_IMPORT_LOCAL_AVEC_CADRES' if result['fichiers_prets']==len(objs) and result['cartes_rectangulaires'] else
-                      'PRET_POUR_IMPORT_LOCAL' if result['fichiers_prets']==len(objs) else
-                      'PARTIEL' if result['fichiers_prets'] else 'A_VERIFIER')
+    result['statut'] = _classify_handoff_status(
+        result, pages_well_formed=pages_well_formed)
     readme=(
         'SMARTSVG — IMPORT CRICUT EN 1 FICHIER (V21.8)\n\n'
-        '1. Ouvrir Design Space, puis Televerser / Upload.\n'
+        '0. Lire RAPPORT_IMPORT_CRICUT_V21_8.json : si PARTIEL ou A_VERIFIER,\n'
+        '   corriger les avertissements avant de televerser les fichiers concernes.\n'
+        '1. Ouvrir Design Space, puis Televerser / Upload (connexion Internet requise\n'
+        '   pour le televersement initial, meme si SmartSVG fonctionne localement).\n'
         '2. Choisir STICKER_..._IMPRIMER_PUIS_DECOUPER.png ou la PLANCHE.\n'
         '3. Conserver le fond transparent. Choisir Flat Graphic (image aplatie).\n'
         '4. Verifier dans le canevas : operation Imprimer puis decouper, silhouette et taille en mm.\n'
         '5. Cliquer Creer, choisir le papier et imprimer directement DEPUIS Design Space.\n'
         '6. NE PAS ajouter le SVG de contour par-dessus : cela double les decoupes.\n\n'
+        'A4 / Explore 5 : suivre le guidage Design Space pour placer le papier en\n'
+        'paysage sur le tapis, avec la fleche du repere en haut a gauche.\n'
+        'Ne PAS dessiner les marques de capteur : Design Space les ajoute lors\n'
+        'de l impression. Verifier la zone imprimable et la taille avant de lancer.\n'
         'Un PNG est une image aplatie, pas un SVG vectoriel multicouche editable.\n'
         'Ce precontrole logiciel ne prouve PAS la compatibilite de ton installation Cricut\n'
         'ni la qualite de la decoupe physique. Faire une decoupe test.\n'
