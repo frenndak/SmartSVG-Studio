@@ -421,7 +421,7 @@ test('Atelier save acknowledgement or uncertainty invalidates the old diagnostic
     const ctx={modeInput:el(),xInput:el(),yInput:el(),calculate:el(),cancel:el(),saveButton:el(),
       before:el(),after:el(),previewStatus:el(),button:el(),reportAtPaint:current,realSubjectsData:current,
       chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},
-      activeBrushSaves:0,$:()=>({}),stopSubjectReceive(){},clearRealSubjectExpiry(){},
+      activeBrushSaves:0,historyUI:null,$:()=>({}),stopSubjectReceive(){},clearRealSubjectExpiry(){},
       previewModule:{saveSubjectBrushPreview(_api,_report,_mask,_preview,options){
         writes++;assert.equal(options.confirmed,true);
         return new Promise((resolve,reject)=>{finish=()=>failed?reject(Error('SAVE_OUTCOME_UNKNOWN')):resolve({persisted:true});});
@@ -452,12 +452,12 @@ test('clearing inspection cannot hide a pending save or its durable outcome',asy
   const el=()=>({hidden:false,disabled:false,src:'old',textContent:'',events:{},
     addEventListener(event,handler){(this.events[event]??=[]).push(handler);},
     removeAttribute(key){delete this[key];}});
-  const controls={clearSubjects:el(),receiveSubjects:el(),realSubjectsStatus:el()};
+  const controls={clearSubjects:el(),receiveSubjects:el(),realSubjectsStatus:el(),brushHistoryButton:el()};
   let finish,cleared=0;
   const current={identityActionStale:false,expires_at_ms:Date.now()+60000};
   const ctx={modeInput:el(),xInput:el(),yInput:el(),calculate:el(),cancel:el(),saveButton:el(),
     before:el(),after:el(),previewStatus:el(),button:el(),reportAtPaint:current,realSubjectsData:current,
-    chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},activeBrushSaves:0,
+    chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},activeBrushSaves:0,historyUI:null,
     $:id=>controls[id],stopSubjectReceive(){},clearRealSubjectExpiry(){},paintRealSubjects(){cleared++;},
     previewModule:{saveSubjectBrushPreview(){return new Promise(resolve=>{finish=resolve;});},brushSaveMessage(){return 'incertain';}}};
   const bind=new Function(...Object.keys(ctx),actual+';return {setPreview(p){acceptedPreview=p},ready,getReport(){return realSubjectsData}};');
