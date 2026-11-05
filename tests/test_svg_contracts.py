@@ -237,6 +237,21 @@ class SVGContractTests(unittest.TestCase):
                 with self.assertRaisesRegex(SVGRejected, "NO_VECTOR_GEOMETRY"):
                     inspect_svg(p)
 
+    def test_zero_group_opacity_cannot_qualify_cut_geometry(self):
+        hidden = (
+            '<g opacity="0"><circle r="8" opacity="1"/></g>',
+            '<g style="opacity:0"><path d="M0 0 L2 2"/></g>',
+            '<g opacity="0e0"><circle r="8"/></g>',
+        )
+        for body in hidden:
+            with self.subTest(body=body):
+                with self.assertRaisesRegex(SVGRejected, "NO_VECTOR_GEOMETRY"):
+                    inspect_svg(self.write(self.base(body)))
+
+    def test_nonzero_group_opacity_remains_eligible(self):
+        body = '<g opacity="0.5"><circle r="8"/></g>'
+        self.assertEqual(inspect_svg(self.write(self.base(body)))["vector_elements"], 1)
+
     def test_visible_sibling_is_kept_after_hidden_group(self):
         p = self.write(self.base(
             '<g style="display:none"><circle r="4"/></g>'
