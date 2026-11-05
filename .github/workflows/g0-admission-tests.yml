@@ -1,35 +1,11 @@
 name: SmartSVG G0 - Admission Tests
 
 on:
+  # Every PR gets an actual G0 check: path filters must not create false-green or absent gates.
   pull_request:
-    paths:
-      - "tools/validate_release_archive.py"
-      - "tools/import_release_archive.py"
-      - "tools/verify_v21152_manifest.py"
-      - "tests/test_release_archive_gate.py"
-      - "tests/test_release_import.py"
-      - "tests/test_v21152_manifest.py"
-      - "tests/test_svg_contracts.py"
-      - "tests/test_synthetic_pngs.py"
-      - "tests/test_private_workflow_routing.py"
-      - ".github/workflows/private-ai-development.yml"
-      - "tools/make_synthetic_pngs.py"
-      - "tools/inspect_svg_contracts.py"
-      - "examples/synthetic/**"
-      - "source-releases/**"
-      - "engine/**"
-      - "tools/verify_source_integrity.py"
-      - ".github/workflows/g0-admission-tests.yml"
+  # Verify every integration on main, including docs or governance changes.
   push:
     branches: [main]
-    paths:
-      - "source-releases/**"
-      - "engine/**"
-      - "tools/verify_source_integrity.py"
-      - "tools/validate_release_archive.py"
-      - "tools/import_release_archive.py"
-      - "tests/test_release_archive_gate.py"
-      - "tests/test_release_import.py"
   workflow_dispatch:
 
 permissions:
@@ -41,6 +17,18 @@ jobs:
     timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Review and validate the actual candidate HEAD, not a synthetic merge ref.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify exact checkout
+        shell: bash
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          echo "G0 validated HEAD=$EXPECTED_HEAD" >> "$GITHUB_STEP_SUMMARY"
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
