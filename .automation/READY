@@ -4,6 +4,9 @@ Source: engine/ imported exactly from source-releases/ComfyUI_SmartSVG_Studio_V2
 SHA-256: 9369656f0216cebb6dccce0d0155bffa16d8c384da6a984bf848cdd8aa003c54
 Verified: 651 internal manifest SHA-256, 652 extracted files identical, 876 Python unittest passed, 12 JavaScript test scripts passed, GitHub G0 CI passed.
 Evidence: docs/IMPORT_V21_15_2.json and GitHub workflow run 40121242046.
-Authorization: an automated development agent may PROPOSE draft PRs only; never merge, publish, modify frozen roadmap or mark G2-G9 gates passed. Human/independent review is mandatory.
+Authorization: owner-directed V3.4 development may PROPOSE draft PRs and may perform bounded CODE-ONLY autonomous integration after the conditions below are met. No scheduled modification to AGENTS.md, .automation/, .github/, frozen roadmap, source-release archives, secrets, dependencies, packaging, security/admission gates, nor publication or G2-G9 certification. No simulated independent GitHub APPROVED review. GitHub branch protections always prevail.
+AUTONOMOUS_MERGE_V34=ENABLED
+Authorization amendment: 2026-11-05; owner explicitly authorized this governance change in a live interactive session. This amendment changes ONLY the merge authorization for eligible code PRs and does not alter the V21.15.2 source-admission evidence above.
+Effective authority: current main AGENTS.md AND this marker AND docs/AUTONOMOUS_INTEGRATION_POLICY_V34.md must agree. Auto-integration is forbidden unless a later scheduled cycle reviews the diff, exact HEAD, actual tests, relevant CI and post-merge guard; one squash per cycle, expected_head_sha, no bypass. Absent/contradictory evidence reverts to DRAFT-only.
 Limitations: no actual RTX 3070 model inference, ComfyUI GUI integration, Design Space import, or Cricut Explore 5 physical print-and-cut have been observed.
 This marker does not enable GitHub workflow billing or configure API secrets. External automation remains subject to separately controlled GitHub variables and credentials.
