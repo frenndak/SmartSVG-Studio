@@ -25,6 +25,9 @@ from .mask_snapshot_g24 import (
 )
 from .subject_identity_g33e import register_subject_identity as bind_subject_identity, SubjectIdentityError
 from .subject_brush_preview_g33e import preview_subject_brush, SubjectBrushPreviewError
+from .subject_brush_history_g33e import (
+    SAVE_KINDS, HISTORY_KIND, BrushHistoryError, editor_digest, plan_history_change,
+)
 from .project_recovery import (
     RecoveryError, inspect_project, recover_previous, resolve_pending_backup,
     save_with_recovery,
@@ -659,7 +662,7 @@ class ManagedWorkspace:
 
         No base resources change. Preview composes the saved native session
         with the proposed gesture and enforces its cumulative bounds. This backend
-        method is deliberately not exposed through a browser route yet.
+        method is consumed by the explicit local Atelier save route.
         Identical immediate retries are read-only; a changed command ID payload
         or a later project revision is never silently treated as a retry.
         """
@@ -697,14 +700,13 @@ class ManagedWorkspace:
             raise WorkspaceError('PROJECT_ID_MISMATCH')
         if _revision(path) != current_sha:
             raise WorkspaceError('PROJECT_CHANGED')
-        kind = 'save_subject_brush_g33e_b2b2'
+        kind = 'save_subject_brush_g33e_b2b3'
         if any(type(op) is not dict for op in project.operations):
             raise WorkspaceError('INVALID_BRUSH_HISTORY')
-        receipts = [op for op in project.operations
-                    if op.get('kind') in ('save_subject_brush_g33e_b2b1', kind)
-                    and op.get('command_id') == command_id]
+        receipts = [op for op in project.operations if op.get('command_id') == command_id]
         if receipts:
-            if any(op.get('request_sha256') != request_sha for op in receipts):
+            if any(type(op.get('kind')) is not str or op.get('kind') not in SAVE_KINDS or
+                   op.get('request_sha256') != request_sha for op in receipts):
                 raise WorkspaceError('BRUSH_COMMAND_ID_REUSED')
             receipt = receipts[0]
             current_editor = project.document.get('editor_v216')
@@ -757,6 +759,10 @@ class ManagedWorkspace:
                 'editor_sha256': _sha(json.dumps(editor, allow_nan=False, sort_keys=True,
                                       separators=(',', ':')).encode()),
                 'stroke': editor['strokes'][-1],
+                'previous_editor_sha256': editor_digest(project.document.get('editor_v216')),
+                'source_sha256': source_sha256,
+                'base_mask_sha256_float32': mask_sha256_float32,
+                'base_snapshot_sha256': project.document[SNAPSHOT_KEY]['sha256_raw'],
                 'previous_editor_present': 'editor_v216' in project.document}])
         updated.operations[-1]['result_state_sha256'] = _brush_receipt_state_sha(
             replace(updated, operations=project.operations))
@@ -776,6 +782,101 @@ class ManagedWorkspace:
                 'sha256': saved['sha256'], 'command_id': command_id,
                 'previous_available': saved['previous_available'],
                 'persisted': True, 'cricut_certified': False}
+
+    def _brush_history_project(self,name,expected_sha256):
+        if type(expected_sha256) is not str or not re.fullmatch(r'[0-9a-f]{64}',expected_sha256):
+            raise WorkspaceError('EXPECTED_REVISION_REQUIRED')
+        path=self._path(name)
+        if not path.is_file():
+            raise WorkspaceError('PROJECT_NOT_FOUND')
+        if _revision(path)!=expected_sha256:
+            raise WorkspaceError('PROJECT_CHANGED')
+        if inspect_project(path).status!='PROJECT_HEALTHY':
+            raise WorkspaceError('PROJECT_NOT_HEALTHY')
+        try:
+            project=load_project(path)
+        except (ProjectArchiveError,OSError) as exc:
+            raise WorkspaceError('INVALID_PROJECT_CONTENTS') from exc
+        if project.project_id!=name:
+            raise WorkspaceError('PROJECT_ID_MISMATCH')
+        if _revision(path)!=expected_sha256:
+            raise WorkspaceError('PROJECT_CHANGED')
+        return path,project
+
+    def subject_brush_history(self,name,*,expected_sha256):
+        """Read-only availability at an exact healthy revision; no pixels leave."""
+        path,project=self._brush_history_project(name,expected_sha256)
+        result=dict(name=name,project_sha256=expected_sha256,cricut_certified=False)
+        for action in ('undo','redo'):
+            try:
+                _,target=plan_history_change(project,action)
+                result[action+'_available']=True
+                result[action+'_subject_id']=target['subject_id']
+            except BrushHistoryError as exc:
+                result[action+'_available']=False
+                result[action+'_error_code']=exc.code
+        if _revision(path)!=expected_sha256:
+            raise WorkspaceError('PROJECT_CHANGED')
+        return result
+
+    def change_subject_brush_history(self,name,*,expected_sha256,action,command_id,confirmed=False):
+        """Persist Undo/Redo as one new native revision with an audit receipt."""
+        if confirmed is not True:
+            raise WorkspaceError('BRUSH_HISTORY_CONFIRMATION_REQUIRED')
+        if (type(action) is not str or action not in ('undo','redo') or
+                type(command_id) is not str or
+                not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:-]{0,127}',command_id)):
+            raise WorkspaceError('INVALID_BRUSH_HISTORY_REQUEST')
+        # Read the actual healthy revision so a lost acknowledgement can be
+        # recognized. New commands still require the originally pinned CAS.
+        path=self._path(name)
+        if type(expected_sha256) is not str or not re.fullmatch(r'[0-9a-f]{64}',expected_sha256):
+            raise WorkspaceError('EXPECTED_REVISION_REQUIRED')
+        if not path.is_file():
+            raise WorkspaceError('PROJECT_NOT_FOUND')
+        current_sha=_revision(path)
+        path,project=self._brush_history_project(name,current_sha)
+        request_sha=_sha(json.dumps(dict(action=action,expected_sha256=expected_sha256),
+                                   sort_keys=True,separators=(',',':')).encode())
+        if any(type(op) is not dict for op in project.operations):
+            raise WorkspaceError('INVALID_BRUSH_HISTORY')
+        receipts=[op for op in project.operations if op.get('command_id')==command_id]
+        if receipts:
+            receipt=receipts[0]
+            if (len(receipts)!=1 or receipt.get('kind')!=HISTORY_KIND or
+                    receipt.get('request_sha256')!=request_sha):
+                raise WorkspaceError('BRUSH_COMMAND_ID_REUSED')
+            if (project.operations[-1]!=receipt or
+                    _brush_receipt_state_sha(replace(project,operations=project.operations[:-1]))
+                    !=receipt.get('result_state_sha256') or _revision(path)!=current_sha):
+                raise WorkspaceError('PROJECT_CHANGED')
+            return dict(name=name,status='brush_history_already_applied',sha256=current_sha,
+                        command_id=command_id,action=action,persisted=True,cricut_certified=False)
+        if current_sha!=expected_sha256:
+            raise WorkspaceError('PROJECT_CHANGED')
+        try:
+            document,target=plan_history_change(project,action)
+        except BrushHistoryError as exc:
+            raise WorkspaceError(exc.code) from exc
+        if len(project.operations)>=4999:
+            raise WorkspaceError('HISTORY_LIMIT')
+        receipt=dict(kind=HISTORY_KIND,action=action,command_id=command_id,
+            request_sha256=request_sha,target_command_id=target['command_id'],
+            editor_sha256=editor_digest(document.get('editor_v216')))
+        updated=replace(project,document=document,operations=[*project.operations,receipt])
+        receipt['result_state_sha256']=_brush_receipt_state_sha(
+            replace(updated,operations=project.operations))
+        def verified(reopened):
+            return (reopened.operations==updated.operations and
+                    _brush_receipt_state_sha(replace(reopened,operations=project.operations))
+                    ==receipt['result_state_sha256'])
+        try:
+            saved=save_with_recovery(path,updated,expected_sha256=current_sha,
+                                     verify_saved_project=verified)
+        except (RecoveryError,ProjectArchiveError,OSError) as exc:
+            raise WorkspaceError(getattr(exc,'code','SAVE_FAILED')) from exc
+        return dict(name=name,status='brush_history_'+action,sha256=saved['sha256'],
+                    command_id=command_id,action=action,persisted=True,cricut_certified=False)
 
     def preview_subject_brush_readonly(
             self, name, *, expected_sha256, subject_id, mask_id,
