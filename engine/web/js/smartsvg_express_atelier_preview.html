@@ -229,6 +229,7 @@ $("next").addEventListener("click",()=>{const steps=["source","clean","subjects"
 // The channel is opened only on request. Importing an image here never
 // triggers inference and demo selections never alter a real mask or node.
 let realSubjectsChannel=null,realSubjectsTimer=null,realSubjectsData=null;
+let activeBrushSaves=0;
 let realSubjectExpiryTimer=null;
 function clearRealSubjectExpiry(){
   if(realSubjectExpiryTimer!==null){clearTimeout(realSubjectExpiryTimer);realSubjectExpiryTimer=null;}
@@ -254,7 +255,7 @@ function paintRealSubjects(){
   const grid=$("realSubjectsGrid");grid.replaceChildren();
   const fragmentControls=[];
   $("realFragmentStatus").textContent="";
-  $("clearSubjects").disabled=!realSubjectsData;
+  $("clearSubjects").disabled=!realSubjectsData||activeBrushSaves>0;
   if(!realSubjectsData){$("realSubjectsSelection").textContent="";return;}
   const count=realSubjectsData.count,shown=chosenRealSubjects.size;
   const reportAtPaint=realSubjectsData;
@@ -572,15 +573,22 @@ function paintRealSubjects(){
       });
       saveButton.addEventListener("click",async()=>{
         if(pending||saving||!acceptedPreview?.canSave)return;
+        if(activeBrushSaves>0){
+          previewStatus.textContent="Un enregistrement est déjà en cours : attendre son résultat.";
+          return;
+        }
         if(realSubjectsData!==reportAtPaint||reportAtPaint.identityActionStale||
            Date.now()>=reportAtPaint.expires_at_ms){
           discardPreview();ready();
           previewStatus.textContent="Diagnostic périmé : recevoir un nouveau rapport avant d’enregistrer.";
           return;
         }
+        activeBrushSaves++;stopSubjectReceive();clearRealSubjectExpiry();
+        $("clearSubjects").disabled=true;$("receiveSubjects").disabled=true;
         saving=true;saveButton.disabled=true;calculate.disabled=true;cancel.disabled=true;
         modeInput.disabled=true;xInput.disabled=true;yInput.disabled=true;
         previewStatus.textContent="Enregistrement en cours… attendre la confirmation.";
+        $("realSubjectsStatus").textContent=previewStatus.textContent;
         let message=null;
         try{
           const module=await import("./smartsvg_subject_brush_preview_g33e.mjs");
@@ -590,13 +598,18 @@ function paintRealSubjects(){
             acceptedPreview,{confirmed:true});
           previewStatus.textContent="Geste enregistré pour le sujet "+item.numero+
             ". Recevoir un nouveau diagnostic pour continuer les retouches.";
+          $("realSubjectsStatus").textContent=previewStatus.textContent;
         }catch(error){
           previewStatus.textContent=typeof message==="function"?message(error?.message):
             "Enregistrement non confirmé : vérifier le projet avant de recommencer.";
+          $("realSubjectsStatus").textContent=previewStatus.textContent;
         }finally{
           // A timeout is an unknown write outcome. Old proof must never be
           // reused for an automatic retry or another card's next gesture.
           reportAtPaint.identityActionStale=true;
+          activeBrushSaves--;
+          $("clearSubjects").disabled=!realSubjectsData;
+          $("receiveSubjects").disabled=false;
           saving=false;discardPreview();ready();
         }
       });
@@ -640,6 +653,10 @@ function paintRealSubjects(){
   }
 }
 $("receiveSubjects").addEventListener("click",async()=>{
+  if(activeBrushSaves>0){
+    $("realSubjectsStatus").textContent="Enregistrement en cours : attendre son résultat avant de remplacer le diagnostic.";
+    return;
+  }
   if(!["http:","https:"].includes(window.location.protocol)||
      typeof BroadcastChannel==="undefined"){
     $("realSubjectsStatus").textContent="Réception indisponible : ouvrir l’Atelier depuis ComfyUI sous HTTP local.";
@@ -651,6 +668,7 @@ $("receiveSubjects").addEventListener("click",async()=>{
     const channel=new BroadcastChannel(subjectModule.SUBJECT_HANDOFF_CHANNEL);
     realSubjectsChannel=channel;
     channel.onmessage=event=>{
+      if(activeBrushSaves>0)return;
       const value=subjectModule.normalizeSubjectInspection(event.data);
       if(!value)return;
       stopSubjectReceive();
@@ -692,8 +710,12 @@ $("receiveSubjects").addEventListener("click",async()=>{
   }
 });
 $("clearSubjects").addEventListener("click",()=>{
+  if(activeBrushSaves>0){
+    $("realSubjectsStatus").textContent="Enregistrement en cours : attendre son résultat avant d’effacer l’inspection.";
+    return;
+  }
   stopSubjectReceive();clearRealSubjectExpiry();realSubjectsData=null;chosenRealSubjects.clear();
-  $("realSubjectsStatus").textContent="Inspection effacée de la mémoire de cet onglet. Aucun masque ni projet modifié.";
+  $("realSubjectsStatus").textContent="Inspection effacée de cet onglet. Les sauvegardes déjà effectuées sont conservées.";
   paintRealSubjects();
 });
 window.addEventListener?.("pagehide",()=>{stopSubjectReceive();clearRealSubjectExpiry();});

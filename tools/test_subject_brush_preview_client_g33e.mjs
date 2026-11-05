@@ -421,6 +421,7 @@ test('Atelier save acknowledgement or uncertainty invalidates the old diagnostic
     const ctx={modeInput:el(),xInput:el(),yInput:el(),calculate:el(),cancel:el(),saveButton:el(),
       before:el(),after:el(),previewStatus:el(),button:el(),reportAtPaint:current,realSubjectsData:current,
       chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},
+      activeBrushSaves:0,$:()=>({}),stopSubjectReceive(){},clearRealSubjectExpiry(){},
       previewModule:{saveSubjectBrushPreview(_api,_report,_mask,_preview,options){
         writes++;assert.equal(options.confirmed,true);
         return new Promise((resolve,reject)=>{finish=()=>failed?reject(Error('SAVE_OUTCOME_UNKNOWN')):resolve({persisted:true});});
@@ -437,4 +438,35 @@ test('Atelier save acknowledgement or uncertainty invalidates the old diagnostic
     assert.equal(ctx.before.hidden,true);assert.equal(ctx.after.hidden,true);
     assert.match(ctx.previewStatus.textContent,failed?/incertain/:/enregistré/);
   }
+});
+
+test('clearing inspection cannot hide a pending save or its durable outcome',async()=>{
+  const html=readFileSync(new URL('../engine/web/js/smartsvg_express_atelier_preview.html',import.meta.url),'utf8');
+  const start=html.indexOf('      let pending=false,abort=null,serial=0;');
+  const end=html.indexOf('      previewBox.appendChild(calculate);',start);
+  const clearStart=html.indexOf('$("clearSubjects").addEventListener("click",()=>{');
+  const clearEnd=html.indexOf('window.addEventListener?.("pagehide"',clearStart);
+  const actual=(html.slice(start,end)+html.slice(clearStart,clearEnd))
+    .replaceAll('await import("./smartsvg_subject_brush_preview_g33e.mjs")','await Promise.resolve(previewModule)')
+    .replaceAll('await import("../../scripts/api.js")','await Promise.resolve({api:{}})');
+  const el=()=>({hidden:false,disabled:false,src:'old',textContent:'',events:{},
+    addEventListener(event,handler){(this.events[event]??=[]).push(handler);},
+    removeAttribute(key){delete this[key];}});
+  const controls={clearSubjects:el(),receiveSubjects:el(),realSubjectsStatus:el()};
+  let finish,cleared=0;
+  const current={identityActionStale:false,expires_at_ms:Date.now()+60000};
+  const ctx={modeInput:el(),xInput:el(),yInput:el(),calculate:el(),cancel:el(),saveButton:el(),
+    before:el(),after:el(),previewStatus:el(),button:el(),reportAtPaint:current,realSubjectsData:current,
+    chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},activeBrushSaves:0,
+    $:id=>controls[id],stopSubjectReceive(){},clearRealSubjectExpiry(){},paintRealSubjects(){cleared++;},
+    previewModule:{saveSubjectBrushPreview(){return new Promise(resolve=>{finish=resolve;});},brushSaveMessage(){return 'incertain';}}};
+  const bind=new Function(...Object.keys(ctx),actual+';return {setPreview(p){acceptedPreview=p},ready,getReport(){return realSubjectsData}};');
+  const ui=bind(...Object.values(ctx));ui.setPreview({canSave:true});ui.ready();
+  const saving=ctx.saveButton.events.click[0]();await Promise.resolve();await Promise.resolve();
+  controls.clearSubjects.events.click[0]();
+  assert.equal(ui.getReport(),current,'pending write keeps its visible inspection');
+  assert.equal(cleared,0);assert.match(controls.realSubjectsStatus.textContent,/cours/);
+  finish({persisted:true});await saving;
+  assert.match(controls.realSubjectsStatus.textContent,/enregistré/);
+  assert.doesNotMatch(controls.realSubjectsStatus.textContent,/Aucun masque ni projet modifié/);
 });
