@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Strict, opt-in CPU qualification for SmartSVG G3.3e-b2a (#71 / V34-132).
+"""Strict CPU qualification for G3.3e preview and first-stroke persistence.
 
-Run from a checkout of PR #78 with NumPy and Pillow already installed:
+Run from a current checkout with NumPy and Pillow already installed:
     python tools/qualify_subject_brush_cpu_g33e.py
 
 This runner never installs dependencies, writes project data or certifies a
@@ -41,13 +41,16 @@ def run() -> int:
     loader = unittest.TestLoader()
     for name in CPU_TESTS:
         suite.addTests(loader.loadTestsFromName(f"{TEST_CASE}.{name}"))
+    suite.addTests(loader.loadTestsFromName(
+        "test_g33e_subject_brush_save.SubjectBrushSaveTests"))
+    expected_count = suite.countTestCases()
     result = unittest.TextTestRunner(verbosity=2).run(suite)
-    if (result.testsRun != len(CPU_TESTS) or result.skipped or
+    if (result.testsRun != expected_count or result.skipped or
             result.errors or result.failures or not result.wasSuccessful()):
-        print("CPU QUALIFICATION FAILED: three real tests must PASS, no SKIP",
+        print("CPU QUALIFICATION FAILED: all real brush tests must PASS, no SKIP",
               file=sys.stderr)
         return 1
-    print("CPU QUALIFICATION PASS: 3/3 G3.3e-b2a real brush tests, 0 skipped")
+    print(f"CPU QUALIFICATION PASS: {result.testsRun}/{expected_count} real brush tests, 0 skipped")
     return 0
 
 

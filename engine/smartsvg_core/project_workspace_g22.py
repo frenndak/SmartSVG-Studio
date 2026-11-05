@@ -644,6 +644,130 @@ class ManagedWorkspace:
             raise WorkspaceError('INVALID_BASE_MASK_SNAPSHOT') from exc
         return raw,meta.copy()
 
+    def save_subject_brush(
+            self, name, *, expected_sha256, subject_id, mask_id,
+            mask_sha256_float32, source_id, source_sha256, mode, radius,
+            points, expected_preview_mask_sha256_float32, command_id,
+            confirmed=False):
+        """G3.3e-b2b-1: explicitly save the FIRST proven stroke as V21.6 replay.
+
+        No base resources change. A nonempty editor session is refused until
+        b2a can preview composition with existing strokes. This trusted backend
+        method is deliberately not exposed through a browser route yet.
+        Identical immediate retries are read-only; a changed command ID payload
+        or a later project revision is never silently treated as a retry.
+        """
+        if confirmed is not True:
+            raise WorkspaceError('BRUSH_SAVE_CONFIRMATION_REQUIRED')
+        if (type(expected_sha256) is not str or
+                not re.fullmatch(r'[0-9a-f]{64}', expected_sha256)):
+            raise WorkspaceError('EXPECTED_REVISION_REQUIRED')
+        if (type(command_id) is not str or
+                not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:-]{0,127}', command_id) or
+                type(expected_preview_mask_sha256_float32) is not str or
+                not re.fullmatch(r'[0-9a-f]{64}', expected_preview_mask_sha256_float32)):
+            raise WorkspaceError('INVALID_BRUSH_SAVE_REQUEST')
+        request = dict(
+            expected_sha256=expected_sha256, subject_id=subject_id, mask_id=mask_id,
+            mask_sha256_float32=mask_sha256_float32, source_id=source_id,
+            source_sha256=source_sha256, mode=mode, radius=radius, points=points,
+            expected_preview_mask_sha256_float32=expected_preview_mask_sha256_float32)
+        try:
+            request_sha = _sha(json.dumps(request, allow_nan=False, sort_keys=True,
+                                         separators=(',', ':')).encode('utf-8'))
+        except (TypeError, ValueError, OverflowError, RecursionError) as exc:
+            raise WorkspaceError('INVALID_PREVIEW_STROKE') from exc
+        path = self._path(name)
+        if not path.is_file():
+            raise WorkspaceError('PROJECT_NOT_FOUND')
+        current_sha = _revision(path)
+        if inspect_project(path).status != 'PROJECT_HEALTHY':
+            raise WorkspaceError('PROJECT_NOT_HEALTHY')
+        try:
+            project = load_project(path)
+        except (ProjectArchiveError, OSError) as exc:
+            raise WorkspaceError('INVALID_PROJECT_CONTENTS') from exc
+        if project.project_id != name:
+            raise WorkspaceError('PROJECT_ID_MISMATCH')
+        if _revision(path) != current_sha:
+            raise WorkspaceError('PROJECT_CHANGED')
+        kind = 'save_subject_brush_g33e_b2b1'
+        receipts = [op for op in project.operations
+                    if op.get('kind') == kind and op.get('command_id') == command_id]
+        if receipts:
+            if any(op.get('request_sha256') != request_sha for op in receipts):
+                raise WorkspaceError('BRUSH_COMMAND_ID_REUSED')
+            receipt = receipts[0]
+            if (len(receipts) != 1 or project.operations[-1] != receipt or
+                    project.document.get('editor_v216') != receipt.get('editor_v216')):
+                raise WorkspaceError('PROJECT_CHANGED')
+        if not receipts and current_sha != expected_sha256:
+            raise WorkspaceError('PROJECT_CHANGED')
+        session = project.document.get('editor_v216')
+        if not receipts and session is not None:
+            try:
+                parsed, _ = parse_editor_document(
+                    json.dumps(session, allow_nan=False),
+                    source_dimensions=(project.sources[0].width_px,
+                                       project.sources[0].height_px))
+            except (EditorSessionError, TypeError, ValueError, IndexError) as exc:
+                raise WorkspaceError('CORRUPT_EDITOR_SESSION') from exc
+            if parsed['strokes']:
+                raise WorkspaceError('BRUSH_EDITOR_SESSION_NOT_EMPTY')
+            snapshot = project.document.get(SNAPSHOT_KEY, {})
+            if (parsed['source'] != snapshot.get('editor_fingerprint') or
+                    parsed['count'] != snapshot.get('shape', [None])[0]):
+                raise WorkspaceError('EDITOR_MASK_SNAPSHOT_MISMATCH')
+        try:
+            preview = preview_subject_brush(
+                project, subject_id=subject_id, mask_id=mask_id,
+                mask_sha256_float32=mask_sha256_float32, source_id=source_id,
+                source_sha256=source_sha256, mode=mode, radius=radius, points=points)
+        except SubjectBrushPreviewError as exc:
+            raise WorkspaceError(exc.code) from exc
+        if preview['preview_mask_sha256_float32'] != expected_preview_mask_sha256_float32:
+            raise WorkspaceError('BRUSH_PREVIEW_CHANGED')
+        catalog = snapshot_mask_bindings(project)
+        index = next(item['mask_index'] for item in catalog['bindings']
+                     if item['subject_id'] == subject_id)
+        count, height, width = project.document[SNAPSHOT_KEY]['shape']
+        editor, _ = parse_editor_document(json.dumps({
+            'version': 1, 'width': width, 'height': height, 'count': count,
+            'source': source_sha256, 'strokes': [
+                {'object': index, 'mode': mode, 'radius': radius, 'points': points}]
+        }, allow_nan=False), source_dimensions=(width, height))
+        if receipts:
+            if session != editor or _revision(path) != current_sha:
+                raise WorkspaceError('PROJECT_CHANGED')
+            return {'name': name, 'status': 'subject_brush_already_saved',
+                    'sha256': current_sha, 'command_id': command_id,
+                    'persisted': True, 'cricut_certified': False}
+        if len(project.operations) >= 4999:
+            raise WorkspaceError('HISTORY_LIMIT')
+        updated = replace(project,
+            document={**project.document, 'editor_v216': editor},
+            operations=[*project.operations, {
+                'kind': kind, 'command_id': command_id, 'request_sha256': request_sha,
+                'subject_id': subject_id, 'mask_id': mask_id,
+                'preview_mask_sha256_float32': expected_preview_mask_sha256_float32,
+                'editor_v216': editor}])
+        def verified(reopened):
+            # Verify under the existing OS lock before rotating the backup.
+            return (reopened.resources == project.resources and
+                    reopened.subjects == project.subjects and
+                    reopened.masks == project.masks and
+                    reopened.document == updated.document and
+                    reopened.operations == updated.operations)
+        try:
+            saved = save_with_recovery(path, updated, expected_sha256=current_sha,
+                                       verify_saved_project=verified)
+        except (RecoveryError, ProjectArchiveError, OSError) as exc:
+            raise WorkspaceError(getattr(exc, 'code', 'SAVE_FAILED')) from exc
+        return {'name': name, 'status': 'subject_brush_saved',
+                'sha256': saved['sha256'], 'command_id': command_id,
+                'previous_available': saved['previous_available'],
+                'persisted': True, 'cricut_certified': False}
+
     def preview_subject_brush_readonly(
             self, name, *, expected_sha256, subject_id, mask_id,
             mask_sha256_float32, source_id, source_sha256, mode, radius,
