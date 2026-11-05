@@ -481,6 +481,9 @@ test('real Atelier point and radius controls invalidate previews and save only a
  const calculate=panel.children.find(x=>/Calculer l’aperçu/.test(x.textContent));
  const save=panel.children.find(x=>/Enregistrer ce geste/.test(x.textContent));
  const cancel=panel.children.find(x=>x.textContent==='Annuler');
+ const zoom=panel.children.filter(x=>x.tagName==='label').flatMap(x=>x.children)
+  .find(x=>x.tagName==='select'&&x.attributes['aria-label']==='Taille des aperçus');
+ assert.ok(zoom,'brush previews can be enlarged without changing the source');
  const images=panel.children.find(x=>x.className==='toolbar').children.map(wrap=>wrap.children[0]);
  const [before,after]=images;
  let writes=0;const commands=[];
@@ -505,12 +508,20 @@ test('real Atelier point and radius controls invalidate previews and save only a
  radius.value='10';await calculate.fire('click');
  assert.equal(commands.length,1);assert.equal(commands[0].fields.radius,'0.1');
  assert.equal(save.disabled,false);assert.equal(before.attributes.role,'button');
- before.getBoundingClientRect=()=>({left:20,top:30,width:200,height:200});
- await before.fire('pointerdown',{pointerId:1,button:0,clientX:120,clientY:40,preventDefault(){}});
+ zoom.value='2';await zoom.fire('change');
+ assert.equal(before.style.width,'224px');assert.equal(after.style.height,'224px');
+ assert.equal(save.disabled,false,'display scale does not invalidate the same confirmed gesture');
+ assert.equal(commands.length,1,'resizing does not calculate or save');
+ before.getBoundingClientRect=()=>({left:20,top:30,width:400,height:400});
+ await before.fire('pointerdown',{pointerId:1,button:0,clientX:220,clientY:40,preventDefault(){}});
  assert.equal(save.disabled,false,'letterbox does not change gesture');
- await before.fire('pointerdown',{pointerId:1,button:0,clientX:170,clientY:130,preventDefault(){}});
- await before.fire('pointerup',{pointerId:1,button:0,clientX:170,clientY:130,preventDefault(){}});
+ await before.fire('pointerdown',{pointerId:1,button:0,clientX:320,clientY:230,preventDefault(){}});
+ await before.fire('pointerup',{pointerId:1,button:0,clientX:320,clientY:230,preventDefault(){}});
  assert.equal(x.value,'75.000000');assert.equal(y.value,'50.000000');
+ zoom.value='3';await zoom.fire('change');assert.equal(before.style.width,'336px');
+ zoom.value='9';await zoom.fire('change');assert.equal(before.style.width,'336px','unsupported display scale is ignored');
+ zoom.value='1';await zoom.fire('change');
+ before.getBoundingClientRect=()=>({left:20,top:30,width:200,height:200});
  assert.equal(x.focused,true);assert.equal(after.hidden,true);assert.equal(save.disabled,true);
  await save.fire('click');assert.equal(writes,0,'point choice does not persist the old preview');
  await calculate.fire('click');
@@ -529,6 +540,8 @@ test('real Atelier point and radius controls invalidate previews and save only a
  const pointer=(clientX,clientY=130)=>({pointerId:7,button:0,buttons:1,isPrimary:true,clientX,clientY,preventDefault(){}});
  await after.fire('pointerdown',pointer(70));
  await before.fire('pointerdown',{...pointer(170),pointerId:8,pointerType:'pen'});
+ assert.equal(zoom.disabled,true,'display scale locked while tracing');
+ zoom.value='3';await zoom.fire('change');assert.equal(before.style.width,'112px');zoom.value='1';
  assert.equal(after.captured,7);assert.ok(before.captured==null,'other image cannot capture another primary pointer');
  await before.fire('keydown',{key:'ArrowLeft',preventDefault(){}});
  assert.equal(x.value,'75.000000','other image keyboard cannot alter the active trace');
@@ -542,7 +555,7 @@ test('real Atelier point and radius controls invalidate previews and save only a
  assert.equal(overlays[0].children[0].attributes.points,'40,45 80,45');
  await after.fire('keydown',{key:'Escape',preventDefault(){}});
  await after.fire('pointerup',pointer(170));
- assert.equal(writes,0);assert.equal(after.hidden,true);assert.equal(radius.disabled,false);
+ assert.equal(writes,0);assert.equal(after.hidden,true);assert.equal(radius.disabled,false);assert.equal(zoom.disabled,false);
  assert.equal(overlays[0].style.display,'none');
  await calculate.fire('click');
  await after.fire('pointerdown',pointer(70));await after.fire('pointermove',pointer(120));

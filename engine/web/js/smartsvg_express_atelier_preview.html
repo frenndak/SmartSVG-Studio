@@ -475,6 +475,12 @@ function paintRealSubjects(){
       const pointHint=document.createElement("p");
       pointHint.textContent="Tracer dans un aperçu en maintenant le pointeur. Échap ou Annuler abandonne le trait. Les coordonnées et les flèches restent disponibles pour un point au clavier. Recalculer avant d’enregistrer.";
       previewBox.appendChild(pointHint);
+      const zoomLabel=document.createElement("label");zoomLabel.textContent="Taille des aperçus ";
+      const zoomInput=document.createElement("select");zoomInput.setAttribute("aria-label","Taille des aperçus");
+      for(const [value,label] of [["1","Petit (112 px)"],["2","Moyen (224 px)"],["3","Grand (336 px)"]]){
+        const option=document.createElement("option");option.value=value;option.textContent=label;zoomInput.appendChild(option);
+      }
+      zoomInput.value="1";zoomLabel.appendChild(zoomInput);previewBox.appendChild(zoomLabel);
       const calculate=document.createElement("button");
       calculate.type="button";calculate.textContent="Calculer l’aperçu";
       const cancel=document.createElement("button");
@@ -485,16 +491,19 @@ function paintRealSubjects(){
       previewStatus.setAttribute("role","status");
       previewStatus.setAttribute("aria-live","polite");
       const previews=document.createElement("div");
-      previews.className="toolbar";
+      previews.className="toolbar";previews.tabIndex=0;
+      previews.setAttribute("aria-label","Aperçus des masques, défilement horizontal");
+      previews.style.display="flex";previews.style.flexWrap="nowrap";previews.style.gap="8px";
+      previews.style.maxWidth="100%";previews.style.overflowX="auto";
       const before=document.createElement("img"),after=document.createElement("img");
       const traceOverlays=[];
       for(const [image,label] of [[before,"Masque avant retouche"],[after,"Masque après retouche temporaire"]]){
         image.alt=label+" du sujet "+item.numero;
-        image.hidden=true;image.style.maxWidth="180px";
-        image.style.maxHeight="180px";image.style.objectFit="contain";
+        image.hidden=true;image.style.width="112px";image.style.height="112px";
+        image.style.maxWidth="none";image.style.maxHeight="none";image.style.objectFit="contain";
         image.style.objectPosition="50% 50%";image.style.border="0";image.style.padding="0";
         const wrap=document.createElement("span");
-        wrap.style.position="relative";wrap.style.display="inline-block";
+        wrap.style.position="relative";wrap.style.display="inline-block";wrap.style.flexShrink="0";
         wrap.appendChild(image);
         const overlay=document.createElementNS("http://www.w3.org/2000/svg","svg");
         overlay.setAttribute("viewBox","0 0 "+reportAtPaint.width_px+" "+reportAtPaint.height_px);
@@ -524,8 +533,16 @@ function paintRealSubjects(){
         cancel.disabled=before.hidden&&after.hidden&&!draftPoints;
         saveButton.disabled=saving||!acceptedPreview?.canSave||calculate.disabled;
         modeInput.disabled=false;
-        xInput.disabled=false;yInput.disabled=false;radiusInput.disabled=false;
+        xInput.disabled=false;yInput.disabled=false;radiusInput.disabled=false;zoomInput.disabled=false;
       };
+      zoomInput.addEventListener("change",()=>{
+        if(pending||saving||drawing)return;
+        const scale=Number(zoomInput.value);
+        if(![1,2,3].includes(scale))return;
+        for(const image of [before,after]){
+          image.style.width=(112*scale)+"px";image.style.height=(112*scale)+"px";
+        }
+      });
       const discardPreview=()=>{
         acceptedPreview=null;saveButton.disabled=true;
         for(const {overlay,line} of traceOverlays){overlay.hidden=true;overlay.style.display="none";line.setAttribute("points","");}
@@ -591,7 +608,7 @@ function paintRealSubjects(){
         const controller=new AbortController();
         abort=controller;pending=true;
         calculate.disabled=true;cancel.disabled=false;
-        modeInput.disabled=true;xInput.disabled=true;yInput.disabled=true;radiusInput.disabled=true;
+        modeInput.disabled=true;xInput.disabled=true;yInput.disabled=true;radiusInput.disabled=true;zoomInput.disabled=true;
         discardPreview();
         previewStatus.textContent="Calcul CPU en cours… aucun enregistrement.";
         let previewMessage=null;
@@ -628,7 +645,7 @@ function paintRealSubjects(){
               onStrokeStart:()=>{
                 drawing=true;draftPoints=null;acceptedPreview=null;
                 saveButton.disabled=true;calculate.disabled=true;cancel.disabled=false;
-                modeInput.disabled=true;xInput.disabled=true;yInput.disabled=true;radiusInput.disabled=true;
+                modeInput.disabled=true;xInput.disabled=true;yInput.disabled=true;radiusInput.disabled=true;zoomInput.disabled=true;
               },
               onStrokeProgress:points=>{
                 const coordinates=points.map(([x,y])=>x*reportAtPaint.width_px+","+y*reportAtPaint.height_px).join(" ");
@@ -681,7 +698,7 @@ function paintRealSubjects(){
         $("brushHistoryButton").disabled=true;
         $("clearSubjects").disabled=true;$("receiveSubjects").disabled=true;
         saving=true;saveButton.disabled=true;calculate.disabled=true;cancel.disabled=true;
-        modeInput.disabled=true;xInput.disabled=true;yInput.disabled=true;radiusInput.disabled=true;
+        modeInput.disabled=true;xInput.disabled=true;yInput.disabled=true;radiusInput.disabled=true;zoomInput.disabled=true;
         previewStatus.textContent="Enregistrement en cours… attendre la confirmation.";
         $("realSubjectsStatus").textContent=previewStatus.textContent;
         let message=null;

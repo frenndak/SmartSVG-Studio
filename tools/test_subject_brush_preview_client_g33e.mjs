@@ -104,7 +104,7 @@ test('Atelier cleanup never re-enables a preview after Subject proof expiry',()=
     const state={
       pending:true,abort:{},calculate:{disabled:true},
       cancel:{disabled:false},before:{hidden:true},after:{hidden:true},
-      modeInput:{disabled:true},xInput:{disabled:true},yInput:{disabled:true},radiusInput:{disabled:true},
+      modeInput:{disabled:true},xInput:{disabled:true},yInput:{disabled:true},radiusInput:{disabled:true},zoomInput:{disabled:true,addEventListener(){}},
       saveButton:{disabled:true},saving:false,acceptedPreview:null,draftPoints:null,
       reportAtPaint,realSubjectsData:different?{}:reportAtPaint,
     };
@@ -273,7 +273,7 @@ test('Atelier recovers visibly when the preview module cannot load',async()=>{
     removeAttribute(key){delete this[key];},
   });
   const ctx={
-    modeInput:el(),xInput:el(),yInput:el(),radiusInput:{...el(),value:'5'},calculate:el(),cancel:el(),saveButton:el(),
+    modeInput:el(),xInput:el(),yInput:el(),radiusInput:{...el(),value:'5'},zoomInput:{...el(),value:'1'},calculate:el(),cancel:el(),saveButton:el(),
     before:el(),after:el(),previewStatus:el(),button:el(),traceOverlays:[],
     reportAtPaint:{identityActionStale:false,expires_at_ms:Date.now()+60000},
     chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},
@@ -306,7 +306,7 @@ test('Atelier preview dismissal and gesture changes never leave stale PNGs visib
     fire(event){for(const handler of this.events[event]||[])handler();},
   });
   const ctx={
-    modeInput:el(),xInput:el(),yInput:el(),radiusInput:{...el(),value:'5'},calculate:el(),cancel:el(),saveButton:el(),
+    modeInput:el(),xInput:el(),yInput:el(),radiusInput:{...el(),value:'5'},zoomInput:{...el(),value:'1'},calculate:el(),cancel:el(),saveButton:el(),
     before:el(),after:el(),previewStatus:el(),button:el(),traceOverlays:[],
     reportAtPaint:{identityActionStale:false,expires_at_ms:Date.now()+60000},
     chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},
@@ -419,7 +419,7 @@ test('Atelier save acknowledgement or uncertainty invalidates the old diagnostic
       removeAttribute(key){delete this[key];}});
     let finish,writes=0;
     const current={identityActionStale:false,expires_at_ms:Date.now()+60000};
-    const ctx={modeInput:el(),xInput:el(),yInput:el(),radiusInput:{...el(),value:'5'},calculate:el(),cancel:el(),saveButton:el(),
+    const ctx={modeInput:el(),xInput:el(),yInput:el(),radiusInput:{...el(),value:'5'},zoomInput:{...el(),value:'1'},calculate:el(),cancel:el(),saveButton:el(),
       before:el(),after:el(),previewStatus:el(),button:el(),traceOverlays:[],reportAtPaint:current,realSubjectsData:current,
       chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},
       activeBrushSaves:0,historyUI:null,$:()=>({}),stopSubjectReceive(){},clearRealSubjectExpiry(){},
@@ -456,7 +456,7 @@ test('clearing inspection cannot hide a pending save or its durable outcome',asy
   const controls={clearSubjects:el(),receiveSubjects:el(),realSubjectsStatus:el(),brushHistoryButton:el()};
   let finish,cleared=0;
   const current={identityActionStale:false,expires_at_ms:Date.now()+60000};
-  const ctx={modeInput:el(),xInput:el(),yInput:el(),radiusInput:{...el(),value:'5'},calculate:el(),cancel:el(),saveButton:el(),
+  const ctx={modeInput:el(),xInput:el(),yInput:el(),radiusInput:{...el(),value:'5'},zoomInput:{...el(),value:'1'},calculate:el(),cancel:el(),saveButton:el(),
     before:el(),after:el(),previewStatus:el(),button:el(),traceOverlays:[],reportAtPaint:current,realSubjectsData:current,
     chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},activeBrushSaves:0,historyUI:null,
     $:id=>controls[id],stopSubjectReceive(){},clearRealSubjectExpiry(){},paintRealSubjects(){cleared++;},
