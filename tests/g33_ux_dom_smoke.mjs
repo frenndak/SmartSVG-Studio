@@ -6,10 +6,14 @@ import * as handoff from '../engine/web/js/smartsvg_subject_handoff_g33.mjs';
 import * as selection from '../engine/web/js/smartsvg_subject_selection_g33c.mjs';
 import * as identity from '../engine/web/js/smartsvg_subject_identity_g33e.mjs';
 import * as history from '../engine/web/js/smartsvg_subject_brush_history_g33e.mjs';
+import * as preview from '../engine/web/js/smartsvg_subject_brush_preview_g33e.mjs';
 
 const page=readFileSync(new URL('../engine/web/js/smartsvg_express_atelier_preview.html',import.meta.url),'utf8');
 const script=page.match(/<script>\s*([\s\S]*?)<\/script>/i)?.[1];
-const vmScript=script?.replace(
+const vmScript=script?.replaceAll(
+  'await import("./smartsvg_subject_brush_preview_g33e.mjs")',
+  'await Promise.resolve(globalThis.__g33Preview)'
+).replace(
   'await import("./smartsvg_subject_brush_history_g33e.mjs")',
   'await Promise.resolve(globalThis.__g33History)'
 ).replace(
@@ -46,6 +50,7 @@ function browser(){
     replaceChildren(...items){this.children=[...items];}
     appendChild(item){this.children.push(item);}
     append(...items){this.children.push(...items);}
+    focus(){this.focused=true;}
     scrollIntoView(){}
     click(){this.fire('click');}
     async fire(type,event={}){for(const cb of this.listeners[type]??[])await cb(event);}
@@ -114,7 +119,7 @@ function browser(){
   class FormData{constructor(){this.rows=[];}append(key,value){this.rows.push([key,value]);}}
   const globals={document,window,URL,Image,console,Set,Array,Math,Number,String,Date:SimulatedDate,
     Object,Promise,FormData,AbortController,BroadcastChannel:MockBroadcastChannel,
-    __g33Handoff:handoff,__g33Selection:selection,__g33Identity:identity,__g33History:history,__g33Api:api,
+    __g33Handoff:handoff,__g33Selection:selection,__g33Identity:identity,__g33History:history,__g33Preview:preview,__g33Api:api,
     setTimeout:(fn)=>{const id=nextTimeout++;timeouts.set(id,fn);return id;},
     clearTimeout:id=>timeouts.delete(id)};
   vm.runInNewContext(vmScript,globals,{timeout:5000});
@@ -448,4 +453,72 @@ test('native history toolbar blocks clear during Undo and permits Redo without a
   const pendingRedo=redo.fire('click');await Promise.resolve();await Promise.resolve();
   finish();await pendingRedo;
   assert.equal(writes,2);assert.match(b.find('realSubjectsStatus').textContent,/rétablie/);
+});
+
+
+test('real Atelier point and radius controls invalidate previews and save only a recalculated gesture',async()=>{
+ const b=browser();b.window.location.protocol='http:';
+ await b.find('receiveSubjects').fire('click');
+ const report=registrationReport();
+ report.mask_catalog.items[0].subject_id='subject-'+'d'.repeat(32);
+ report.mask_catalog.items[0].subject_proof_status='verified';
+ b.MockBroadcastChannel.instances[0].sendToReceiver(report);
+ const card=b.find('realSubjectsGrid').children[0];
+ const panel=card.children.find(x=>x.tagName==='section'&&/Aperçu temporaire/.test(x.attributes['aria-label']||''));
+ assert.ok(panel,'verified subject has a native brush panel');
+ const inputs=panel.children.filter(x=>x.tagName==='label').flatMap(x=>x.children).filter(x=>x.tagName==='input');
+ const [x,y,radius]=inputs;assert.equal(inputs.length,3);
+ const calculate=panel.children.find(x=>/Calculer l’aperçu/.test(x.textContent));
+ const save=panel.children.find(x=>/Enregistrer ce geste/.test(x.textContent));
+ const images=panel.children.find(x=>x.className==='toolbar').children;
+ const [before,after]=images;
+ let writes=0;const commands=[];
+ b.api.fetchApi=async(url,options)=>{
+  const fields=Object.fromEntries(options.body.entries());commands.push({url,fields});
+  if(url.endsWith('/save')){writes++;return {ok:true,json:async()=>({ok:true,certified:false,result:{
+   name:fields.name,command_id:fields.command_id,sha256:'e'.repeat(64),
+   status:'subject_brush_saved',persisted:true,cricut_certified:false}})};}
+  assert.ok(url.endsWith('/preview'));
+  return {ok:true,json:async()=>({ok:true,certified:false,preview:{
+   command_id:fields.command_id,name:fields.name,project_sha256:fields.expected_sha256,
+   subject_id:fields.subject_id,mask_id:fields.mask_id,
+   base_mask_sha256_float32:fields.mask_sha256_float32,source_sha256:fields.source_sha256,
+   preview_mask_sha256_float32:'f'.repeat(64),dimensions_px:[160,90],changed_pixels:3,
+   before_png_base64:'iVBORw0KGgo'+'A'.repeat(80),after_png_base64:'iVBORw0KGgo'+'A'.repeat(80),
+   persisted:false,cricut_certified:false}})};
+ };
+ // The fake DOM does not pick the first <option> automatically.
+ panel.children[1].children[0].value='add';
+ for(const bad of ['', '-1','20.1','NaN']){radius.value=bad;await calculate.fire('click');}
+ assert.equal(commands.length,0,'invalid radius never calls the API');
+ radius.value='10';await calculate.fire('click');
+ assert.equal(commands.length,1);assert.equal(commands[0].fields.radius,'0.1');
+ assert.equal(save.disabled,false);assert.equal(before.attributes.role,'button');
+ before.getBoundingClientRect=()=>({left:20,top:30,width:200,height:200});
+ await before.fire('click',{button:0,detail:1,clientX:120,clientY:40});
+ assert.equal(save.disabled,false,'letterbox does not change gesture');
+ await before.fire('click',{button:0,detail:1,clientX:170,clientY:130});
+ assert.equal(x.value,'75.000000');assert.equal(y.value,'50.000000');
+ assert.equal(x.focused,true);assert.equal(after.hidden,true);assert.equal(save.disabled,true);
+ await save.fire('click');assert.equal(writes,0,'point choice does not persist the old preview');
+ await calculate.fire('click');
+ assert.deepEqual(JSON.parse(commands[1].fields.points),[[0.75,0.5]]);
+ assert.equal(commands[1].fields.radius,'0.1');
+ radius.value='2';await radius.fire('input');
+ assert.equal(save.disabled,true);assert.equal(before.hidden,true);
+ await calculate.fire('click');
+ after.getBoundingClientRect=before.getBoundingClientRect;
+ let prevented=false;
+ await after.fire('keydown',{key:'ArrowDown',preventDefault(){prevented=true;}});
+ assert.equal(prevented,true);assert.equal(y.value,'51.000000');assert.equal(y.focused,true);
+ assert.equal(save.disabled,true);
+ await calculate.fire('click');await save.fire('click');
+ assert.equal(writes,1);
+ assert.deepEqual(JSON.parse(commands.at(-1).fields.points),[[0.75,0.51]]);
+ assert.equal(commands.at(-1).fields.radius,'0.02');
+ assert.equal(commands.at(-1).fields.command_id,commands.at(-2).fields.command_id);
+ // Even programmatic events on the now-stale old image cannot alter coordinates.
+ const old=x.value;before.hidden=false;
+ await before.fire('click',{button:0,detail:1,clientX:70,clientY:130});
+ assert.equal(x.value,old);assert.equal(writes,1);
 });

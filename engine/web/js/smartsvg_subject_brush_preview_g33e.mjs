@@ -9,6 +9,52 @@ const PNG64=/^[A-Za-z0-9+/]+={0,2}$/;
 const MAX_PNG64=4*Math.ceil((12*1024*1024)/3);
 const acceptedPreviews=new WeakMap();
 
+/** Map a pointer over object-fit:contain, object-position:center to source0..1.
+ * The preview image must have no border/padding. Letterbox clicks are ignored.
+ */
+export function brushPointFromPreview(rect,width,height,clientX,clientY){
+  if(!rect||![rect.left,rect.top,rect.width,rect.height,clientX,clientY].every(
+      v=>typeof v==='number'&&Number.isFinite(v))||
+     !Number.isSafeInteger(width)||!Number.isSafeInteger(height)||width<1||height<1||
+     width*height>5_000_000||rect.width<=0||rect.height<=0)return null;
+  const scale=Math.min(rect.width/width,rect.height/height);
+  const drawnWidth=width*scale,drawnHeight=height*scale;
+  const left=rect.left+(rect.width-drawnWidth)/2,top=rect.top+(rect.height-drawnHeight)/2;
+  const x=(clientX-left)/drawnWidth,y=(clientY-top)/drawnHeight;
+  if(![left,top,drawnWidth,drawnHeight,x,y].every(Number.isFinite)||
+     drawnWidth<=0||drawnHeight<=0||x<0||x>1||y<0||y>1)return null;
+  return [x,y];
+}
+
+/** Choose a point only. Preview calculation and persistence stay explicit. */
+export function bindBrushPointPicker(image,{width,height,isCurrent,getPoint,onPoint,onKeyboardFocus=()=>{}}){
+  let disposed=false;
+  image.tabIndex=0;image.setAttribute('role','button');
+  image.setAttribute('aria-label',(image.alt||'Aperçu du masque')+
+    ' : choisir le point au clic ou avec les flèches ; Entrée pour les coordonnées.');
+  image.title='Cliquer pour placer le point ; flèches ou champs de coordonnées au clavier.';
+  const available=()=>!disposed&&!image.hidden&&isCurrent();
+  image.addEventListener('click',event=>{
+    if(!available()||(event.button!==undefined&&event.button!==0))return;
+    if(event.detail===0){onKeyboardFocus('x');return;}
+    const point=brushPointFromPreview(image.getBoundingClientRect(),width,height,event.clientX,event.clientY);
+    if(point)onPoint(point);
+  });
+  image.addEventListener('keydown',event=>{
+    if(!available())return;
+    if(event.key==='Enter'||event.key===' '){event.preventDefault();onKeyboardFocus('x');return;}
+    const delta={ArrowLeft:[-0.01,0],ArrowRight:[0.01,0],ArrowUp:[0,-0.01],ArrowDown:[0,0.01]}[event.key];
+    if(!delta)return;
+    const point=getPoint();
+    if(!Array.isArray(point)||point.length!==2||point.some(v=>
+       typeof v!=='number'||!Number.isFinite(v)||v<0||v>1))return;
+    event.preventDefault();
+    onPoint(point.map((value,index)=>Math.min(1,Math.max(0,value+delta[index]))));
+    onKeyboardFocus(delta[0]?'x':'y');
+  });
+  return ()=>{disposed=true;image.tabIndex=-1;image.setAttribute('aria-disabled','true');};
+}
+
 export function brushSaveMessage(code){
   if(code==='SAVE_OUTCOME_UNKNOWN')return 'Résultat de sauvegarde incertain : vérifier le projet avant de recommencer. Le geste peut être enregistré.';
   if(code==='SAVE_BUSY')return 'Enregistrement déjà en cours.';
