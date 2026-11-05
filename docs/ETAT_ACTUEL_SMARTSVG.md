@@ -1,13 +1,15 @@
 # SmartSVG Studio — État réel et prochains développements
 
-**État logiciel constaté : 27 octobre 2026**. Document de suivi vivant **non normatif** ; depuis le 28 octobre 2026, la référence contractuelle active est [la roadmap V3.3](ROADMAP_MASTER_v3_3.md). La V3.2 demeure une archive protégée, sans validation produit supplémentaire implicite.
+**État logiciel vérifié : 5 novembre 2026**, code `main@51b4dcce0cbb373cd7e05b953a8acfad671e1c6c` après les PR #85–91. Document vivant **non normatif** ; la référence active est la [roadmap V3.4](roadmap-v3.4/README.md), adoptée par la [promotion contrôlée](ROADMAP_PROMOTION_v3_4.md), avec les **141 exigences V3.3 conservées**. Les anciens lots de conception restent des photographies datées.
+
+**Reprise immédiate :** consulter le [point de reprise G3.3e du 5 novembre](G3_3E_REPRISE_2026_11_05.md). La sauvegarde de gestes cumulés, Undo/Redo persistants et leurs contrôles Atelier sont intégrés. Le geste Atelier reste **un seul point** avec rayon réglable : le dessin continu et les calques/propriétés complets restent à réaliser. Les essais Windows/ComfyUI/Design Space/Cricut restent à exécuter séparément.
 
 ## Synthèse à ne pas confondre
 
 | Niveau | Ce qui est prouvé | Ce que cela ne prouve pas |
 | --- | --- | --- |
-| **Code fusionné** | Modules Python/JS, contrats projets, inspecteur SVG, interface Express G3.1/G3.2 sur `main` | Logiciel complet installé chez l'utilisateur |
-| **CI automatisée** | Gates Python/Node G0/CPU des micro-lots et sécurité des sources ; derniers G3.1 : G0 **264**, HEAD **264**, CPU **4** réussis | Qualité visuelle d'une photographie, compatibilité hardware |
+| **Code fusionné** | Modules Python/JS, contrats projets, inspecteur SVG, interface Express et retouches G3.3e sur la révision ci-dessus | Logiciel complet installé chez l'utilisateur |
+| **CI automatisée** | PR #91 : suite G0 **483** tests (45 skips CPU attendus), workflow CPU **4 + 45** réussis sans skip ; local **483** sans skip et **47** tests Node ciblés réussis ; voir le point de reprise pour les SHA et journaux | Qualité visuelle d'une photographie, compatibilité hardware |
 | **Essai navigateur** | Maquette statique manipulable, fichier HTML disponible dans le dépôt | Fonctionnement du module `.mjs` dans l'installation ComfyUI Windows |
 | **Certification Cricut** | **Aucune** | Pas d'import/marge/dimension/coupe réelle validés sur Explore 5 |
 
@@ -27,6 +29,10 @@ Les réussites de CI sont des **constats de leurs commits**, pas un compteur glo
 | **G3.1** | Bouton pour charger volontairement l'inspecteur réel G2.9 depuis l'atelier servi par ComfyUI | PR #46 ; route module ES à tester sur ComfyUI installé |
 | **G3.2** | Bouton opt-in vers le **vrai gestionnaire de projets G2.2** dans le grand atelier : création PNG, inspection `.smartsvg`, notes et récupération avec confirmation ; DPI 300/450 natifs | Micro-lot G3.2 ; même origine ComfyUI/route API et UI réelle Windows à vérifier |
 | **G3.3b** | Réception volontaire des vrais diagnostics G2.6 (vignettes, codes et zones), 1–32 sujets, depuis le nœud ComfyUI via canal même origine ; présélection locale uniquement | Deux onglets et lancement manuel du nœud toujours nécessaires ; aucune modification des vrais masques dans l’Atelier |
+| **G3.3e — retouches** | Aperçu calculé depuis les gestes natifs cumulés ; sauvegarde explicite avec preuve Subject, digest de l’aperçu, CAS et relecture ; masques float32 de base conservés | PR #85–87 ; gestes natifs bornés, pas de deuxième moteur ni store |
+| **G3.3e — historique** | Undo/Redo persistants, réouverture, reprise et contrôles Atelier ; les exports externes ne sont pas supprimés | PR #88–89 ; frontières de session native et anciens reçus sans inverse connu refusés explicitement |
+| **G3.3e — point/rayon** | Point choisi dans l’aperçu réel sans inclure les bandes vides ; rayon 0,05–20 % du petit côté ; accès clavier, recalcul requis avant enregistrement | PR #91 ; geste à un point, tests DOM simulés, pas de validation graphique Windows |
+| **Prévol SVG** | Géométrie sous opacité nulle/négative exclue, cascade inline et valeurs ambiguës contrôlées | PR #90 ; contrôle statique limité, pas équivalence complète à un moteur de rendu SVG |
 | **CI / gouvernance** | Précontrôle public HEAD, protection de sauvegarde, budgets optionnels et chemins historiques, dépôt public | PR #42–45 ; aucun appel payant nécessaire |
 
 ## Candidats prioritaires
@@ -35,7 +41,7 @@ Les réussites de CI sont des **constats de leurs commits**, pas un compteur glo
 
 **P1 — G3.2, première intégration de projets :** le panneau natif G2.2 est accessible volontairement dans l'atelier en cours. **À vérifier sur le PC cible** : accès au module ES, disponibilité des routes G2.2 activées, création PNG, lecture `.smartsvg` et récupération de secours. Aucun projet n'est créé ou modifié à l'ouverture du panneau.
 
-**P1 — G3.3, vrais sujets et masques :** le premier raccordement G3.3b permet une transmission **volontaire** du vrai diagnostic G2.6 (vignettes, avertissements, zones) par canal local entre onglets ComfyUI ; les 12 escargots restent séparés. **Reste à développer :** sélection effectivement appliquée aux nœuds, contexte de projet, masques float32, retouches centralisées et parcours sans changement d’onglet. Voir [G3.3b](G3_3B_REAL_SUBJECT_HANDOFF.md).
+**P1 — poursuivre G3.3e / tranche A puis D :** conserver la sélection par `subject_id` et le projet V1 unique. Prochain micro-lot proposé : collecter un **trait continu borné** dans l’aperçu réel, réutiliser le replay existant, maintenir les coordonnées/clavier, annuler un geste incomplet sans écriture et recalculer avant sauvegarde. Critères et limites dans le point de reprise ; aucune reprise du premier-save ou de l’Undo déjà intégrés. Les quatre sorties et la géométrie sur fixtures (tranches B/C) peuvent aussi progresser sans attendre Windows ni V2.
 
 **P1 — G3.4, détourage et segmentation IA facultatifs :** intégrer une importation orientée caméra (EXIF, profils couleurs, alpha) puis appeler le moteur ComfyUI de façon **explicite**, avec repli CPU et logs lisibles. Sur RTX 3070 8 Go, mesurer mémoire et temps avant de définir une qualité par défaut.
 
@@ -60,7 +66,8 @@ Le gestionnaire de projets du panneau Express dispose déjà de fonctions réell
 
 ## Références
 
-- [Roadmap V3.3 active](ROADMAP_MASTER_v3_3.md) · [V3.2 historique](ROADMAP_MASTER_v3_2.md)
+- [Roadmap V3.4 active](roadmap-v3.4/README.md) · [V3.3 héritée](ROADMAP_MASTER_v3_3.md) · [V3.2 historique](ROADMAP_MASTER_v3_2.md)
+- [Preuves et reprise G3.3e au 5 novembre](G3_3E_REPRISE_2026_11_05.md)
 - [Documentation du raccordement G3.1](G3_1_EXPRESS_REAL_SVG_REVIEW.md)
 - [Gestion native des projets dans l'atelier G3.2](G3_2_ATELIER_NATIVE_PROJECTS.md)
 - [Contrat de source figée](SOURCE_V21_15_2_PROVENANCE.json)
