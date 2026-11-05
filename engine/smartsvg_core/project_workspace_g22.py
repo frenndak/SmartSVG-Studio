@@ -655,10 +655,10 @@ class ManagedWorkspace:
             mask_sha256_float32, source_id, source_sha256, mode, radius,
             points, expected_preview_mask_sha256_float32, command_id,
             confirmed=False):
-        """G3.3e-b2b-1: explicitly save the FIRST proven stroke as V21.6 replay.
+        """G3.3e-b2b: explicitly append one proven stroke as V21.6 replay.
 
-        No base resources change. A nonempty editor session is refused until
-        b2a can preview composition with existing strokes. This trusted backend
+        No base resources change. Preview composes the saved native session
+        with the proposed gesture and enforces its cumulative bounds. This backend
         method is deliberately not exposed through a browser route yet.
         Identical immediate retries are read-only; a changed command ID payload
         or a later project revision is never silently treated as a retry.
@@ -697,53 +697,47 @@ class ManagedWorkspace:
             raise WorkspaceError('PROJECT_ID_MISMATCH')
         if _revision(path) != current_sha:
             raise WorkspaceError('PROJECT_CHANGED')
-        kind = 'save_subject_brush_g33e_b2b1'
+        kind = 'save_subject_brush_g33e_b2b2'
         if any(type(op) is not dict for op in project.operations):
             raise WorkspaceError('INVALID_BRUSH_HISTORY')
         receipts = [op for op in project.operations
-                    if op.get('kind') == kind and op.get('command_id') == command_id]
+                    if op.get('kind') in ('save_subject_brush_g33e_b2b1', kind)
+                    and op.get('command_id') == command_id]
         if receipts:
             if any(op.get('request_sha256') != request_sha for op in receipts):
                 raise WorkspaceError('BRUSH_COMMAND_ID_REUSED')
             receipt = receipts[0]
+            current_editor = project.document.get('editor_v216')
+            editor_matches = (current_editor == receipt['editor_v216']
+                              if 'editor_v216' in receipt else
+                              _sha(json.dumps(current_editor, allow_nan=False,
+                                   sort_keys=True, separators=(',', ':')).encode())
+                              == receipt.get('editor_sha256'))
             if (len(receipts) != 1 or project.operations[-1] != receipt or
-                    project.document.get('editor_v216') != receipt.get('editor_v216')):
+                    not editor_matches):
                 raise WorkspaceError('PROJECT_CHANGED')
         if not receipts and current_sha != expected_sha256:
             raise WorkspaceError('PROJECT_CHANGED')
         session = project.document.get('editor_v216')
-        if not receipts and session is not None:
-            try:
-                parsed, _ = parse_editor_document(
-                    json.dumps(session, allow_nan=False),
-                    source_dimensions=(project.sources[0].width_px,
-                                       project.sources[0].height_px))
-            except (EditorSessionError, TypeError, ValueError, IndexError) as exc:
-                raise WorkspaceError('CORRUPT_EDITOR_SESSION') from exc
-            if parsed['strokes']:
-                raise WorkspaceError('BRUSH_EDITOR_SESSION_NOT_EMPTY')
-            snapshot = project.document.get(SNAPSHOT_KEY, {})
-            if (parsed['source'] != snapshot.get('editor_fingerprint') or
-                    parsed['count'] != snapshot.get('shape', [None])[0]):
-                raise WorkspaceError('EDITOR_MASK_SNAPSHOT_MISMATCH')
+        preview_project = project
+        if receipts:
+            # Revalidate a retry against its pre-command native session. This
+            # avoids replaying a duplicate stroke or exceeding 400 on retry.
+            if (type(session) is not dict or type(session.get('strokes')) is not list
+                    or not session['strokes']):
+                raise WorkspaceError('INVALID_BRUSH_HISTORY')
+            preview_project = replace(project, document={**project.document,
+                'editor_v216': {**session, 'strokes': session['strokes'][:-1]}})
         try:
             preview = preview_subject_brush(
-                project, subject_id=subject_id, mask_id=mask_id,
+                preview_project, subject_id=subject_id, mask_id=mask_id,
                 mask_sha256_float32=mask_sha256_float32, source_id=source_id,
                 source_sha256=source_sha256, mode=mode, radius=radius, points=points)
         except SubjectBrushPreviewError as exc:
             raise WorkspaceError(exc.code) from exc
         if preview['preview_mask_sha256_float32'] != expected_preview_mask_sha256_float32:
             raise WorkspaceError('BRUSH_PREVIEW_CHANGED')
-        catalog = snapshot_mask_bindings(project)
-        index = next(item['mask_index'] for item in catalog['bindings']
-                     if item['subject_id'] == subject_id)
-        count, height, width = project.document[SNAPSHOT_KEY]['shape']
-        editor, _ = parse_editor_document(json.dumps({
-            'version': 1, 'width': width, 'height': height, 'count': count,
-            'source': source_sha256, 'strokes': [
-                {'object': index, 'mode': mode, 'radius': radius, 'points': points}]
-        }, allow_nan=False), source_dimensions=(width, height))
+        editor = preview['editor_document']
         if receipts:
             if (session != editor or _revision(path) != current_sha or
                     _brush_receipt_state_sha(replace(project, operations=project.operations[:-1]))
@@ -760,7 +754,10 @@ class ManagedWorkspace:
                 'kind': kind, 'command_id': command_id, 'request_sha256': request_sha,
                 'subject_id': subject_id, 'mask_id': mask_id,
                 'preview_mask_sha256_float32': expected_preview_mask_sha256_float32,
-                'editor_v216': editor}])
+                'editor_sha256': _sha(json.dumps(editor, allow_nan=False, sort_keys=True,
+                                      separators=(',', ':')).encode()),
+                'stroke': editor['strokes'][-1],
+                'previous_editor_present': 'editor_v216' in project.document}])
         updated.operations[-1]['result_state_sha256'] = _brush_receipt_state_sha(
             replace(updated, operations=project.operations))
         def verified(reopened):
@@ -825,7 +822,7 @@ class ManagedWorkspace:
         # Never expose exact float32 replay bytes through the UI-facing result.
         return {
             **{key: value for key, value in preview.items()
-               if key != 'preview_float32'},
+               if key not in ('preview_float32', 'editor_document')},
             'name': name, 'project_sha256': expected_sha256,
             'persisted': False, 'cricut_certified': False,
         }

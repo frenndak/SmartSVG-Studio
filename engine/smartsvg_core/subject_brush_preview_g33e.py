@@ -46,7 +46,7 @@ def preview_subject_brush(
     project, *, subject_id, mask_id, mask_sha256_float32,
     source_id, source_sha256, mode, radius, points,
 ):
-    """Preview ONE add/erase stroke; never alter project, resources or base float32.
+    """Preview ONE add/erase stroke after saved strokes; never alter the base.
 
     Return internal-only immutable float32 bytes plus before/after L8 PNG
     previews. Never send preview_float32 to a browser as an archive authority.
@@ -109,13 +109,29 @@ def preview_subject_brush(
     # dependencies. Invalid user gestures must not be reported as a missing
     # NumPy/Pillow runtime, and G0 can exercise these failures with stdlib.
     try:
-        _, canonical = parse_editor_document(
-            json.dumps(command, allow_nan=False),
+        editor, canonical = parse_editor_document(
+            json.dumps(command, allow_nan=False, separators=(',', ':')),
             source_dimensions=(width, height),
         )
     except (EditorSessionError, TypeError, ValueError, OverflowError,
             RecursionError) as exc:
         raise SubjectBrushPreviewError("INVALID_PREVIEW_STROKE") from exc
+    session = project.document.get('editor_v216')
+    if 'editor_v216' in project.document:
+        try:
+            previous, _ = parse_editor_document(
+                json.dumps(session, allow_nan=False, separators=(',', ':')),
+                source_dimensions=(width, height))
+            if previous['source'] != source_sha256 or previous['count'] != count:
+                raise EditorSessionError('INCOMPATIBLE_EDITOR_SOURCE')
+        except (EditorSessionError, TypeError, ValueError, OverflowError, RecursionError) as exc:
+            raise SubjectBrushPreviewError('INVALID_SAVED_EDITOR_SESSION') from exc
+        try:
+            editor, canonical = parse_editor_document(json.dumps({
+                **editor, 'strokes': [*previous['strokes'], *editor['strokes']]
+            }, allow_nan=False, separators=(',', ':')), source_dimensions=(width, height))
+        except (EditorSessionError, TypeError, ValueError, OverflowError, RecursionError) as exc:
+            raise SubjectBrushPreviewError('BRUSH_SESSION_LIMIT') from exc
     try:
         import numpy as np
         from smartsvg_editor.strokes import StrokeError, apply_strokes, decode
@@ -129,7 +145,9 @@ def preview_subject_brush(
         # copies it; the original buffer and all other subjects stay intact.
         base = np.frombuffer(raw, dtype="<f4").reshape(count, height, width)
         base.flags.writeable = False
-        corrected = apply_strokes(base, validated)
+        # Reuse the native replay for BOTH the saved state and the new gesture.
+        before = apply_strokes(base, validated[:-1]) if len(validated) > 1 else base
+        corrected = apply_strokes(before, validated[-1:])
     except (StrokeError, TypeError, ValueError, OverflowError, RecursionError) as exc:
         raise SubjectBrushPreviewError("INVALID_PREVIEW_STROKE") from exc
     # Compare raw IEEE-754 payloads, not numerical values: np.array_equal
@@ -137,11 +155,13 @@ def preview_subject_brush(
     # Keep the G2.4 byte-for-byte invariant without copying every mask at once.
     if (corrected.shape != base.shape or corrected.dtype != base.dtype or
             not _other_masks_bit_identical(
-                raw, (corrected[i].tobytes(order="C") for i in range(count)),
+                memoryview(before).cast('B'),
+                (corrected[i].tobytes(order="C") for i in range(count)),
                 index, stride)):
         raise SubjectBrushPreviewError("PREVIEW_TOUCHED_OTHER_SUBJECT")
     after_bytes = np.ascontiguousarray(corrected[index], dtype="<f4").tobytes()
-    changed = int(np.count_nonzero(corrected[index] != base[index]))
+    before_bytes = before[index].tobytes(order='C')
+    changed = int(np.count_nonzero(corrected[index] != before[index]))
     return {
         "subject_id": subject_id,
         "mask_id": mask_id,
@@ -153,6 +173,7 @@ def preview_subject_brush(
         "before_png_l8": encode_preview_l8(before_bytes, width, height),
         "after_png_l8": encode_preview_l8(after_bytes, width, height),
         "preview_float32": after_bytes,
+        "editor_document": editor,  # internal-only writer input, never UI authority
         "cricut_certified": False,
         "persisted": False,
     }

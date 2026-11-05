@@ -43,6 +43,8 @@ def run() -> int:
         suite.addTests(loader.loadTestsFromName(f"{TEST_CASE}.{name}"))
     suite.addTests(loader.loadTestsFromName(
         "test_g33e_subject_brush_save.SubjectBrushSaveTests"))
+    suite.addTests(loader.loadTestsFromName(
+        "test_g33e_brush_composition.BrushCompositionTests"))
     expected_count = suite.countTestCases()
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     if (result.testsRun != expected_count or result.skipped or
