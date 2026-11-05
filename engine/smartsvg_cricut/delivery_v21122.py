@@ -32,6 +32,8 @@ def _hash(path):
 
 def delivery_manifest(report):
     """Inspect published files without reading or changing image pixels."""
+    if not isinstance(report,dict):
+        raise DeliveryError("Rapport Cricut incomplet")
     root=report.get('dossier')
     if not isinstance(root,str) or not Path(root).is_absolute():raise DeliveryError('Projet manquant')
     root=Path(root)
@@ -44,8 +46,14 @@ def delivery_manifest(report):
     entries=[]
     records=imported.get('objets')
     if not isinstance(records,list) or len(records)!=len(objects):raise DeliveryError('Nombre objets incorrect')
+    if any(not isinstance(item,dict) or not isinstance(check,dict)
+           for item,check in zip(objects,records)):
+        raise DeliveryError('Objets Cricut malformes')
     for i,(item,check) in enumerate(zip(objects,records),1):
-        warning=list(item.get('avertissements') or [])
+        raw_warnings=item.get('avertissements', [])
+        if not isinstance(raw_warnings,list) or any(not isinstance(w,str) for w in raw_warnings):
+            raise DeliveryError('Avertissements Cricut invalides')
+        warning=list(raw_warnings)
         failures=[]
         files={}
         for key,path in [('impression',check.get('fichier_import')),
@@ -58,6 +66,12 @@ def delivery_manifest(report):
                 except (OSError,DeliveryError) as err:
                     failures.append('FICHIER_'+key.upper()+'_INEXPLOITABLE: '+str(err)[:90])
             else:failures.append('FICHIER_'+key.upper()+'_ABSENT')
+        # A preflighted copy may have been replaced since the preflight ran.
+        # Both hashes are computed from current bytes; a stale/different PNG
+        # must never be reported as a complete local delivery.
+        if ('impression' in files and 'png_fabrication' in files and
+                files['impression']['sha256'] != files['png_fabrication']['sha256']):
+            failures.append('PNG_IMPRESSION_DIFFERENT_DU_PNG_FABRICATION')
         if check.get('type_decoupe_presumee')=='CADRE_RECTANGULAIRE_SANS_DETOURAGE':
             failures.append('CARTE_RECTANGULAIRE_NON_STICKER')
         if check.get('statut')!='PRET_POUR_IMPORT_LOCAL':
@@ -67,7 +81,50 @@ def delivery_manifest(report):
                         'fichiers':files,'avertissements':warning+failures,
                         'certification_semantique':False,'decoupe_reelle_verifiee':False})
     sheets=[]
-    for i,check in enumerate(imported.get('planches') or [],1):
+    # Missing is compatible with legacy single-sticker reports; explicit
+    # null is malformed and must not silently certify a missing sheet batch.
+    requested_sheets=(imported['planches'] if 'planches' in imported else [])
+    if not isinstance(requested_sheets,list) or any(not isinstance(sheet,dict) for sheet in requested_sheets):
+        raise DeliveryError('Collection de planches Cricut invalide')
+    # A stale/truncated handoff may silently omit manufactured sheets. Cross-
+    # check the original report when it explicitly declares a sheet collection.
+    # Older single-sticker reports without either key remain compatible.
+    source_sheets_declared=('planches' in report or 'planches_cricut' in report)
+    # Validate each explicitly declared collection before truthy fallback:
+    # an empty dict/string/None must not disappear into [] and look complete.
+    for key in ('planches', 'planches_cricut'):
+        if key in report and not isinstance(report[key],list):
+            raise DeliveryError('Collection de planches fabriquees invalide')
+    source_sheets=report.get('planches') or report.get('planches_cricut') or []
+    # Legacy reports without a manufactured sheet batch remain supported,
+    # but cannot certify an imported sheet lacking upstream provenance.
+    sheets_reconciled=(len(requested_sheets)==0 if not source_sheets_declared
+                       else len(source_sheets)==len(requested_sheets))
+    # Both historical aliases can coexist. Compare every *declared* alias:
+    # an explicit empty list must not conceal a nonempty manufactured batch.
+    aliases=[report[key] for key in ('planches','planches_cricut') if key in report]
+    # A stale handoff cannot certify a sheet rejected by manufacturing,
+    # even when its PNG bytes still match the preflighted copy.
+    if any(not isinstance(sheet,dict) or sheet.get('statut')!='CREATION_OK'
+           for collection in aliases for sheet in collection):
+        sheets_reconciled=False
+    if len(aliases)==2:
+        first,second=aliases
+        if len(first)!=len(second):
+            sheets_reconciled=False
+        else:
+            for a,b in zip(first,second):
+                if not isinstance(a,dict) or not isinstance(b,dict):
+                    sheets_reconciled=False
+                    break
+                try:
+                    if _hash(_owned_file(root,a.get('fichier'))) != _hash(_owned_file(root,b.get('fichier'))):
+                        sheets_reconciled=False
+                        break
+                except (OSError,DeliveryError):
+                    sheets_reconciled=False
+                    break
+    for i,check in enumerate(requested_sheets,1):
         entry={'index':i,'statut':check.get('statut'),'avertissement':check.get('raison')}
         if check.get('fichier_import'):
             try:
@@ -75,13 +132,36 @@ def delivery_manifest(report):
                 entry['fichier']={'chemin':str(page.relative_to(root)), 'octets':page.stat().st_size,'sha256':_hash(page)}
             except (DeliveryError,OSError) as err:
                 entry['statut']='A_VERIFIER';entry['avertissement']=str(err)[:120]
+        # Equal sheet counts do not establish that the transferred sheet is
+        # the one manufactured at this index. Check current bytes for both,
+        # without mutating either file or trusting handoff metadata alone.
+        if source_sheets_declared and i <= len(source_sheets):
+            manufactured=source_sheets[i-1]
+            if not isinstance(manufactured,dict):
+                sheets_reconciled=False
+            else:
+                try:
+                    original_sheet=_owned_file(root,manufactured.get('fichier'))
+                    if ('fichier' not in entry or
+                            _hash(original_sheet)!=entry['fichier']['sha256']):
+                        sheets_reconciled=False
+                except (OSError,DeliveryError):
+                    sheets_reconciled=False
         sheets.append(entry)
-    complete=all(e['etat']=='PRECONTROLE_LOCAL_A_VERIFIER' for e in entries)
+    # An upstream batch can be A_VERIFIER even when its individual PNGs passed
+    # (e.g. failed README/report publication or a malformed sheet collection).
+    # Do not promote that incomplete handoff to a complete delivery.
+    upstream_ready=imported.get('statut') in (
+        'PRET_POUR_IMPORT_LOCAL', 'PRET_POUR_IMPORT_LOCAL_AVEC_CADRES')
+    complete=(upstream_ready and sheets_reconciled
+              and all(e['etat']=='PRECONTROLE_LOCAL_A_VERIFIER' for e in entries)
+              and all(s['statut']=='PRET_POUR_IMPORT_LOCAL' and 'fichier' in s for s in sheets))
     return {'version':'21.12.2','sujets_fabriques':len(entries),
             'png_import_precontroles':sum(e['etat']=='PRECONTROLE_LOCAL_A_VERIFIER' for e in entries),
             'planches_precontrolees':sum(s['statut']=='PRET_POUR_IMPORT_LOCAL' and 'fichier' in s for s in sheets),
             'statut':'CONTROLE_LOCAL_COMPLET_A_REVISER' if complete else 'REVISIONS_NECESSAIRES',
             'certification_cricut':False,'validation_physique':False,
+            'avertissements':([] if sheets_reconciled else ['PLANCHES_FABRIQUEES_NON_RECONCILIEES']),
             'action':'Importer les PNG dans Design Space comme Flat Graphic, contrôler l’aperçu et la dimension avant de découper.',
             'objets':entries,'planches':sheets}
 
@@ -97,6 +177,18 @@ def write_delivery(root,manifest):
     try:
         with tmp.open('x',encoding='utf8') as file:
             json.dump(manifest,file,indent=2,ensure_ascii=False,allow_nan=False)
-        os.replace(tmp,final)
+            file.flush()
+            os.fsync(file.fileno())
+        # os.replace() overwrites a concurrently created manifest; link() does not.
+        try:
+            os.link(tmp,final)
+        except FileExistsError:
+            raise DeliveryError('Manifeste deja present, aucun ecrasement') from None
+        except OSError as exc:
+            # An exclusive-copy fallback exposes a partially written manifest
+            # to other readers before fsync completes. That is not a safe
+            # publish-last operation. No portable atomic no-clobber fallback
+            # exists here when the filesystem rejects hard links: fail closed.
+            raise DeliveryError('Publication atomique impossible sur ce systeme de fichiers') from exc
     finally:tmp.unlink(missing_ok=True)
     return str(final)
