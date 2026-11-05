@@ -42,7 +42,8 @@ async def _multipart_fields(request, *, image=False, max_fields=12):
                'confirmed','editor_json','source_id','source_sha256',
                'mask_index','mask_id','mask_sha256_float32','expires_at_ms',
                'subject_id','mode','radius','points','preview_version',
-               'command_id','save_version','expected_preview_mask_sha256_float32'}
+               'command_id','save_version','expected_preview_mask_sha256_float32',
+               'history_version','action'}
     total = 0
     for _ in range(max_fields):
         part = await reader.next()
@@ -91,6 +92,19 @@ def register_project_routes(routes, trusted_output_root):
     preview_admission_slots = threading.BoundedSemaphore(2)
     preview_slots = threading.BoundedSemaphore(2)
     prefix = '/smartsvg/g22'
+
+    async def run_brush_job(calculate):
+        """One shared bound for native history inspection and brush writes."""
+        if not preview_admission_slots.acquire(blocking=False):
+            raise WorkspaceError('PREVIEW_BUSY')
+        async def guarded():
+            try:
+                return await asyncio.to_thread(calculate)
+            finally:
+                preview_admission_slots.release()
+        task=asyncio.create_task(guarded())
+        task.add_done_callback(lambda done: None if done.cancelled() else done.exception())
+        return await asyncio.wait_for(asyncio.shield(task),timeout=15)
 
     def json_error(code, status=400):
         return web.json_response({'ok':False,'error_code':code,
@@ -359,11 +373,8 @@ def register_project_routes(routes, trusted_output_root):
             if type(points) is not list or not 1<=len(points)<=64:
                 raise WorkspaceError('INVALID_PREVIEW_STROKE')
             radius=float(fields.get('radius',''))
-            if not preview_admission_slots.acquire(blocking=False):
-                return error('PREVIEW_BUSY',429)
-            async def guarded_save():
-                try:
-                    return await asyncio.to_thread(workspace.save_subject_brush,
+            def calculate_save():
+                return workspace.save_subject_brush(
                         fields.get('name'),expected_sha256=fields.get('expected_sha256'),
                         subject_id=fields.get('subject_id'),mask_id=fields.get('mask_id'),
                         mask_sha256_float32=fields.get('mask_sha256_float32'),
@@ -371,11 +382,7 @@ def register_project_routes(routes, trusted_output_root):
                         mode=fields.get('mode'),radius=radius,points=points,
                         expected_preview_mask_sha256_float32=fields.get('expected_preview_mask_sha256_float32'),
                         command_id=command_id,confirmed=True)
-                finally:
-                    preview_admission_slots.release()
-            task=asyncio.create_task(guarded_save())
-            task.add_done_callback(lambda done: None if done.cancelled() else done.exception())
-            saved=await asyncio.wait_for(asyncio.shield(task),timeout=15)
+            saved=await run_brush_job(calculate_save)
             # Whitelist acknowledgement fields; never transport archive resources.
             result={key:saved[key] for key in (
                 'name','status','sha256','command_id','persisted','cricut_certified')}
@@ -386,9 +393,72 @@ def register_project_routes(routes, trusted_output_root):
             code=getattr(exc,'code','INVALID_BRUSH_SAVE_REQUEST')
             if code=='SAVE_FAILED' or isinstance(exc,OSError):
                 return error('SAVE_OUTCOME_UNKNOWN',503)
-            status=409 if code in ('PROJECT_CHANGED','PROJECT_CHANGED_DURING_SAVE',
+            status=429 if code=='PREVIEW_BUSY' else 409 if code in ('PROJECT_CHANGED','PROJECT_CHANGED_DURING_SAVE',
                                   'PROJECT_NOT_HEALTHY','PENDING_BACKUP_REVIEW_REQUIRED') else 400
             return error(code,status)
+
+    def history_error(code,status=400):
+        return web.json_response({'ok':False,'error_code':code,'certified':False},
+            status=status,headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'})
+
+    @routes.post(prefix+'/subject/history/status')
+    async def subject_history_status(request):
+        """Explicitly inspect the current native project, without rebinding masks."""
+        if not _browser_origin_ok(request):
+            return history_error('ORIGIN_REJECTED',403)
+        try:
+            fields=await _multipart_fields(request)
+            if fields.get('history_version')!='1':
+                raise WorkspaceError('INVALID_BRUSH_HISTORY_VERSION')
+            def inspect_history():
+                state=workspace.inspect(fields.get('name'))
+                if state['status']!='PROJECT_HEALTHY':
+                    raise WorkspaceError('PROJECT_NOT_HEALTHY')
+                return workspace.subject_brush_history(fields.get('name'),expected_sha256=state['sha256'])
+            result=await run_brush_job(inspect_history)
+            keys=('name','project_sha256','undo_available','redo_available','cricut_certified',
+                  'undo_subject_id','redo_subject_id','undo_error_code','redo_error_code')
+            return web.json_response({'ok':True,'history':{key:result[key] for key in keys if key in result},
+                'certified':False},headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'})
+        except asyncio.TimeoutError:
+            return history_error('HISTORY_STATUS_TIMEOUT',504)
+        except (WorkspaceError,ValueError,TypeError,KeyError,OSError) as exc:
+            code=getattr(exc,'code','HISTORY_STATUS_UNAVAILABLE')
+            status=429 if code=='PREVIEW_BUSY' else 409 if code in ('PROJECT_CHANGED','PROJECT_NOT_HEALTHY') else 400
+            return history_error(code,status)
+
+    @routes.post(prefix+'/subject/history/apply')
+    async def subject_history_apply(request):
+        if not _browser_origin_ok(request):
+            return history_error('ORIGIN_REJECTED',403)
+        try:
+            fields=await _multipart_fields(request)
+            if fields.get('history_version')!='1':
+                raise WorkspaceError('INVALID_BRUSH_HISTORY_VERSION')
+            if fields.get('confirmed')!='yes':
+                raise WorkspaceError('BRUSH_HISTORY_CONFIRMATION_REQUIRED')
+            command_id=fields.get('command_id')
+            action=fields.get('action')
+            if (action not in ('undo','redo') or type(command_id) is not str or
+                    re.fullmatch(r'[0-9a-f]{32}',command_id) is None):
+                raise WorkspaceError('INVALID_BRUSH_HISTORY_REQUEST')
+            def calculate():
+                return workspace.change_subject_brush_history(fields.get('name'),
+                    expected_sha256=fields.get('expected_sha256'),action=action,
+                    command_id=command_id,confirmed=True)
+            saved=await run_brush_job(calculate)
+            keys=('name','status','sha256','command_id','action','persisted','cricut_certified')
+            return web.json_response({'ok':True,'result':{key:saved[key] for key in keys},
+                'certified':False},headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'})
+        except asyncio.TimeoutError:
+            return history_error('SAVE_OUTCOME_UNKNOWN',504)
+        except (WorkspaceError,ValueError,TypeError,KeyError,OSError) as exc:
+            code=getattr(exc,'code','INVALID_BRUSH_HISTORY_REQUEST')
+            if code=='SAVE_FAILED' or isinstance(exc,OSError):
+                return history_error('SAVE_OUTCOME_UNKNOWN',503)
+            status=429 if code=='PREVIEW_BUSY' else 409 if code in ('PROJECT_CHANGED',
+                'PROJECT_CHANGED_DURING_SAVE','PROJECT_NOT_HEALTHY','PENDING_BACKUP_REVIEW_REQUIRED') else 400
+            return history_error(code,status)
 
     @routes.get(prefix+'/editor')
     async def editor(request):

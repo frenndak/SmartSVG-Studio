@@ -66,6 +66,8 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:.001;overflow:hi
 .subjects-live h2{margin:0;font-size:18px}.subjects-live p{color:var(--muted);font-size:12px}
 .subjects-live .subject-actions{display:flex;flex-wrap:wrap;gap:9px;margin:12px 0}
 .subjects-live .subject-actions button{min-height:40px}
+.brush-history{padding:12px;background:var(--panel2);border-radius:9px;margin:12px 0}
+.brush-history button{max-width:100%;min-height:40px;margin:4px 8px 4px 0}
 .subjects-live .subject-meta{padding:12px;background:var(--panel2);border-radius:9px;overflow-wrap:anywhere}
 .subjects-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:11px;margin-top:14px}
 .subject-card{border:1px solid #41566c;background:#19293a;padding:12px;border-radius:12px;min-width:0}
@@ -123,8 +125,9 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:.001;overflow:hi
   <section class="subjects-live" id="realSubjectsHost" aria-label="Diagnostic des vrais sujets G2.6">
 <h2>◈ Mes vrais sujets · inspection G2.6</h2>
 <p>Les 12 escargots du canevas restent un exemple. Pour voir vos vrais sujets ici, exécutez le nœud « Inspecter et choisir les silhouettes V21.15.4 » dans ComfyUI, puis transmettez explicitement son dernier diagnostic. Aucune segmentation ni découpe n’est déclenchée. Si la liaison est disponible, proposez un sujet unique puis confirmez ce choix dans le nœud ComfyUI : les masques et fragments restent inchangés.</p>
-<div class="subject-actions"><button class="outline" type="button" id="receiveSubjects" aria-controls="realSubjectsGrid">↳ Recevoir une inspection (90 s)</button><button class="plain" type="button" id="clearSubjects" disabled>Effacer l’inspection reçue</button></div>
+<div class="subject-actions"><button class="outline" type="button" id="receiveSubjects" aria-controls="realSubjectsGrid">↳ Recevoir une inspection (90 s)</button><button class="plain" type="button" id="clearSubjects" disabled>Effacer l’inspection reçue</button><button class="outline" type="button" id="brushHistoryButton" aria-controls="brushHistoryMount" disabled>Annuler / rétablir mes retouches</button></div>
 <p class="subject-meta" id="realSubjectsStatus" role="status" aria-live="polite">Aucun diagnostic réel reçu. Les exemples et les projets restent indépendants.</p>
+<div id="brushHistoryMount"></div>
 <div class="subjects-grid" id="realSubjectsGrid" aria-live="off"></div>
 <p id="realSubjectsSelection" aria-live="polite"></p>
 <p id="realFragmentStatus" role="status" aria-live="polite"></p>
@@ -230,6 +233,7 @@ $("next").addEventListener("click",()=>{const steps=["source","clean","subjects"
 // triggers inference and demo selections never alter a real mask or node.
 let realSubjectsChannel=null,realSubjectsTimer=null,realSubjectsData=null;
 let activeBrushSaves=0;
+let historyUI=null,historyLoading=false,historyLoadToken=0;
 let realSubjectExpiryTimer=null;
 function clearRealSubjectExpiry(){
   if(realSubjectExpiryTimer!==null){clearTimeout(realSubjectExpiryTimer);realSubjectExpiryTimer=null;}
@@ -252,6 +256,9 @@ function invalidateRealSubjectIdentityActions(report){
   }
 }
 function paintRealSubjects(){
+  historyLoadToken++;historyLoading=false;historyUI?.dispose();historyUI=null;
+  $("brushHistoryMount").replaceChildren();
+  $("brushHistoryButton").disabled=!realSubjectsData?.project_name||activeBrushSaves>0;
   const grid=$("realSubjectsGrid");grid.replaceChildren();
   const fragmentControls=[];
   $("realFragmentStatus").textContent="";
@@ -583,7 +590,9 @@ function paintRealSubjects(){
           previewStatus.textContent="Diagnostic périmé : recevoir un nouveau rapport avant d’enregistrer.";
           return;
         }
+        historyUI?.invalidate();
         activeBrushSaves++;stopSubjectReceive();clearRealSubjectExpiry();
+        $("brushHistoryButton").disabled=true;
         $("clearSubjects").disabled=true;$("receiveSubjects").disabled=true;
         saving=true;saveButton.disabled=true;calculate.disabled=true;cancel.disabled=true;
         modeInput.disabled=true;xInput.disabled=true;yInput.disabled=true;
@@ -608,6 +617,7 @@ function paintRealSubjects(){
           // reused for an automatic retry or another card's next gesture.
           reportAtPaint.identityActionStale=true;
           activeBrushSaves--;
+          $("brushHistoryButton").disabled=!realSubjectsData?.project_name;
           $("clearSubjects").disabled=!realSubjectsData;
           $("receiveSubjects").disabled=false;
           saving=false;discardPreview();ready();
@@ -652,6 +662,43 @@ function paintRealSubjects(){
     card.appendChild(details);grid.appendChild(card);
   }
 }
+$("brushHistoryButton").addEventListener("click",async()=>{
+  if(historyLoading||activeBrushSaves>0||!realSubjectsData?.project_name)return;
+  const report=realSubjectsData,name=report.project_name,token=++historyLoadToken;
+  historyLoading=true;$("brushHistoryButton").disabled=true;
+  historyUI?.dispose();historyUI=null;$("brushHistoryMount").replaceChildren();
+  try{
+    const module=await import("./smartsvg_subject_brush_history_g33e.mjs");
+    const {api}=await import("../../scripts/api.js");
+    if(token!==historyLoadToken||realSubjectsData!==report)return;
+    historyUI=module.createBrushHistoryControls(api,name,{
+      document,
+      onBeforeWrite(){
+        if(activeBrushSaves>0)throw Error('SAVE_BUSY');
+        if(realSubjectsData!==report)throw Error('BRUSH_HISTORY_STALE');
+        activeBrushSaves++;stopSubjectReceive();clearRealSubjectExpiry();
+        $("clearSubjects").disabled=true;$("receiveSubjects").disabled=true;
+        $("brushHistoryButton").disabled=true;
+      },
+      onAfterWrite(){
+        invalidateRealSubjectIdentityActions(report);activeBrushSaves--;
+        $("clearSubjects").disabled=!realSubjectsData;
+        $("receiveSubjects").disabled=false;
+        $("brushHistoryButton").disabled=!realSubjectsData?.project_name;
+      },
+      onMessage(message){$("realSubjectsStatus").textContent=message;},
+    });
+    historyUI.element.className='brush-history';
+    $("brushHistoryMount").appendChild(historyUI.element);
+    await historyUI.refresh();
+  }catch{
+    if(token===historyLoadToken&&realSubjectsData===report)
+      $("realSubjectsStatus").textContent="Historique indisponible : recharger l’Atelier ou vérifier le projet.";
+  }finally{
+    if(token===historyLoadToken){historyLoading=false;
+      $("brushHistoryButton").disabled=activeBrushSaves>0||!realSubjectsData?.project_name;}
+  }
+});
 $("receiveSubjects").addEventListener("click",async()=>{
   if(activeBrushSaves>0){
     $("realSubjectsStatus").textContent="Enregistrement en cours : attendre son résultat avant de remplacer le diagnostic.";

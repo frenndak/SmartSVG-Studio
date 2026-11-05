@@ -5,10 +5,14 @@ import vm from 'node:vm';
 import * as handoff from '../engine/web/js/smartsvg_subject_handoff_g33.mjs';
 import * as selection from '../engine/web/js/smartsvg_subject_selection_g33c.mjs';
 import * as identity from '../engine/web/js/smartsvg_subject_identity_g33e.mjs';
+import * as history from '../engine/web/js/smartsvg_subject_brush_history_g33e.mjs';
 
 const page=readFileSync(new URL('../engine/web/js/smartsvg_express_atelier_preview.html',import.meta.url),'utf8');
 const script=page.match(/<script>\s*([\s\S]*?)<\/script>/i)?.[1];
 const vmScript=script?.replace(
+  'await import("./smartsvg_subject_brush_history_g33e.mjs")',
+  'await Promise.resolve(globalThis.__g33History)'
+).replace(
   'await import("./smartsvg_subject_handoff_g33.mjs")',
   'await Promise.resolve(globalThis.__g33Handoff)'
 ).replace(
@@ -110,7 +114,7 @@ function browser(){
   class FormData{constructor(){this.rows=[];}append(key,value){this.rows.push([key,value]);}}
   const globals={document,window,URL,Image,console,Set,Array,Math,Number,String,Date:SimulatedDate,
     Object,Promise,FormData,AbortController,BroadcastChannel:MockBroadcastChannel,
-    __g33Handoff:handoff,__g33Selection:selection,__g33Identity:identity,__g33Api:api,
+    __g33Handoff:handoff,__g33Selection:selection,__g33Identity:identity,__g33History:history,__g33Api:api,
     setTimeout:(fn)=>{const id=nextTimeout++;timeouts.set(id,fn);return id;},
     clearTimeout:id=>timeouts.delete(id)};
   vm.runInNewContext(vmScript,globals,{timeout:5000});
@@ -407,4 +411,41 @@ test('uncertain write response seals registration controls pending reinspection'
  assert.match(b.find('realSubjectsStatus').textContent,/état du projet à vérifier/);
  await button.fire('click');
  assert.equal(b.apiCalls.length,1);
+});
+
+test('native history toolbar blocks clear during Undo and permits Redo without another node report',async()=>{
+  const b=browser();b.window.location.protocol='http:';
+  await b.find('receiveSubjects').fire('click');
+  const subject='subject-'+'d'.repeat(32);
+  const report=registrationReport();
+  report.mask_catalog.items[0].subject_id=subject;
+  report.mask_catalog.items[0].subject_proof_status='verified';
+  b.MockBroadcastChannel.instances[0].sendToReceiver(report);
+  let undone=false,writes=0,finish;
+  b.api.fetchApi=async(url,options)=>{
+    const values=Object.fromEntries(options.body.entries());
+    if(url.endsWith('/status'))return {ok:true,json:async()=>({ok:true,certified:false,history:{
+      name:'subjects',project_sha256:undone?'e'.repeat(64):'b'.repeat(64),
+      undo_available:!undone,redo_available:undone,undo_subject_id:subject,redo_subject_id:subject,
+      cricut_certified:false}})};
+    writes++;undone=values.action==='undo';
+    return new Promise(resolve=>{finish=()=>resolve({ok:true,json:async()=>({ok:true,certified:false,result:{
+      name:'subjects',action:values.action,command_id:values.command_id,
+      sha256:undone?'e'.repeat(64):'b'.repeat(64),status:'brush_history_'+values.action,
+      persisted:true,cricut_certified:false}})});});
+  };
+  await b.find('brushHistoryButton').fire('click');
+  const panel=b.find('brushHistoryMount').children[0];assert.ok(panel);
+  const undo=panel.children.find(x=>x.tagName==='button'&&/Annuler/.test(x.textContent));
+  const redo=panel.children.find(x=>x.tagName==='button'&&/Rétablir/.test(x.textContent));
+  const pending=undo.fire('click');await Promise.resolve();await Promise.resolve();
+  assert.equal(b.find('clearSubjects').disabled,true);
+  await b.find('clearSubjects').fire('click');
+  assert.equal(b.find('realSubjectsGrid').children.length,2,'pending write cannot detach report');
+  finish();await pending;
+  assert.match(b.find('realSubjectsStatus').textContent,/annulée/);
+  assert.equal(redo.disabled,false);assert.equal(undo.disabled,true);
+  const pendingRedo=redo.fire('click');await Promise.resolve();await Promise.resolve();
+  finish();await pendingRedo;
+  assert.equal(writes,2);assert.match(b.find('realSubjectsStatus').textContent,/rétablie/);
 });
