@@ -46,6 +46,8 @@ def run() -> int:
     suite.addTests(loader.loadTestsFromName(
         "test_g33e_brush_composition.BrushCompositionTests"))
     suite.addTests(loader.loadTestsFromName(
+        "test_g33e_brush_history.BrushHistoryTests"))
+    suite.addTests(loader.loadTestsFromName(
         "test_g33e_brush_save_route.BrushSaveRouteTests.test_real_preview_save_reopen_and_duplicate_ack_preserve_base_resources"))
     expected_count = suite.countTestCases()
     result = unittest.TextTestRunner(verbosity=2).run(suite)
