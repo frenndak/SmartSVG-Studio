@@ -433,8 +433,8 @@ function paintRealSubjects(){
       });
       card.appendChild(propose);
     }
-    // G3.3e-b2a: a deliberately simple ONE-POINT gesture on a verified
-    // persistent Subject. Saving is a separate explicit action after preview.
+    // G3.3e: one temporary bounded stroke on a verified persistent Subject.
+    // Calculation and saving remain separate explicit actions.
     if(!reportAtPaint.identityActionStale&&linkedIdentity&&
        linkedIdentity.has_foreground===true&&
        linkedIdentity.subject_ambiguous===false&&
@@ -473,7 +473,7 @@ function paintRealSubjects(){
       radiusInput.step="any";radiusInput.value="5";radiusInput.style.width="70px";
       radiusLabel.appendChild(radiusInput);previewBox.appendChild(radiusLabel);
       const pointHint=document.createElement("p");
-      pointHint.textContent="Choisir les coordonnées ou cliquer dans un aperçu pour déplacer le point. Les flèches du clavier déplacent le point de 1 %. Recalculer avant d’enregistrer.";
+      pointHint.textContent="Tracer dans un aperçu en maintenant le pointeur. Échap ou Annuler abandonne le trait. Les coordonnées et les flèches restent disponibles pour un point au clavier. Recalculer avant d’enregistrer.";
       previewBox.appendChild(pointHint);
       const calculate=document.createElement("button");
       calculate.type="button";calculate.textContent="Calculer l’aperçu";
@@ -487,58 +487,88 @@ function paintRealSubjects(){
       const previews=document.createElement("div");
       previews.className="toolbar";
       const before=document.createElement("img"),after=document.createElement("img");
+      const traceOverlays=[];
       for(const [image,label] of [[before,"Masque avant retouche"],[after,"Masque après retouche temporaire"]]){
         image.alt=label+" du sujet "+item.numero;
         image.hidden=true;image.style.maxWidth="180px";
         image.style.maxHeight="180px";image.style.objectFit="contain";
         image.style.objectPosition="50% 50%";image.style.border="0";image.style.padding="0";
-        previews.appendChild(image);
+        const wrap=document.createElement("span");
+        wrap.style.position="relative";wrap.style.display="inline-block";
+        wrap.appendChild(image);
+        const overlay=document.createElementNS("http://www.w3.org/2000/svg","svg");
+        overlay.setAttribute("viewBox","0 0 "+reportAtPaint.width_px+" "+reportAtPaint.height_px);
+        overlay.setAttribute("preserveAspectRatio","xMidYMid meet");
+        overlay.setAttribute("aria-hidden","true");
+        overlay.style.position="absolute";overlay.style.inset="0";
+        overlay.style.width="100%";overlay.style.height="100%";overlay.style.pointerEvents="none";
+        overlay.hidden=true;overlay.style.display="none";
+        const line=document.createElementNS("http://www.w3.org/2000/svg","polyline");
+        line.setAttribute("fill","none");line.setAttribute("stroke","#ffbe55");
+        line.setAttribute("stroke-width","3");line.setAttribute("vector-effect","non-scaling-stroke");
+        line.setAttribute("stroke-linecap","round");line.setAttribute("stroke-linejoin","round");
+        overlay.appendChild(line);wrap.appendChild(overlay);traceOverlays.push({overlay,line});
+        previews.appendChild(wrap);
       }
       let pending=false,abort=null,serial=0;
       let acceptedPreview=null,saving=false,pointPickersReady=false;
+      let drawing=false,draftPoints=null;
+      const strokePickers=[];
+      const cancelDrawing=()=>{for(const cancelStroke of strokePickers)cancelStroke();};
       const ready=()=>{
         pending=false;abort=null;
         calculate.disabled=reportAtPaint.identityActionStale||
           realSubjectsData!==reportAtPaint||
           !Number.isSafeInteger(reportAtPaint.expires_at_ms)||
           Date.now()>=reportAtPaint.expires_at_ms;
-        cancel.disabled=before.hidden&&after.hidden;
+        cancel.disabled=before.hidden&&after.hidden&&!draftPoints;
         saveButton.disabled=saving||!acceptedPreview?.canSave||calculate.disabled;
         modeInput.disabled=false;
         xInput.disabled=false;yInput.disabled=false;radiusInput.disabled=false;
       };
       const discardPreview=()=>{
         acceptedPreview=null;saveButton.disabled=true;
+        for(const {overlay,line} of traceOverlays){overlay.hidden=true;overlay.style.display="none";line.setAttribute("points","");}
         before.hidden=true;after.hidden=true;
         before.removeAttribute("src");after.removeAttribute("src");
       };
       cancel.addEventListener("click",()=>{
-        if(!pending&&before.hidden&&after.hidden)return;
+        if(saving)return;
+        const hadDraft=!!draftPoints;
+        cancelDrawing();draftPoints=null;
+        if(!pending&&before.hidden&&after.hidden&&!hadDraft)return;
         serial++;abort?.abort();discardPreview();
         previewStatus.textContent="Aperçu effacé : aucun changement enregistré.";
         ready();
       });
       const invalidateGesture=()=>{
-        if(pending||(before.hidden&&after.hidden))return;
+        if(saving||pending)return;
+        cancelDrawing();
+        if(before.hidden&&after.hidden)return;
         discardPreview();
         previewStatus.textContent="Geste modifié : recalculer l’aperçu.";
         ready();
       };
       for(const input of [modeInput,xInput,yInput,radiusInput]){
-        input.addEventListener("input",invalidateGesture);
-        input.addEventListener("change",invalidateGesture);
+        const changed=()=>{
+          if(input===xInput||input===yInput)draftPoints=null;
+          invalidateGesture();
+        };
+        input.addEventListener("input",changed);
+        input.addEventListener("change",changed);
       }
       button.addEventListener("click",()=>{
         if(saving){
           previewStatus.textContent="Enregistrement en cours pour ce sujet. Vérifier le résultat avant une nouvelle retouche.";
           return;
         }
+        cancelDrawing();draftPoints=null;
         if(!pending&&before.hidden&&after.hidden)return;
         serial++;abort?.abort();discardPreview();ready();
         previewStatus.textContent="Sélection modifiée : aperçu effacé, projet inchangé.";
       });
       calculate.addEventListener("click",async()=>{
-        if(pending)return;
+        if(pending||saving||drawing)return;
         if(realSubjectsData!==reportAtPaint||reportAtPaint.identityActionStale||
            Date.now()>=reportAtPaint.expires_at_ms){
           previewStatus.textContent="Diagnostic périmé : recevoir un nouveau rapport avant l’aperçu.";
@@ -572,7 +602,7 @@ function paintRealSubjects(){
           const {api}=await import("../../scripts/api.js");
           const result=await requestSubjectBrushPreview(
             api,reportAtPaint,linkedIdentity,{
-              mode:modeInput.value,radius,points:[[x,y]],
+              mode:modeInput.value,radius,points:draftPoints||[[x,y]],
               signal:controller.signal,timeoutMs:12000,
             });
           if(current!==serial||realSubjectsData!==reportAtPaint||
@@ -582,18 +612,42 @@ function paintRealSubjects(){
           acceptedPreview=result;
           before.hidden=false;after.hidden=false;
           if(!pointPickersReady){
-            for(const image of [before,after])previewModule.bindBrushPointPicker(image,{
+            for(const image of [before,after])strokePickers.push(previewModule.bindBrushStrokePicker(image,{
               width:reportAtPaint.width_px,height:reportAtPaint.height_px,
-              isCurrent:()=>!pending&&!saving&&!!acceptedPreview&&
+              isCurrent:()=>!pending&&!saving&&
                 realSubjectsData===reportAtPaint&&!reportAtPaint.identityActionStale&&
                 Number.isSafeInteger(reportAtPaint.expires_at_ms)&&Date.now()<reportAtPaint.expires_at_ms,
               getPoint:()=>[Number(xInput.value)/100,Number(yInput.value)/100],
               onPoint:point=>{
+                draftPoints=null;
                 xInput.value=(point[0]*100).toFixed(6);yInput.value=(point[1]*100).toFixed(6);
                 invalidateGesture();xInput.focus();
               },
               onKeyboardFocus:axis=>(axis==="y"?yInput:xInput).focus(),
-            });
+              onStrokeStart:()=>{
+                drawing=true;draftPoints=null;acceptedPreview=null;
+                saveButton.disabled=true;calculate.disabled=true;cancel.disabled=false;
+                modeInput.disabled=true;xInput.disabled=true;yInput.disabled=true;radiusInput.disabled=true;
+              },
+              onStrokeProgress:points=>{
+                const coordinates=points.map(([x,y])=>x*reportAtPaint.width_px+","+y*reportAtPaint.height_px).join(" ");
+                for(const {overlay,line} of traceOverlays){overlay.hidden=false;overlay.style.display="block";line.setAttribute("points",coordinates);}
+                previewStatus.textContent="Tracé temporaire · "+points.length+" point(s). Relâcher puis recalculer ; Échap pour annuler.";
+              },
+              onStroke:points=>{
+                drawing=false;draftPoints=points;
+                const last=points.at(-1);
+                xInput.value=(last[0]*100).toFixed(6);yInput.value=(last[1]*100).toFixed(6);
+                discardPreview();ready();xInput.focus();
+                previewStatus.textContent="Trait prêt · "+points.length+" point(s) : recalculer l’aperçu avant d’enregistrer.";
+              },
+              onStrokeCancel:reason=>{
+                drawing=false;draftPoints=null;discardPreview();ready();xInput.focus();
+                previewStatus.textContent=reason==="BRUSH_POINT_LIMIT"
+                  ?"Trait trop long (1 500 points maximum) : recommencer un geste plus court. Aucun enregistrement."
+                  :"Trait annulé : aucun enregistrement. Choisir un nouveau geste puis recalculer.";
+              },
+            }));
             pointPickersReady=true;
           }
           previewStatus.textContent="Aperçu prêt · "+result.changedPixels+
@@ -610,7 +664,7 @@ function paintRealSubjects(){
         }
       });
       saveButton.addEventListener("click",async()=>{
-        if(pending||saving||!acceptedPreview?.canSave)return;
+        if(pending||saving||drawing||!acceptedPreview?.canSave)return;
         if(activeBrushSaves>0){
           previewStatus.textContent="Un enregistrement est déjà en cours : attendre son résultat.";
           return;

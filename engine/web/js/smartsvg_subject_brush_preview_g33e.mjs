@@ -27,7 +27,7 @@ export function brushPointFromPreview(rect,width,height,clientX,clientY){
 }
 
 /** Choose a point only. Preview calculation and persistence stay explicit. */
-export function bindBrushPointPicker(image,{width,height,isCurrent,getPoint,onPoint,onKeyboardFocus=()=>{}}){
+export function bindBrushPointPicker(image,{width,height,isCurrent,getPoint,onPoint,onKeyboardFocus=()=>{},clickEnabled=true}){
   let disposed=false;
   image.tabIndex=0;image.setAttribute('role','button');
   image.setAttribute('aria-label',(image.alt||'Aperçu du masque')+
@@ -37,6 +37,7 @@ export function bindBrushPointPicker(image,{width,height,isCurrent,getPoint,onPo
   image.addEventListener('click',event=>{
     if(!available()||(event.button!==undefined&&event.button!==0))return;
     if(event.detail===0){onKeyboardFocus('x');return;}
+    if(!clickEnabled)return;
     const point=brushPointFromPreview(image.getBoundingClientRect(),width,height,event.clientX,event.clientY);
     if(point)onPoint(point);
   });
@@ -53,6 +54,74 @@ export function bindBrushPointPicker(image,{width,height,isCurrent,getPoint,onPo
     onKeyboardFocus(delta[0]?'x':'y');
   });
   return ()=>{disposed=true;image.tabIndex=-1;image.setAttribute('aria-disabled','true');};
+}
+
+/** Collect one bounded native stroke. Never calls the preview API or writer.
+ * Leaving the drawable image, losing capture/focus or changing geometry cancels
+ * the whole incomplete gesture. Returned function cancels without committing.
+ */
+export function bindBrushStrokePicker(image,{
+  width,height,isCurrent,getPoint,onPoint,onKeyboardFocus=()=>{},
+  onStrokeStart=()=>{},onStrokeProgress=()=>{},onStroke,onStrokeCancel=()=>{},
+}){
+  let active=null;
+  const available=()=>!image.hidden&&isCurrent();
+  bindBrushPointPicker(image,{width,height,isCurrent:()=>!active&&available(),
+    getPoint,onPoint,onKeyboardFocus,clickEnabled:false});
+  image.draggable=false;image.style.touchAction='none';image.style.userSelect='none';
+  image.setAttribute('aria-label',(image.alt||'Aperçu du masque')+
+    ' : tracer en maintenant le pointeur ; Échap annule ; flèches ou Entrée pour un point au clavier.');
+  image.title='Maintenir et tracer ; Échap annule. Coordonnées disponibles au clavier.';
+  const release=stroke=>{try{image.releasePointerCapture(stroke.id);}catch{ /* already released */ }};
+  const cancel=(reason='BRUSH_CANCELLED')=>{
+    if(!active)return;
+    const stroke=active;active=null;release(stroke);onStrokeCancel(reason);
+  };
+  const append=event=>{
+    const rect=image.getBoundingClientRect();
+    if(!available()||['left','top','width','height'].some(key=>rect[key]!==active.rect[key])){
+      cancel('BRUSH_CONTEXT_CHANGED');return false;
+    }
+    const point=brushPointFromPreview(rect,width,height,event.clientX,event.clientY);
+    if(!point){cancel('BRUSH_OUTSIDE_IMAGE');return false;}
+    const last=active.points.at(-1);
+    if(last&&point[0]===last[0]&&point[1]===last[1])return true;
+    if(active.points.length>=1500){cancel('BRUSH_POINT_LIMIT');return false;}
+    active.points.push(point);onStrokeProgress(active.points.map(p=>[...p]));return true;
+  };
+  image.addEventListener('pointerdown',event=>{
+    if(active||!available()||event.button!==0||event.isPrimary===false||
+       !Number.isSafeInteger(event.pointerId)||event.pointerId<0)return;
+    const rect=image.getBoundingClientRect();
+    const point=brushPointFromPreview(rect,width,height,event.clientX,event.clientY);
+    if(!point)return;
+    try{image.setPointerCapture(event.pointerId);}catch{return;}
+    active={id:event.pointerId,rect:{left:rect.left,top:rect.top,width:rect.width,height:rect.height},points:[point]};
+    event.preventDefault();image.focus({preventScroll:true});onStrokeStart();
+    onStrokeProgress([[...point]]);
+  });
+  image.addEventListener('pointermove',event=>{
+    if(!active||event.pointerId!==active.id)return;
+    event.preventDefault();
+    if((event.buttons&1)===0){cancel();return;}
+    append(event);
+  });
+  image.addEventListener('pointerup',event=>{
+    if(!active||event.pointerId!==active.id)return;
+    event.preventDefault();
+    if(!append(event))return;
+    const stroke=active;active=null;release(stroke);
+    onStroke(stroke.points.map(p=>[...p]));
+  });
+  for(const type of ['pointercancel','lostpointercapture'])image.addEventListener(type,event=>{
+    if(active&&event.pointerId===active.id)cancel();
+  });
+  image.addEventListener('keydown',event=>{
+    if(event.key==='Escape'&&active){event.preventDefault();cancel();}
+  });
+  image.addEventListener('blur',()=>cancel());
+  image.addEventListener('dragstart',event=>event.preventDefault());
+  return ()=>cancel();
 }
 
 export function brushSaveMessage(code){
