@@ -245,7 +245,7 @@ test('explicit real subject reception displays verified G2.6 content and stays n
   await b.find('clearSubjects').fire('click');
   assert.equal(b.find('realSubjectsGrid').children.length,0);
   assert.equal(b.find('realFragmentStatus').textContent,'');
-  assert.match(b.find('realSubjectsStatus').textContent,/Aucun masque ni projet modifié/);
+  assert.match(b.find('realSubjectsStatus').textContent,/sauvegardes déjà effectuées sont conservées/);
 });
 test('real subjects receiver explicitly refuses file protocol',async()=>{
   const b=browser();

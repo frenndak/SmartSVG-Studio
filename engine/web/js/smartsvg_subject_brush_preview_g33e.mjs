@@ -7,6 +7,14 @@ const SUBJECT=/^subject-[a-f0-9]{32}$/;
 const PROJECT=/^[A-Za-z0-9][A-Za-z0-9_-]{0,47}$/;
 const PNG64=/^[A-Za-z0-9+/]+={0,2}$/;
 const MAX_PNG64=4*Math.ceil((12*1024*1024)/3);
+const acceptedPreviews=new WeakMap();
+
+export function brushSaveMessage(code){
+  if(code==='SAVE_OUTCOME_UNKNOWN')return 'Résultat de sauvegarde incertain : vérifier le projet avant de recommencer. Le geste peut être enregistré.';
+  if(code==='SAVE_BUSY')return 'Enregistrement déjà en cours.';
+  if(code==='PROJECT_CHANGED'||code==='PROJECT_CHANGED_DURING_SAVE')return 'Projet modifié : recevoir un nouveau diagnostic avant de réessayer.';
+  return 'Enregistrement non confirmé : vérifier le projet et actualiser le diagnostic avant de réessayer.';
+}
 
 export const BRUSH_PREVIEW_MESSAGES=Object.freeze({
   PREVIEW_ABORTED:'Aperçu annulé : aucun masque enregistré.',
@@ -92,7 +100,7 @@ function validatedResponse(body,command,commandId,report){
        !value.startsWith('iVBORw0KGgo'))
       throw Error('INVALID_PREVIEW_OUTPUT');
   }
-  return Object.freeze({
+  const result=Object.freeze({
     beforeSrc:'data:image/png;base64,'+p.before_png_base64,
     afterSrc:'data:image/png;base64,'+p.after_png_base64,
     changedPixels:p.changed_pixels,
@@ -100,7 +108,69 @@ function validatedResponse(body,command,commandId,report){
     projectSha256:p.project_sha256,
     subjectId:p.subject_id,
     persisted:false,cricutCertified:false,
+    canSave:SHA.test(p.preview_mask_sha256_float32||''),
   });
+  if(result.canSave)acceptedPreviews.set(result,{
+    command:Object.freeze({...command}),commandId,
+    digest:p.preview_mask_sha256_float32,state:'ready',result:null,
+  });
+  return result;
+}
+
+/** Explicit write after preview. A lost acknowledgement is an unknown outcome,
+ * never an assertion that a pending server-side write was cancelled. */
+export async function saveSubjectBrushPreview(api,report,mask,preview,{
+  confirmed=false,timeoutMs=15000,
+}={}){
+  if(confirmed!==true)throw Error('BRUSH_SAVE_CONFIRMATION_REQUIRED');
+  const accepted=acceptedPreviews.get(preview);
+  if(!accepted||typeof api?.fetchApi!=='function'||!Number.isSafeInteger(timeoutMs)||
+     timeoutMs<1||timeoutMs>15000)throw Error('INVALID_BRUSH_SAVE_PREVIEW');
+  if(accepted.state==='saving')throw Error('SAVE_BUSY');
+  if(accepted.state==='saved')return accepted.result;
+  if(accepted.state==='unknown')throw Error('SAVE_OUTCOME_UNKNOWN');
+  const command=accepted.command;
+  const current=validatedCommand(report,mask,{
+    mode:command.mode,radius:Number(command.radius),points:JSON.parse(command.points),
+  });
+  if(Object.keys(command).some(key=>current[key]!==command[key]))
+    throw Error('PREVIEW_SELECTION_STALE');
+  const form=new FormData();
+  for(const [key,value] of Object.entries({...command,
+    save_version:'1',command_id:accepted.commandId,confirmed:'yes',
+    expected_preview_mask_sha256_float32:accepted.digest,
+  }))form.append(key,value);
+  accepted.state='saving';
+  const controller=new AbortController();let timer;
+  const timeout=new Promise((_,reject)=>{
+    timer=setTimeout(()=>{reject(Error('SAVE_OUTCOME_UNKNOWN'));controller.abort();},timeoutMs);
+  });
+  const request=(async()=>{
+    const response=await api.fetchApi('/smartsvg/g22/subject/save',{
+      method:'POST',headers:{'X-SmartSVG-UI':'1'},body:form,signal:controller.signal,
+    });
+    const body=await response.json();
+    if(!response.ok||body?.ok!==true)throw Error(body?.error_code||'SAVE_OUTCOME_UNKNOWN');
+    const r=body.result;
+    if(body.certified!==false||!r||r.name!==command.name||
+       r.command_id!==accepted.commandId||!SHA.test(r.sha256||'')||
+       !['subject_brush_saved','subject_brush_already_saved'].includes(r.status)||
+       r.persisted!==true||r.cricut_certified!==false)
+      throw Error('SAVE_OUTCOME_UNKNOWN');
+    return Object.freeze({projectSha256:r.sha256,status:r.status,
+                          persisted:true,cricutCertified:false});
+  })();
+  try{
+    const result=await Promise.race([request,timeout]);
+    accepted.state='saved';accepted.result=result;return result;
+  }catch(error){
+    accepted.state='unknown';
+    // Only explicit server rejection codes retain their more specific label.
+    if(['PROJECT_CHANGED','PROJECT_CHANGED_DURING_SAVE','PROJECT_NOT_HEALTHY',
+        'BRUSH_PREVIEW_CHANGED','BRUSH_SESSION_LIMIT','PREVIEW_BUSY',
+        'INVALID_SUBJECT_PROOF','SUBJECT_NOT_VERIFIED'].includes(error?.message))throw error;
+    throw Error('SAVE_OUTCOME_UNKNOWN');
+  }finally{clearTimeout(timer);}
 }
 
 /** Request a single explicit gesture. Abort/timeout prevent late UI delivery.
