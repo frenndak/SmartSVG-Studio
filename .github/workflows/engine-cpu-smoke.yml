@@ -5,6 +5,8 @@ on:
     paths:
       - "engine/**"
       - "tools/test_engine_cpu_smoke.py"
+      - "tools/qualify_subject_brush_cpu_g33e.py"
+      - "tests/test_g33e_subject_brush_preview.py"
       - ".github/workflows/engine-cpu-smoke.yml"
   workflow_dispatch:
 
@@ -30,10 +32,13 @@ jobs:
           cache-dependency-path: engine/requirements.txt
       - name: Install CPU-only test dependencies
         run: |
-          python -m pip install --only-binary=:all: "numpy>=1.24,<3" "opencv-python-headless>=4.7,<5"
+          python -m pip install --only-binary=:all: "numpy>=1.24,<3" "opencv-python-headless>=4.7,<5" "Pillow>=10"
       - name: Verify immutable V21.15.2 archive
         run: python tools/verify_source_integrity.py --repo . --archive-only
       - name: Exercise current production segmentation (synthetic images only)
         run: python tools/test_engine_cpu_smoke.py
+      - name: Qualify real G3.3e Subject brush CPU tests (no skips)
+        if: ${{ hashFiles('tools/qualify_subject_brush_cpu_g33e.py') != '' }}
+        run: python tools/qualify_subject_brush_cpu_g33e.py
       # This workflow is NOT evidence of RTX 3070 inference, actual ComfyUI
       # integration, Design Space import, or a physical Cricut cut.
