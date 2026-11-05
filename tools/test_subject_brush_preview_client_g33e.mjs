@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {webcrypto} from 'node:crypto';
 if(!globalThis.crypto)globalThis.crypto=webcrypto;
-import {requestSubjectBrushPreview,brushPreviewMessage} from
+import {requestSubjectBrushPreview,brushPreviewMessage,saveSubjectBrushPreview} from
   '../engine/web/js/smartsvg_subject_brush_preview_g33e.mjs';
 
 const SHA='a'.repeat(64);
@@ -50,6 +50,7 @@ function fakeApi(mutate){
         subject_id:fields.subject_id,mask_id:fields.mask_id,
         base_mask_sha256_float32:fields.mask_sha256_float32,
         source_sha256:fields.source_sha256,
+        preview_mask_sha256_float32:'b'.repeat(64),
         dimensions_px:[16,12],changed_pixels:3,
         before_png_base64:PNG64,after_png_base64:PNG64,
         persisted:false,cricut_certified:false,
@@ -103,6 +104,7 @@ test('Atelier cleanup never re-enables a preview after Subject proof expiry',()=
       pending:true,abort:{},calculate:{disabled:true},
       cancel:{disabled:false},before:{hidden:true},after:{hidden:true},
       modeInput:{disabled:true},xInput:{disabled:true},yInput:{disabled:true},
+      saveButton:{disabled:true},saving:false,acceptedPreview:null,
       reportAtPaint,realSubjectsData:different?{}:reportAtPaint,
     };
     return new Function(...Object.keys(state),actual+
@@ -270,7 +272,7 @@ test('Atelier recovers visibly when the preview module cannot load',async()=>{
     removeAttribute(key){delete this[key];},
   });
   const ctx={
-    modeInput:el(),xInput:el(),yInput:el(),calculate:el(),cancel:el(),
+    modeInput:el(),xInput:el(),yInput:el(),calculate:el(),cancel:el(),saveButton:el(),
     before:el(),after:el(),previewStatus:el(),button:el(),
     reportAtPaint:{identityActionStale:false,expires_at_ms:Date.now()+60000},
     chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},
@@ -303,7 +305,7 @@ test('Atelier preview dismissal and gesture changes never leave stale PNGs visib
     fire(event){for(const handler of this.events[event]||[])handler();},
   });
   const ctx={
-    modeInput:el(),xInput:el(),yInput:el(),calculate:el(),cancel:el(),
+    modeInput:el(),xInput:el(),yInput:el(),calculate:el(),cancel:el(),saveButton:el(),
     before:el(),after:el(),previewStatus:el(),button:el(),
     reportAtPaint:{identityActionStale:false,expires_at_ms:Date.now()+60000},
     chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},
@@ -337,4 +339,102 @@ test('Atelier preview dismissal and gesture changes never leave stale PNGs visib
   assert.equal(aborted,true,'selection change aborts pending request');
   assert.equal(ui.getSerial(),previousSerial+1,'late result is invalidated');
   assert.equal(ctx.cancel.disabled,true);
+});
+
+function saveApi(saveImplementation){
+  const preview=fakeApi();let writes=0,fields;
+  return {
+    get writes(){return writes;},get fields(){return fields;},
+    async fetchApi(url,options){
+      if(url.endsWith('/preview'))return preview.fetchApi(url,options);
+      assert.equal(url,'/smartsvg/g22/subject/save');
+      assert.equal(options.headers['X-SmartSVG-UI'],'1');
+      writes++;fields=Object.fromEntries(options.body.entries());
+      if(saveImplementation)return saveImplementation(fields,options);
+      return {ok:true,async json(){return {ok:true,certified:false,result:{
+        name:fields.name,command_id:fields.command_id,sha256:'c'.repeat(64),
+        status:'subject_brush_saved',persisted:true,cricut_certified:false,
+      }}}};
+    },
+  };
+}
+test('saving requires a confirmed server preview and sends its exact digest',async()=>{
+  const api=saveApi(),current=report();
+  const preview=await requestSubjectBrushPreview(api,current,mask);
+  await assert.rejects(saveSubjectBrushPreview(api,current,mask,preview),/BRUSH_SAVE_CONFIRMATION_REQUIRED/);
+  assert.equal(api.writes,0);
+  const result=await saveSubjectBrushPreview(api,current,mask,preview,{confirmed:true});
+  assert.equal(api.fields.expected_preview_mask_sha256_float32,'b'.repeat(64));
+  assert.equal(api.fields.command_id,preview.commandId);
+  assert.equal(api.fields.confirmed,'yes');
+  assert.equal(result.persisted,true);assert.equal(result.cricutCertified,false);
+  const repeat=await saveSubjectBrushPreview(api,current,mask,preview,{confirmed:true});
+  assert.deepEqual(repeat,result);assert.equal(api.writes,1);
+});
+test('cloned preview or stale proof cannot trigger a save',async()=>{
+  const api=saveApi(),current=report();
+  const preview=await requestSubjectBrushPreview(api,current,mask);
+  await assert.rejects(saveSubjectBrushPreview(api,current,mask,{...preview},{confirmed:true}),/INVALID_BRUSH_SAVE_PREVIEW/);
+  current.identityActionStale=true;
+  await assert.rejects(saveSubjectBrushPreview(api,current,mask,preview,{confirmed:true}),/PREVIEW_SELECTION_STALE/);
+  assert.equal(api.writes,0);
+});
+test('double-click while saving sends only one write',async()=>{
+  let finish;
+  const api=saveApi(()=>new Promise(resolve=>{finish=resolve;})),current=report();
+  const preview=await requestSubjectBrushPreview(api,current,mask);
+  const saving=saveSubjectBrushPreview(api,current,mask,preview,{confirmed:true});
+  await assert.rejects(saveSubjectBrushPreview(api,current,mask,preview,{confirmed:true}),/SAVE_BUSY/);
+  finish({ok:true,async json(){return {ok:true,certified:false,result:{
+    name:current.project_name,command_id:preview.commandId,sha256:'c'.repeat(64),
+    status:'subject_brush_saved',persisted:true,cricut_certified:false,
+  }}}});
+  await saving;assert.equal(api.writes,1);
+});
+test('save timeout stays unknown and never silently retries',async()=>{
+  const api=saveApi(()=>new Promise(()=>{})),current=report();
+  const preview=await requestSubjectBrushPreview(api,current,mask);
+  await assert.rejects(saveSubjectBrushPreview(api,current,mask,preview,{confirmed:true,timeoutMs:10}),/SAVE_OUTCOME_UNKNOWN/);
+  await assert.rejects(saveSubjectBrushPreview(api,current,mask,preview,{confirmed:true}),/SAVE_OUTCOME_UNKNOWN/);
+  assert.equal(api.writes,1);
+});
+test('malformed acknowledgement cannot claim nothing was written',async()=>{
+  const api=saveApi(()=>({ok:true,async json(){return {ok:true,result:{persisted:false}};}})),current=report();
+  const preview=await requestSubjectBrushPreview(api,current,mask);
+  await assert.rejects(saveSubjectBrushPreview(api,current,mask,preview,{confirmed:true}),/SAVE_OUTCOME_UNKNOWN/);
+  assert.equal(api.writes,1);
+});
+
+test('Atelier save acknowledgement or uncertainty invalidates the old diagnostic and blocks duplicate clicks',async()=>{
+  const html=readFileSync(new URL('../engine/web/js/smartsvg_express_atelier_preview.html',import.meta.url),'utf8');
+  const start=html.indexOf('      let pending=false,abort=null,serial=0;');
+  const end=html.indexOf('      previewBox.appendChild(calculate);',start);
+  const actual=html.slice(start,end)
+    .replaceAll('await import("./smartsvg_subject_brush_preview_g33e.mjs")','await Promise.resolve(previewModule)')
+    .replaceAll('await import("../../scripts/api.js")','await Promise.resolve({api:{}})');
+  for(const failed of [false,true]){
+    const el=()=>({hidden:false,disabled:false,src:'old',textContent:'',events:{},
+      addEventListener(event,handler){(this.events[event]??=[]).push(handler);},
+      removeAttribute(key){delete this[key];}});
+    let finish,writes=0;
+    const current={identityActionStale:false,expires_at_ms:Date.now()+60000};
+    const ctx={modeInput:el(),xInput:el(),yInput:el(),calculate:el(),cancel:el(),saveButton:el(),
+      before:el(),after:el(),previewStatus:el(),button:el(),reportAtPaint:current,realSubjectsData:current,
+      chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},
+      previewModule:{saveSubjectBrushPreview(_api,_report,_mask,_preview,options){
+        writes++;assert.equal(options.confirmed,true);
+        return new Promise((resolve,reject)=>{finish=()=>failed?reject(Error('SAVE_OUTCOME_UNKNOWN')):resolve({persisted:true});});
+      },brushSaveMessage(){return 'Résultat incertain : vérifier le projet.';}}};
+    const bind=new Function(...Object.keys(ctx),actual+';return {setPreview(p){acceptedPreview=p},ready};');
+    const ui=bind(...Object.values(ctx));ui.setPreview({canSave:true});ui.ready();
+    assert.equal(ctx.saveButton.disabled,false);
+    const first=ctx.saveButton.events.click[0]();
+    await Promise.resolve();await Promise.resolve();
+    await ctx.saveButton.events.click[0]();assert.equal(writes,1);
+    finish();await first;
+    assert.equal(current.identityActionStale,true);
+    assert.equal(ctx.saveButton.disabled,true);assert.equal(ctx.calculate.disabled,true);
+    assert.equal(ctx.before.hidden,true);assert.equal(ctx.after.hidden,true);
+    assert.match(ctx.previewStatus.textContent,failed?/incertain/:/enregistré/);
+  }
 });

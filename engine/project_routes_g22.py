@@ -31,7 +31,7 @@ def _browser_origin_ok(request):
     return True
 
 
-async def _multipart_fields(request, *, image=False):
+async def _multipart_fields(request, *, image=False, max_fields=12):
     if request.content_length is not None and request.content_length > MAX_IMAGE_BYTES + 65536:
         raise WorkspaceError('REQUEST_TOO_LARGE')
     reader = await request.multipart()
@@ -42,9 +42,9 @@ async def _multipart_fields(request, *, image=False):
                'confirmed','editor_json','source_id','source_sha256',
                'mask_index','mask_id','mask_sha256_float32','expires_at_ms',
                'subject_id','mode','radius','points','preview_version',
-               'command_id'}
+               'command_id','save_version','expected_preview_mask_sha256_float32'}
     total = 0
-    for _ in range(12):
+    for _ in range(max_fields):
         part = await reader.next()
         if part is None:
             break
@@ -311,6 +311,7 @@ def register_project_routes(routes, trusted_output_root):
                 'mask_id':preview['mask_id'],
                 'base_mask_sha256_float32':preview['base_mask_sha256_float32'],
                 'source_sha256':preview['source_sha256'],
+                'preview_mask_sha256_float32':preview.get('preview_mask_sha256_float32'),
                 'dimensions_px':preview['dimensions_px'],
                 'changed_pixels':preview['changed_pixels'],
                 'before_png_base64':base64.b64encode(before).decode('ascii'),
@@ -330,6 +331,63 @@ def register_project_routes(routes, trusted_output_root):
                        'PROJECT_NOT_HEALTHY') else
                       503 if code == 'BRUSH_RUNTIME_UNAVAILABLE' else
                       429 if code == 'PREVIEW_BUSY' else 400)
+            return error(code,status)
+
+    @routes.post(prefix+'/subject/save')
+    async def subject_save(request):
+        """Explicit local mutation. Timeout/disconnect may leave a committed save.
+
+        Keep the bounded worker alive and its admission slot held until it
+        finishes. Never promise that a disconnected write was cancelled.
+        """
+        headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}
+        def error(code,status=400):
+            return web.json_response({'ok':False,'error_code':code,
+                                      'certified':False},status=status,headers=headers)
+        if not _browser_origin_ok(request):
+            return error('ORIGIN_REJECTED',403)
+        try:
+            fields=await _multipart_fields(request,max_fields=14)
+            if fields.get('save_version')!='1':
+                raise WorkspaceError('INVALID_BRUSH_SAVE_VERSION')
+            if fields.get('confirmed')!='yes':
+                raise WorkspaceError('BRUSH_SAVE_CONFIRMATION_REQUIRED')
+            command_id=fields.get('command_id')
+            if type(command_id) is not str or re.fullmatch(r'[0-9a-f]{32}',command_id) is None:
+                raise WorkspaceError('INVALID_BRUSH_SAVE_REQUEST')
+            points=json.loads(fields.get('points',''))
+            if type(points) is not list or not 1<=len(points)<=64:
+                raise WorkspaceError('INVALID_PREVIEW_STROKE')
+            radius=float(fields.get('radius',''))
+            if not preview_admission_slots.acquire(blocking=False):
+                return error('PREVIEW_BUSY',429)
+            async def guarded_save():
+                try:
+                    return await asyncio.to_thread(workspace.save_subject_brush,
+                        fields.get('name'),expected_sha256=fields.get('expected_sha256'),
+                        subject_id=fields.get('subject_id'),mask_id=fields.get('mask_id'),
+                        mask_sha256_float32=fields.get('mask_sha256_float32'),
+                        source_id=fields.get('source_id'),source_sha256=fields.get('source_sha256'),
+                        mode=fields.get('mode'),radius=radius,points=points,
+                        expected_preview_mask_sha256_float32=fields.get('expected_preview_mask_sha256_float32'),
+                        command_id=command_id,confirmed=True)
+                finally:
+                    preview_admission_slots.release()
+            task=asyncio.create_task(guarded_save())
+            task.add_done_callback(lambda done: None if done.cancelled() else done.exception())
+            saved=await asyncio.wait_for(asyncio.shield(task),timeout=15)
+            # Whitelist acknowledgement fields; never transport archive resources.
+            result={key:saved[key] for key in (
+                'name','status','sha256','command_id','persisted','cricut_certified')}
+            return web.json_response({'ok':True,'result':result,'certified':False},headers=headers)
+        except asyncio.TimeoutError:
+            return error('SAVE_OUTCOME_UNKNOWN',504)
+        except (WorkspaceError,ValueError,TypeError,KeyError,RecursionError,OverflowError,OSError) as exc:
+            code=getattr(exc,'code','INVALID_BRUSH_SAVE_REQUEST')
+            if code=='SAVE_FAILED' or isinstance(exc,OSError):
+                return error('SAVE_OUTCOME_UNKNOWN',503)
+            status=409 if code in ('PROJECT_CHANGED','PROJECT_CHANGED_DURING_SAVE',
+                                  'PROJECT_NOT_HEALTHY','PENDING_BACKUP_REVIEW_REQUIRED') else 400
             return error(code,status)
 
     @routes.get(prefix+'/editor')
