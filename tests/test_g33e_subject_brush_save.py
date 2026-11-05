@@ -1,8 +1,7 @@
 """G3.3e-b2b-1: first confirmed stroke, native V1 replay, atomic save.
 
 V34-132/133 and inherited G3.3e: no base-mask mutation or new archive format.
-This slice deliberately refuses a nonempty prior editor session; composing
-previews, multi-stroke editing and Undo/Redo belong to the following slice.
+Saved sessions compose with the next stroke; Undo/Redo is a separate slice.
 """
 from dataclasses import replace
 from hashlib import sha256
@@ -162,7 +161,7 @@ class SubjectBrushSaveTests(unittest.TestCase):
                     self.save({**request, **changes})
                 self.assertEqual(self.files(), before)
 
-    def test_nonempty_editor_is_preserved_instead_of_overwritten(self):
+    def test_nonempty_native_editor_is_appended_instead_of_overwritten(self):
         request = self.request()
         session = {"version": 1, "width": 16, "height": 12, "count": 2,
                    "source": "a" * 64, "strokes": [
@@ -171,10 +170,10 @@ class SubjectBrushSaveTests(unittest.TestCase):
             "brush-preview", editor_json=json.dumps(session),
             expected_sha256=request["expected_sha256"])
         request["expected_sha256"] = saved["sha256"]
-        before = self.files()
-        with self.assertRaisesRegex(WorkspaceError, "BRUSH_EDITOR_SESSION_NOT_EMPTY"):
-            self.save(request)
-        self.assertEqual(self.files(), before)
+        self.save(request)
+        reopened = load_project(self.path)
+        self.assertEqual(reopened.document['editor_v216']['strokes'][0], session['strokes'][0])
+        self.assertEqual(len(reopened.document['editor_v216']['strokes']), 2)
 
     def test_pending_recovery_refuses_save_without_writes(self):
         request = self.request()
