@@ -24,10 +24,50 @@ NON_RENDERING_CONTAINERS = {"defs", "symbol", "clipPath", "mask", "pattern", "ma
 FORBIDDEN = {"script", "style", "a", "foreignObject", "image", "use", "animate", "animateColor",
              "animateMotion", "animateTransform", "set", "discard", "filter", "feImage", "textPath"}
 DIMENSION = re.compile(r"^(\d+(?:\.\d+)?)mm$")
+CSS_SPACE = ' \t\n\r\f'
 
 
 class SVGRejected(ValueError):
     pass
+
+
+def _inline_declarations(style):
+    """Split only top-level CSS declarations; opaque nested values stay opaque.
+
+    This is a boundary scanner, not a CSS evaluator. Unbalanced/obfuscated
+    syntax is unverified rather than allowed to manufacture an opacity rule.
+    """
+    if '\\' in style or '/*' in style or '*/' in style:
+        raise SVGRejected('OBFUSCATED_CSS_REFERENCE')
+    declarations=[]
+    stack=[]
+    quote=None
+    start=0
+    pairs={')':'(',']':'[','}':'{'}
+    for index,char in enumerate(style):
+        if quote is not None:
+            if char in '\n\r\f':
+                # CSS ends a bad string at a newline. Do not hide subsequent
+                # top-level declarations inside a Python-style quoted span.
+                raise SVGRejected('UNVERIFIED_INLINE_STYLE')
+            if char==quote:
+                quote=None
+        elif char in ('"',"'"):
+            quote=char
+        elif char in '([{':
+            stack.append(char)
+        elif char in ')]}':
+            if not stack or stack.pop()!=pairs[char]:
+                raise SVGRejected('UNVERIFIED_INLINE_STYLE')
+        elif char==';' and not stack:
+            declarations.append(style[start:index]);start=index+1
+    if quote is not None or stack:
+        raise SVGRejected('UNVERIFIED_INLINE_STYLE')
+    declarations.append(style[start:])
+    for declaration in declarations:
+        name,colon,value=declaration.partition(':')
+        if colon:
+            yield name.strip(CSS_SPACE).lower(),value.strip(CSS_SPACE)
 
 
 # Strict syntax check only; no geometric/topological or machine certification.
@@ -247,8 +287,43 @@ def inspect_svg(path: Path, *, profile: str = "cut", max_bytes: int = 2_000_000)
         display_none = node.attrib.get("display", "").strip().lower() == "none" or bool(
             re.search(r"(?:^|;)\s*display\s*:\s*none\s*(?:!important\s*)?(?:;|$)", style, re.I)
         )
+        # Zero group opacity is composited after descendants render: a child
+        # cannot restore visibility by specifying its own opacity.
+        # Inline CSS overrides presentation attributes. Within inline CSS,
+        # !important declarations outrank normal ones; the last declaration
+        # wins among declarations of equal importance.
+        opacity = node.attrib.get("opacity", "").strip(CSS_SPACE)
+        chosen_priority = -1
+        for property_name,raw in _inline_declarations(style):
+            if property_name!='opacity':
+                continue
+            important = re.search(r"[ \t\n\r\f]*![ \t\n\r\f]*important[ \t\n\r\f]*$", raw, re.I|re.ASCII)
+            priority = 1 if important else 0
+            value=raw[:important.start()].strip(CSS_SPACE) if important else raw
+            # CSS drops empty/invalid declarations; they must not overwrite
+            # a known numeric value from an attribute or a previous rule.
+            if not value:
+                continue
+            if priority >= chosen_priority:
+                opacity = value
+                chosen_priority = priority
+        zero_opacity = False
+        if opacity:
+            numeric = re.fullmatch(
+                r"([+-]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)(%)?",
+                opacity,
+            )
+            if numeric is None:
+                # A static preflight cannot safely resolve CSS variables,
+                # expressions or malformed declarations to visible geometry.
+                raise SVGRejected("UNVERIFIED_OPACITY")
+            value = float(numeric.group(1))
+            if not math.isfinite(value):
+                raise SVGRejected("UNVERIFIED_OPACITY")
+            # Valid negative numbers/percentages clamp to zero in CSS.
+            zero_opacity = value <= 0.0
         inside_definition = (inside_definition or tag in NON_RENDERING_CONTAINERS
-                             or display_none)
+                             or display_none or zero_opacity)
         pending.extend((child, inside_definition) for child in reversed(node))
         for attr, val in node.attrib.items():
             local = attr.split("}", 1)[-1]
