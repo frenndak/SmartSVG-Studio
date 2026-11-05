@@ -509,7 +509,7 @@ test('point picker edits coordinates only, supports keyboard, and refuses stale 
 });
 
 
-function strokeHarness(){
+function strokeHarness(overrides={}){
  const image={hidden:false,alt:'Masque',style:{},events:{},captured:new Set(),
   rect:{left:0,top:0,width:200,height:200},setAttribute(){},focus(){},
   getBoundingClientRect(){return {...this.rect};},
@@ -521,7 +521,7 @@ function strokeHarness(){
  const cancel=bindBrushStrokePicker(image,{width:200,height:100,isCurrent:()=>current,
   getPoint:()=>[0.5,0.5],onPoint:p=>points.push(p),
   onStrokeStart:()=>starts.push(true),onStrokeProgress:p=>progress.push(p),
-  onStroke:p=>strokes.push(p),onStrokeCancel:reason=>cancels.push(reason)});
+  onStroke:p=>strokes.push(p),onStrokeCancel:reason=>cancels.push(reason),...overrides});
  return {image,starts,progress,strokes,cancels,points,cancel,setCurrent:v=>{current=v;}};
 }
 test('continuous stroke captures ordered normalized points without an implicit preview or write',()=>{
@@ -570,4 +570,30 @@ test('another pointer cannot finish the active stroke and public cancellation re
  assert.equal(h.strokes.length,0);assert.equal(h.starts.length,1);
  h.image.fire('pointerup');assert.deepEqual(h.strokes,[[[0.25,0.5]]]);
  h.image.fire('pointerdown');h.cancel();h.image.fire('pointerup');assert.equal(h.strokes.length,1);
+});
+
+
+test('shared start guard rejects another primary pointer and keyboard while a stroke is active',()=>{
+ let drawing=false;
+ const options={canStart:()=>!drawing,onStrokeStart:()=>{drawing=true;},
+  onStroke:()=>{drawing=false;},onStrokeCancel:()=>{drawing=false;}};
+ const first=strokeHarness(options),second=strokeHarness(options);
+ first.image.fire('pointerdown');assert.equal(drawing,true);
+ second.image.fire('pointerdown',{pointerId:2,pointerType:'pen'});
+ assert.equal(second.image.captured.size,0);
+ second.image.fire('keydown',{key:'ArrowLeft'});assert.equal(second.points.length,0);
+ first.image.fire('pointerup');assert.equal(drawing,false);
+ second.image.fire('pointerdown',{pointerId:2});assert.equal(second.image.captured.has(2),true);
+ second.cancel();assert.equal(drawing,false);
+});
+test('synchronous focus or progress cancellation cannot resurrect or finish an inactive stroke',()=>{
+ const h=strokeHarness();h.image.focus=()=>h.cancel();
+ h.image.fire('pointerdown');h.image.fire('pointerup');
+ assert.equal(h.starts.length,0);assert.equal(h.progress.length,0);
+ assert.equal(h.strokes.length,0);assert.equal(h.image.captured.size,0);
+ let finish;
+ const during=strokeHarness({onStrokeProgress:points=>{if(points.length>1)finish();}});
+ finish=during.cancel;
+ during.image.fire('pointerdown');during.image.fire('pointerup',{clientX:150});
+ assert.equal(during.strokes.length,0);assert.equal(during.image.captured.size,0);
 });

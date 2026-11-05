@@ -32,6 +32,7 @@ const vmScript=script?.replaceAll(
 assert.ok(script,'single inline G3 atelier script required');
 
 function browser(){
+  let activeElement=null;
   class Element{
     constructor(tag='div',id=''){
       this.tagName=tag;this.id=id;this.value='';this.dataset={};this.listeners={};
@@ -50,7 +51,13 @@ function browser(){
     replaceChildren(...items){this.children=[...items];}
     appendChild(item){this.children.push(item);}
     append(...items){this.children.push(...items);}
-    focus(){this.focused=true;}
+    focus(){
+      if(activeElement!==this){
+        const old=activeElement;activeElement=this;
+        for(const cb of old?.listeners.blur??[])cb({});
+      }
+      this.focused=true;
+    }
     setPointerCapture(id){this.captured=id;}
     releasePointerCapture(id){if(this.captured===id)this.captured=null;}
     scrollIntoView(){}
@@ -520,7 +527,12 @@ test('real Atelier point and radius controls invalidate previews and save only a
  // Cancel a partial stroke, then draw a complete native three-point gesture.
  await calculate.fire('click');
  const pointer=(clientX,clientY=130)=>({pointerId:7,button:0,buttons:1,isPrimary:true,clientX,clientY,preventDefault(){}});
- await after.fire('pointerdown',pointer(70));await after.fire('pointermove',pointer(120));
+ await after.fire('pointerdown',pointer(70));
+ await before.fire('pointerdown',{...pointer(170),pointerId:8,pointerType:'pen'});
+ assert.equal(after.captured,7);assert.ok(before.captured==null,'other image cannot capture another primary pointer');
+ await before.fire('keydown',{key:'ArrowLeft',preventDefault(){}});
+ assert.equal(x.value,'75.000000','other image keyboard cannot alter the active trace');
+ await after.fire('pointermove',pointer(120));
  assert.equal(save.disabled,true);assert.equal(calculate.disabled,true);
  const callsBefore=commands.length;
  await calculate.fire('click');await save.fire('click');

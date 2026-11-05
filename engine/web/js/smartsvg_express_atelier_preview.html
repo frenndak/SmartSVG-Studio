@@ -614,6 +614,7 @@ function paintRealSubjects(){
           if(!pointPickersReady){
             for(const image of [before,after])strokePickers.push(previewModule.bindBrushStrokePicker(image,{
               width:reportAtPaint.width_px,height:reportAtPaint.height_px,
+              canStart:()=>!drawing,
               isCurrent:()=>!pending&&!saving&&
                 realSubjectsData===reportAtPaint&&!reportAtPaint.identityActionStale&&
                 Number.isSafeInteger(reportAtPaint.expires_at_ms)&&Date.now()<reportAtPaint.expires_at_ms,

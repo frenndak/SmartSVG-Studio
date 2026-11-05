@@ -61,12 +61,12 @@ export function bindBrushPointPicker(image,{width,height,isCurrent,getPoint,onPo
  * the whole incomplete gesture. Returned function cancels without committing.
  */
 export function bindBrushStrokePicker(image,{
-  width,height,isCurrent,getPoint,onPoint,onKeyboardFocus=()=>{},
+  width,height,isCurrent,canStart=()=>true,getPoint,onPoint,onKeyboardFocus=()=>{},
   onStrokeStart=()=>{},onStrokeProgress=()=>{},onStroke,onStrokeCancel=()=>{},
 }){
   let active=null;
   const available=()=>!image.hidden&&isCurrent();
-  bindBrushPointPicker(image,{width,height,isCurrent:()=>!active&&available(),
+  bindBrushPointPicker(image,{width,height,isCurrent:()=>!active&&canStart()&&available(),
     getPoint,onPoint,onKeyboardFocus,clickEnabled:false});
   image.draggable=false;image.style.touchAction='none';image.style.userSelect='none';
   image.setAttribute('aria-label',(image.alt||'Aperçu du masque')+
@@ -87,18 +87,24 @@ export function bindBrushStrokePicker(image,{
     const last=active.points.at(-1);
     if(last&&point[0]===last[0]&&point[1]===last[1])return true;
     if(active.points.length>=1500){cancel('BRUSH_POINT_LIMIT');return false;}
-    active.points.push(point);onStrokeProgress(active.points.map(p=>[...p]));return true;
+    const stroke=active;
+    stroke.points.push(point);onStrokeProgress(stroke.points.map(p=>[...p]));
+    return active===stroke;
   };
   image.addEventListener('pointerdown',event=>{
-    if(active||!available()||event.button!==0||event.isPrimary===false||
+    if(active||!canStart()||!available()||event.button!==0||event.isPrimary===false||
        !Number.isSafeInteger(event.pointerId)||event.pointerId<0)return;
     const rect=image.getBoundingClientRect();
     const point=brushPointFromPreview(rect,width,height,event.clientX,event.clientY);
     if(!point)return;
     try{image.setPointerCapture(event.pointerId);}catch{return;}
-    active={id:event.pointerId,rect:{left:rect.left,top:rect.top,width:rect.width,height:rect.height},points:[point]};
-    event.preventDefault();image.focus({preventScroll:true});onStrokeStart();
-    onStrokeProgress([[...point]]);
+    const stroke={id:event.pointerId,rect:{left:rect.left,top:rect.top,width:rect.width,height:rect.height},points:[point]};
+    active=stroke;event.preventDefault();image.focus({preventScroll:true});
+    // Focus/blur and consumer callbacks can synchronously cancel this capture.
+    if(active!==stroke)return;
+    if(!available()||!canStart()){cancel();return;}
+    onStrokeStart();
+    if(active===stroke)onStrokeProgress([[...point]]);
   });
   image.addEventListener('pointermove',event=>{
     if(!active||event.pointerId!==active.id)return;
