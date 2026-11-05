@@ -1,15 +1,15 @@
 # SmartSVG Studio — État réel et prochains développements
 
-**État logiciel vérifié : 5 novembre 2026**, code `main@51b4dcce0cbb373cd7e05b953a8acfad671e1c6c` après les PR #85–91. Document vivant **non normatif** ; la référence active est la [roadmap V3.4](roadmap-v3.4/README.md), adoptée par la [promotion contrôlée](ROADMAP_PROMOTION_v3_4.md), avec les **141 exigences V3.3 conservées**. Les anciens lots de conception restent des photographies datées.
+**État logiciel vérifié : 6 novembre 2026 (Europe/Paris)**, code `main@a6f335c7c72658c07acf365ce111cf7682befc47` après les PR #85–94. Document vivant **non normatif** ; la référence active est la [roadmap V3.4](roadmap-v3.4/README.md), adoptée par la [promotion contrôlée](ROADMAP_PROMOTION_v3_4.md), avec les **141 exigences V3.3 conservées**. Les anciens lots de conception restent des photographies datées.
 
-**Reprise immédiate :** consulter le [point de reprise G3.3e du 5 novembre](G3_3E_REPRISE_2026_11_05.md). La sauvegarde de gestes cumulés, Undo/Redo persistants et leurs contrôles Atelier sont intégrés. Le geste Atelier reste **un seul point** avec rayon réglable : le dessin continu et les calques/propriétés complets restent à réaliser. Les essais Windows/ComfyUI/Design Space/Cricut restent à exécuter séparément.
+**Reprise immédiate :** consulter le [point de reprise G3.3e du 6 novembre](G3_3E_REPRISE_2026_11_06.md). La sauvegarde de gestes cumulés, Undo/Redo persistants, le trait continu temporaire borné et les aperçus agrandissables sont intégrés. Les coordonnées/clavier restent disponibles pour un point ; les calques/propriétés complets restent à réaliser. Les essais Windows/ComfyUI/Design Space/Cricut restent à exécuter séparément.
 
 ## Synthèse à ne pas confondre
 
 | Niveau | Ce qui est prouvé | Ce que cela ne prouve pas |
 | --- | --- | --- |
 | **Code fusionné** | Modules Python/JS, contrats projets, inspecteur SVG, interface Express et retouches G3.3e sur la révision ci-dessus | Logiciel complet installé chez l'utilisateur |
-| **CI automatisée** | PR #91 : suite G0 **483** tests (45 skips CPU attendus), workflow CPU **4 + 45** réussis sans skip ; local **483** sans skip et **47** tests Node ciblés réussis ; voir le point de reprise pour les SHA et journaux | Qualité visuelle d'une photographie, compatibilité hardware |
+| **CI automatisée** | PR #94 : suite G0 **484** tests (46 skips CPU attendus), workflow CPU **4 + 46** réussis sans skip ; local **484** sans skip et **54** tests Node ciblés réussis ; voir le point de reprise pour les SHA et journaux | Qualité visuelle d'une photographie, compatibilité hardware |
 | **Essai navigateur** | Maquette statique manipulable, fichier HTML disponible dans le dépôt | Fonctionnement du module `.mjs` dans l'installation ComfyUI Windows |
 | **Certification Cricut** | **Aucune** | Pas d'import/marge/dimension/coupe réelle validés sur Explore 5 |
 
@@ -31,7 +31,7 @@ Les réussites de CI sont des **constats de leurs commits**, pas un compteur glo
 | **G3.3b** | Réception volontaire des vrais diagnostics G2.6 (vignettes, codes et zones), 1–32 sujets, depuis le nœud ComfyUI via canal même origine ; présélection locale uniquement | Deux onglets et lancement manuel du nœud toujours nécessaires ; aucune modification des vrais masques dans l’Atelier |
 | **G3.3e — retouches** | Aperçu calculé depuis les gestes natifs cumulés ; sauvegarde explicite avec preuve Subject, digest de l’aperçu, CAS et relecture ; masques float32 de base conservés | PR #85–87 ; gestes natifs bornés, pas de deuxième moteur ni store |
 | **G3.3e — historique** | Undo/Redo persistants, réouverture, reprise et contrôles Atelier ; les exports externes ne sont pas supprimés | PR #88–89 ; frontières de session native et anciens reçus sans inverse connu refusés explicitement |
-| **G3.3e — point/rayon** | Point choisi dans l’aperçu réel sans inclure les bandes vides ; rayon 0,05–20 % du petit côté ; accès clavier, recalcul requis avant enregistrement | PR #91 ; geste à un point, tests DOM simulés, pas de validation graphique Windows |
+| **G3.3e — trait/rayon/aperçus** | Trait continu temporaire jusqu’à 1 500 points ; rayon 0,05–20 % du petit côté ; aperçus 112/224/336 px ; accès clavier, annulation et recalcul avant sauvegarde | PR #91/93/94 ; gestes concurrents exclus, aucune taille physique déduite de l’affichage ; tests DOM simulés, pas de validation graphique Windows |
 | **Prévol SVG** | Géométrie sous opacité nulle/négative exclue, cascade inline et valeurs ambiguës contrôlées | PR #90 ; contrôle statique limité, pas équivalence complète à un moteur de rendu SVG |
 | **CI / gouvernance** | Précontrôle public HEAD, protection de sauvegarde, budgets optionnels et chemins historiques, dépôt public | PR #42–45 ; aucun appel payant nécessaire |
 
@@ -41,7 +41,7 @@ Les réussites de CI sont des **constats de leurs commits**, pas un compteur glo
 
 **P1 — G3.2, première intégration de projets :** le panneau natif G2.2 est accessible volontairement dans l'atelier en cours. **À vérifier sur le PC cible** : accès au module ES, disponibilité des routes G2.2 activées, création PNG, lecture `.smartsvg` et récupération de secours. Aucun projet n'est créé ou modifié à l'ouverture du panneau.
 
-**P1 — poursuivre G3.3e / tranche A puis D :** conserver la sélection par `subject_id` et le projet V1 unique. Prochain micro-lot proposé : collecter un **trait continu borné** dans l’aperçu réel, réutiliser le replay existant, maintenir les coordonnées/clavier, annuler un geste incomplet sans écriture et recalculer avant sauvegarde. Critères et limites dans le point de reprise ; aucune reprise du premier-save ou de l’Undo déjà intégrés. Les quatre sorties et la géométrie sur fixtures (tranches B/C) peuvent aussi progresser sans attendre Windows ni V2.
+**P1 — prochaine tranche B, quatre sorties sur fixtures :** relire les exporteurs et tests actuels, puis produire une preuve transversale des contrats PNG Print Then Cut, SVG Basic Cut, SVG Cut multicouche et SVG édition, avec provenance et préservation des fichiers antérieurs. Réutiliser les exporteurs et le prévol existants, sans nouveau store ni V2 imposé. Le dessin continu de la tranche A/D est intégré ; ses essais Windows et les calques/propriétés restent ouverts, sans bloquer les fixtures de B/C.
 
 **P1 — G3.4, détourage et segmentation IA facultatifs :** intégrer une importation orientée caméra (EXIF, profils couleurs, alpha) puis appeler le moteur ComfyUI de façon **explicite**, avec repli CPU et logs lisibles. Sur RTX 3070 8 Go, mesurer mémoire et temps avant de définir une qualité par défaut.
 
@@ -67,7 +67,7 @@ Le gestionnaire de projets du panneau Express dispose déjà de fonctions réell
 ## Références
 
 - [Roadmap V3.4 active](roadmap-v3.4/README.md) · [V3.3 héritée](ROADMAP_MASTER_v3_3.md) · [V3.2 historique](ROADMAP_MASTER_v3_2.md)
-- [Preuves et reprise G3.3e au 5 novembre](G3_3E_REPRISE_2026_11_05.md)
+- [Preuves et reprise G3.3e au 6 novembre](G3_3E_REPRISE_2026_11_06.md) · [point précédent du 5 novembre](G3_3E_REPRISE_2026_11_05.md)
 - [Documentation du raccordement G3.1](G3_1_EXPRESS_REAL_SVG_REVIEW.md)
 - [Gestion native des projets dans l'atelier G3.2](G3_2_ATELIER_NATIVE_PROJECTS.md)
 - [Contrat de source figée](SOURCE_V21_15_2_PROVENANCE.json)
