@@ -52,6 +52,25 @@ test('real archived subject ID is forwarded, never synthesized from index or pre
  assert.equal(result.items[1].subject_id,null);
 });
 
+test('verified b1 proof survives normalization and handoff; absent proof is not invented',()=>{
+ const current=project(),raw=report();
+ current.base_masks.mask_identity.subject_proof_schema_valid=true;
+ current.base_masks.mask_identity.bindings[0].subject_id='subject-'+'f'.repeat(32);
+ current.base_masks.mask_identity.bindings[0].subject_proof_status='verified';
+ current.base_masks.mask_identity.bindings[1].subject_proof_status='unbound';
+ const catalog=makeVerifiedMaskCatalog(current,raw);
+ assert.ok(catalog);
+ assert.equal(catalog.items[0].subject_proof_status,'verified');
+ assert.equal(catalog.items[1].subject_proof_status,'unbound');
+ assert.deepEqual(normalizeMaskCatalog(catalog,raw),catalog);
+ const received=normalizeSubjectInspection({...raw,mask_catalog:catalog});
+ assert.equal(received.mask_catalog.items[0].subject_proof_status,'verified');
+ const without=clone(catalog);delete without.items[0].subject_proof_status;
+ assert.equal(normalizeMaskCatalog(without,raw).items[0].subject_proof_status,undefined);
+ const forged=clone(catalog);forged.items[0].subject_proof_status='mismatch';
+ assert.equal(normalizeMaskCatalog(forged,raw),null);
+});
+
 test('bound diagnostics preserve catalog across untrusted normalization without changing selection payload',()=>{
  const raw=report(),catalog=makeVerifiedMaskCatalog(project(),raw);
  const first=normalizeSubjectInspection({...raw,mask_catalog:catalog});

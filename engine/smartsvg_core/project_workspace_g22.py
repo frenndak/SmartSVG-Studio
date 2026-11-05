@@ -24,6 +24,7 @@ from .mask_snapshot_g24 import (
     encode_preview_l8, MaskSnapshotError,
 )
 from .subject_identity_g33e import register_subject_identity as bind_subject_identity, SubjectIdentityError
+from .subject_brush_preview_g33e import preview_subject_brush, SubjectBrushPreviewError
 from .project_recovery import (
     RecoveryError, inspect_project, recover_previous, resolve_pending_backup,
     save_with_recovery,
@@ -642,3 +643,53 @@ class ManagedWorkspace:
         except (KeyError,MaskSnapshotError) as exc:
             raise WorkspaceError('INVALID_BASE_MASK_SNAPSHOT') from exc
         return raw,meta.copy()
+
+    def preview_subject_brush_readonly(
+            self, name, *, expected_sha256, subject_id, mask_id,
+            mask_sha256_float32, source_id, source_sha256, mode, radius,
+            points):
+        """G3.3e-b2a: preview a proven Subject at a pinned archive revision.
+
+        This is a trusted server-side read, not a persistence or HTTP route.
+        Reject recovery-pending archives; recheck the revision after CPU replay
+        so a late preview never appears to belong to a changed project.
+        Float32 replay bytes remain internal and are not returned to a UI.
+        """
+        path = self._path(name)
+        if (type(expected_sha256) is not str or
+                not re.fullmatch(r'[0-9a-f]{64}', expected_sha256)):
+            raise WorkspaceError('EXPECTED_REVISION_REQUIRED')
+        if not path.is_file():
+            raise WorkspaceError('PROJECT_NOT_FOUND')
+        if _revision(path) != expected_sha256:
+            raise WorkspaceError('PROJECT_CHANGED')
+        health = inspect_project(path)
+        if health.status != 'PROJECT_HEALTHY':
+            raise WorkspaceError('PROJECT_NOT_HEALTHY')
+        if _revision(path) != expected_sha256:
+            raise WorkspaceError('PROJECT_CHANGED')
+        try:
+            project = load_project(path)
+        except (ProjectArchiveError, OSError) as exc:
+            raise WorkspaceError('INVALID_PROJECT_CONTENTS') from exc
+        if project.project_id != name:
+            raise WorkspaceError('PROJECT_ID_MISMATCH')
+        if _revision(path) != expected_sha256:
+            raise WorkspaceError('PROJECT_CHANGED')
+        try:
+            preview = preview_subject_brush(
+                project, subject_id=subject_id, mask_id=mask_id,
+                mask_sha256_float32=mask_sha256_float32,
+                source_id=source_id, source_sha256=source_sha256,
+                mode=mode, radius=radius, points=points)
+        except SubjectBrushPreviewError as exc:
+            raise WorkspaceError(exc.code) from exc
+        if _revision(path) != expected_sha256:
+            raise WorkspaceError('PROJECT_CHANGED_DURING_PREVIEW')
+        # Never expose exact float32 replay bytes through the UI-facing result.
+        return {
+            **{key: value for key, value in preview.items()
+               if key != 'preview_float32'},
+            'name': name, 'project_sha256': expected_sha256,
+            'persisted': False, 'cricut_certified': False,
+        }

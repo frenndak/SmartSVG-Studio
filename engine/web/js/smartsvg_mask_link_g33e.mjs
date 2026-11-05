@@ -31,6 +31,10 @@ export function normalizeMaskCatalog(catalog,report){
  for(let i=0;i<catalog.items.length;i++){
    const item=catalog.items[i],maskId='base-mask-'+String(i).padStart(2,'0');
    if(!item||item.mask_index!==i||item.mask_id!==maskId||
+      (item.subject_proof_status!==undefined&&
+       !['verified','unbound','ambiguous','legacy_subject_record'].includes(item.subject_proof_status))||
+      (item.subject_proof_status==='verified'&&
+       !/^subject-[a-f0-9]{32}$/.test(String(item.subject_id||'')))||
       !SHA.test(String(item.mask_sha256_float32||''))||
       seenHashes.has(item.mask_sha256_float32)||item.has_foreground!==true||
       item.subject_ambiguous!==false||
@@ -46,7 +50,9 @@ export function normalizeMaskCatalog(catalog,report){
    items.push({mask_index:i,mask_id:maskId,
      mask_sha256_float32:item.mask_sha256_float32,
      has_foreground:true,subject_id:item.subject_id,
-     accessory_ids:[...item.accessory_ids],subject_ambiguous:false});
+     accessory_ids:[...item.accessory_ids],subject_ambiguous:false,
+     ...(item.subject_proof_status!==undefined
+       ?{subject_proof_status:item.subject_proof_status}:{})});
  }
  // An accessory relationship is only meaningful when its subject exists.
  for(const item of items){
