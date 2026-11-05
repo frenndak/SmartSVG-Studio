@@ -11,6 +11,7 @@ packages and skipped tests are hard failures, not successful qualifications.
 from __future__ import annotations
 
 import importlib.util
+from importlib.metadata import version
 from pathlib import Path
 import sys
 import unittest
@@ -31,6 +32,8 @@ def run() -> int:
               file=sys.stderr)
         return 2
 
+    # Record dependency versions for repeatable, exact-HEAD CPU evidence.
+    print(f"CPU runtime versions: numpy={version('numpy')}, Pillow={version('Pillow')}")
     root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(root / "engine"))
     sys.path.insert(0, str(root / "tests"))
