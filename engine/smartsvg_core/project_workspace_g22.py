@@ -697,17 +697,24 @@ class ManagedWorkspace:
             raise WorkspaceError('PROJECT_ID_MISMATCH')
         if _revision(path) != current_sha:
             raise WorkspaceError('PROJECT_CHANGED')
-        kind = 'save_subject_brush_g33e_b2b1'
+        kind = 'save_subject_brush_g33e_b2b2'
         if any(type(op) is not dict for op in project.operations):
             raise WorkspaceError('INVALID_BRUSH_HISTORY')
         receipts = [op for op in project.operations
-                    if op.get('kind') == kind and op.get('command_id') == command_id]
+                    if op.get('kind') in ('save_subject_brush_g33e_b2b1', kind)
+                    and op.get('command_id') == command_id]
         if receipts:
             if any(op.get('request_sha256') != request_sha for op in receipts):
                 raise WorkspaceError('BRUSH_COMMAND_ID_REUSED')
             receipt = receipts[0]
+            current_editor = project.document.get('editor_v216')
+            editor_matches = (current_editor == receipt['editor_v216']
+                              if 'editor_v216' in receipt else
+                              _sha(json.dumps(current_editor, allow_nan=False,
+                                   sort_keys=True, separators=(',', ':')).encode())
+                              == receipt.get('editor_sha256'))
             if (len(receipts) != 1 or project.operations[-1] != receipt or
-                    project.document.get('editor_v216') != receipt.get('editor_v216')):
+                    not editor_matches):
                 raise WorkspaceError('PROJECT_CHANGED')
         if not receipts and current_sha != expected_sha256:
             raise WorkspaceError('PROJECT_CHANGED')
@@ -747,7 +754,10 @@ class ManagedWorkspace:
                 'kind': kind, 'command_id': command_id, 'request_sha256': request_sha,
                 'subject_id': subject_id, 'mask_id': mask_id,
                 'preview_mask_sha256_float32': expected_preview_mask_sha256_float32,
-                'editor_v216': editor}])
+                'editor_sha256': _sha(json.dumps(editor, allow_nan=False, sort_keys=True,
+                                      separators=(',', ':')).encode()),
+                'stroke': editor['strokes'][-1],
+                'previous_editor_present': 'editor_v216' in project.document}])
         updated.operations[-1]['result_state_sha256'] = _brush_receipt_state_sha(
             replace(updated, operations=project.operations))
         def verified(reopened):

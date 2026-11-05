@@ -110,17 +110,18 @@ def preview_subject_brush(
     # NumPy/Pillow runtime, and G0 can exercise these failures with stdlib.
     try:
         editor, canonical = parse_editor_document(
-            json.dumps(command, allow_nan=False),
+            json.dumps(command, allow_nan=False, separators=(',', ':')),
             source_dimensions=(width, height),
         )
     except (EditorSessionError, TypeError, ValueError, OverflowError,
             RecursionError) as exc:
         raise SubjectBrushPreviewError("INVALID_PREVIEW_STROKE") from exc
     session = project.document.get('editor_v216')
-    if session is not None:
+    if 'editor_v216' in project.document:
         try:
             previous, _ = parse_editor_document(
-                json.dumps(session, allow_nan=False), source_dimensions=(width, height))
+                json.dumps(session, allow_nan=False, separators=(',', ':')),
+                source_dimensions=(width, height))
             if previous['source'] != source_sha256 or previous['count'] != count:
                 raise EditorSessionError('INCOMPATIBLE_EDITOR_SOURCE')
         except (EditorSessionError, TypeError, ValueError, OverflowError, RecursionError) as exc:
@@ -128,7 +129,7 @@ def preview_subject_brush(
         try:
             editor, canonical = parse_editor_document(json.dumps({
                 **editor, 'strokes': [*previous['strokes'], *editor['strokes']]
-            }, allow_nan=False), source_dimensions=(width, height))
+            }, allow_nan=False, separators=(',', ':')), source_dimensions=(width, height))
         except (EditorSessionError, TypeError, ValueError, OverflowError, RecursionError) as exc:
             raise SubjectBrushPreviewError('BRUSH_SESSION_LIMIT') from exc
     try:

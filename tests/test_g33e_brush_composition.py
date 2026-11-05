@@ -130,6 +130,49 @@ class BrushCompositionTests(unittest.TestCase):
         self.assertEqual(self.path.read_bytes(), before)
         self.assertEqual(len(load_project(self.path).document['editor_v216']['strokes']), 400)
 
+    def test_explicit_null_editor_is_invalid_rather_than_silently_empty(self):
+        project, command = self.gesture()
+        project = replace(project, document={**project.document, 'editor_v216':None})
+        with self.assertRaisesRegex(SubjectBrushPreviewError, 'INVALID_SAVED_EDITOR_SESSION'):
+            preview_subject_brush(project, **command)
+
+    def test_dense_valid_native_canonical_session_is_not_rejected_for_added_whitespace(self):
+        point = [0.12345678901234567,0.7654321098765432]
+        strokes = [dict(object=0,mode='add',radius=0.05,points=[point]*1500)
+                   for _ in range(5)]
+        strokes.append(dict(object=0,mode='add',radius=0.05,points=[point]*650))
+        self.native_session(strokes)
+        # 8,150 native points and compact bytes fit the existing contract.
+        project, command = self.gesture()
+        from smartsvg_core.editor_session_g23 import parse_editor_document
+        parse_editor_document(json.dumps(project.document['editor_v216'],separators=(',',':')),
+                              source_dimensions=(16,12))
+        preview_subject_brush(project, **command)
+
+    def test_successive_gestures_do_not_copy_the_full_session_into_every_receipt(self):
+        for index in range(20):
+            self.save(command_id='dense-'+str(index), points=[[0.1234,0.7654]]*64)
+        project = load_project(self.path)
+        # Keep20 ordinary bounded gestures far below the4MiB history budget.
+        self.assertLess(len(json.dumps(project.operations).encode()),100_000)
+        self.assertEqual(len(project.document['editor_v216']['strokes']),20)
+
+    def test_legacy_full_session_receipt_still_supports_retry_and_next_gesture(self):
+        _, request, _ = self.save()
+        project = load_project(self.path)
+        receipt = {**project.operations[-1], 'kind':'save_subject_brush_g33e_b2b1',
+                   'editor_v216':project.document['editor_v216']}
+        for key in ('editor_sha256','stroke','previous_editor_present'):
+            receipt.pop(key)
+        save_project(self.path, replace(project, operations=[
+            *project.operations[:-1], receipt]), overwrite=True)
+        before = self.path.read_bytes()
+        retry = self.workspace.save_subject_brush('brush-preview', **request)
+        self.assertEqual(retry['status'],'subject_brush_already_saved')
+        self.assertEqual(self.path.read_bytes(), before)
+        self.save(command_id='after-legacy', mode='erase')
+        self.assertEqual(len(load_project(self.path).document['editor_v216']['strokes']),2)
+
 
 if __name__ == '__main__':
     unittest.main()
