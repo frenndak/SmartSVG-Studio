@@ -252,6 +252,41 @@ class SVGContractTests(unittest.TestCase):
         body = '<g opacity="0.5"><circle r="8"/></g>'
         self.assertEqual(inspect_svg(self.write(self.base(body)))["vector_elements"], 1)
 
+    def test_inline_css_overrides_presentation_opacity(self):
+        visible = (
+            '<g opacity="0" style="opacity:1"><circle r="8"/></g>',
+            '<g opacity="0" style="opacity:.5 !important"><circle r="8"/></g>',
+            '<g style="opacity:0;opacity:1"><circle r="8"/></g>',
+            '<g style="opacity:0 !important;opacity:1"><circle r="8"/></g>'
+        )
+        for body in visible[:3]:
+            with self.subTest(body=body):
+                self.assertEqual(
+                    inspect_svg(self.write(self.base(body)))["vector_elements"], 1
+                )
+        # An important declaration wins even over a later normal one.
+        with self.assertRaisesRegex(SVGRejected, "NO_VECTOR_GEOMETRY"):
+            inspect_svg(self.write(self.base(visible[3])))
+
+    def test_zero_important_opacity_and_percentage(self):
+        hidden = (
+            '<g style="opacity:0 !important"><circle r="8"/></g>',
+            '<g opacity="1" style="opacity:0 !important"><circle r="8"/></g>',
+            '<g style="opacity:1;opacity:0 !important"><circle r="8"/></g>',
+            '<g style="opacity:0%"><circle r="8"/></g>',
+        )
+        for body in hidden:
+            with self.subTest(body=body):
+                with self.assertRaisesRegex(SVGRejected, "NO_VECTOR_GEOMETRY"):
+                    inspect_svg(self.write(self.base(body)))
+
+    def test_ambiguous_opacity_fails_closed(self):
+        for value in ("var(--alpha)", "calc(1 - 1)", "garbage", "1e999"):
+            with self.subTest(value=value):
+                body = f'<g style="opacity:{value}"><circle r="8"/></g>'
+                with self.assertRaisesRegex(SVGRejected, "UNVERIFIED_OPACITY"):
+                    inspect_svg(self.write(self.base(body)))
+
     def test_visible_sibling_is_kept_after_hidden_group(self):
         p = self.write(self.base(
             '<g style="display:none"><circle r="4"/></g>'
