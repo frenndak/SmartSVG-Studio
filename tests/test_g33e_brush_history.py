@@ -73,6 +73,26 @@ class BrushHistoryTests(unittest.TestCase):
         self.assertEqual(reopened.masks,original.masks)
         self.assertEqual(len([op for op in reopened.operations if op.get('kind')=='subject_brush_history_g33e_v1']),4)
 
+    def test_continuous_stroke_reopens_and_undo_redo_restore_exact_pixels(self):
+        import numpy as np
+        original=load_project(self.path)
+        before=self.rendered()
+        points=[[0.1,0.8],[0.5,0.8],[0.9,0.8]]
+        self.save(mode='add',radius=0.05,points=points)
+        reopened=load_project(self.path)
+        self.assertEqual(reopened.document['editor_v216']['strokes'][-1]['points'],points)
+        rendered=self.rendered()
+        old=np.frombuffer(before,dtype='<f4').reshape(2,12,16)
+        new=np.frombuffer(rendered,dtype='<f4').reshape(2,12,16)
+        # The horizontal line at source row 9 fills intermediate pixels too.
+        self.assertTrue(np.all(new[0,9,2:15]==1))
+        self.assertEqual(new[0,0,0].tobytes(),old[0,0,0].tobytes())
+        self.assertEqual(new[1].tobytes(),old[1].tobytes())
+        self.workspace=ManagedWorkspace(self.path.parent.parent)
+        self.change('undo','undo-continuous');self.assertEqual(self.rendered(),before)
+        self.change('redo','redo-continuous');self.assertEqual(self.rendered(),rendered)
+        self.assertEqual(load_project(self.path).resources,original.resources)
+
     def test_new_edit_after_undo_clears_redo_without_deleting_audit(self):
         self.save();self.save(command_id='second',mode='erase')
         self.change('undo','undo-2')

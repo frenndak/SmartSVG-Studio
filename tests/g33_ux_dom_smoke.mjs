@@ -32,6 +32,7 @@ const vmScript=script?.replaceAll(
 assert.ok(script,'single inline G3 atelier script required');
 
 function browser(){
+  let activeElement=null;
   class Element{
     constructor(tag='div',id=''){
       this.tagName=tag;this.id=id;this.value='';this.dataset={};this.listeners={};
@@ -50,7 +51,15 @@ function browser(){
     replaceChildren(...items){this.children=[...items];}
     appendChild(item){this.children.push(item);}
     append(...items){this.children.push(...items);}
-    focus(){this.focused=true;}
+    focus(){
+      if(activeElement!==this){
+        const old=activeElement;activeElement=this;
+        for(const cb of old?.listeners.blur??[])cb({});
+      }
+      this.focused=true;
+    }
+    setPointerCapture(id){this.captured=id;}
+    releasePointerCapture(id){if(this.captured===id)this.captured=null;}
     scrollIntoView(){}
     click(){this.fire('click');}
     async fire(type,event={}){for(const cb of this.listeners[type]??[])await cb(event);}
@@ -77,6 +86,7 @@ function browser(){
   const document={
     getElementById:find,
     createElement:tag=>new Element(tag),
+    createElementNS:(_namespace,tag)=>new Element(tag),
     querySelectorAll:sel=>sel==='[data-step]'?steps:
       sel==='[data-view]'?navigation:
       sel==='input[name="mode"]'?[modeInput]:[],
@@ -470,7 +480,8 @@ test('real Atelier point and radius controls invalidate previews and save only a
  const [x,y,radius]=inputs;assert.equal(inputs.length,3);
  const calculate=panel.children.find(x=>/Calculer l’aperçu/.test(x.textContent));
  const save=panel.children.find(x=>/Enregistrer ce geste/.test(x.textContent));
- const images=panel.children.find(x=>x.className==='toolbar').children;
+ const cancel=panel.children.find(x=>x.textContent==='Annuler');
+ const images=panel.children.find(x=>x.className==='toolbar').children.map(wrap=>wrap.children[0]);
  const [before,after]=images;
  let writes=0;const commands=[];
  b.api.fetchApi=async(url,options)=>{
@@ -495,9 +506,10 @@ test('real Atelier point and radius controls invalidate previews and save only a
  assert.equal(commands.length,1);assert.equal(commands[0].fields.radius,'0.1');
  assert.equal(save.disabled,false);assert.equal(before.attributes.role,'button');
  before.getBoundingClientRect=()=>({left:20,top:30,width:200,height:200});
- await before.fire('click',{button:0,detail:1,clientX:120,clientY:40});
+ await before.fire('pointerdown',{pointerId:1,button:0,clientX:120,clientY:40,preventDefault(){}});
  assert.equal(save.disabled,false,'letterbox does not change gesture');
- await before.fire('click',{button:0,detail:1,clientX:170,clientY:130});
+ await before.fire('pointerdown',{pointerId:1,button:0,clientX:170,clientY:130,preventDefault(){}});
+ await before.fire('pointerup',{pointerId:1,button:0,clientX:170,clientY:130,preventDefault(){}});
  assert.equal(x.value,'75.000000');assert.equal(y.value,'50.000000');
  assert.equal(x.focused,true);assert.equal(after.hidden,true);assert.equal(save.disabled,true);
  await save.fire('click');assert.equal(writes,0,'point choice does not persist the old preview');
@@ -512,10 +524,43 @@ test('real Atelier point and radius controls invalidate previews and save only a
  await after.fire('keydown',{key:'ArrowDown',preventDefault(){prevented=true;}});
  assert.equal(prevented,true);assert.equal(y.value,'51.000000');assert.equal(y.focused,true);
  assert.equal(save.disabled,true);
+ // Cancel a partial stroke, then draw a complete native three-point gesture.
+ await calculate.fire('click');
+ const pointer=(clientX,clientY=130)=>({pointerId:7,button:0,buttons:1,isPrimary:true,clientX,clientY,preventDefault(){}});
+ await after.fire('pointerdown',pointer(70));
+ await before.fire('pointerdown',{...pointer(170),pointerId:8,pointerType:'pen'});
+ assert.equal(after.captured,7);assert.ok(before.captured==null,'other image cannot capture another primary pointer');
+ await before.fire('keydown',{key:'ArrowLeft',preventDefault(){}});
+ assert.equal(x.value,'75.000000','other image keyboard cannot alter the active trace');
+ await after.fire('pointermove',pointer(120));
+ assert.equal(save.disabled,true);assert.equal(calculate.disabled,true);
+ const callsBefore=commands.length;
+ await calculate.fire('click');await save.fire('click');
+ assert.equal(commands.length,callsBefore,'incomplete trace cannot calculate or write');
+ const overlays=panel.children.find(x=>x.className==='toolbar').children.map(wrap=>wrap.children[1]);
+ assert.equal(overlays[0].style.display,'block');
+ assert.equal(overlays[0].children[0].attributes.points,'40,45 80,45');
+ await after.fire('keydown',{key:'Escape',preventDefault(){}});
+ await after.fire('pointerup',pointer(170));
+ assert.equal(writes,0);assert.equal(after.hidden,true);assert.equal(radius.disabled,false);
+ assert.equal(overlays[0].style.display,'none');
+ await calculate.fire('click');
+ await after.fire('pointerdown',pointer(70));await after.fire('pointermove',pointer(120));
+ await after.fire('pointerup',pointer(170));
+ assert.equal(commands.length,callsBefore+1,'finishing trace does not calculate automatically');
+ assert.equal(save.disabled,true);assert.equal(cancel.disabled,false);
+ await cancel.fire('click');assert.equal(cancel.disabled,true);
+ assert.equal(writes,0);
+ // Completed-but-uncomputed strokes can be abandoned, then replaced.
+ await calculate.fire('click');
+ assert.deepEqual(JSON.parse(commands.at(-1).fields.points),[[0.75,0.5]]);
+ await after.fire('pointerdown',pointer(70));await after.fire('pointermove',pointer(120));
+ await after.fire('pointerup',pointer(170));
+ radius.value='3';await radius.fire('input');
  await calculate.fire('click');await save.fire('click');
  assert.equal(writes,1);
- assert.deepEqual(JSON.parse(commands.at(-1).fields.points),[[0.75,0.51]]);
- assert.equal(commands.at(-1).fields.radius,'0.02');
+ assert.deepEqual(JSON.parse(commands.at(-1).fields.points),[[0.25,0.5],[0.5,0.5],[0.75,0.5]]);
+ assert.equal(commands.at(-1).fields.radius,'0.03');
  assert.equal(commands.at(-1).fields.command_id,commands.at(-2).fields.command_id);
  // Even programmatic events on the now-stale old image cannot alter coordinates.
  const old=x.value;before.hidden=false;

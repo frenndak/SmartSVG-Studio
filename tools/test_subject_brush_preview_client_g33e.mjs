@@ -9,7 +9,7 @@ import {readFileSync} from 'node:fs';
 import {webcrypto} from 'node:crypto';
 if(!globalThis.crypto)globalThis.crypto=webcrypto;
 import {requestSubjectBrushPreview,brushPreviewMessage,saveSubjectBrushPreview,
-        brushPointFromPreview,bindBrushPointPicker} from
+        brushPointFromPreview,bindBrushPointPicker,bindBrushStrokePicker} from
   '../engine/web/js/smartsvg_subject_brush_preview_g33e.mjs';
 
 const SHA='a'.repeat(64);
@@ -105,7 +105,7 @@ test('Atelier cleanup never re-enables a preview after Subject proof expiry',()=
       pending:true,abort:{},calculate:{disabled:true},
       cancel:{disabled:false},before:{hidden:true},after:{hidden:true},
       modeInput:{disabled:true},xInput:{disabled:true},yInput:{disabled:true},radiusInput:{disabled:true},
-      saveButton:{disabled:true},saving:false,acceptedPreview:null,
+      saveButton:{disabled:true},saving:false,acceptedPreview:null,draftPoints:null,
       reportAtPaint,realSubjectsData:different?{}:reportAtPaint,
     };
     return new Function(...Object.keys(state),actual+
@@ -274,7 +274,7 @@ test('Atelier recovers visibly when the preview module cannot load',async()=>{
   });
   const ctx={
     modeInput:el(),xInput:el(),yInput:el(),radiusInput:{...el(),value:'5'},calculate:el(),cancel:el(),saveButton:el(),
-    before:el(),after:el(),previewStatus:el(),button:el(),
+    before:el(),after:el(),previewStatus:el(),button:el(),traceOverlays:[],
     reportAtPaint:{identityActionStale:false,expires_at_ms:Date.now()+60000},
     chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},
   };
@@ -307,7 +307,7 @@ test('Atelier preview dismissal and gesture changes never leave stale PNGs visib
   });
   const ctx={
     modeInput:el(),xInput:el(),yInput:el(),radiusInput:{...el(),value:'5'},calculate:el(),cancel:el(),saveButton:el(),
-    before:el(),after:el(),previewStatus:el(),button:el(),
+    before:el(),after:el(),previewStatus:el(),button:el(),traceOverlays:[],
     reportAtPaint:{identityActionStale:false,expires_at_ms:Date.now()+60000},
     chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},
   };
@@ -420,7 +420,7 @@ test('Atelier save acknowledgement or uncertainty invalidates the old diagnostic
     let finish,writes=0;
     const current={identityActionStale:false,expires_at_ms:Date.now()+60000};
     const ctx={modeInput:el(),xInput:el(),yInput:el(),radiusInput:{...el(),value:'5'},calculate:el(),cancel:el(),saveButton:el(),
-      before:el(),after:el(),previewStatus:el(),button:el(),reportAtPaint:current,realSubjectsData:current,
+      before:el(),after:el(),previewStatus:el(),button:el(),traceOverlays:[],reportAtPaint:current,realSubjectsData:current,
       chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},
       activeBrushSaves:0,historyUI:null,$:()=>({}),stopSubjectReceive(){},clearRealSubjectExpiry(){},
       previewModule:{saveSubjectBrushPreview(_api,_report,_mask,_preview,options){
@@ -457,7 +457,7 @@ test('clearing inspection cannot hide a pending save or its durable outcome',asy
   let finish,cleared=0;
   const current={identityActionStale:false,expires_at_ms:Date.now()+60000};
   const ctx={modeInput:el(),xInput:el(),yInput:el(),radiusInput:{...el(),value:'5'},calculate:el(),cancel:el(),saveButton:el(),
-    before:el(),after:el(),previewStatus:el(),button:el(),reportAtPaint:current,realSubjectsData:current,
+    before:el(),after:el(),previewStatus:el(),button:el(),traceOverlays:[],reportAtPaint:current,realSubjectsData:current,
     chosenRealSubjects:new Set([1]),item:{numero:1},linkedIdentity:{},activeBrushSaves:0,historyUI:null,
     $:id=>controls[id],stopSubjectReceive(){},clearRealSubjectExpiry(){},paintRealSubjects(){cleared++;},
     previewModule:{saveSubjectBrushPreview(){return new Promise(resolve=>{finish=resolve;});},brushSaveMessage(){return 'incertain';}}};
@@ -506,4 +506,94 @@ test('point picker edits coordinates only, supports keyboard, and refuses stale 
   image.events.keydown({key:'Enter',preventDefault(){}});assert.ok(focus>0);
   current=false;image.events.click({button:0,detail:1,clientX:50,clientY:50});assert.equal(updates,2);
   current=true;dispose();image.events.click({button:0,detail:1,clientX:50,clientY:50});assert.equal(updates,2);
+});
+
+
+function strokeHarness(overrides={}){
+ const image={hidden:false,alt:'Masque',style:{},events:{},captured:new Set(),
+  rect:{left:0,top:0,width:200,height:200},setAttribute(){},focus(){},
+  getBoundingClientRect(){return {...this.rect};},
+  setPointerCapture(id){this.captured.add(id);},releasePointerCapture(id){this.captured.delete(id);},
+  addEventListener(type,fn){(this.events[type]??=[]).push(fn);},
+  fire(type,values={}){const e={pointerId:1,button:0,buttons:1,isPrimary:true,clientX:50,clientY:100,preventDefault(){},...values};
+   for(const fn of this.events[type]??[])fn(e);}};
+ let current=true;const starts=[],progress=[],strokes=[],cancels=[],points=[];
+ const cancel=bindBrushStrokePicker(image,{width:200,height:100,isCurrent:()=>current,
+  getPoint:()=>[0.5,0.5],onPoint:p=>points.push(p),
+  onStrokeStart:()=>starts.push(true),onStrokeProgress:p=>progress.push(p),
+  onStroke:p=>strokes.push(p),onStrokeCancel:reason=>cancels.push(reason),...overrides});
+ return {image,starts,progress,strokes,cancels,points,cancel,setCurrent:v=>{current=v;}};
+}
+test('continuous stroke captures ordered normalized points without an implicit preview or write',()=>{
+ const h=strokeHarness();h.image.fire('pointerdown');
+ assert.equal(h.starts.length,1);assert.equal(h.image.captured.has(1),true);
+ h.image.fire('pointermove',{clientX:100});h.image.fire('pointermove',{clientX:100});
+ h.image.fire('pointerup',{clientX:150});
+ assert.deepEqual(h.strokes,[[[0.25,0.5],[0.5,0.5],[0.75,0.5]]]);
+ assert.equal(h.image.captured.size,0);assert.equal(h.cancels.length,0);
+ h.image.fire('click',{detail:1,clientX:180});
+ assert.equal(h.points.length,0,'compatibility click cannot replace the completed stroke');
+ h.image.fire('keydown',{key:'ArrowUp'});assert.deepEqual(h.points,[[0.5,0.49]]);
+});
+test('incomplete stroke is discarded on cancel, lost capture, Escape, bounds, revision or geometry change',()=>{
+ for(const reason of ['pointercancel','lostpointercapture','escape','outside','stale','geometry','buttons','manual']){
+  const h=strokeHarness();h.image.fire('pointerdown');
+  if(reason==='escape')h.image.fire('keydown',{key:'Escape'});
+  else if(reason==='outside')h.image.fire('pointermove',{clientY:10});
+  else if(reason==='stale'){h.setCurrent(false);h.image.fire('pointerup');}
+  else if(reason==='geometry'){h.image.rect.left=20;h.image.fire('pointerup');}
+  else if(reason==='buttons')h.image.fire('pointermove',{buttons:0});
+  else if(reason==='manual')h.cancel();
+  else h.image.fire(reason);
+  h.image.fire('pointerup');
+  assert.equal(h.strokes.length,0,reason);assert.equal(h.cancels.length,1,reason);
+  assert.equal(h.image.captured.size,0,reason);
+ }
+});
+test('stroke start rejects nonprimary buttons and letterboxing; capture errors never start a gesture',()=>{
+ for(const event of [{button:2},{isPrimary:false},{clientY:10},{pointerId:NaN}]){
+  const h=strokeHarness();h.image.fire('pointerdown',event);assert.equal(h.starts.length,0);
+ }
+ const h=strokeHarness();h.image.setPointerCapture=()=>{throw Error('capture failed');};
+ h.image.fire('pointerdown');assert.equal(h.starts.length,0);assert.equal(h.strokes.length,0);
+});
+test('native 1500-point limit cancels rather than silently truncating a stroke',()=>{
+ const h=strokeHarness();h.image.fire('pointerdown');
+ for(let i=1;i<=1500;i++)h.image.fire('pointermove',{clientX:50+i/100});
+ h.image.fire('pointerup');assert.equal(h.strokes.length,0);
+ assert.deepEqual(h.cancels,['BRUSH_POINT_LIMIT']);
+ assert.ok(h.progress.every(points=>points.length<=1500));
+});
+test('another pointer cannot finish the active stroke and public cancellation releases capture',()=>{
+ const h=strokeHarness();h.image.fire('pointerdown');
+ h.image.fire('pointerdown',{pointerId:2});h.image.fire('pointerup',{pointerId:2,clientX:150});
+ assert.equal(h.strokes.length,0);assert.equal(h.starts.length,1);
+ h.image.fire('pointerup');assert.deepEqual(h.strokes,[[[0.25,0.5]]]);
+ h.image.fire('pointerdown');h.cancel();h.image.fire('pointerup');assert.equal(h.strokes.length,1);
+});
+
+
+test('shared start guard rejects another primary pointer and keyboard while a stroke is active',()=>{
+ let drawing=false;
+ const options={canStart:()=>!drawing,onStrokeStart:()=>{drawing=true;},
+  onStroke:()=>{drawing=false;},onStrokeCancel:()=>{drawing=false;}};
+ const first=strokeHarness(options),second=strokeHarness(options);
+ first.image.fire('pointerdown');assert.equal(drawing,true);
+ second.image.fire('pointerdown',{pointerId:2,pointerType:'pen'});
+ assert.equal(second.image.captured.size,0);
+ second.image.fire('keydown',{key:'ArrowLeft'});assert.equal(second.points.length,0);
+ first.image.fire('pointerup');assert.equal(drawing,false);
+ second.image.fire('pointerdown',{pointerId:2});assert.equal(second.image.captured.has(2),true);
+ second.cancel();assert.equal(drawing,false);
+});
+test('synchronous focus or progress cancellation cannot resurrect or finish an inactive stroke',()=>{
+ const h=strokeHarness();h.image.focus=()=>h.cancel();
+ h.image.fire('pointerdown');h.image.fire('pointerup');
+ assert.equal(h.starts.length,0);assert.equal(h.progress.length,0);
+ assert.equal(h.strokes.length,0);assert.equal(h.image.captured.size,0);
+ let finish;
+ const during=strokeHarness({onStrokeProgress:points=>{if(points.length>1)finish();}});
+ finish=during.cancel;
+ during.image.fire('pointerdown');during.image.fire('pointerup',{clientX:150});
+ assert.equal(during.strokes.length,0);assert.equal(during.image.captured.size,0);
 });
