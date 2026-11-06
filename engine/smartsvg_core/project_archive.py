@@ -62,6 +62,15 @@ def _digest(data: bytes) -> str:
     return sha256(data).hexdigest()
 
 
+def _file_digest(path: Path) -> str:
+    """SHA-256 of file bytes with a fixed-size read buffer."""
+    digest = sha256()
+    with path.open('rb') as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
 def _safe_path(path: str) -> str:
     """Portable path aligned with G1.2: accept safe visible Unicode and spaces.
 
@@ -762,7 +771,7 @@ def save_project(path, project: LoadedProject, *, overwrite: bool = False):
     finally:
         if tmp is not None:
             tmp.unlink(missing_ok=True)
-    return {'path': str(destination), 'sha256': _digest(destination.read_bytes()),
+    return {'path': str(destination), 'sha256': _file_digest(destination),
             'schema_version': SCHEMA_VERSION, 'cut_verified': False}
 
 

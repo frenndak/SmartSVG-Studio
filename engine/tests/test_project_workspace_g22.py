@@ -7,6 +7,7 @@ import shutil
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from smartsvg_core.project_archive import load_project, save_project
 from smartsvg_core.project_workspace_g22 import ManagedWorkspace, WorkspaceError
@@ -57,6 +58,15 @@ class G22ManagedWorkspaceTests(unittest.TestCase):
         self.assertEqual(now['document']['notes'],'corriger les antennes')
         self.assertEqual(now['operations_count'],1)
         self.assertEqual(now['previous'],'valid')
+        self.assertEqual(self.workspace.source_png('snails'),self.png)
+
+    def test_notes_update_hashes_archives_without_read_bytes(self):
+        self.create()
+        expected=self.workspace.inspect('snails')['sha256']
+        with patch.object(Path,'read_bytes',side_effect=AssertionError('whole-file allocation')):
+            result=self.workspace.update_notes('snails',notes='streamed hash',expected_sha256=expected)
+        self.assertEqual(result['status'],'updated')
+        self.assertEqual(self.workspace.inspect('snails')['document']['notes'],'streamed hash')
         self.assertEqual(self.workspace.source_png('snails'),self.png)
 
     def test_no_silent_overwrite(self):
