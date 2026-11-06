@@ -5,6 +5,8 @@ from pathlib import Path
 from threading import Event, get_ident
 from unittest.mock import patch
 import sys
+import gc
+import weakref
 import tempfile
 import unittest
 
@@ -93,6 +95,73 @@ class NativePreviewJobTests(unittest.TestCase):
         finally:
             release.set()
 
+    def test_burst_discards_obsolete_pending_requests_instead_of_retaining_queue(self):
+        entered, release = Event(), Event()
+        seen = []
+        def read(value):
+            seen.append(value)
+            if value == "blocked":
+                entered.set()
+                if not release.wait(timeout=10): raise RuntimeError("blocked")
+            return value
+        jobs = LatestOnlyJob(read)
+        self.addCleanup(jobs.close)
+        try:
+            _, active = jobs.submit("blocked")
+            self.assertTrue(entered.wait(timeout=5))
+            refs = []
+            for i in range(500):
+                version, future = jobs.submit(str(i))
+                refs.append(weakref.ref(future))
+            # Only the final pending Future may remain owned by the queue.
+            gc.collect()
+            self.assertLessEqual(sum(ref() is not None for ref in refs), 1)
+            self.assertTrue(jobs.current(version))
+            release.set()
+            self.assertEqual(active.result(timeout=5), "blocked")
+            self.assertEqual(future.result(timeout=5), "499")
+            self.assertEqual(seen, ["blocked", "499"])
+        finally:
+            release.set()
+
+    def test_reader_exception_does_not_strand_the_next_request(self):
+        def read(value):
+            if value == "bad": raise ValueError("reader failed")
+            return value
+        jobs = LatestOnlyJob(read)
+        self.addCleanup(jobs.close)
+        _, failed = jobs.submit("bad")
+        with self.assertRaisesRegex(ValueError, "reader failed"):
+            failed.result(timeout=5)
+        _, following = jobs.submit("good")
+        self.assertEqual(following.result(timeout=5), "good")
+
+    def test_cancel_callback_can_submit_without_deadlock_or_overwriting_latest(self):
+        entered, release = Event(), Event()
+        def read(value):
+            if value == "blocked":
+                entered.set()
+                if not release.wait(timeout=10): raise RuntimeError("blocked")
+            return value
+        jobs = LatestOnlyJob(read)
+        self.addCleanup(jobs.close)
+        submitted = []
+        try:
+            jobs.submit("blocked")
+            self.assertTrue(entered.wait(timeout=5))
+            _, intermediate = jobs.submit("intermediate")
+            intermediate.add_done_callback(lambda _: submitted.append(jobs.submit("callback-latest")))
+            version, replaced = jobs.submit("replaced")
+            self.assertTrue(replaced.cancelled())
+            self.assertFalse(jobs.current(version))
+            self.assertEqual(len(submitted), 1)
+            callback_version, callback_future = submitted[0]
+            self.assertTrue(jobs.current(callback_version))
+            release.set()
+            self.assertEqual(callback_future.result(timeout=5), "callback-latest")
+        finally:
+            release.set()
+
     def test_close_rejects_new_requests_and_stale_results(self):
         jobs = LatestOnlyJob(lambda value: value)
         version, future = jobs.submit("a")
@@ -101,6 +170,31 @@ class NativePreviewJobTests(unittest.TestCase):
         self.assertFalse(jobs.current(version))
         with self.assertRaisesRegex(RuntimeError, "NATIVE_JOB_QUEUE_CLOSED"):
             jobs.submit("b")
+
+    def test_close_cancels_pending_without_interrupting_running_read(self):
+        entered, release = Event(), Event()
+        seen = []
+        def read(value):
+            seen.append(value)
+            entered.set()
+            if not release.wait(timeout=10): raise RuntimeError("blocked")
+            return value
+        jobs = LatestOnlyJob(read)
+        self.addCleanup(jobs.close)
+        try:
+            running_version, running = jobs.submit("running")
+            self.assertTrue(entered.wait(timeout=5))
+            pending_version, pending = jobs.submit("pending")
+            jobs.close()
+            jobs.close()  # shutdown is idempotent
+            self.assertTrue(pending.cancelled())
+            self.assertFalse(jobs.current(running_version))
+            self.assertFalse(jobs.current(pending_version))
+            release.set()
+            self.assertEqual(running.result(timeout=5), "running")
+            self.assertEqual(seen, ["running"])
+        finally:
+            release.set()
 
     def test_worker_runs_off_gui_thread(self):
         main_id = get_ident()
