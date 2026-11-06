@@ -20,7 +20,7 @@ from native_theme_tk_v34 import (
     ArtisanThemePicker, local_theme_path, windows_system_dark, MODE_LABELS
 )
 from smartsvg_core.native_theme_v34 import (
-    ThemePreferences, load_theme_preferences
+    ACCENTS, ThemePreferences, contrast_ratio, load_theme_preferences,
 )
 
 
@@ -194,6 +194,27 @@ class NativeThemePickerTests(unittest.TestCase):
                 picker._on_accent("lagoon")
             self.assertEqual(picker.prefs.accent, "lagoon")
             self.assertIn("impossible", picker.status_var.get())
+
+    def test_active_button_text_remains_readable_for_all_twelve_combinations(self):
+        # Regression: a pastel hover background must not retain pale night text.
+        tk, ttk = self.widgets()
+        for mode in ("light", "night"):
+            for accent in ACCENTS:
+                with self.subTest(mode=mode, accent=accent):
+                    picker = ArtisanThemePicker(
+                        root=FakeRoot(), parent=FakeWidget(), tk=tk, ttk=ttk,
+                    )
+                    picker.prefs = ThemePreferences(appearance=mode, accent=accent)
+                    theme = picker.apply()
+                    mapping = picker.style.rules["TButton/map"]
+                    hover_background = mapping["background"][0][1]
+                    hover_foreground = mapping["foreground"][0][1]
+                    self.assertEqual(hover_background, theme.colors["action.accent"])
+                    self.assertEqual(hover_foreground,
+                                     theme.colors["action.accent_text"])
+                    self.assertGreaterEqual(
+                        contrast_ratio(hover_foreground, hover_background), 4.5
+                    )
 
     def test_mode_mapping_is_explicit_and_complete(self):
         self.assertEqual(set(MODE_LABELS), {"light", "night", "automatic"})
