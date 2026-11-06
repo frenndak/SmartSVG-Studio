@@ -569,6 +569,21 @@ test('real Atelier point and radius controls invalidate previews and save only a
  assert.deepEqual(JSON.parse(commands.at(-1).fields.points),[[0.75,0.5]]);
  await after.fire('pointerdown',pointer(70));await after.fire('pointermove',pointer(120));
  await after.fire('pointerup',pointer(170));
+ // Coordinate edits replace a completed uncomputed stroke with one point.
+ // With no visible PNG, controls and the status must still be refreshed.
+ for(const [control,value,expected] of [[x,'25',[[0.25,0.5]]],[y,'60',[[0.75,0.6]]]]){
+  control.value=value;await control.fire('input');
+  assert.equal(cancel.disabled,true,'empty Cancel must not remain active');
+  assert.equal(save.disabled,true);
+  const status=panel.children.find(el=>el.attributes.role==='status');
+  assert.match(status.textContent,/Geste modifié/);
+  const count=commands.length;
+  await cancel.fire('click');assert.equal(commands.length,count);
+  await calculate.fire('click');
+  assert.deepEqual(JSON.parse(commands.at(-1).fields.points),expected);
+  await after.fire('pointerdown',pointer(70));await after.fire('pointermove',pointer(120));
+  await after.fire('pointerup',pointer(170));
+ }
  radius.value='3';await radius.fire('input');
  await calculate.fire('click');await save.fire('click');
  assert.equal(writes,1);
