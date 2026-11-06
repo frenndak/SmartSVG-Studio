@@ -78,7 +78,7 @@ async function main() {
       page.on("pageerror", e=>errors.push(width+"x"+height+": "+String(e.message)));
       // Prevent outgoing requests; the standalone demo may only load its local assets.
       await page.route("**/*", route=>{
-        const url=new URL(route.request().url);
+        const url=new URL(route.request().url());
         return url.hostname==="127.0.0.1"
           ? route.continue() : route.abort("blockedbyclient");
       });
