@@ -1,5 +1,7 @@
 # SmartSVG V3.4 — reprise après stabilisation et premier lot exports
 
+**Photographie après #115, remplacée pour la reprise par [l'état d'intégration après #119](roadmap-v3.4/EXECUTION_ET_INTEGRATION_2026_11_06.md).** La prochaine action d'export décrite plus bas a été partiellement réalisée par [#117](https://github.com/frenndak/SmartSVG-Studio/pull/117) ; elle reste une preuve synthétique bornée. La priorité courante est le parcours natif import/création/réouverture, puis les raccordements, sans abandon des quatre contrats de sortie.
+
 6 novembre 2026, Europe/Paris. Registre opérationnel **non normatif** : ni nouvelle roadmap ni qualification globale. Référence code intégrée : `main@a34f2af1d65378c6f6f279ca53446833e7a2f74a`, arbre `31832ea6e68a07681a7a2c43eeb9d6b786d4cd99`, [PR #115](https://github.com/frenndak/SmartSVG-Studio/pull/115). Revalider `main`, les PR ouvertes et les checks avant une prochaine mutation. La V3.4 adoptée et les 141 exigences héritées restent inchangées.
 
 ## Reprise effective
@@ -31,7 +33,7 @@ Le nouveau test CPU traverse `artifact_qa.audit_project` sur de vrais fichiers P
 
 Le G0 post-fusion du code [42217338132](https://github.com/frenndak/SmartSVG-Studio/actions/runs/42217338132) est `completed/success` sur `a34f2af1d65378c6f6f279ca53446833e7a2f74a`. Revalider la révision et ses checks avant une intégration ultérieure.
 
-## Prochaine action de code
+## Action suivante identifiée après #115 — historique
 
 **Poursuivre B sur les exporteurs réellement utilisés, pas créer un nouvel exporteur pour un test.** Compléter la qualification de bout en bout qui relie un contour produit par l'exporteur historique au contrôle qualité, à ses dimensions en mm et à son empreinte, puis rapprocher les sorties couleur de `smartsvg_vector/layers_v2113.py` et le PNG de `smartsvg_cricut/direct_import_v218.py`. Réutiliser `tools/test_engine_cpu_smoke.py`, `artifact_qa.py`, le manifeste de livraison et les contrôles existants ; conserver les artefacts antérieurs lors d'un échec.
 

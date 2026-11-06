@@ -1,10 +1,29 @@
 # SmartSVG Studio — État réel et prochains développements
 
-**Point de reprise courant :** [reprise V3.4 — exports, après la PR #115](ROADMAP_RESUME_2026_11_06_EXPORTS.md). Ce registre distingue les changements intégrés et les essais encore absents. Le bilan détaillé ci-dessous conserve la **photographie historique des PR #85–94** ; ses compteurs et références ne décrivent pas le dernier `main`.
+**État courant vérifié : 6 novembre 2026, Europe/Paris**, code `main@467712be9421034c69fa2f2e6ace0b0bf153dd08`, après la [PR #119](https://github.com/frenndak/SmartSVG-Studio/pull/119). Roadmap active : **V3.4**, avec les 141 exigences héritées conservées. Point de reprise unique : [roadmap d'exécution et matrice des raccordements](roadmap-v3.4/EXECUTION_ET_INTEGRATION_2026_11_06.md).
+
+| Domaine | État courant |
+| --- | --- |
+| Logiciel autonome | Fenêtre Python/Tk sans ComfyUI obligatoire, Accueil/Projet/Fabrique/Apparence ; navigation et thèmes communs |
+| Projet natif | Lecture V1, diagnostic et aperçu source PNG ; **pas encore de création/sauvegarde/recovery exécutables dans le bureau** |
+| Fabrique native | Carte pliée et boîte ouverte : géométrie théorique mm, CUT/SCORE et brouillons en RAM ; pas d'export ni de persistance du gabarit |
+| Retouches et historique | Moteurs et raccords web historiques livrés ; **Atelier natif, calques/propriétés et commandes de sauvegarde restent à raccorder** |
+| Exports | #115 contrôle Basic Cut ; #117 producteur réel/QA/transfert/livraison sur fixtures 300/450 DPI ; qualification complète des quatre contrats et parcours d'export natif ouverts |
+| Catalogue et lots | Pagination API/web #114 ; bibliothèque bureau, recherche/variantes/CSV et qualification 12/24/50 encore à compléter |
+| Windows | #119 : suite de 610 tests, 48 skips ; test réel Tk PASS aux trois tailles 900×650, 1100×760, 1280×720. Installation, DPI élevé et accessibilité complète non qualifiés |
+| GPU / Design Space / Cricut | Aucune nouvelle preuve terrain de ces axes dans ce point ; tests CPU/UI distincts |
+
+**Prochaine action de code : importer un PNG → créer un projet avec le moteur existant → vérifier sa sauvegarde → le rouvrir dans le logiciel autonome.** Le port/session sera étendu aux commandes historiques avant de raccorder Atelier, sorties, bibliothèque et lots. Le packaging reste un chantier distinct ; aucune présence de modèle IA n'est requise pour le parcours manuel/CPU.
+
+**Preuves datées :** voir [le registre courant](roadmap-v3.4/EXECUTION_ET_INTEGRATION_2026_11_06.md#4-preuves-acquises-et-limites) pour les SHA et CI exacts. Les compteurs d'anciens commits ne s'additionnent pas et ne mesurent pas la complétion des tickets.
+
+## Archive du bilan des PR #85–94
+
+Le texte ci-dessous est une photographie conservée, avec ses compteurs, priorités et limites de l'époque. Il ne remplace pas le point de reprise courant ci-dessus.
 
 **État logiciel vérifié : 6 novembre 2026 (Europe/Paris)**, code `main@a6f335c7c72658c07acf365ce111cf7682befc47` après les PR #85–94. Document vivant **non normatif** ; la référence active est la [roadmap V3.4](roadmap-v3.4/README.md), adoptée par la [promotion contrôlée](ROADMAP_PROMOTION_v3_4.md), avec les **141 exigences V3.3 conservées**. Les anciens lots de conception restent des photographies datées.
 
-**Reprise immédiate :** consulter le [point de reprise G3.3e du 6 novembre](G3_3E_REPRISE_2026_11_06.md). La sauvegarde de gestes cumulés, Undo/Redo persistants, le trait continu temporaire borné et les aperçus agrandissables sont intégrés. Les coordonnées/clavier restent disponibles pour un point ; les calques/propriétés complets restent à réaliser. Les essais Windows/ComfyUI/Design Space/Cricut restent à exécuter séparément.
+**Reprise indiquée à cette date historique :** consulter le [point de reprise G3.3e du 6 novembre](G3_3E_REPRISE_2026_11_06.md). La sauvegarde de gestes cumulés, Undo/Redo persistants, le trait continu temporaire borné et les aperçus agrandissables sont intégrés. Les coordonnées/clavier restent disponibles pour un point ; les calques/propriétés complets restent à réaliser. Les essais Windows/ComfyUI/Design Space/Cricut restent à exécuter séparément.
 
 ## Synthèse à ne pas confondre
 

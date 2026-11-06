@@ -1,4 +1,8 @@
-# 23 — Traçabilité bidirectionnelle et backlog minimal V3.4 (DRAFT)
+# 23 — Traçabilité bidirectionnelle et backlog V3.4
+
+**Reprise courante — 6 novembre 2026 :** V3.4 active ; voir [l'état d'intégration et l'ordre actualisé](EXECUTION_ET_INTEGRATION_2026_11_06.md), après la PR #119. Les 141 lignes d'exigences et 140 lignes de tickets ci-dessous conservent leur rôle de traçabilité ; leurs mentions de preuves non exécutées décrivent la campagne de conception, pas une absence de tout code aujourd'hui. Aucun ticket entier n'est qualifié par cette mise à jour.
+
+### Photographie de conception conservée
 
 **Établi le 29 octobre 2026.** Document de **planification uniquement**, sans implémentation ni changement de périmètre. V3.3 reste **ACTIVE** ; PR #73 **DRAFT** ; issue #72. Base main relue : `fff374e5147689165839bd76e742713d714ff147` ; branche documentaire avant le lot : `099ec606ee4657ce63280e6b5bb3a131e1f89ee1`. Aucun rapprochement automatique avec main.
 
@@ -307,7 +311,10 @@ La première exigence de chaque ligne provient du rattachement métier explicite
 2. **Capacités 32/50 confondues.** `engine/smartsvg_cricut/direct_import_v218.py` définit `MAX_ITEMS=32`, et les snapshots V1 restent bornés. **Correction :** 50 *instances* sont orchestrées par lots et rapportées individuellement ; **ne pas** promettre 50 masques float32 dans un snapshot V1 ni une archive V1 invalide. Un export externe en lots ne valide pas une migration de projet.
 3. **Couverture V3.3 ≠ réécriture V3.4.** Les exigences de typographie/OCR et de dioramas (notamment S-021/036/037/044/047/064/066/092/099 et R33-028) n'ont pas de nouveau ticket V34 imposé. **Correction :** les conserver sous leurs propriétaires G6/G9, avec leurs propres recettes V3.3, sans les déclarer terminées par un test voisin du lot 22. Les benchmarks S-019/043/065 et scores S-101 restent également à mesurer spécifiquement.
 
-## 5. Backlog exécutable par vertical slices, sans nouveau ticket
+## 5. Backlog par vertical slices — conception du 29 octobre
+
+**Ordre d'exécution courant :** suivre les étapes de [la reprise du 6 novembre](EXECUTION_ET_INTEGRATION_2026_11_06.md#3-ordre-de-réalisation-pour-le-logiciel-autonome). Le tableau historique A–H conserve les domaines et dépendances ; ses mentions « continuer G3.3e-b2a » / « seulement en conception » ne décrivent plus à elles seules le code intégré. Le socle G/D est partiellement livré ; l'import/création/réouverture native est la prochaine tranche. Les priorités des tickets et la matrice bidirectionnelle restent inchangées.
+
 
 | Ordre pratique | Résultat vérifiable | Réemploi réel et tickets existants | Dépendances strictes | Parallèle / non bloquant |
 |---|---|---|---|---|
