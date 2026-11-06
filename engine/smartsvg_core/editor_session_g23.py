@@ -36,12 +36,19 @@ def _reject_constant(_):
 
 
 def _number(value,low,high):
-    return type(value) in (int,float) and math.isfinite(value) and low <= value <= high
+    # Bounds comparisons reject huge JSON integers before float conversion.
+    return type(value) in (int,float) and low <= value <= high and math.isfinite(value)
 
 
 def parse_editor_document(value, *, source_dimensions):
     """Validate the V21.6 JSON document without reinterpretation of brush ops."""
-    if type(value) is not str or len(value.encode('utf-8')) > MAX_BYTES:
+    if type(value) is not str or len(value) > MAX_BYTES:
+        raise EditorSessionError('INVALID_EDITOR_SIZE')
+    try:
+        encoded_size=len(value.encode('utf-8'))
+    except UnicodeEncodeError as exc:
+        raise EditorSessionError('INVALID_EDITOR_JSON') from exc
+    if encoded_size > MAX_BYTES:
         raise EditorSessionError('INVALID_EDITOR_SIZE')
     try:
         doc=json.loads(value,object_pairs_hook=_unique_pairs,parse_constant=_reject_constant)
