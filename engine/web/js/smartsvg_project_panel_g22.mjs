@@ -60,8 +60,17 @@ export function createProjectPanel(api, currentSettings, ownerId='default'){
   source.alt='Source conservée dans le projet, sans validation de découpe';
   const hint=el('p','Sauvegarde : sélectionner explicitement un PNG local. Ouvrir réaffiche sa source et ses notes, mais ne restaure pas encore les retouches ni le graphe ComfyUI.');
   hint.className='fine';
-  let loaded=null,pending=false;
+  let loaded=null,pending=false,listing=false;
   const actionButtons=[];
+  let syncCatalogControls=()=>{};
+  const syncActions=()=>{
+    const busy=pending||listing;
+    for(const button of actionButtons)button.disabled=busy;
+    saveNotes.disabled=busy||!loaded?.sha256;
+    restore.disabled=busy||!loaded?.recoverable;
+    resolvePending.disabled=busy||!loaded?.pending_resolution_available;
+    syncCatalogControls();
+  };
   const discard=()=>{
     loaded=null;
     saveNotes.disabled=true;restore.disabled=true;resolvePending.disabled=true;
@@ -71,18 +80,15 @@ export function createProjectPanel(api, currentSettings, ownerId='default'){
   const action=(text,handler)=>{
     const button=el('button',text);button.type='button';
     button.addEventListener('click',async()=>{
-      if(pending)return;
+      if(pending||listing)return;
       pending=true;
       root.setAttribute('aria-busy','true');
-      for(const b of actionButtons)b.disabled=true;
+      syncActions();
       try{await handler();}
       finally{
         pending=false;
         root.setAttribute('aria-busy','false');
-        for(const b of actionButtons)b.disabled=false;
-        saveNotes.disabled=!loaded?.sha256;
-        restore.disabled=!loaded?.recoverable;
-        resolvePending.disabled=!loaded?.pending_resolution_available;
+        syncActions();
       }
     });
     actions.appendChild(button);
@@ -216,7 +222,14 @@ export function createProjectPanel(api, currentSettings, ownerId='default'){
   const next=el('button','Page suivante');next.type='button';
   const navigation=el('div');navigation.className='toolbar';
   navigation.append(browse,previous,next);
-  let listing=false,currentPage=null;
+  let currentPage=null;
+  syncCatalogControls=()=>{
+    const busy=pending||listing;
+    browse.disabled=busy;
+    choices.disabled=busy||!currentPage?.projects.length;
+    previous.disabled=busy||!currentPage||currentPage.offset===0;
+    next.disabled=busy||!currentPage?.has_more;
+  };
   const clearChoices=()=>{
     choices.replaceChildren();
     const placeholder=el('option','Choisir puis cliquer sur Ouvrir et inspecter');
@@ -225,8 +238,8 @@ export function createProjectPanel(api, currentSettings, ownerId='default'){
   };
   clearChoices();
   const loadPage=async(offset)=>{
-    if(listing)return;
-    listing=true;currentPage=null;clearChoices();browse.disabled=true;
+    if(listing||pending)return;
+    listing=true;currentPage=null;clearChoices();syncActions();
     catalog.setAttribute('aria-busy','true');catalogStatus.textContent='Chargement des projets…';
     try{
       const body=await request('/projects?offset='+offset+'&limit='+pageSize);
@@ -244,8 +257,6 @@ export function createProjectPanel(api, currentSettings, ownerId='default'){
         const option=el('option',item.name);option.value=item.name;choices.appendChild(option);
       }
       currentPage={...page,projects:items};
-      choices.disabled=items.length===0;
-      previous.disabled=offset===0;next.disabled=!page.has_more;
       catalogStatus.textContent=page.total===0?'Aucun projet enregistré.':
         items.length?'Projets '+(offset+1)+' à '+(offset+items.length)+' sur '+page.total+'.':
         'Aucun projet sur cette page. Revenir à la page précédente ou actualiser la liste.';
@@ -253,7 +264,7 @@ export function createProjectPanel(api, currentSettings, ownerId='default'){
       clearChoices();
       catalogStatus.textContent='Impossible de charger les projets. Réessayer avec Parcourir les projets.';
     }finally{
-      listing=false;browse.disabled=false;catalog.setAttribute('aria-busy','false');
+      listing=false;syncActions();catalog.setAttribute('aria-busy','false');
     }
   };
   browse.addEventListener('click',()=>loadPage(0));
@@ -264,7 +275,7 @@ export function createProjectPanel(api, currentSettings, ownerId='default'){
     if(currentPage?.has_more)return loadPage(currentPage.next_offset);
   });
   choices.addEventListener('change',()=>{
-    if(!currentPage?.projects.some(item=>item.name===choices.value))return;
+    if(pending||listing||!currentPage?.projects.some(item=>item.name===choices.value))return;
     name.value=choices.value;discard();details.textContent='';
     show('Projet sélectionné. Cliquer sur Ouvrir et inspecter pour le vérifier.');
   });

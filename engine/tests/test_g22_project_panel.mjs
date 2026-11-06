@@ -28,6 +28,7 @@ function harness(){
       notes:'départ',stage:'source_imported_only'},
   };
   const calls=[];
+  let noteHandler=null;
   let listHandler=()=>makeResponse({ok:true,projects:[],pagination:{
     offset:0,limit:20,total:0,has_more:false,next_offset:null}});
   const api={
@@ -40,6 +41,7 @@ function harness(){
         return makeResponse({ok:true,result:{name:'snails',status:'created'}});
       }
       if(route.endsWith('/notes')){
+        if(noteHandler)return noteHandler();
         main={...main,sha256:'b'.repeat(64),document:{...main.document,notes:'nouveau'}};
         return makeResponse({ok:true,result:{status:'updated'}});
       }
@@ -72,7 +74,8 @@ function harness(){
   const status=els.find(x=>x.attrs.role==='status');
   return {root,buttons,name,file,notes,preview,status,calls,
     setMain:value=>{main=value},getMain:()=>main,
-    setList:handler=>{listHandler=handler}};
+    setList:handler=>{listHandler=handler},
+    setNotes:handler=>{noteHandler=handler}};
 }
 test('project names never permit traversal, separators, or reserved names',()=>{
   for(const name of ['../a','/etc/passwd','C:\\x','a.b','a/b','', 'école',
@@ -242,4 +245,33 @@ test('project catalog rejects invalid API names and never interprets them as HTM
   h.setList(()=>makeResponse(body));await c.browse.trigger('click');
   assert.equal(c.select.disabled,true);
   assert.equal(c.select.children.some(x=>x.value?.includes('<script>')),false);
+});
+
+test('catalog cannot change the selected project during a pending notes save',async()=>{
+  const h=harness(),c=catalog(h);
+  h.name.value='snails';await h.buttons[1].trigger('click');
+  h.setList(()=>page(0));await c.browse.trigger('click');
+  let release;
+  h.setNotes(()=>new Promise(resolve=>{release=resolve}));
+  const saving=h.buttons[2].trigger('click');
+  assert.equal(c.select.disabled,true);assert.equal(c.browse.disabled,true);
+  c.select.value='project001';await c.select.trigger('change');
+  await c.next.trigger('click');
+  assert.equal(h.name.value,'snails');
+  assert.equal(h.calls.some(call=>call.route.includes('offset=20')),false);
+  release(makeResponse({ok:true,result:{status:'updated'}}));await saving;
+  assert.equal(h.calls.at(-1).route,'/smartsvg/g22/project?name=snails');
+  assert.equal(c.select.disabled,false);
+});
+test('opening and saving remain blocked during a catalogue request',async()=>{
+  const h=harness(),c=catalog(h);
+  h.name.value='snails';await h.buttons[1].trigger('click');
+  let release;h.setList(()=>new Promise(resolve=>{release=resolve}));
+  const browsing=c.browse.trigger('click');
+  assert.equal(h.buttons[1].disabled,true);assert.equal(h.buttons[2].disabled,true);
+  const count=h.calls.length;
+  await h.buttons[1].trigger('click');await h.buttons[2].trigger('click');
+  assert.equal(h.calls.length,count);
+  release(page(0));await browsing;
+  assert.equal(h.buttons[1].disabled,false);assert.equal(h.buttons[2].disabled,false);
 });
