@@ -42,6 +42,41 @@ Les valeurs ci-dessous sont **des hypothèses de démarrage pour un spike Window
 
 **Composants à stabiliser une seule fois :** `AppShell`, `ProjectStatusBadge`, `ActionButton`, `ToolButton`, `SplitPanel`, `CanvasViewport`, `ObjectTree`, `PropertiesInspector`, `PreflightNotice`, `JobProgress`, `EmptyState`, `ErrorRecoveryCard`, `ConfirmDialog`, `HelpPopover`, `ToastLog` et `ExportHandoffCard`. Un composant doit posséder : états, libellés FR, focus clavier, rôle lecteur d'écran, apparence clair/sombre, taille min, et test associé. Aucun framework final choisi par cette annexe.
 
+### 3.1 Palette artisanale personnalisable — décision UX du 6 novembre 2026
+
+**Public :** artisans amateurs et confirmés, créateurs de stickers, papeterie et petits objets. L'utilisateur doit pouvoir personnaliser une interface agréable **sans intervenir sur le travail graphique** ; jamais une sélection de couleurs « imposées » aux motifs ou aux opérations de fabrication.
+
+**Réglage volontairement minimal** : `Apparence = Clair | Nuit douce | Automatique (Windows)` ; `Couleur d'accent = Sauge | Lavande | Lagune | Rose poudré | Pêche | Bleu brume` ; `Animations = Normales | Réduites`. Les six couleurs sont montrées en pastilles avec leur **nom lisible** et une indication claire de la sélection (contour + coche, pas couleur seule). Le changement doit être instantané, sans redémarrer, sans réseau, sans modèle IA. Choix par défaut proposé : **Sauge + mode Automatique (Windows)** avec repli Clair si l'information système est indisponible. Le mode nuit est un **sombre ardoise doux**, pas noir pur.
+
+| Accent convivial | Couleur de référence | Jeton symbolique |
+| --- | --- | --- |
+| **Sauge** (défaut) | `#82A994` | `sage` |
+| **Lavande** | `#A79BCB` | `lavender` |
+| **Lagune** | `#75B8B5` | `lagoon` |
+| **Rose poudré** | `#D59EAA` | `dusty_rose` |
+| **Pêche** | `#DEA982` | `peach` |
+| **Bleu brume** | `#90ACD0` | `mist_blue` |
+
+| Token sémantique | Mode Clair — proposition | Mode Nuit douce — proposition |
+| --- | --- | --- |
+| `surface.app` | `#F7F8F5` | `#202629` |
+| `surface.panel` | `#FFFFFF` | `#2B3337` |
+| `surface.raised` | `#EDF1EE` | `#354045` |
+| `text.primary` | `#26322E` | `#EBEFED` |
+| `text.secondary` | `#59645F` | `#B6C1BE` |
+
+**Règles de contraste et de séparation :**
+- Les couleurs d'accent sont de **douces teintes de référence**, jamais automatiquement utilisées comme couleur de texte sur fond blanc ou comme source d'information critique. Sur bouton à fond pastel, choisir un premier plan **foncé dont le contraste a été mesuré** ; pour une bordure ou un texte sur fond clair/sombre, utiliser la variante de token accessible calculée/testée pour ce fond. Vérifier texte normal ≥4,5:1, grandes icônes/contours d'actions ≥3:1 lorsque les critères WCAG transposables s'appliquent. Aucun « PASS AA » par intuition.
+- L'accent n'affecte que **l'habillage de l'application** (onglet actif, boutons, sélection, puces) ; `CUT/SCORE/DRAW/FOIL`, erreurs, avertissements et états de fabrication gardent des **tokens d'état indépendants**, texte et motifs. Les outils d'édition et la couleur du motif ne sont jamais recolorés par le thème.
+- La **zone de création** possède ses propres fonds réglables : blanc, damier de transparence ou gris neutre. Elle reste indépendante de `surface.app` et de la « nuit douce ». Ne jamais afficher une image exportée avec un fond sombre qui serait enregistré par accident.
+- Les préférences résident dans la **configuration locale utilisateur**, hors de toute archive `.smartsvg`, hors de l'historique Undo et hors des artefacts d'export. Pas de surveillance cloud ; si le fichier de préférences est absent/corrompu : repli propre aux valeurs par défaut sans affecter le document.
+- En mode `Automatique`, suivre le changement d'apparence Windows lorsque le runtime le permet ; sinon appliquer la valeur connue au lancement et le documenter. Le mode `Animations réduites` supprime les mouvements non essentiels indépendamment du thème.
+- La même sélection `theme + accent` est appliquée à Express, Atelier, Fabrique, Vectoriel, Bibliothèque et Expert via des **tokens communs**, jamais six implémentations de styles contradictoires.
+
+**Implémentation proportionnée :** commencer par un registre de tokens neutre vis-à-vis du framework retenu, puis un sélecteur local simple. Tkinter peut servir à vérifier la logique d'état mais ne définit **pas** le framework UI final. Éviter sélecteur de couleur libre, moteur de skins, compte utilisateur ou téléchargement de thèmes pour V3.4 : six accents suffisent. Un éventuel choix « personnalisé » sera réévalué sur retours d'usage, pas ajouté implicitement.
+
+**Recettes complémentaires aux critères existants UX-13 et UX-18 (sans nouveaux tickets) :** (a) 6 accents × 2 apparences donnent **12 combinaisons lisibles** avec focus et messages d'erreur distinguables ; (b) changement de thème/accent et réouverture laissent le SHA du projet strictement identique ; (c) basculer le thème pendant un aperçu ne touche ni ses pixels ni ses coordonnées ; (d) mode nuit + damier conserve le contraste de l'alpha réel ; (e) préférence locale corrompue n'empêche pas le démarrage ; (f) 200 % d'échelle, 1280×720, clavier et lecteur d'écran restent utilisables ; (g) mode automatique Windows et réduction d'animations testés sur Windows, jamais déclarés QUALIFIÉS depuis une CI Linux.
+
 ## 4. Gestes, micro-interactions et animations
 
 | Interaction | Comportement attendu | Fallback/accessibilité | Preuve |
