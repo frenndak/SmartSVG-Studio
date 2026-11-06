@@ -9,9 +9,7 @@ Tkinter, Qt and web shells may consume the same semantic tokens.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from hashlib import sha256
 import json
-import math
 import os
 from pathlib import Path
 import tempfile
