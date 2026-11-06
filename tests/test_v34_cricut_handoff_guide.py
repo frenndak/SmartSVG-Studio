@@ -241,7 +241,7 @@ class TestV34PhysicalWidthFailClosed(unittest.TestCase):
             raise AssertionError("Missing production physical-width helpers")
         class ImportAuditError(ValueError):
             pass
-        namespace = dict(math=math, Path=Path, ET=ET,
+        namespace = dict(math=math, os=os, Path=Path, ET=ET,
                          ImportAuditError=ImportAuditError)
         exec(compile(ast.Module(body=nodes, type_ignores=[]),
                      str(SOURCE), "exec"), namespace)
