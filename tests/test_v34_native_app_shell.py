@@ -93,13 +93,13 @@ class AppShellTests(unittest.TestCase):
 
 
 class DesktopShellIntegrationTests(unittest.TestCase):
-    def run_desktop(self, scenario, *, first_project=None, chosen=''):
+    def run_desktop(self, scenario, *, first_project=None, chosen='', source_choice='', output_choice=''):
         import standalone_desktop_v34 as desktop
         from native_app_shell_v34 import NativeAppShell
         from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
         from native_templates_tk_v34 import TemplatePreviewContent
         LayoutWidget.all_widgets = []
-        captured = SimpleNamespace(shell=None, jobs=None, template=None)
+        captured = SimpleNamespace(shell=None, jobs=None, template=None, creator=None)
         class Root(LayoutWidget):
             def __init__(self):
                 super().__init__()
@@ -127,13 +127,21 @@ class DesktopShellIntegrationTests(unittest.TestCase):
             def __init__(self, *args):
                 super().__init__(*args)
                 captured.template = self
+        class Popup(LayoutWidget):
+            def protocol(self, event, callback): self.events[event] = callback
+        class Creator(desktop.NativeCreateDialog):
+            def __init__(self, *args):
+                super().__init__(*args)
+                captured.creator = self
         class Photo:
             def __init__(self, **_kwargs): pass
             def subsample(self, _factor): return self
         root = Root()
-        tk = SimpleNamespace(Tk=lambda: root, Canvas=LayoutWidget,
+        tk = SimpleNamespace(Tk=lambda: root, Toplevel=Popup, Canvas=LayoutWidget,
             StringVar=Var, TclError=RuntimeError, PhotoImage=Photo,
-            filedialog=SimpleNamespace(askopenfilename=lambda **_kwargs: chosen),
+            filedialog=SimpleNamespace(askopenfilename=lambda **kwargs:
+                source_choice if kwargs.get('filetypes') == [('Image PNG', '*.png')] else chosen,
+                askdirectory=lambda **kwargs:output_choice),
             ttk=SimpleNamespace(Frame=LayoutWidget, Label=LayoutWidget,
                 Button=LayoutWidget, Entry=LayoutWidget, Combobox=LayoutWidget,
                 Separator=LayoutWidget))
@@ -141,7 +149,8 @@ class DesktopShellIntegrationTests(unittest.TestCase):
              patch.object(desktop, 'ArtisanThemePicker', return_value=object()) as theme, \
              patch.object(desktop, 'NativeAppShell', Shell), \
              patch.object(desktop, 'LatestOnlyJob', Jobs), \
-             patch.object(desktop, 'TemplatePreviewContent', Template):
+             patch.object(desktop, 'TemplatePreviewContent', Template), \
+             patch.object(desktop, 'NativeCreateDialog', Creator):
             self.assertEqual(desktop._start_gui(first_project), 0)
             self.assertEqual(theme.call_count, 1)
             self.assertIs(theme.call_args.kwargs['parent'], captured.shell.pages['appearance'])
@@ -221,6 +230,44 @@ class DesktopShellIntegrationTests(unittest.TestCase):
             self.assertEqual(len(state.jobs.futures), 1)
         self.run_desktop(scenario, chosen='/missing.smartsvg')
 
+    def test_home_creation_writes_verifies_and_opens_real_project(self):
+        from test_v34_native_preview_jobs import fixture_module
+        from smartsvg_core.project_archive import load_project
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'dessin.png'
+            source.write_bytes(fixture_module.png())
+            def scenario(root, state):
+                actions = [widget for widget in LayoutWidget.all_widgets
+                           if widget.options.get('text') == 'Créer depuis un PNG…']
+                self.assertEqual(len(actions), 2)
+                actions[-1].options['command']()
+                creator = state.creator
+                creator.choose_source(); creator.choose_output()
+                creator.start()
+                self.assertTrue(creator.busy)
+                # Closing/opening a different project cannot cancel the write
+                # or let its later result replace a newly selected session.
+                root.events['<Control-o>'](None)
+                root.protocols['WM_DELETE_WINDOW']()
+                self.assertTrue(root.exists)
+                self.assertEqual(state.jobs.futures, [])
+                creator.future.result(timeout=15)
+                while root.pending:
+                    root.pending.pop(0)()
+                    if state.jobs.futures: state.jobs.futures[-1].result(timeout=15)
+                self.assertFalse(creator.busy)
+                self.assertFalse(creator.window.winfo_exists())
+                self.assertEqual(state.shell.active_page, 'project')
+                self.assertEqual(len(state.jobs.futures), 1)
+                report, _ = state.jobs.futures[0].result(timeout=15)
+                self.assertTrue(report['ok'])
+                project = load_project(Path(directory) / 'SmartSVG_Managed_Projects/dessin.smartsvg')
+                self.assertEqual(project.resources['sources/source-original.png'], source.read_bytes())
+                notices = [widget.options['textvariable'].get() for widget in LayoutWidget.all_widgets
+                           if 'textvariable' in widget.options]
+                self.assertTrue(any(str(value).startswith('Projet créé, enregistré et relu') for value in notices))
+            self.run_desktop(scenario, source_choice=str(source), output_choice=directory)
+
     def test_reader_closed_even_if_event_loop_raises(self):
         def scenario(_root, _state):
             raise RuntimeError('event loop failed')
@@ -235,6 +282,78 @@ class DesktopShellIntegrationTests(unittest.TestCase):
 
 class ActualTkShellSmokeTests(unittest.TestCase):
     """Real widget layout smoke when a GUI exists, not full Windows qualification."""
+    def test_actual_desktop_png_creation_and_reopen(self):
+        try:
+            import tkinter as tk
+            from tkinter import filedialog, ttk
+        except ImportError as exc:
+            self.skipTest(f'Tkinter unavailable: {exc}')
+        try:
+            root = tk.Tk()
+        except tk.TclError:
+            self.skipTest('No graphical Tk session available')
+        self.addCleanup(root.destroy)
+        import time
+        import standalone_desktop_v34 as desktop
+        from native_theme_tk_v34 import ArtisanThemePicker
+        from test_v34_native_preview_jobs import fixture_module
+        from smartsvg_core.project_archive import load_project
+        captured = []
+        class Creator(desktop.NativeCreateDialog):
+            def __init__(self, *args):
+                super().__init__(*args)
+                captured.append(self)
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'image.png'
+            source.write_bytes(fixture_module.png())
+            def theme(**kwargs):
+                return ArtisanThemePicker(**kwargs, settings_path=Path(directory) / 'appearance.json')
+            def scenario():
+                root.update()
+                def widgets(parent):
+                    for child in parent.winfo_children():
+                        yield child
+                        yield from widgets(child)
+                action = next(widget for widget in widgets(root)
+                    if isinstance(widget, ttk.Button) and widget.cget('text') == 'Créer depuis un PNG…'
+                    and widget.winfo_viewable())
+                action.invoke()
+                dialog = captured[0]
+                dialog.choose_source(); dialog.choose_output()
+                root.update()
+                self.assertTrue(dialog.create_button.winfo_viewable())
+                self.assertLessEqual(dialog.create_button.winfo_rooty()+dialog.create_button.winfo_height(),
+                                     dialog.window.winfo_rooty()+dialog.window.winfo_height())
+                dialog.create_button.invoke()
+                deadline = time.monotonic()+15
+                while dialog.busy and time.monotonic()<deadline:
+                    root.update(); time.sleep(0.005)
+                self.assertFalse(dialog.busy, dialog.status.get())
+                self.assertFalse(dialog.window.winfo_exists(), dialog.status.get())
+                target = Path(directory) / 'SmartSVG_Managed_Projects/image.smartsvg'
+                project = load_project(target)
+                self.assertEqual(project.resources['sources/source-original.png'], source.read_bytes())
+                self.assertEqual(project.sources[0].provenance, 'manual_native_png_import')
+                def visible_values():
+                    return [str(root.getvar(widget.cget('textvariable'))) for widget in widgets(root)
+                            if isinstance(widget, ttk.Label) and widget.cget('textvariable')]
+                deadline = time.monotonic()+15
+                while time.monotonic()<deadline:
+                    root.update()
+                    values = visible_values()
+                    if any(value.startswith('Source source-original') for value in values): break
+                    time.sleep(0.005)
+                self.assertTrue(any(value.startswith('Projet créé, enregistré et relu') for value in values))
+                self.assertTrue(any(value.startswith('Projet : image') for value in values))
+                self.assertTrue(any(value.startswith('Source source-original') for value in values))
+            with patch.object(tk, 'Tk', return_value=root), \
+                 patch.object(root, 'mainloop', side_effect=scenario), \
+                 patch.object(filedialog, 'askopenfilename', return_value=str(source)), \
+                 patch.object(filedialog, 'askdirectory', return_value=directory), \
+                 patch.object(desktop, 'ArtisanThemePicker', side_effect=theme), \
+                 patch.object(desktop, 'NativeCreateDialog', Creator):
+                self.assertEqual(desktop._start_gui(None), 0)
+
     def test_actual_layout_navigation_and_template_canvas_at_supported_sizes(self):
         try:
             import tkinter as tk

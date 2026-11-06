@@ -1,5 +1,7 @@
 # SmartSVG V3.4 — état d'intégration et ordre de réalisation
 
+**Raccordement suivant livré :** [création PNG et première sauvegarde/réouverture V1](../NATIVE_PNG_CREATE_V34.md), via le writer existant, sans écrasement sous verrou. Les tableaux de base et preuves #119 ci-dessous restent une photographie datée ; cette mise à jour du parcours est étayée dans la PR de code correspondante. **Reprise courante : étape 2, session commune et commandes de sauvegarde/reprise.** Les projets existants restent en lecture seule au bureau.
+
 **Mise à jour autorisée le 6 novembre 2026, Europe/Paris.** Le propriétaire demande de raccorder la roadmap à l'état du code et donne priorité au logiciel autonome. Base vérifiée : [`main@467712be9421034c69fa2f2e6ace0b0bf153dd08`](https://github.com/frenndak/SmartSVG-Studio/commit/467712be9421034c69fa2f2e6ace0b0bf153dd08), après la [PR #119](https://github.com/frenndak/SmartSVG-Studio/pull/119), arbre `59c07d26ddf9124ed1792bb5f0a464c7d56f0278`. Aucune PR ouverte lors de la relecture.
 
 Ce document est le **point de reprise opérationnel** de la V3.4 adoptée ; il actualise l'ordonnancement et le suivi, sans remplacer ses 24 lots, ses 140 tickets ni les **141 exigences héritées**. Les priorités et critères des lots sources restent exigibles. Les numéros d'étapes ci-dessous découpent des tickets existants : aucun ticket supplémentaire, aucune nouvelle version de projet, aucun gate global ajouté. Après toute nouvelle fusion, relire le SHA et les preuves avant de reprendre.
@@ -70,7 +72,7 @@ Les **437 scénarios de conception** restent des recettes spécifiées ; les **6
 
 ## 5. Prochaine action et protocole de reprise
 
-**Prochaine micro-PR de code : étape 1, création depuis PNG et réouverture V1 dans le bureau.** Examiner d'abord le port local minimal et ses consommateurs ; réutiliser `ManagedWorkspace.create`, le validateur PNG, `save_with_recovery` et le lecteur natif. La file `LatestOnlyJob` sert à la **lecture** : ne pas y mettre une écriture remplaçable ou annulable comme un aperçu. Le port doit distinguer dossier explicite, nom, intention, largeur mm/DPI, résultat durable et erreur ; il n'ouvre aucun serveur ComfyUI/HTTP par défaut.
+**Étape 1 désormais raccordée :** voir [le lot de création PNG](../NATIVE_PNG_CREATE_V34.md). **Prochaine micro-PR de code : étape 2, session commune et premières commandes de sauvegarde/reprise.** Le détail ci-dessous conserve les critères de l’étape 1 pour sa non-régression. Examiner d'abord le port local minimal et ses consommateurs ; réutiliser `ManagedWorkspace.create`, le validateur PNG, `save_with_recovery` et le lecteur natif. La file `LatestOnlyJob` sert à la **lecture** : ne pas y mettre une écriture remplaçable ou annulable comme un aperçu. Le port doit distinguer dossier explicite, nom, intention, largeur mm/DPI, résultat durable et erreur ; il n'ouvre aucun serveur ComfyUI/HTTP par défaut.
 
 Découper en adaptateur local testé puis formulaire/action Tk si le lot serait trop large. Ne pas prendre la simple présence du port ou du formulaire pour une création raccordée : le scénario de bout en bout doit atteindre le fichier relu. Préserver les erreurs et originaux à chaque échec. Prévoir une preuve Windows du parcours effectivement ajouté, distincte du test de mise en page #119.
 

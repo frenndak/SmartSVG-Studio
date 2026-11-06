@@ -6,7 +6,7 @@
 
 **Lire d'abord la [roadmap d'exécution et matrice d'intégration actuelle](EXECUTION_ET_INTEGRATION_2026_11_06.md)**, établie après #119 (`main@467712be9421034c69fa2f2e6ace0b0bf153dd08`). Elle distingue moteur existant, interface ComfyUI, raccordement au logiciel autonome et preuve de qualification.
 
-Le socle autonome dispose d'Accueil/Projet/Fabrique/Apparence, de la lecture V1/aperçu PNG et des gabarits théoriques. Il ne crée, ne sauvegarde et n'exporte pas encore depuis le bureau. **Prochaine action : importer un PNG, créer un projet via le moteur existant et le rouvrir.** Viennent ensuite session/sauvegarde/recovery, Atelier raccordé et sorties distinctes ; les travaux indépendants B/C/E restent possibles sur fixtures. L'ordonnancement est actualisé, sans changement des 24 lots, 140 tickets ni critères hérités.
+Le socle autonome dispose d'Accueil/Projet/Fabrique/Apparence, de la lecture V1/aperçu PNG et des gabarits théoriques. **La création depuis PNG, sa première sauvegarde et sa relecture sont raccordées** : voir [le parcours natif](../NATIVE_PNG_CREATE_V34.md). Les projets existants restent en lecture seule ; pas de retouche, recovery ou export natif complet. **Prochaine action : étape 2, session commune et commandes de sauvegarde/reprise.** Les travaux indépendants B/C/E restent possibles sur fixtures. L'ordonnancement est actualisé, sans changement des 24 lots, 140 tickets ni critères hérités.
 
 La [preuve Windows de #119](https://github.com/frenndak/SmartSVG-Studio/actions/runs/42267831651) inclut un test réel des widgets Tk à trois tailles ; ni installateur, ni recette DPI/accessibilité complète, ni GPU/Design Space/coupe physique n'en découlent.
 

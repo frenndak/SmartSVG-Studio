@@ -241,7 +241,7 @@ def _atomic_copy(source: Path, destination: Path) -> None:
 
 
 def save_with_recovery(path, project: LoadedProject, *, expected_sha256=None,
-                       verify_saved_project=None) -> dict:
+                       verify_saved_project=None, require_absent=False) -> dict:
     """Commit the primary before rotating the previous backup.
 
     The old primary is first staged in a persistent, validated sidecar. If
@@ -252,10 +252,14 @@ def save_with_recovery(path, project: LoadedProject, *, expected_sha256=None,
     verify_saved_project is an optional fail-closed predicate executed on
     the reloaded primary while the same OS project lock is still held. It lets
     callers verify domain-specific persistence without an unlocked readback.
+    require_absent atomically refuses any primary/recovery sidecar for creation.
     """
     target = _location(path)
     pending_path = _pending(target)
     with _project_lock(target):
+        if require_absent and any(p.exists() or p.is_symlink()
+                                  for p in (target, _previous(target), pending_path)):
+            raise RecoveryError('PROJECT_ALREADY_EXISTS')
         if pending_path.exists() or pending_path.is_symlink():
             raise RecoveryError('PENDING_BACKUP_REVIEW_REQUIRED')
         primary, current = _diagnose(target)

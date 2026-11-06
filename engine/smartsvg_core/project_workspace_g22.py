@@ -198,19 +198,22 @@ class ManagedWorkspace:
             raise WorkspaceError('UNSAFE_PROJECT_PATH')
         return file
 
-    def create(self, name, source_png, *, profile, width_mm=40, dpi=300, notes=''):
+    def create(self, name, source_png, *, profile, width_mm=40, dpi=300, notes='',
+               source_provenance='manual_browser_png_import'):
         path = self._path(name)
         if path.exists() or path.with_name(name + '.previous.smartsvg').exists():
             raise WorkspaceError('PROJECT_ALREADY_EXISTS')
         if profile not in PROFILES:
             raise WorkspaceError('INVALID_PROFILE')
+        if source_provenance not in ('manual_browser_png_import', 'manual_native_png_import'):
+            raise WorkspaceError('INVALID_SOURCE_PROVENANCE')
         mm, ppi, note = _width(width_mm), _dpi(dpi), _notes(notes)
         w, h, mode = _verify_png(source_png)
         digest = _sha(source_png)
         project = LoadedProject(
             project_id=name, app_version='g2.2-preview',
             sources=(SourceAsset('source-original', digest, w, h, mode,
-                                 'manual_browser_png_import'),),
+                                 source_provenance),),
             masks=(), subjects=(), artifacts=(), qa_results=(),
             document={'profile':profile, 'width_mm':mm, 'dpi':ppi,
                       'notes':note, 'stage':'source_imported_only',
@@ -220,8 +223,10 @@ class ManagedWorkspace:
             mask_paths={},
         )
         try:
-            saved = save_with_recovery(path, project)
+            saved = save_with_recovery(path, project, require_absent=True)
         except (RecoveryError, ProjectArchiveError) as exc:
+            if isinstance(exc, RecoveryError) and exc.code == 'PROJECT_ALREADY_EXISTS':
+                raise WorkspaceError('PROJECT_ALREADY_EXISTS') from exc
             raise WorkspaceError('SAVE_FAILED') from exc
         return {'name':name, 'status':'created', 'sha256':saved['sha256'],
                 'source_dimensions_px':[w,h], 'certified':False}
