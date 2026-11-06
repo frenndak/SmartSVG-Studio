@@ -26,6 +26,7 @@ from smartsvg_core.project_archive import MAX_ARCHIVE_BYTES, ProjectArchiveError
 from smartsvg_core.project_recovery import RecoveryError, inspect_project
 from smartsvg_core.source_preview_v34 import select_source_png
 from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
+from native_theme_tk_v34 import ArtisanThemePicker
 
 
 def inspect_native_project(path: str | Path) -> dict:
@@ -169,15 +170,18 @@ def _start_gui(first_project: str | None) -> int:
         return 2
 
     root.title("SmartSVG Studio V3.4 — prototype autonome")
-    root.geometry("780x630")
-    root.minsize(610, 520)
+    root.geometry("920x710")
+    root.minsize(770, 600)
 
     frame = ttk.Frame(root, padding=22)
     frame.pack(fill="both", expand=True)
     ttk.Label(frame, text="SmartSVG Studio", font=("Segoe UI", 18, "bold")).pack(anchor="w")
     ttk.Label(frame,
               text="Prototype local indépendant de ComfyUI • lecture seule • sans IA",
-              wraplength=640).pack(anchor="w", pady=(4, 18))
+              wraplength=720).pack(anchor="w", pady=(4, 18))
+    # UI preferences never enter the .smartsvg archive or its undo history.
+    # Kept independent of the final choice of GUI framework.
+    theme_picker = ArtisanThemePicker(root=root, parent=frame, tk=tk, ttk=ttk)
 
     file_name = tk.StringVar(value="Aucun projet sélectionné")
     message = tk.StringVar(value="Ouvrez un fichier .smartsvg pour examiner son état.")
