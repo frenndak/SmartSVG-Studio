@@ -59,7 +59,7 @@ def _source(project, raw):
         raise ImportAuditError('PNG invalide, relatif ou lien symbolique')
     try:
         real=p.resolve(strict=True)
-        real.relative_to(project)
+        real.relative_to(Path(project).resolve(strict=True))
     except (OSError,ValueError):
         raise ImportAuditError('PNG hors du projet ou absent') from None
     if not real.is_file():raise ImportAuditError('PNG introuvable')
