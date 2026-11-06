@@ -561,7 +561,12 @@ function paintRealSubjects(){
       const invalidateGesture=()=>{
         if(saving||pending)return;
         cancelDrawing();
-        if(before.hidden&&after.hidden)return;
+        if(before.hidden&&after.hidden){
+          previewStatus.textContent=draftPoints
+            ?"Trait modifié : recalculer l’aperçu."
+            :"Geste modifié : calculer l’aperçu.";
+          ready();return;
+        }
         discardPreview();
         previewStatus.textContent="Geste modifié : recalculer l’aperçu.";
         ready();
