@@ -19,7 +19,6 @@ FIXTURE = ENGINE / "tests" / "test_project_recovery_g14.py"
 if str(ENGINE) not in sys.path:
     sys.path.insert(0, str(ENGINE))
 
-from smartsvg_core.project_archive import ProjectArchiveError
 from smartsvg_core.project_recovery import save_with_recovery
 from standalone_desktop_v34 import inspect_native_project
 
@@ -101,8 +100,8 @@ class NativeDesktopShellTests(unittest.TestCase):
     def test_changed_archive_between_inspections_fails_closed(self):
         save_with_recovery(self.path, synthetic_project())
         before = self.snapshot()
-        with patch("standalone_desktop_v34.load_project",
-                   side_effect=ProjectArchiveError("simulated change")):
+        with patch("standalone_desktop_v34._archive_sha256",
+                   side_effect=["before", "after"]):
             state = inspect_native_project(self.path)
         self.assertFalse(state["ok"])
         self.assertEqual(state["status"], "PROJECT_CHANGED_DURING_INSPECTION")

@@ -18,7 +18,7 @@ if str(ENGINE) not in sys.path:
 from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
 from smartsvg_core.project_archive import save_project
 from smartsvg_core.project_recovery import save_with_recovery
-from standalone_desktop_v34 import inspect_native_project, load_native_preview
+from standalone_desktop_v34 import _inspect_native_project_snapshot, load_native_preview
 
 FIXTURE = ENGINE / "tests" / "test_project_recovery_g14.py"
 spec = spec_from_file_location("v34_worker_fixture", FIXTURE)
@@ -45,6 +45,31 @@ class NativePreviewJobTests(unittest.TestCase):
         self.assertEqual(preview.source_id, "source-a")
         self.assertEqual({p.name: p.read_bytes() for p in self.path.parent.iterdir()},
                          before)
+
+    def test_preview_validates_each_archive_only_once_without_writes(self):
+        for has_backup in (False, True):
+            with self.subTest(has_backup=has_backup):
+                save_with_recovery(self.path, fixture_module.fixture())
+                if has_backup:
+                    save_with_recovery(self.path, fixture_module.fixture(9))
+                before = {p.name: p.read_bytes() for p in self.path.parent.iterdir()}
+                # Instrument the real parser, not just one import alias.
+                import standalone_desktop_v34 as desktop
+                from smartsvg_core import project_archive
+                calls = []
+                original = project_archive.load_project
+                def counted(path):
+                    calls.append(Path(path))
+                    return original(path)
+                with patch("smartsvg_core.project_recovery.load_project", side_effect=counted), \
+                     patch.object(desktop, "_archive_sha256", wraps=desktop._archive_sha256) as hashes:
+                    state, preview = load_native_preview(self.path)
+                self.assertTrue(state["ok"])
+                self.assertEqual(preview.status, "READY_PNG")
+                self.assertEqual(calls.count(self.path), 1)
+                self.assertEqual(hashes.call_count, 3)
+                self.assertEqual(len(calls), 2 if has_backup else 1)
+                self.assertEqual({p.name: p.read_bytes() for p in self.path.parent.iterdir()}, before)
 
     def test_new_selection_invalidates_older_generation(self):
         entered = Event()
@@ -280,14 +305,14 @@ class NativePreviewJobTests(unittest.TestCase):
         save_project(second_path, replace(original, app_version="v34-swapped"))
         replacement_bytes = second_path.read_bytes()
         self.assertNotEqual(self.path.read_bytes(), replacement_bytes)
-        first_inspect = inspect_native_project
+        first_inspect = _inspect_native_project_snapshot
 
         def swap_after_inspection(path):
             result = first_inspect(path)
             self.path.write_bytes(replacement_bytes)
             return result
 
-        with patch("standalone_desktop_v34.inspect_native_project",
+        with patch("standalone_desktop_v34._inspect_native_project_snapshot",
                    side_effect=swap_after_inspection):
             state, preview = load_native_preview(self.path)
         self.assertFalse(state["ok"])
@@ -295,25 +320,65 @@ class NativePreviewJobTests(unittest.TestCase):
         self.assertIsNone(preview)
         self.assertEqual(self.path.read_bytes(), replacement_bytes)
 
-    def test_same_id_swapped_after_second_read_is_rejected(self):
+    def test_same_id_swapped_after_archive_validation_is_rejected(self):
         original = fixture_module.fixture()
         save_project(self.path, original)
         second_path = self.path.parent / "replacement.smartsvg"
         save_project(second_path, replace(original, app_version="v34-swapped"))
         replacement_bytes = second_path.read_bytes()
-        from standalone_desktop_v34 import load_project as original_load
+        from smartsvg_core.project_recovery import load_project as original_load
 
-        def swap_after_second_load(path):
+        def swap_after_validation(path):
             result = original_load(path)
             self.path.write_bytes(replacement_bytes)
             return result
 
-        with patch("standalone_desktop_v34.load_project",
-                   side_effect=swap_after_second_load):
+        with patch("smartsvg_core.project_recovery.load_project",
+                   side_effect=swap_after_validation):
             state, preview = load_native_preview(self.path)
         self.assertFalse(state["ok"])
         self.assertEqual(state["status"], "PROJECT_CHANGED_DURING_INSPECTION")
         self.assertIsNone(preview)
+
+    def test_swap_with_same_metadata_during_preview_is_rejected(self):
+        original = fixture_module.fixture(3)
+        save_project(self.path, original)
+        other = self.path.parent / "replacement.smartsvg"
+        # Same ID, version and resource counts; only document contents differ.
+        save_project(other, fixture_module.fixture(12))
+        replacement = other.read_bytes()
+        import standalone_desktop_v34 as desktop
+        selector = desktop.select_source_png
+        def swap_during_selection(project):
+            result = selector(project)
+            self.path.write_bytes(replacement)
+            return result
+        with patch.object(desktop, "select_source_png", side_effect=swap_during_selection):
+            state, preview = load_native_preview(self.path)
+        self.assertFalse(state["ok"])
+        self.assertEqual(state["status"], "PROJECT_CHANGED_DURING_INSPECTION")
+        self.assertIsNone(preview)
+        self.assertEqual(self.path.read_bytes(), replacement)
+
+    def test_final_digest_failure_never_returns_an_image(self):
+        save_project(self.path, fixture_module.fixture())
+        import standalone_desktop_v34 as desktop
+        digest = desktop._archive_sha256(self.path)
+        with patch.object(desktop, "_archive_sha256", side_effect=[digest, digest, None]):
+            state, preview = load_native_preview(self.path)
+        self.assertFalse(state["ok"])
+        self.assertIsNone(preview)
+
+    def test_next_preview_revalidates_changed_project_instead_of_caching(self):
+        save_project(self.path, fixture_module.fixture())
+        first, _ = load_native_preview(self.path)
+        updated = replace(fixture_module.fixture(), app_version="v34-updated")
+        save_project(self.path, updated, overwrite=True)
+        second, preview = load_native_preview(self.path)
+        self.assertTrue(first["ok"] and second["ok"])
+        self.assertNotEqual(first["app_version"], second["app_version"])
+        self.assertEqual(second["app_version"], updated.app_version)
+        self.assertEqual(preview.status, "READY_PNG")
 
     def test_no_snapshot_on_non_project_extension(self):
         foreign = self.path.parent / "secret.txt"

@@ -116,6 +116,16 @@ def _diagnose(path: Path):
 
 def inspect_project(path) -> RecoveryReport:
     """Read-only inspection; does not remove locks or repair a file."""
+    return inspect_project_snapshot(path)[0]
+
+
+def inspect_project_snapshot(path) -> tuple[RecoveryReport, LoadedProject | None]:
+    """Inspect once and return the validated primary only when healthy.
+
+    The snapshot is local to this call, not a cache or a filesystem lock.
+    Callers showing its contents must detect concurrent file replacement.
+    Recovery and pending states never expose a project for normal preview.
+    """
     target = _location(path)
     primary, main = _diagnose(target)
     previous, recovered = _diagnose(_previous(target))
@@ -132,11 +142,13 @@ def inspect_project(path) -> RecoveryReport:
     else:
         status = 'PROJECT_UNRECOVERABLE'
     message, action = MESSAGES_FR[status]
-    return RecoveryReport(
+    report = RecoveryReport(
         status=status, primary=primary, previous=previous,
         message_fr=message, action_fr=action,
         project_id=(main or recovered).project_id if (main or recovered) else None,
     )
+
+    return report, main if status == 'PROJECT_HEALTHY' else None
 
 
 @contextmanager
