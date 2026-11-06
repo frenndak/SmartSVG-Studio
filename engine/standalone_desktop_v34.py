@@ -22,8 +22,8 @@ _ENGINE_DIR = str(Path(__file__).resolve().parent)
 if _ENGINE_DIR not in sys.path:
     sys.path.insert(0, _ENGINE_DIR)
 
-from smartsvg_core.project_archive import MAX_ARCHIVE_BYTES, ProjectArchiveError, load_project
-from smartsvg_core.project_recovery import RecoveryError, inspect_project
+from smartsvg_core.project_archive import MAX_ARCHIVE_BYTES, ProjectArchiveError
+from smartsvg_core.project_recovery import RecoveryError, inspect_project_snapshot
 from smartsvg_core.source_preview_v34 import select_source_png
 from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
 from native_theme_tk_v34 import ArtisanThemePicker
@@ -31,14 +31,31 @@ from native_theme_tk_v34 import ArtisanThemePicker
 
 def inspect_native_project(path: str | Path) -> dict:
     """Read an existing .smartsvg V1. Never restore, save, or expose its bytes."""
+    return _inspect_native_project_snapshot(path)[0]
+
+
+def _changed_project():
+    return {
+        "ok": False,
+        "status": "PROJECT_CHANGED_DURING_INSPECTION",
+        "message_fr": "Le projet a changé pendant son examen.",
+        "action_fr": "Réexaminer le fichier avant de continuer.",
+        "read_only": True,
+    }
+
+
+def _inspect_native_project_snapshot(path):
+    before = _archive_sha256(path)
     try:
-        report = inspect_project(path)
+        report, project = inspect_project_snapshot(path, expected_sha256=before)
+    except ProjectArchiveError:
+        return _changed_project(), None, None
     except (RecoveryError, OSError) as exc:
         return {
             "ok": False, "status": "PROJECT_INSPECTION_FAILED",
             "error_code": exc.code if isinstance(exc, RecoveryError) else "PROJECT_READ_FAILED",
             "read_only": True,
-        }
+        }, None, None
     details = {
         "ok": report.status == "PROJECT_HEALTHY",
         "status": report.status,
@@ -53,20 +70,9 @@ def inspect_native_project(path: str | Path) -> dict:
         "cricut_qualified": False,
     }
     if report.status != "PROJECT_HEALTHY":
-        return details
-    # Re-read the validated V1 using the existing untrusted-ZIP parser. A
-    # project that changes between these reads is not shown as healthy.
-    try:
-        project = load_project(path)
-    except (ProjectArchiveError, OSError):
-        details.update({
-            "ok": False,
-            "status": "PROJECT_CHANGED_DURING_INSPECTION",
-            "message_fr": "Le projet a changé pendant son examen.",
-            "action_fr": "Réexaminer le fichier avant toute modification.",
-        })
-        details.pop("project_id", None)
-        return details
+        return details, None, None
+    if project is None or before is None or _archive_sha256(path) != before:
+        return _changed_project(), None, None
     details.update({
         "project_id": project.project_id,
         "app_version": project.app_version,
@@ -75,9 +81,7 @@ def inspect_native_project(path: str | Path) -> dict:
         "subjects": len(project.subjects),
         "artifacts": len(project.artifacts),
     })
-    return details
-
-
+    return details, project, before
 
 
 def _archive_sha256(path: str | Path) -> str | None:
@@ -107,38 +111,21 @@ def _archive_sha256(path: str | Path) -> str | None:
 def load_native_preview(path: str | Path):
     """Inspect and preview one verified revision, or refuse if bytes changed.
 
-    The initial digest is acquired BEFORE the first inspection. A digest after
-    the second archive read must match; project_id by itself is insufficient.
-    Does not mutate the archive or open external network resources.
+    The initial digest precedes inspection. Summary and image share the same
+    validated in-memory project; digest checks reject changes during inspection
+    or preview selection. No cache is retained between calls.
     """
-    before = _archive_sha256(path)
-    state = inspect_native_project(path)
+    state, project, before = _inspect_native_project_snapshot(path)
     if not state.get("ok"):
         return state, None
     try:
-        project = load_project(path)
-        after = _archive_sha256(path)
-        if (before is None or after is None or before != after
-                or project.project_id != state["project_id"]
-                or project.app_version != state["app_version"]
-                or len(project.sources) != state["sources"]
-                or len(project.masks) != state["masks"]
-                or len(project.subjects) != state["subjects"]
-                or len(project.artifacts) != state["artifacts"]):
-            raise ProjectArchiveError("PROJECT_SNAPSHOT_CHANGED")
         preview = select_source_png(project)
         # One final boundary check before returning any image to the UI.
         if _archive_sha256(path) != before:
             raise ProjectArchiveError("PROJECT_SNAPSHOT_CHANGED")
         return state, preview
     except (ProjectArchiveError, OSError):
-        return {
-            "ok": False,
-            "status": "PROJECT_CHANGED_DURING_INSPECTION",
-            "message_fr": "Le projet a changé pendant son examen.",
-            "action_fr": "Réexaminer le fichier avant de continuer.",
-            "read_only": True,
-        }, None
+        return _changed_project(), None
 
 
 def _probe() -> int:

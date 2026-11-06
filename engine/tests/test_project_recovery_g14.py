@@ -12,7 +12,7 @@ import zlib
 from smartsvg_core.project_archive import LoadedProject, ProjectArchiveError, load_project
 from smartsvg_core.project_contracts import Mask, SourceAsset, Subject
 from smartsvg_core.project_recovery import (
-    RecoveryError, _project_lock, inspect_project, recover_previous,
+    RecoveryError, _project_lock, inspect_project, inspect_project_snapshot, recover_previous,
     recovery_message, save_with_recovery, resolve_pending_backup, _pending,
 )
 
@@ -60,6 +60,28 @@ class ProjectRecoveryTests(unittest.TestCase):
         report = inspect_project(self.path)
         self.assertEqual((report.status, report.primary, report.previous),
                          ('PROJECT_HEALTHY', 'valid', 'missing'))
+
+    def test_inspection_snapshot_preserves_report_and_returns_only_healthy_primary(self):
+        def check(expected, has_snapshot):
+            before = {p.name: p.read_bytes() for p in self.path.parent.iterdir()}
+            report, project = inspect_project_snapshot(self.path)
+            self.assertEqual(report, inspect_project(self.path))
+            self.assertEqual(report.status, expected)
+            self.assertEqual(project is not None, has_snapshot)
+            if has_snapshot:
+                self.assertEqual(project.document['objects'][0]['x'], 7)
+            self.assertEqual({p.name: p.read_bytes() for p in self.path.parent.iterdir()}, before)
+        check('PROJECT_MISSING', False)
+        self.path.write_bytes(b'broken')
+        check('PROJECT_UNRECOVERABLE', False)
+        self.path.unlink()
+        save_with_recovery(self.path, fixture(7))
+        check('PROJECT_HEALTHY', True)
+        save_with_recovery(self.path, fixture(7))
+        self.path.write_bytes(b'broken')
+        check('PROJECT_RECOVERABLE', False)
+        _pending(self.path).write_bytes(b'pending')
+        check('PENDING_BACKUP_REVIEW_REQUIRED', False)
 
     def test_overwrite_preserves_exact_last_snapshot(self):
         save_with_recovery(self.path, fixture(3))

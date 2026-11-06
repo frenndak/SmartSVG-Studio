@@ -102,22 +102,37 @@ def _lock_file(target: Path) -> Path:
     return target.with_name(target.name + '.lock')
 
 
-def _diagnose(path: Path):
+def _diagnose(path: Path, *, expected_sha256=None):
     if path.is_symlink():
         return 'invalid', None
     if not path.exists():
         return 'missing', None
     try:
-        data = load_project(path)
+        data = (load_project(path) if expected_sha256 is None else
+                load_project(path, expected_sha256=expected_sha256))
         return 'valid', data
-    except (ProjectArchiveError, OSError):
+    except ProjectArchiveError as exc:
+        if expected_sha256 is not None and str(exc) == 'PROJECT_SNAPSHOT_CHANGED':
+            raise
+        return 'invalid', None
+    except OSError:
         return 'invalid', None
 
 
 def inspect_project(path) -> RecoveryReport:
     """Read-only inspection; does not remove locks or repair a file."""
+    return inspect_project_snapshot(path)[0]
+
+
+def inspect_project_snapshot(path, *, expected_sha256=None) -> tuple[RecoveryReport, LoadedProject | None]:
+    """Inspect once and return the validated primary only when healthy.
+
+    The snapshot is local to this call, not a cache or a filesystem lock.
+    Callers showing its contents must detect concurrent file replacement.
+    Recovery and pending states never expose a project for normal preview.
+    """
     target = _location(path)
-    primary, main = _diagnose(target)
+    primary, main = _diagnose(target, expected_sha256=expected_sha256)
     previous, recovered = _diagnose(_previous(target))
     # Inspection stays read-only: never discard a crash-recovery snapshot here.
     pending_path = _pending(target)
@@ -132,11 +147,13 @@ def inspect_project(path) -> RecoveryReport:
     else:
         status = 'PROJECT_UNRECOVERABLE'
     message, action = MESSAGES_FR[status]
-    return RecoveryReport(
+    report = RecoveryReport(
         status=status, primary=primary, previous=previous,
         message_fr=message, action_fr=action,
         project_id=(main or recovered).project_id if (main or recovered) else None,
     )
+
+    return report, main if status == 'PROJECT_HEALTHY' else None
 
 
 @contextmanager
