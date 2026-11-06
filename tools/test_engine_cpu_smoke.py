@@ -157,6 +157,10 @@ class LiveProductionExportPipelineSmoke(unittest.TestCase):
         from smartsvg_cricut.delivery_v21122 import delivery_manifest
         from smartsvg_vector.layers_v2113 import vectorize_flat_art, save_svg
         production=self.production_module()
+        # Fixture acceptance values established independently of exporter output:
+        # 25 mm content, 1.2 mm halo and 4 safety pixels per edge. At 300 ppi:
+        # 295 content pixels + 2*(14+4) = 331; at 450: 443 + 2*(21+4) = 493.
+        expected_sizes={300:(331,28.0246666667),450:(493,27.8275555556)}
         for dpi in (300,450):
             with self.subTest(dpi=dpi),tempfile.TemporaryDirectory() as folder:
                 image,mask=self.artwork()
@@ -171,7 +175,11 @@ class LiveProductionExportPipelineSmoke(unittest.TestCase):
                 # These are actual files emitted by the historical producer.
                 png_bytes,contour_bytes=png.read_bytes(),contour.read_bytes()
                 geometry=inspect_svg(contour,profile='cut')
+                expected_pixels,expected_mm=expected_sizes[dpi]
+                self.assertAlmostEqual(geometry['width_mm'],expected_mm,delta=0.001)
+                self.assertAlmostEqual(geometry['height_mm'],expected_mm,delta=0.001)
                 with Image.open(png) as printed:
+                    self.assertEqual(printed.size,(expected_pixels,expected_pixels))
                     self.assertEqual(printed.mode,'RGBA')
                     self.assertAlmostEqual(printed.info['dpi'][0],dpi,delta=0.1)
                     self.assertAlmostEqual(printed.info['dpi'][1],dpi,delta=0.1)
