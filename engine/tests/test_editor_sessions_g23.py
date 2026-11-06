@@ -114,6 +114,31 @@ class G23EditorSessions(unittest.TestCase):
                 self.save(value=json.dumps(doc))
         self.assertEqual(self.path.read_bytes(),old)
 
+    def test_huge_integer_gestures_return_validation_errors_without_writes(self):
+        # These values are valid bounded JSON, but cannot convert to float.
+        for field in ('radius', 'x', 'y'):
+            for value in (10**1000, -(10**1000)):
+                with self.subTest(field=field, negative=value < 0):
+                    doc=json.loads(editor_document())
+                    stroke=doc['strokes'][0]
+                    if field=='radius':
+                        stroke['radius']=value
+                    else:
+                        stroke['points'][0][0 if field=='x' else 1]=value
+                    before={p.name:p.read_bytes() for p in self.workspace.root.iterdir()}
+                    code='INVALID_EDITOR_STROKE' if field=='radius' else 'INVALID_EDITOR_POINT'
+                    with self.assertRaisesRegex(WorkspaceError,code):
+                        self.save(value=json.dumps(doc))
+                    self.assertEqual({p.name:p.read_bytes() for p in self.workspace.root.iterdir()},before)
+
+    def test_unencodable_editor_text_returns_validation_error_without_writes(self):
+        for surrogate in ('\ud800', '\udfff'):
+            with self.subTest(surrogate=repr(surrogate)):
+                before={p.name:p.read_bytes() for p in self.workspace.root.iterdir()}
+                with self.assertRaisesRegex(WorkspaceError,'INVALID_EDITOR_JSON'):
+                    self.save(value=editor_document()+surrogate)
+                self.assertEqual({p.name:p.read_bytes() for p in self.workspace.root.iterdir()},before)
+
     def test_object_index_and_mode_restrictions(self):
         for change in ({'object':2},{'object':-1},{'mode':'exec'},
                        {'radius':0.3},{'radius':0}):
