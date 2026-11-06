@@ -87,6 +87,42 @@ class LiveSVGPublicationSmoke(unittest.TestCase):
         self.assertEqual((image.tobytes(), mask.tobytes()), before)
 
 
+class LiveBasicCutGrammarSmoke(unittest.TestCase):
+    def test_real_export_quality_gate_rejects_incomplete_curves_without_changes(self):
+        import json
+        from PIL import Image, ImageDraw
+        from smartsvg_governance.artifact_qa import audit_project
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            png=root/'sticker.png'
+            image=Image.new('RGBA',(120,120))
+            ImageDraw.Draw(image).ellipse((10,10,110,110),fill=(230,50,60,255))
+            image.save(png,dpi=(300,300))
+            svg=root/'cut.svg'
+            report=root/'report.json'
+            report.write_text(json.dumps({'objets':[{
+                'png':str(png),'svg_contour':str(svg),
+                'largeur_finale_avec_marge_mm':10.16,
+            }]}),encoding='utf-8')
+            cases=[('M0 0 C1 2 3 4 Z','BLOCKED'),
+                   ('M0 0 A2 2 0 2 0 10 10 Z','BLOCKED'),
+                   ('M1 1 L9 1 L9 9 Z','REVIEW_REQUIRED'),
+                   ('M1 1 C1 5 5 9 9 1 Z','REVIEW_REQUIRED')]
+            for path,status in cases:
+                with self.subTest(path=path):
+                    svg.write_text('<svg xmlns="http://www.w3.org/2000/svg" '
+                        'width="10.16mm" height="10.16mm" viewBox="0 0 10.16 10.16">'
+                        '<path d="'+path+'"/></svg>',encoding='utf-8')
+                    before={p.name:p.read_bytes() for p in root.iterdir()}
+                    decision=audit_project(report)
+                    self.assertEqual(decision['status'],status)
+                    if status=='BLOCKED':
+                        self.assertIn('FICHIER_NON_VERIFIABLE',decision['blocking_codes'])
+                    self.assertEqual(decision['external_validation']['physical_cut'],'NOT_TESTED')
+                    self.assertEqual(decision['external_validation']['design_space_import'],'NOT_TESTED')
+                    self.assertEqual({p.name:p.read_bytes() for p in root.iterdir()},before)
+
+
 class LivePNGDensitySmoke(unittest.TestCase):
     @staticmethod
     def sticker(folder, name, dpi):

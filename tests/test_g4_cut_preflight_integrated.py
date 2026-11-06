@@ -48,6 +48,64 @@ class CutPreflightIntegratedTests(unittest.TestCase):
         self.assertTrue(report["nonpolygonal_paths_require_visual_review"])
         self.assertNotIn("physical_cut_verified", report)
 
+    def test_malformed_curve_commands_never_pass_basic_cut_preflight(self):
+        invalid = [
+            'M0 0 C1 2 3 4 Z', 'M0 0 C1 2 3 4 5 Z',
+            'M0 0 Q1 2 3 Z', 'M0 0 S1 2 3 Z',
+            'M0 0 T1 Z', 'M0 0 H Z', 'M0 0 V Z',
+            'M0 0 A2 2 0 0 1 10 Z',
+            'M0 0 A2 2 0 2 0 10 10 Z',
+            'M0 0 A2 2 0 0 -1 10 10 Z',
+            'C1 2 3 4 5 6 M0 0 Z',
+            'M0 0 C1 2 3 4 5 6 7 Z',
+            'M0 0 L10 0 L10 10 Z 4 5',
+            'M0 0 C1 2 3 4 5 6 M0 0 Z Z',
+            'M0 0 C1 2 3 4 5 6 Z Z M0 0 Z',
+        ]
+        for data in invalid:
+            with self.subTest(data=data), self.assertRaises(CutPathError):
+                inspect_cut_paths(root('<path d="'+data+'"/>'))
+
+    def test_svg_numbers_and_separators_are_ascii_and_not_ambiguous_commas(self):
+        invalid = ['M٠ ٠ L١٠ ٠ L١٠ ١٠ Z',
+                   'M0 0\u00a0L10 0 L10 10 Z',
+                   ',M0 0 L10 0 L10 10 Z',
+                   'M0 0,,L10 0 L10 10 Z',
+                   'M0 0 L,10 0 L10 10 Z']
+        for data in invalid:
+            with self.subTest(data=data), self.assertRaises(CutPathError):
+                inspect_cut_paths(root('<path d="'+data+'"/>'))
+
+    def test_complete_curves_and_compact_arc_flags_remain_review_candidates(self):
+        valid = [
+            'M0 0 C0 10 10 10 10 0 Z',
+            'm0 0 c0 10 10 10 10 0 s10 -10 20 0 z',
+            'M0 0 Q5 10 10 0 T20 0 Z',
+            'M0 0 H10 V10 h-10 v-10 Z',
+            'M0 0 A5 5 0 0 1 10 10 Z',
+            'M0 0 A5 5 0 0110 10 Z',
+            'M0 0 A5 5 0 01.5.5 Z',
+            'M0 0 C0 10 10 10 10 0 10 -10 20 -10 20 0 Z',
+        ]
+        for data in valid:
+            with self.subTest(data=data):
+                svg=root('<path d="'+data+'"/>')
+                before=ET.tostring(svg)
+                report=inspect_cut_paths(svg)
+                self.assertTrue(report['closed_paths_checked'])
+                self.assertTrue(report['nonpolygonal_paths_require_visual_review'])
+                self.assertEqual(ET.tostring(svg),before)
+                self.assertNotIn('physical_cut_verified',report)
+
+    def test_many_compact_arc_groups_keep_the_source_unchanged(self):
+        data='M0 0 '+('A5 5 0 0110 10 '*4000)+'Z'
+        svg=root('<path d="'+data+'"/>')
+        before=ET.tostring(svg)
+        report=inspect_cut_paths(svg)
+        self.assertEqual(report['path_elements'],1)
+        self.assertTrue(report['nonpolygonal_paths_require_visual_review'])
+        self.assertEqual(ET.tostring(svg),before)
+
     def test_live_quality_gate_is_connected_to_this_preflight(self):
         artifact = (ENGINE / "smartsvg_governance/artifact_qa.py").read_text()
         gate = (ENGINE / "smartsvg_quality/release_gate_v21152.py").read_text()

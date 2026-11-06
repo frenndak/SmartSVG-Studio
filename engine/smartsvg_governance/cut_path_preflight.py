@@ -5,12 +5,15 @@ Only paths with a demonstrable closed, nonzero contour may pass the static gate.
 Non-polygonal paths remain subject to human inspection.
 """
 from __future__ import annotations
+from collections import deque
 import math
 import re
 from xml.etree.ElementTree import Element
 
-TOKEN = re.compile(r'[MmLlHhVvCcSsQqTtAaZz]|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?')
-SEPARATORS = re.compile(r'[\s,]*')
+TOKEN = re.compile(r'[MmLlHhVvCcSsQqTtAaZz]|[-+]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][-+]?[0-9]+)?')
+SEPARATORS = re.compile(r'[ \t\r\n\f,]*')
+COMMANDS = frozenset('MmLlHhVvCcSsQqTtAaZz')
+ARITY = {'M':2, 'L':2, 'H':1, 'V':1, 'C':6, 'S':4, 'Q':4, 'T':2, 'A':7}
 ALLOWED_TAGS = frozenset({'svg', 'g', 'path', 'title', 'desc'})
 MAX_PATH_ELEMENTS = 5000
 MAX_PATH_CHARS = 2_000_000
@@ -22,6 +25,8 @@ class CutPathError(ValueError):
 def _tokens(d: str) -> list[str]:
     if not isinstance(d, str) or not d.strip() or len(d) > MAX_PATH_CHARS:
         raise CutPathError('tracé SVG vide ou trop long')
+    if re.search(r'^[ \t\r\n\f]*,|,[ \t\r\n\f]*,|,[ \t\r\n\f]*$|,[ \t\r\n\f]*[A-Za-z]|[A-Za-z][ \t\r\n\f]*,', d):
+        raise CutPathError('séparateurs de tracé SVG invalides')
     out = []
     pos = 0
     while pos < len(d):
@@ -39,6 +44,63 @@ def _tokens(d: str) -> list[str]:
         out.append(value)
         pos = match.end()
     return out
+
+
+def _validate_commands(tokens: list[str]) -> None:
+    """Require complete command groups in every explicitly closed subpath.
+
+    Compact arc flags may touch each other and the endpoint; split those
+    single-character flags without reinterpreting other numeric tokens.
+    This is syntax validation, not curve topology or machine qualification.
+    """
+    # Consuming a deque keeps compact arc splitting linear: inserting flags
+    # into the middle of the entire token list would repeatedly shift its tail.
+    values=deque(tokens)
+    if not values or values[0] not in ('M','m'):
+        raise CutPathError('tracé SVG sans déplacement initial')
+    opened=False
+    drawing=False
+    while values:
+        command=values.popleft()
+        if command not in COMMANDS:
+            raise CutPathError('commande SVG manquante')
+        if command in 'Zz':
+            if not opened or not drawing:
+                raise CutPathError('fermeture de contour SVG invalide')
+            opened=False
+            continue
+        if command in 'Mm':
+            if opened:
+                raise CutPathError('nouvelle sous-forme sans fermeture')
+            opened=True
+            drawing=False
+        elif not opened:
+            raise CutPathError('commande hors contour SVG')
+        groups=0
+        while values and values[0] not in COMMANDS:
+            for position in range(ARITY[command.upper()]):
+                if not values or values[0] in COMMANDS:
+                    raise CutPathError('coordonnées de commande SVG incomplètes')
+                number=values.popleft()
+                if command.upper()=='A' and position in (3,4):
+                    if number[0] not in '01':
+                        raise CutPathError('indicateur d’arc SVG invalide')
+                    if len(number)>1:
+                        remainder=number[1:]
+                        try:
+                            value=float(remainder)
+                        except ValueError as exc:
+                            raise CutPathError('indicateur d’arc SVG invalide') from exc
+                        if not math.isfinite(value):
+                            raise CutPathError('coordonnée de contour invalide')
+                        values.appendleft(remainder)
+            if command.upper()!='M' or groups:
+                drawing=True
+            groups+=1
+        if not groups:
+            raise CutPathError('coordonnées de commande SVG absentes')
+    if opened:
+        raise CutPathError('sous-contour SVG ouvert')
 
 
 def _polygon_area(tokens: list[str]) -> float:
@@ -110,6 +172,7 @@ def inspect_cut_paths(root: Element) -> dict:
     has_curves = False
     for path in paths:
         tokens = _tokens(path.get('d', ''))
+        _validate_commands(tokens)
         commands = [t for t in tokens if len(t) == 1 and t in 'MmLlHhVvCcSsQqTtAaZz']
         if sum(t in 'Mm' for t in commands) != sum(t in 'Zz' for t in commands) or not commands or commands[-1] not in 'Zz':
             raise CutPathError('sous-contour SVG ouvert')
