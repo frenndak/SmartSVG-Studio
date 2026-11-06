@@ -59,17 +59,7 @@ def _source(project, raw):
         raise ImportAuditError('PNG invalide, relatif ou lien symbolique')
     try:
         real=p.resolve(strict=True)
-        # Windows may resolve an 8.3 alias (RUNNER~1) and a long directory
-        # spelling differently. Containment is determined by the identity
-        # of an ancestor directory rather than by string prefixes.
-        root_dir = Path(project).resolve(strict=True)
-        if os.name == 'nt':
-            if not root_dir.is_dir() or not any(
-                os.path.samefile(parent, root_dir) for parent in real.parents
-            ):
-                raise ImportAuditError('SVG hors dossier du projet')
-        else:
-            real.relative_to(root_dir)
+        real.relative_to(project)
     except (OSError,ValueError):
         raise ImportAuditError('PNG hors du projet ou absent') from None
     if not real.is_file():raise ImportAuditError('PNG introuvable')
@@ -161,7 +151,16 @@ def _svg_preflight(png:Path,svg_raw,project,expected_width_mm):
         if not svg.is_absolute() or svg.suffix.lower()!='.svg' or svg.is_symlink():
             raise ImportAuditError('SVG invalide')
         real=svg.resolve(strict=True)
-        real.relative_to(project)
+        # Resolve both paths; Windows may expose 8.3 and long names for
+        # the same directory, which cannot be compared safely as strings.
+        root_dir = Path(project).resolve(strict=True)
+        if os.name == 'nt':
+            if not root_dir.is_dir() or not any(
+                os.path.samefile(parent, root_dir) for parent in real.parents
+            ):
+                raise ImportAuditError('SVG hors dossier du projet')
+        else:
+            real.relative_to(root_dir)
         root=ET.parse(real).getroot()
         if root.tag.rsplit('}',1)[-1]!='svg':raise ImportAuditError('Racine SVG incorrecte')
         width=root.get('width','')
