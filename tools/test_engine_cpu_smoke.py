@@ -8,6 +8,7 @@ the frozen V21.15.2 ZIP. The historical archive is verified separately.
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -55,6 +56,35 @@ class LiveWhiteSheetSmoke(unittest.TestCase):
     def test_floating_point_input_is_rejected(self) -> None:
         with self.assertRaises(SheetUncertain):
             segment_white_grid(self.twelve_subjects().astype(np.float32), cols=4, rows=3)
+
+
+class LiveSVGPublicationSmoke(unittest.TestCase):
+    def test_real_editable_vector_export_keeps_source_and_complete_files(self):
+        from smartsvg_vector.layers_v2113 import vectorize_flat_art, save_svg
+        from smartsvg_vector.svg_publication import save_svg as publication
+        from inspect_svg_contracts import inspect_svg
+        self.assertIs(save_svg, publication, 'historical node import must use the secured writer')
+        image = np.full((80, 120, 3), 255, dtype=np.uint8)
+        mask = np.zeros((80, 120), dtype=np.float32)
+        image[10:70, 10:60] = (220, 40, 60)
+        image[10:70, 60:110] = (40, 80, 220)
+        mask[10:70, 10:110] = 1
+        before = (image.tobytes(), mask.tobytes())
+        payload, _, audit = vectorize_flat_art(image, mask, colors=2, width_mm=45)
+        self.assertEqual(audit['calques_couleur'], 2)
+        self.assertFalse(audit['svg_decoupe_cricut_certifie'])
+        with tempfile.TemporaryDirectory() as folder:
+            first = Path(save_svg(payload, folder))
+            second = Path(save_svg(payload, folder))
+            self.assertNotEqual(first, second)
+            self.assertEqual(first.read_bytes(), payload)
+            self.assertEqual(second.read_bytes(), payload)
+            contract = inspect_svg(first, profile='editable')
+            self.assertEqual(contract['width_mm'], 45)
+            self.assertGreaterEqual(contract['vector_elements'], 2)
+            self.assertFalse(contract['design_space_import_verified'])
+            self.assertEqual(list(Path(folder).glob('.smartsvg_svg_*')), [])
+        self.assertEqual((image.tobytes(), mask.tobytes()), before)
 
 
 if __name__ == "__main__":

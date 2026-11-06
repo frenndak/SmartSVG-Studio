@@ -6,14 +6,11 @@ It is not an image embedded in an SVG, nor semantic object reconstruction.
 """
 from __future__ import annotations
 import math
-from pathlib import Path
-import os
-import re
-import tempfile
 import xml.etree.ElementTree as ET
 import cv2
 import numpy as np
 from .palette_v21132 import local_kmeans_palette
+from .svg_publication import save_svg  # historical public import remains valid
 
 MAX_PIXELS = 5_000_000
 MAX_VECTOR_PIXELS = 600_000
@@ -148,28 +145,3 @@ def vectorize_flat_art(image, mask, *, colors=8, width_mm=40, max_side=900):
         'differents_blocs_couleur_echantillon':int(diversity),
         'verification_visuelle_requise':True}
     return payload,preview,audit
-
-
-def save_svg(svg, folder='', prefix='smartsvg_couleurs'):
-    if not isinstance(svg,bytes) or not svg.startswith(b'<?xml'):raise ValueError('SVG XML attendu')
-    if folder:
-        path=Path(folder).expanduser()
-        if not path.is_absolute():raise ValueError('Un dossier de sortie absolu est requis')
-        if path.exists() and (path.is_symlink() or not path.is_dir()):raise ValueError('Dossier non sûr')
-        path.mkdir(parents=True,exist_ok=True)
-    else:
-        try:
-            import folder_paths
-            path=Path(folder_paths.get_output_directory())/'SmartSVG_Studio'/'SVG_Multicouche'
-            path.mkdir(parents=True,exist_ok=True)
-        except ImportError:
-            path=Path(tempfile.mkdtemp(prefix='smartsvg_multicouche_'))
-    if not re.fullmatch(r'[a-zA-Z0-9_-]{1,64}',prefix):raise ValueError('Nom SVG non sûr')
-    for ix in range(1,1000):
-        dest=path/f'{prefix}_{ix:03d}.svg'
-        try: fd=os.open(dest,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
-        except FileExistsError:continue
-        with os.fdopen(fd,'wb') as output:
-            output.write(svg);output.flush();os.fsync(output.fileno())
-        return str(dest)
-    raise ValueError('Trop de versions dans le dossier de sortie')
