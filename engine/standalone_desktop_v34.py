@@ -1,6 +1,7 @@
 """V34-019 native desktop shell: inspect V1 projects without ComfyUI.
 
-This is a deliberately read-only, offline Tkinter prototype, NOT a packaged
+Existing projects remain read-only; explicit PNG creation uses the V1 writer.
+This is an offline Tkinter prototype, NOT a packaged
 Windows application or a validated rendering/editing environment. Tkinter is
 loaded only when an actual graphical session is requested.
 
@@ -29,6 +30,7 @@ from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
 from native_theme_tk_v34 import ArtisanThemePicker
 from native_templates_tk_v34 import TemplatePreviewContent
 from native_app_shell_v34 import NativeAppShell
+from native_create_tk_v34 import NativeCreateDialog
 
 
 def inspect_native_project(path: str | Path) -> dict:
@@ -136,7 +138,8 @@ def _probe() -> int:
                       any(module.startswith(name + ".") for module in sys.modules))
     result = {
         "ok": not imported, "phase": "V34-019_DESKTOP_SHELL",
-        "comfyui_required": False, "read_only": True,
+        "comfyui_required": False, "read_only": False,
+        "existing_projects_read_only": True, "project_creation_available": True,
         "tkinter_lazy": "tkinter" not in imported,
         "desktop_ui_tested": False, "windows_qualified": False,
         "template_previews_available": True,
@@ -179,6 +182,9 @@ def _start_gui(first_project: str | None) -> int:
     preview_info = tk.StringVar(value="Aucun aperçu chargé.")
     photo_holder: list[object | None] = [None]
     current: list[str | None] = [None]
+    creator = [None]
+    creation_info = tk.StringVar(value='')
+    ttk.Label(frame, textvariable=creation_info, wraplength=640).pack(anchor='w')
 
     ttk.Label(frame, textvariable=file_name, font=("Segoe UI", 11, "bold"),
               wraplength=640).pack(anchor="w", pady=(0, 12))
@@ -263,18 +269,40 @@ def _start_gui(first_project: str | None) -> int:
 
         root.after(50, receive)
 
+    def creation_busy():
+        return creator[0] is not None and creator[0].busy
+
+    def open_created(receipt):
+        current[0] = receipt.path
+        file_name.set(Path(receipt.path).name)
+        creation_info.set('Projet créé, enregistré et relu · SHA ' + receipt.sha256[:12])
+        shell.show('project', focus=True)
+        refresh()
+
+    def show_creator(*_unused):
+        if creator[0] is not None and creator[0].window.winfo_exists():
+            creator[0].window.lift()
+        else:
+            creator[0] = NativeCreateDialog(root, tk, ttk, filedialog, open_created)
+        return 'break'
+
     def select_project():
+        if creation_busy():
+            show_creator()
+            return
         chosen = filedialog.askopenfilename(
             parent=root, title="Ouvrir un projet SmartSVG",
             filetypes=[("Projets SmartSVG", "*.smartsvg")])
         if chosen:
+            creation_info.set('')
             shell.show('project', focus=True)
             current[0] = chosen
             file_name.set(Path(chosen).name)
             refresh()
 
     ttk.Button(buttons, text="Ouvrir un projet…", command=select_project).pack(side="left")
-    ttk.Button(buttons, text="Réexaminer (F5)", command=refresh).pack(side="left", padx=12)
+    ttk.Button(buttons, text="Créer depuis un PNG…", command=show_creator).pack(side="left", padx=12)
+    ttk.Button(buttons, text="Réexaminer (F5)", command=refresh).pack(side="left")
 
     ttk.Label(home, text='Que souhaitez-vous préparer ?',
               font=('Segoe UI', 18, 'bold')).pack(anchor='w', pady=(6, 16))
@@ -282,6 +310,9 @@ def _start_gui(first_project: str | None) -> int:
         'Retrouvez vos créations et explorez les gabarits dans une même fenêtre. '
         'Les espaces conservent leur état pendant la navigation.'),
         wraplength=620).pack(anchor='w', pady=(0, 22))
+    ttk.Button(home, text='Créer depuis un PNG…', command=show_creator).pack(anchor='w', pady=6)
+    ttk.Label(home, text='Choisir une image, enregistrer un nouveau projet et l’ouvrir après vérification.',
+              wraplength=620).pack(anchor='w', pady=(0, 16))
     ttk.Button(home, text='Ouvrir un projet…', command=select_project).pack(anchor='w', pady=6)
     ttk.Label(home, text='Examiner un fichier .smartsvg existant et son aperçu PNG, en lecture seule.',
               wraplength=620).pack(anchor='w', pady=(0, 16))
@@ -299,11 +330,14 @@ def _start_gui(first_project: str | None) -> int:
         return 'break'
 
     def refresh_shortcut(_event):
+        if creation_busy():
+            return show_creator()
         shell.show('project', focus=True)
         refresh()
         return 'break'
 
     root.bind('<Control-o>', open_shortcut)
+    root.bind('<Control-n>', show_creator)
     root.bind('<F5>', refresh_shortcut)
     shell.show('home')
 
@@ -314,6 +348,9 @@ def _start_gui(first_project: str | None) -> int:
         refresh()
     def close_window():
         # A pending or obsolete generation is never allowed to update Tk.
+        if creator[0] is not None and not creator[0].close():
+            creator[0].window.lift()
+            return
         jobs.close()
         root.destroy()
 
@@ -321,6 +358,8 @@ def _start_gui(first_project: str | None) -> int:
     try:
         root.mainloop()
     finally:
+        if creator[0] is not None:
+            creator[0].shutdown()
         jobs.close()
     return 0
 

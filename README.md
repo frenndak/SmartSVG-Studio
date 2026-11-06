@@ -2,7 +2,7 @@
 
 **Dépôt public de développement**, basé sur le moteur ComfyUI SmartSVG. Objectif : passer d'une image à une planche de sujets et à des fichiers de découpe / impression préparés pour être vérifiés dans Cricut Design Space.
 
-> **Statut au 6 novembre 2026 : prototype autonome Python/Tk raccordé après #119, pas de version Cricut certifiée.** Accueil, lecture de projets, Fabrique théorique et Apparence partagent une fenêtre. Création/sauvegarde, Atelier et exports natifs restent à raccorder aux moteurs existants. Le test graphique Windows automatisé est acquis sur trois tailles ; installation, DPI/accessibilité complets, GPU RTX 3070 et fabrication restent à qualifier.
+> **Statut au 6 novembre 2026 : prototype autonome Python/Tk raccordé après #119, pas de version Cricut certifiée.** Accueil, lecture de projets, Fabrique théorique et Apparence partagent une fenêtre. La création depuis PNG et sa première sauvegarde/relecture V1 sont raccordées. Atelier, mise à jour des projets et exports natifs restent à raccorder aux moteurs existants. Le test graphique Windows automatisé est acquis sur trois tailles ; installation, DPI/accessibilité complets, GPU RTX 3070 et fabrication restent à qualifier.
 
 📋 **[Voir l'état précis des fonctions et les prochaines étapes](docs/ETAT_ACTUEL_SMARTSVG.md)** · 🗺️ **[Roadmap V3.4 active](docs/roadmap-v3.4/README.md)** · **[Ordre de réalisation et raccordements](docs/roadmap-v3.4/EXECUTION_ET_INTEGRATION_2026_11_06.md)** · [Héritage V3.3](docs/ROADMAP_MASTER_v3_3.md) · 📦 [V3.2 historique](docs/ROADMAP_MASTER_v3_2.md) · 🧪 **[État du regroupement G1/G2 (archive historique du processus)](docs/INTEGRATION_CANDIDATE_2026_10_27.md)**
 
@@ -10,7 +10,7 @@
 
 | Domaine | Implémentation intégrée | Validation restant à faire |
 | --- | --- | --- |
-| Bureau autonome (#119) | Fenêtre commune, lecteur V1/aperçu PNG, gabarits théoriques CUT/SCORE et thèmes | Import/création/sauvegarde/Atelier/export natifs ; distribution Windows |
+| Bureau autonome | Fenêtre commune, création PNG et première sauvegarde/relecture V1, lecteur/aperçu PNG, gabarits théoriques et thèmes | Mise à jour/recovery, Atelier, exports natifs ; distribution Windows |
 | Projets `.smartsvg` (G1.3–G2.4) | Contrats, archives durcies, sauvegarde atomique avec secours, session d'édition et snapshots de masques float32 | E2E du panneau dans ComfyUI Windows, gros projets/photos |
 | Express guidé (G1.5–G2.5) | Choix du mode, panneaux de projets, état de traitement, garde-fous avant export | Vérifier le parcours complet pour novice |
 | Masques / retouches (G2.6–G2.8) | Inspecteur de fragments, focus dans l'éditeur, brouillons locaux récupérables | Ergonomie navigateur et inférence réelle |
@@ -29,7 +29,7 @@ python engine/standalone_desktop_v34.py
 python -I -S engine/standalone_desktop_v34.py --probe
 ```
 
-Le premier lance la fenêtre autonome locale, le second contrôle les imports sans ouvrir de fenêtre. Ce n'est pas encore un installateur ; la lecture projet et la Fabrique n'écrivent ni n'exportent. Voir [le parcours de réalisation prioritaire](docs/roadmap-v3.4/EXECUTION_ET_INTEGRATION_2026_11_06.md).
+Le premier lance la fenêtre autonome locale, le second contrôle les imports sans ouvrir de fenêtre. Ce n'est pas encore un installateur ; les projets existants restent en lecture seule et la Fabrique n'exporte pas. La création PNG est une action explicite : [parcours et limites](docs/NATIVE_PNG_CREATE_V34.md). Voir [le parcours de réalisation prioritaire](docs/roadmap-v3.4/EXECUTION_ET_INTEGRATION_2026_11_06.md).
 
 Dépendances et reproductibilité : [profil du socle natif](docs/NATIVE_RUNTIME_V34.md).
 

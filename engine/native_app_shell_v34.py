@@ -30,8 +30,8 @@ class NativeAppShell:
         footer.pack(side='bottom', fill='x', pady=(10, 0))
         ttk.Separator(footer).pack(fill='x', pady=(0, 6))
         ttk.Label(footer, text=(
-            'Projet en lecture seule · gabarits théoriques sans export · sans IA\n'
-            'Édition, sauvegarde et installation Windows : intégration à venir.'),
+            'Création PNG enregistrée · projets existants en lecture seule · gabarits sans export\n'
+            'Édition, exports et installation Windows : intégration à venir.'),
             wraplength=820).pack(anchor='w')
         body = ttk.Frame(frame)
         body.pack(fill='both', expand=True)
@@ -40,7 +40,7 @@ class NativeAppShell:
         ttk.Label(self.navigation, text='ESPACES', font=('Segoe UI', 10, 'bold')).pack(anchor='w', pady=(0, 10))
         self.content = ttk.Frame(body)
         self.content.pack(side='left', fill='both', expand=True)
-        ttk.Label(self.navigation, text='Ctrl+1 à Ctrl+4\npour naviguer\nCtrl+O : ouvrir\nF5 : réexaminer',
+        ttk.Label(self.navigation, text='Ctrl+1 à Ctrl+4\npour naviguer\nCtrl+O : ouvrir\nCtrl+N : créer\nF5 : réexaminer',
                   wraplength=140).pack(side='bottom', anchor='w', pady=12)
 
     def add_page(self, key, label):

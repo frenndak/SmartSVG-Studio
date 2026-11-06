@@ -1,11 +1,11 @@
 # SmartSVG Studio — État réel et prochains développements
 
-**État courant vérifié : 6 novembre 2026, Europe/Paris**, code `main@467712be9421034c69fa2f2e6ace0b0bf153dd08`, après la [PR #119](https://github.com/frenndak/SmartSVG-Studio/pull/119). Roadmap active : **V3.4**, avec les 141 exigences héritées conservées. Point de reprise unique : [roadmap d'exécution et matrice des raccordements](roadmap-v3.4/EXECUTION_ET_INTEGRATION_2026_11_06.md).
+**Base historique de la fenêtre : 6 novembre 2026, Europe/Paris**, code `main@467712be9421034c69fa2f2e6ace0b0bf153dd08`, après la [PR #119](https://github.com/frenndak/SmartSVG-Studio/pull/119). Roadmap active : **V3.4**, avec les 141 exigences héritées conservées. Point de reprise unique : [roadmap d'exécution et matrice des raccordements](roadmap-v3.4/EXECUTION_ET_INTEGRATION_2026_11_06.md).
 
 | Domaine | État courant |
 | --- | --- |
 | Logiciel autonome | Fenêtre Python/Tk sans ComfyUI obligatoire, Accueil/Projet/Fabrique/Apparence ; navigation et thèmes communs |
-| Projet natif | Lecture V1, diagnostic et aperçu source PNG ; **pas encore de création/sauvegarde/recovery exécutables dans le bureau** |
+| Projet natif | Création PNG, première sauvegarde et relecture V1 vérifiée ; lecture/diagnostic/aperçu. Les projets existants restent en lecture seule ; recovery et sauvegarde de retouches non raccordés |
 | Fabrique native | Carte pliée et boîte ouverte : géométrie théorique mm, CUT/SCORE et brouillons en RAM ; pas d'export ni de persistance du gabarit |
 | Retouches et historique | Moteurs et raccords web historiques livrés ; **Atelier natif, calques/propriétés et commandes de sauvegarde restent à raccorder** |
 | Exports | #115 contrôle Basic Cut ; #117 producteur réel/QA/transfert/livraison sur fixtures 300/450 DPI ; qualification complète des quatre contrats et parcours d'export natif ouverts |
@@ -13,7 +13,9 @@
 | Windows | #119 : suite de 610 tests, 48 skips ; test réel Tk PASS aux trois tailles 900×650, 1100×760, 1280×720. Installation, DPI élevé et accessibilité complète non qualifiés |
 | GPU / Design Space / Cricut | Aucune nouvelle preuve terrain de ces axes dans ce point ; tests CPU/UI distincts |
 
-**Prochaine action de code : importer un PNG → créer un projet avec le moteur existant → vérifier sa sauvegarde → le rouvrir dans le logiciel autonome.** Le port/session sera étendu aux commandes historiques avant de raccorder Atelier, sorties, bibliothèque et lots. Le packaging reste un chantier distinct ; aucune présence de modèle IA n'est requise pour le parcours manuel/CPU.
+**Dernier raccordement :** [création PNG et réouverture V1](NATIVE_PNG_CREATE_V34.md), réalisée via le writer existant et le contrôle de création sans écrasement sous verrou. Les preuves du candidat sont consignées dans sa PR ; les anciennes preuves #119 ci-dessous restent datées.
+
+**Prochaine action de code : étape 2, session commune et commandes de sauvegarde/reprise**, pour étendre le port natif aux opérations historiques avant Atelier et exports. Les tests automatiques utilisent des fixtures synthétiques ; aucun projet personnel n'est requis à ce stade.
 
 **Preuves datées :** voir [le registre courant](roadmap-v3.4/EXECUTION_ET_INTEGRATION_2026_11_06.md#4-preuves-acquises-et-limites) pour les SHA et CI exacts. Les compteurs d'anciens commits ne s'additionnent pas et ne mesurent pas la complétion des tickets.
 

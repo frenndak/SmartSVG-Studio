@@ -24,7 +24,11 @@ class Var:
     def set(self, value):
         self.value = value
         for callback in self.callbacks: callback('', '', '')
-    def trace_add(self, _mode, callback): self.callbacks.append(callback)
+    def trace_add(self, _mode, callback):
+        self.callbacks.append(callback)
+        return str(id(callback))
+    def trace_remove(self, _mode, handle):
+        self.callbacks = [callback for callback in self.callbacks if str(id(callback)) != handle]
 
 
 class Widget:
