@@ -285,9 +285,8 @@ class TestV34PhysicalWidthFailClosed(unittest.TestCase):
                 '<svg xmlns="http://www.w3.org/2000/svg" '
                 'width="25.4mm"><path d="M0 0 L1 1"/></svg>',
                 encoding="utf-8")
-            self.assertEqual(
-                inspect(project / "unused.png", str(svg),
-                        project, 25.4)["statut"], "OK_LOCAL")
+            result = inspect(project / "unused.png", str(svg), project, 25.4)
+            self.assertEqual(result["statut"], "OK_LOCAL", result)
 
     def test_png_handoff_validates_physical_width_before_copy(self):
         tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
