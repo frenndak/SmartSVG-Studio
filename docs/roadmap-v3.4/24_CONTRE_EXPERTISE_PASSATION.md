@@ -1,4 +1,10 @@
-# SmartSVG Studio V3.4 — Lot 24/24 : contre-expertise finale et passation (DRAFT)
+# SmartSVG Studio V3.4 — Lot 24/24 : contre-expertise et passation
+
+**Passation courante — 6 novembre 2026 :** V3.4 active après les promotions intégrées. Reprendre depuis [la roadmap d'exécution et l'état d'intégration](EXECUTION_ET_INTEGRATION_2026_11_06.md), base #119. Prochaine micro-PR : création depuis PNG et réouverture V1 dans le bureau, en réutilisant le writer existant. #117 a complété la preuve synthétique des producteurs ; #118/#119 ont intégré la Fabrique et la fenêtre commune. Cela ne clôt ni B, ni C, ni D, ni G entièrement.
+
+**Lecture du texte conservé ci-dessous :** photographie du 29 octobre, y compris les mentions « V3.3 active », « PR #73 DRAFT », « promotion future », « aucun test Windows » et l'ancienne prochaine action G3.3e. Ces mentions n'ont pas autorité sur l'état courant. Les tableaux de conception et les obligations restent conservés ; les preuves postérieures sont bornées dans la reprise actuelle.
+
+### Photographie de clôture de conception
 
 **Date : 29 octobre 2026. Statut : PROPOSITION DOCUMENTAIRE, non normative.** La roadmap **V3.3 demeure ACTIVE**. Issue de coordination [#72](https://github.com/frenndak/SmartSVG-Studio/issues/72), [PR #73](https://github.com/frenndak/SmartSVG-Studio/pull/73) à conserver **DRAFT**. Base `main` relue : `fff374e5147689165839bd76e742713d714ff147` ; branche avant la correction ciblée : `ea52c772170a9cd77be1367e79216985cb5b2dcf`. La branche était à **98 commits d'avance et 1 de retard** sur `main` avant ce lot. Le seul commit de `main` non intégré concerne `docs/ROADMAP_COVERAGE_v3_3.md` et le guide `docs/ROADMAP_EXECUTION_FASTPATH_v3_3.md` ; **aucun merge/rebase** n'a été réalisé.
 
@@ -36,7 +42,7 @@
 
 Ces chemins sont **existants et lus** sur `main` pour les modules de projet, identité, import Cricut et initialiseur. Les fichiers d'implémentation futurs, interfaces ou réorganisations **ne sont pas créés par cette roadmap** : les choisir au ticket à partir de l'inventaire courant, avec consommateur identifié, sans doublon de store/queue/export/undo.
 
-## 3. Ordre d'implémentation : huit vertical slices, dépendances minimales
+## 3. Ordre d'implémentation historique : huit vertical slices, dépendances minimales
 
 | Slice / priorité d'exécution | Résultat observable et tickets **déjà spécifiés** | Dépendance réellement obligatoire | Ce qui peut avancer en parallèle / ne bloque pas |
 | --- | --- | --- | --- |
@@ -49,7 +55,7 @@ Ces chemins sont **existants et lus** sur `main` pour les modules de projet, ide
 | **G — application Windows autonome** | Démarrage sans imports ComfyUI obligatoires, hors ligne, recovery et rollback ; V34-017/019/020/139/140 | Graphe d'imports, sécurité IPC/loopback, qualification Windows | **Ne bloque pas** A–F sur fixtures/composants |
 | **H — assistant et IA facultative** | Propositions sûres, consentement, fallback CPU/manuel ; V34-050..067/078..086 | Consommateur réel, licence/hash/consentement, CAS et budget mesuré | Aucun modèle imposé ; aucune dépendance pour A–G |
 
-**Priorité produit :** terminer les engagements V3.3 en cours (A), qualifier les contrats d'export sur fixtures (B) et la boîte (C), puis raccorder les interfaces (D), volumes (E), bibliothèque (F), packaging (G) et IA facultative (H) selon dépendances réellement observées. Cet ordre **n'abaisse ni ne reporte** les obligations V3.3 ; les pistes indépendantes sont parallélisables. Les P0/P1/P2 documentés dans les lots sources restent inchangés.
+**Priorité produit à la clôture du 29 octobre :** terminer les engagements V3.3 en cours (A), qualifier les contrats d'export sur fixtures (B) et la boîte (C), puis raccorder les interfaces (D), volumes (E), bibliothèque (F), packaging (G) et IA facultative (H) selon dépendances réellement observées. Cet ordre **n'abaisse ni ne reporte** les obligations V3.3 ; les pistes indépendantes sont parallélisables. Les P0/P1/P2 documentés dans les lots sources restent inchangés.
 
 ## 4. Deux parcours de référence complets, sans résultat fictif
 
@@ -91,10 +97,10 @@ Chaque preuve doit relier `requirement_id → ticket_id → test_id → code_sha
 | Modèles IA/licences/VRAM | Catalogue facultatif, vérification licence/version/hash et mesure seulement à l'installation consentie | Téléchargement implicite, modèle imposé, benchmark inventé |
 | Branche documentaire en retard de `main` | Relecture SHA et rapprochement séparément autorisé si nécessaire avant promotion | Merge/rebase/activation V3.4 automatique |
 
-## 7. Passation finale et clôture de campagne
+## 7. Passation historique et clôture de campagne du 29 octobre
 
 **Références de travail :** [index des 24 lots](README.md), [héritage des 141 exigences](HERITAGE_INDEX.md), [lot 23 corrigé : matrice 141↔140 et slices](23_TRACEABILITE_BACKLOG.md), [lot 22 : 14 recettes transversales](22_VALIDATION_CORPUS_PREUVES.md), [journal](PROGRESS.md), [issue #72](https://github.com/frenndak/SmartSVG-Studio/issues/72), [PR #73](https://github.com/frenndak/SmartSVG-Studio/pull/73).
 
-**Prochaine action d'ingénierie :** reprendre le vrai G3.3e-b2a (issue #71) et les tests de fichiers B/C sur fixtures, sans attendre promotion V3.4. Pour chaque PR future : relire `main`, réutiliser le code, sélectionner un ticket déjà spécifié, écrire assertions + lien exigence, exécuter les tests disponibles, préserver rollback et qualifier séparément les axes matériels affectés.
+**Prochaine action d'ingénierie indiquée au 29 octobre :** reprendre le vrai G3.3e-b2a (issue #71) et les tests de fichiers B/C sur fixtures, sans attendre promotion V3.4. Pour chaque PR future : relire `main`, réutiliser le code, sélectionner un ticket déjà spécifié, écrire assertions + lien exigence, exécuter les tests disponibles, préserver rollback et qualifier séparément les axes matériels affectés.
 
 **Ce qui est clos :** les **24 lots de conception** et la réconciliation des identifiants de traçabilité. **Ce qui reste ouvert :** preuve fine des 403 recettes, essais et licences matérielles/IA, arbitrages d'architecture et éventuelle promotion V3.4. La V3.4 n'est **ni implémentée, ni active, ni certifiée**. Aucune 25e tranche, aucune nouvelle tâche, aucune fusion et aucune modification de la roadmap V3.3.

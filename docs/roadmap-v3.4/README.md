@@ -1,6 +1,14 @@
 # SmartSVG V3.4 — Dossier de conception finalisé (24/24 cycles)
 
-**Autorité courante :** consulter `AGENTS.md` sur `main` et, après son adoption, `docs/ROADMAP_PROMOTION_v3_4.md` (une fois ce fichier intégré). La V3.4 a été élaborée en DRAFT le 29 octobre 2026 ; elle devient normative uniquement à l'intégration contrôlée du dossier #73 puis de la promotion #76. Tant que cette intégration n'est pas achevée, la [V3.3](../ROADMAP_MASTER_v3_3.md) reste la référence normative. Les archives et chemins protégés restent inchangés.
+**Autorité courante : V3.4 active**, conformément à [AGENTS.md](../../AGENTS.md) et à la [promotion contrôlée intégrée](../ROADMAP_PROMOTION_v3_4.md). Les 141 exigences V3.3 restent entièrement exigibles ; les archives V3.2/V3.3 sont conservées. Les lots du 29 octobre ci-dessous décrivent la conception et ses recettes, pas l'avancement actuel.
+
+## Reprise du développement — 6 novembre 2026
+
+**Lire d'abord la [roadmap d'exécution et matrice d'intégration actuelle](EXECUTION_ET_INTEGRATION_2026_11_06.md)**, établie après #119 (`main@467712be9421034c69fa2f2e6ace0b0bf153dd08`). Elle distingue moteur existant, interface ComfyUI, raccordement au logiciel autonome et preuve de qualification.
+
+Le socle autonome dispose d'Accueil/Projet/Fabrique/Apparence, de la lecture V1/aperçu PNG et des gabarits théoriques. Il ne crée, ne sauvegarde et n'exporte pas encore depuis le bureau. **Prochaine action : importer un PNG, créer un projet via le moteur existant et le rouvrir.** Viennent ensuite session/sauvegarde/recovery, Atelier raccordé et sorties distinctes ; les travaux indépendants B/C/E restent possibles sur fixtures. L'ordonnancement est actualisé, sans changement des 24 lots, 140 tickets ni critères hérités.
+
+La [preuve Windows de #119](https://github.com/frenndak/SmartSVG-Studio/actions/runs/42267831651) inclut un test réel des widgets Tk à trois tailles ; ni installateur, ni recette DPI/accessibilité complète, ni GPU/Design Space/coupe physique n'en découlent.
 
 ## Livrables
 - [Lot 01 : audit du référentiel et du code](01_BASELINE_AUDIT.md)
@@ -34,11 +42,11 @@
 - [Journal des cycles et reprises](PROGRESS.md)
 - [Issue de suivi #72](https://github.com/frenndak/SmartSVG-Studio/issues/72)
 
-## État de clôture
+## État de clôture de la conception — photographie du 29 octobre
 **À la clôture documentaire du 29 octobre 2026 : 24/24 lots documentés.** À cette date, la V3.4 était une **proposition non normative** et la V3.3 était ACTIVE. Le statut courant est déterminé par `AGENTS.md` de `main`, pas par cette photographie historique. La matrice du lot 23 a été corrigée pour réconcilier 97 renvois ; **141 exigences, 140 tickets et 0 arête unilatérale** après correction. Les **437 tests spécifiés** ne sont pas des tests exécutés ; les liens fins de 403 recettes locales aux tickets doivent être qualifiés lors des PR de code. Aucun test Windows, RTX, Design Space ou physique n'a été exécuté pendant la campagne. Aucun merge, promotion ni 25e lot.
 
 ## Discipline
 Chaque cycle doit relire le HEAD et le journal, produire un micro-lot vérifiable et documenter la prochaine étape. Aucun test logiciel, Windows, GPU, Design Space ou Cricut physique n'est présumé réussi. Les quatre sorties historiques restent distinctes : PNG Print Then Cut, SVG Basic Cut, SVG Cut multicouche, SVG d'édition. La sémantique des opérations de fabrication est une couche additionnelle, pas un remplacement silencieux. La migration hors ComfyUI est incrémentale et réversible. Aucune fusion ni promotion de gouvernance depuis une automatisation ; seule une session de mainteneur explicitement autorisée peut adopter la V3.4 après contrôle et respect des protections.
 
-## Objectif final
+## Objectif du dossier de conception
 Une spécification de développement par tranches verticales, avec contrats d'interface, parcours débutant/expert, schémas, pseudocode, risques, critères d'acceptation, tests, dépendances et traçabilité bidirectionnelle des 141 exigences héritées et des nouveaux tickets V34.

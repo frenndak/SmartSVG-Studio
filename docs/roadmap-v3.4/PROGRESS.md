@@ -333,3 +333,13 @@
 - **NON_EXECUTE :** Python/Node/CI produit, Windows, RTX 3070, Design Space, Cricut physique, test réel de migration V2, installation autonome et vérification terrain. Aucun `PASS` ou certificat inventé.
 - **Risques et arbitrages ouverts :** liens exacts des 403 recettes, preuves matérielles/IA et licences, imports natifs/packaging, tolérances machine, limites V1 et décision éventuelle V2, 1 commit main non intégré. **Ces points ne bloquent pas G3.3 ni les fixtures d'export.**
 - **Clôture :** **24/24 lots documentés**, sans extension de périmètre ni ticket nouveau. **Aucun lot 25**, aucune promotion V3.4, aucun merge/approval, aucune modification de `main`, `AGENTS.md`, V3.3, archives, `.github/`, `.automation/`, code moteur, médias privés ou tâches planifiées. **Suite :** session d'ingénierie/mainteneur, issue #71 et slices B/C sur fixtures, puis qualification des preuves par axe et décision humaine distincte pour une éventuelle promotion.
+
+## Mise à jour d'exécution — 6 novembre 2026, après #119
+
+- **Demande explicite du propriétaire :** améliorer/corriger/compléter la roadmap pour refléter le code courant ; priorité au socle logiciel autonome et au raccordement de l'existant.
+- **Base relue :** `main@467712be9421034c69fa2f2e6ace0b0bf153dd08`, arbre `59c07d26ddf9124ed1792bb5f0a464c7d56f0278`, aucune PR ouverte à la reprise ; G0 post-fusion `42268179925` PASS.
+- **Écarts corrigés :** V3.3 encore annoncée active dans le README ; ordre historique A/B présenté comme courant ; #117/#118/#119 absentes de la reprise après #115 ; code, UI web et raccordements natifs insuffisamment distingués.
+- **Livrable :** [état d'intégration et ordre actuel](EXECUTION_ET_INTEGRATION_2026_11_06.md), matrice des modules/consommateurs/manques, étapes bornées rattachées aux tickets existants, critères d'acceptation, preuves/limites et protocole de reprise. README, état courant et passations pointent vers ce registre.
+- **Preuve Windows relue :** job `128064276580`, 610 tests/48 skips ; smoke réel Tk PASS à 900×650/1100×760/1280×720. Cela ne qualifie ni installateur, ni 200 % DPI, ni lecteur d'écran, ni RTX/Design Space/coupe physique.
+- **Prochaine micro-PR de code :** création depuis PNG et réouverture V1 dans le bureau via moteur existant ; port local testé puis formulaire/action si découpage nécessaire. Pas d'écriture dans `LatestOnlyJob`, pas de second writer ni de migration implicite.
+- **Frontière :** mise à jour documentaire en session autorisée ; aucun code produit, aucune archive historique, aucun critère des 141 exigences/140 tickets, aucun workflow, marqueur d'autorisation ou planificateur modifié. Les 24 cycles de conception restent clos ; ce n'est pas un lot 25 ni une qualification automatique.
