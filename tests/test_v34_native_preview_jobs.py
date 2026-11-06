@@ -58,10 +58,11 @@ class NativePreviewJobTests(unittest.TestCase):
                 from smartsvg_core import project_archive
                 calls = []
                 original = project_archive.load_project
-                def counted(path):
+                def counted(path, **kwargs):
                     calls.append(Path(path))
-                    return original(path)
+                    return original(path, **kwargs)
                 with patch("smartsvg_core.project_recovery.load_project", side_effect=counted), \
+                     patch.object(desktop, "load_project", side_effect=counted, create=True), \
                      patch.object(desktop, "_archive_sha256", wraps=desktop._archive_sha256) as hashes:
                     state, preview = load_native_preview(self.path)
                 self.assertTrue(state["ok"])
@@ -328,8 +329,8 @@ class NativePreviewJobTests(unittest.TestCase):
         replacement_bytes = second_path.read_bytes()
         from smartsvg_core.project_recovery import load_project as original_load
 
-        def swap_after_validation(path):
-            result = original_load(path)
+        def swap_after_validation(path, **kwargs):
+            result = original_load(path, **kwargs)
             self.path.write_bytes(replacement_bytes)
             return result
 
@@ -339,6 +340,28 @@ class NativePreviewJobTests(unittest.TestCase):
         self.assertFalse(state["ok"])
         self.assertEqual(state["status"], "PROJECT_CHANGED_DURING_INSPECTION")
         self.assertIsNone(preview)
+
+    def test_transient_replacement_during_validation_never_exposes_other_revision(self):
+        from smartsvg_core import project_recovery
+        save_project(self.path, fixture_module.fixture(3))
+        original_bytes = self.path.read_bytes()
+        other = self.path.parent / "replacement.smartsvg"
+        save_project(other, fixture_module.fixture(12))
+        replacement = other.read_bytes()
+        original_load = project_recovery.load_project
+        def transient_read(path, **kwargs):
+            if Path(path) != self.path:
+                return original_load(path, **kwargs)
+            self.path.write_bytes(replacement)
+            try:
+                return original_load(path, **kwargs)
+            finally:
+                self.path.write_bytes(original_bytes)
+        with patch.object(project_recovery, "load_project", side_effect=transient_read):
+            state, preview = load_native_preview(self.path)
+        self.assertFalse(state["ok"])
+        self.assertIsNone(preview)
+        self.assertEqual(self.path.read_bytes(), original_bytes)
 
     def test_swap_with_same_metadata_during_preview_is_rejected(self):
         original = fixture_module.fixture(3)

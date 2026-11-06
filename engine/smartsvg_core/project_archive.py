@@ -766,13 +766,26 @@ def save_project(path, project: LoadedProject, *, overwrite: bool = False):
             'schema_version': SCHEMA_VERSION, 'cut_verified': False}
 
 
-def load_project(path) -> LoadedProject:
-    """Read untrusted project without extracting or executing any content."""
+def load_project(path, *, expected_sha256: str | None = None) -> LoadedProject:
+    """Read untrusted project without extracting or executing any content.
+
+    An optional expected digest binds validation to an immutable, bounded
+    in-memory copy of the actual archive bytes, not a separate pathname read.
+    Ordinary callers retain the existing streaming ZIP path.
+    """
     source_path = Path(path)
     if not source_path.is_file() or source_path.stat().st_size > MAX_ARCHIVE_BYTES:
         raise ProjectArchiveError('ARCHIVE_MISSING_OR_TOO_LARGE')
     try:
-        with zipfile.ZipFile(source_path, 'r') as src:
+        archive_source = source_path
+        if expected_sha256 is not None:
+            with source_path.open('rb') as stream:
+                raw = stream.read(MAX_ARCHIVE_BYTES + 1)
+            if len(raw) > MAX_ARCHIVE_BYTES or _digest(raw) != expected_sha256:
+                raise ProjectArchiveError('PROJECT_SNAPSHOT_CHANGED')
+            archive_source = BytesIO(raw)
+            del raw
+        with zipfile.ZipFile(archive_source, 'r') as src:
             infos = src.infolist()
             if not infos or len(infos) > MAX_ENTRIES:
                 raise ProjectArchiveError('INVALID_ENTRY_COUNT')

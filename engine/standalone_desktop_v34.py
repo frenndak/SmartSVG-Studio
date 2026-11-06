@@ -47,7 +47,9 @@ def _changed_project():
 def _inspect_native_project_snapshot(path):
     before = _archive_sha256(path)
     try:
-        report, project = inspect_project_snapshot(path)
+        report, project = inspect_project_snapshot(path, expected_sha256=before)
+    except ProjectArchiveError:
+        return _changed_project(), None, None
     except (RecoveryError, OSError) as exc:
         return {
             "ok": False, "status": "PROJECT_INSPECTION_FAILED",
