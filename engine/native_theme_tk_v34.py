@@ -180,9 +180,13 @@ class ArtisanThemePicker:
         self.style.configure("TCombobox", background=colors["surface.raised"],
                              fieldbackground=colors["surface.raised"],
                              foreground=colors["text.primary"])
-        self.style.map("TButton", background=[
-            ("active", colors["action.accent"])
-        ])
+        self.style.map(
+            "TButton",
+            background=[("active", colors["action.accent"])],
+            # Soft pastels need a measured dark foreground, especially in
+            # night mode. Keeping text.primary here produced poor contrast.
+            foreground=[("active", colors["action.accent_text"])],
+        )
         for key, button in self._swatches.items():
             selected = key == self.prefs.accent
             label = ACCENTS[key][0]
