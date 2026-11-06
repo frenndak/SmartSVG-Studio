@@ -1,6 +1,6 @@
 # SmartSVG V3.4 — Cycle 01 : audit du référentiel, du code et des lacunes
 
-> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
+> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. La datation ne retire aucune exigence ni critère d’acceptation. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
 
 **DRAFT non normatif.** Audit du main fdbda304beb77d97340a8be4dd5c5e9cefde15f4, 28 octobre 2026. Aucun code moteur, aucune archive et aucun fichier de gouvernance modifiés.
 

@@ -1,6 +1,6 @@
 # SmartSVG Studio V3.4 — Lot 05 : projet .smartsvg, identités, ressources, révisions et migrations
 
-> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
+> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. La datation ne retire aucune exigence ni critère d’acceptation. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
 
 **DRAFT de conception — 29 octobre 2026.** Statut : `SPECIFIE`, aucune modification du moteur. Base du code lue : `main@fdbda304beb77d97340a8be4dd5c5e9cefde15f4` ; branche de préparation `codex/docs-roadmap-v3-4-campaign`, PR #73, issue #72. **V3.3 reste la seule roadmap active.** Les JSON ci-dessous sont des **contrats proposés**, pas des archives déjà produites ou testées. Aucun essai Windows, GPU, Design Space ou Cricut n'est revendiqué.
 

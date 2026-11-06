@@ -1,6 +1,6 @@
 # SmartSVG Studio V3.4 — Lot 12 : pipeline raster, alpha, anti-halo, HD conditionnelle et Print Then Cut
 
-> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
+> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. La datation ne retire aucune exigence ni critère d’acceptation. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
 
 **DRAFT de conception — 29 octobre 2026.** V3.3 demeure ACTIVE. Issue #72, PR draft #73 ; base `main@fdbda304beb77d97340a8be4dd5c5e9cefde15f4` ; branche documentaire observée avant ce lot `1e23a310df134c5939f3e8df107f57e6e4334c06`. Tous les chemins `engine/smartsvg_app/...` et `tests/raster/...` sont des **livrables FUTURS**, non des fichiers existants. Aucun test du produit, Windows, GPU, Design Space ni découpe physique exécuté ici.
 

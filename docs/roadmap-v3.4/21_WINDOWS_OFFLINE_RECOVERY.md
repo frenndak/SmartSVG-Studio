@@ -1,6 +1,6 @@
 # SmartSVG Studio V3.4 — Lot 21/24 : installation Windows, hors ligne, mises à jour et récupération
 
-> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
+> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. La datation ne retire aucune exigence ni critère d’acceptation. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
 
 **DRAFT documentaire — 29 octobre 2026.** Roadmap active **V3.3** ; fonctions déjà approuvées **F10/F14/F15, P10, G8** et exigences **S-022, S-042, S-046, S-053, S-061, S-063, S-084, S-094, S-095 ; R33-009/013/015/016/021/025/030/033/034/038/040**. Aucun nouvel objectif fonctionnel, aucune implémentation, aucun installateur produit. Base réellement relue : `main@fff374e5147689165839bd76e742713d714ff147` ; branche avant lot `7f4a219ffb293774eca699dae689312b478c5e70` ; ancêtre commun `fdbda304beb77d97340a8be4dd5c5e9cefde15f4`. Tous les tests ci-dessous sont **SPÉCIFIÉS / NON_EXECUTE**.
 
