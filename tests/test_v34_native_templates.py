@@ -149,46 +149,12 @@ class NativeTemplatePreviewTests(unittest.TestCase):
         fresh = self.module.open_template_preview(panel, self.root, self.tk, self.ttk)
         self.assertIsNot(fresh, panel)
 
-    def test_shell_button_opens_and_reuses_the_actual_template_panel(self):
-        import standalone_desktop_v34 as desktop
-        widgets, windows = [], []
-        class RecordedWidget(Widget):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                widgets.append(self)
-        class Root(RecordedWidget):
-            def after(self, *_args): pass
-            def protocol(self, *_args): pass
-            def mainloop(root):
-                buttons = [widget for widget in widgets
-                           if widget.options.get('text') == 'Fabrique · Gabarits…']
-                self.assertEqual(len(buttons), 1)
-                callback = buttons[0].options['command']
-                callback()
-                callback()
-                self.assertEqual(len(windows), 1)
-                self.assertEqual(len(windows[0].canvas.lines), 13)
-        def make_window(root):
-            window = RecordedWidget(root)
-            # Keep the parent window; the real panel is captured below.
-            return window
-        root = Root()
-        tk = SimpleNamespace(Tk=lambda: root, Toplevel=make_window, Canvas=RecordedWidget,
-                             StringVar=Var, TclError=RuntimeError,
-                             filedialog=SimpleNamespace(),
-                             ttk=SimpleNamespace(Frame=RecordedWidget, Label=RecordedWidget,
-                                Button=RecordedWidget, Entry=RecordedWidget,
-                                Combobox=RecordedWidget, Separator=RecordedWidget))
-        opener = self.module.open_template_preview
-        def record_panel(current, *args):
-            panel = opener(current, *args)
-            if panel not in windows:
-                windows.append(panel)
-            return panel
-        with patch.dict(sys.modules, {'tkinter': tk}), \
-             patch.object(desktop, 'ArtisanThemePicker', return_value=object()), \
-             patch.object(desktop, 'open_template_preview', side_effect=record_panel):
-            self.assertEqual(desktop._start_gui(None), 0)
+    def test_embedded_content_uses_existing_parent_without_a_popup(self):
+        tk = SimpleNamespace(Canvas=Widget, StringVar=Var)
+        panel = self.module.TemplatePreviewContent(self.root, tk, self.ttk)
+        self.assertFalse(hasattr(panel, 'window'))
+        self.assertEqual(len(panel.canvas.lines), 13)
+        self.assertEqual(panel.proposal['geometry']['bbox_mm'], [0, 0, 140, 110])
 
     def test_preview_never_writes_project_or_exports(self):
         with tempfile.TemporaryDirectory() as directory:

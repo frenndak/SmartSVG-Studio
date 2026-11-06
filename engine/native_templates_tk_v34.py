@@ -8,15 +8,10 @@ from __future__ import annotations
 from smartsvg_core.template_geometry_v34 import folded_card, open_tray
 
 
-class NativeTemplatePreview:
+class TemplatePreviewContent:
     """Read-only parameter form and nominal CUT/SCORE canvas."""
 
-    def __init__(self, root, tk, ttk):
-        self.window = tk.Toplevel(root)
-        self.window.title('Fabrique · gabarits carte et boîte (brouillon)')
-        self.window.geometry('800x680')
-        self.window.minsize(660, 580)
-        self.window.transient(root)
+    def __init__(self, parent, tk, ttk):
         self.proposal = None
         self.kind = tk.StringVar(value='Boîte ouverte')
         self.width = tk.StringVar(value='80')
@@ -24,7 +19,7 @@ class NativeTemplatePreview:
         self.wall = tk.StringVar(value='30')
         self.tab = tk.StringVar(value='10')
         self.status = tk.StringVar(value='')
-        frame = ttk.Frame(self.window, padding=16)
+        frame = ttk.Frame(parent, padding=16)
         frame.pack(fill='both', expand=True)
         ttk.Label(frame, text='Fabrique · aperçu de gabarit',
                   font=('Segoe UI', 15, 'bold')).pack(anchor='w')
@@ -131,6 +126,18 @@ class NativeTemplatePreview:
             if path['operation'] == 'SCORE':
                 style.update(fill='#1D5DA8', dash=(6, 4))
             self.canvas.create_line(*points, **style)
+
+
+class NativeTemplatePreview(TemplatePreviewContent):
+    """Compatible popup adapter for callers outside the shared application."""
+
+    def __init__(self, root, tk, ttk):
+        self.window = tk.Toplevel(root)
+        self.window.title('Fabrique · gabarits carte et boîte (brouillon)')
+        self.window.geometry('800x680')
+        self.window.minsize(660, 580)
+        self.window.transient(root)
+        super().__init__(self.window, tk, ttk)
 
 
 def open_template_preview(current, root, tk, ttk):
