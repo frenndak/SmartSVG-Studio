@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+from hashlib import sha256
 import json
 from pathlib import Path
 import sys
@@ -21,9 +22,10 @@ _ENGINE_DIR = str(Path(__file__).resolve().parent)
 if _ENGINE_DIR not in sys.path:
     sys.path.insert(0, _ENGINE_DIR)
 
-from smartsvg_core.project_archive import ProjectArchiveError, load_project
+from smartsvg_core.project_archive import MAX_ARCHIVE_BYTES, ProjectArchiveError, load_project
 from smartsvg_core.project_recovery import RecoveryError, inspect_project
 from smartsvg_core.source_preview_v34 import select_source_png
+from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
 
 
 def inspect_native_project(path: str | Path) -> dict:
@@ -73,6 +75,69 @@ def inspect_native_project(path: str | Path) -> dict:
         "artifacts": len(project.artifacts),
     })
     return details
+
+
+
+
+def _archive_sha256(path: str | Path) -> str | None:
+    """Bounded read-only SHA before/after inspection: fail closed on a swap.
+
+    This is not a filesystem lock and does not certify concurrent writer safety;
+    it prevents presenting two different revisions of a single project ID.
+    """
+    try:
+        target = Path(path)
+        if (target.suffix.lower() != ".smartsvg" or target.is_symlink()
+                or not target.is_file() or target.stat().st_size > MAX_ARCHIVE_BYTES):
+            return None
+        digest = sha256()
+        with target.open("rb") as stream:
+            total = 0
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                total += len(chunk)
+                if total > MAX_ARCHIVE_BYTES:
+                    return None
+                digest.update(chunk)
+        return digest.hexdigest()
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def load_native_preview(path: str | Path):
+    """Inspect and preview one verified revision, or refuse if bytes changed.
+
+    The initial digest is acquired BEFORE the first inspection. A digest after
+    the second archive read must match; project_id by itself is insufficient.
+    Does not mutate the archive or open external network resources.
+    """
+    before = _archive_sha256(path)
+    state = inspect_native_project(path)
+    if not state.get("ok"):
+        return state, None
+    try:
+        project = load_project(path)
+        after = _archive_sha256(path)
+        if (before is None or after is None or before != after
+                or project.project_id != state["project_id"]
+                or project.app_version != state["app_version"]
+                or len(project.sources) != state["sources"]
+                or len(project.masks) != state["masks"]
+                or len(project.subjects) != state["subjects"]
+                or len(project.artifacts) != state["artifacts"]):
+            raise ProjectArchiveError("PROJECT_SNAPSHOT_CHANGED")
+        preview = select_source_png(project)
+        # One final boundary check before returning any image to the UI.
+        if _archive_sha256(path) != before:
+            raise ProjectArchiveError("PROJECT_SNAPSHOT_CHANGED")
+        return state, preview
+    except (ProjectArchiveError, OSError):
+        return {
+            "ok": False,
+            "status": "PROJECT_CHANGED_DURING_INSPECTION",
+            "message_fr": "Le projet a changé pendant son examen.",
+            "action_fr": "Réexaminer le fichier avant de continuer.",
+            "read_only": True,
+        }, None
 
 
 def _probe() -> int:
@@ -129,60 +194,80 @@ def _start_gui(first_project: str | None) -> int:
     preview_panel = ttk.Label(frame)
     preview_panel.pack(anchor="w")
 
+    jobs = LatestOnlyJob(load_native_preview)
+
     def refresh(*_unused):
         if not current[0]:
             return
-        # Clear the previous photo before loading a different project.
+        # Only the Tk main thread manipulates PhotoImage and widgets.
         preview_panel.configure(image="")
         photo_holder[0] = None
-        preview_info.set("Aperçu non disponible.")
-        state = inspect_native_project(current[0])
-        message.set(state.get("message_fr") or state.get("error_code") or state["status"])
-        if state.get("ok"):
+        message.set("Analyse du projet en cours…")
+        summary.set("Lecture et vérification sans modification.")
+        preview_info.set("Préparation de l'aperçu…")
+        version, future = jobs.submit(current[0])
+
+        def receive():
+            if not jobs.current(version):
+                return  # stale result: never update another project's widgets
+            if not future.done():
+                root.after(50, receive)
+                return
+            try:
+                state, preview = future.result()
+            except Exception:
+                # Unexpected reader failure: fail closed without private paths.
+                message.set("Impossible de lire ce projet.")
+                summary.set("Aucune modification effectuée.")
+                preview_info.set("Aperçu indisponible.")
+                return
+
+            message.set(state.get("message_fr") or state.get("error_code") or state["status"])
+            if not state.get("ok"):
+                summary.set("Aucune modification effectuée. " +
+                            (state.get("action_fr") or "Contrôlez le projet avant de réessayer."))
+                preview_info.set("Aperçu non disponible.")
+                return
+
             summary.set(
                 "Projet : {}  •  Version : {}  •  Sources : {}  •  Masques : {}  "
                 "•  Sujets : {}  •  Exports : {}".format(
                     state["project_id"], state["app_version"], state["sources"],
                     state["masks"], state["subjects"], state["artifacts"]))
+
+            if preview is None:
+                preview_info.set("Aperçu non disponible : réexaminer le projet.")
+                return
+            if preview.status != "READY_PNG":
+                explanations = {
+                    "NO_SOURCE": "Projet sans image source.",
+                    "SOURCE_FORMAT_UNSUPPORTED": "Aperçu limité aux sources PNG.",
+                    "SOURCE_TOO_LARGE": "Image trop grande pour l'aperçu sécurisé.",
+                    "SOURCE_CHANGED": "Source modifiée : aperçu refusé.",
+                    "SOURCE_INVALID_PNG": "PNG invalide : aperçu refusé.",
+                    "SOURCE_MISSING": "Source absente : aperçu refusé.",
+                }
+                preview_info.set(explanations.get(preview.status, "Aperçu indisponible."))
+                return
             try:
-                # Existing validated V1 reader; no export, network or disk write.
-                project = load_project(current[0])
-                if project.project_id != state["project_id"]:
-                    preview_info.set("Projet modifié depuis l'inspection : réexaminer.")
-                else:
-                    preview = select_source_png(project)
-                    if preview.status == "READY_PNG":
-                        original = tk.PhotoImage(
-                            data=base64.b64encode(preview.png).decode("ascii"),
-                            format="png")
-                        display = (original.subsample(preview.subsample)
-                                   if preview.subsample > 1 else original)
-                        preview_panel.configure(image=display)
-                        photo_holder[0] = display
-                        preview_info.set(
-                            f"Source {preview.source_id} — "
-                            f"{preview.width_px} × {preview.height_px} px "
-                            f"(affichage réduit ×{preview.subsample}; originaux intacts)")
-                    else:
-                        explanations = {
-                            "NO_SOURCE": "Projet sans image source.",
-                            "SOURCE_FORMAT_UNSUPPORTED":
-                                "Aperçu limité aux sources PNG : JPEG/WebP à venir.",
-                            "SOURCE_TOO_LARGE":
-                                "Image trop grande pour l'aperçu sécurisé.",
-                            "SOURCE_CHANGED": "Source modifiée : aperçu refusé.",
-                            "SOURCE_INVALID_PNG": "Source PNG invalide : aperçu refusé.",
-                            "SOURCE_MISSING": "Source absente : aperçu refusé.",
-                        }
-                        preview_info.set(explanations.get(
-                            preview.status, "Aperçu non disponible."))
-            except (ProjectArchiveError, OSError, tk.TclError):
+                # Bounded Tk decode on the GUI thread; PNG selector verifies
+                # dimensions and SHA before any PhotoImage allocation.
+                original = tk.PhotoImage(
+                    data=base64.b64encode(preview.png).decode("ascii"), format="png")
+                display = (original.subsample(preview.subsample)
+                           if preview.subsample > 1 else original)
+                preview_panel.configure(image=display)
+                photo_holder[0] = display
+                preview_info.set(
+                    f"Source {preview.source_id} — "
+                    f"{preview.width_px} × {preview.height_px} px "
+                    f"(affichage réduit ×{preview.subsample}; originaux intacts)")
+            except tk.TclError:
                 preview_panel.configure(image="")
                 photo_holder[0] = None
-                preview_info.set("Aperçu indisponible : réexaminer le projet.")
-        else:
-            summary.set("Aucune modification effectuée. " +
-                        (state.get("action_fr") or "Contrôlez le projet avant de réessayer."))
+                preview_info.set("Décodage PNG impossible : aperçu refusé.")
+
+        root.after(50, receive)
 
     def select_project():
         chosen = filedialog.askopenfilename(
@@ -208,7 +293,14 @@ def _start_gui(first_project: str | None) -> int:
         current[0] = first_project
         file_name.set(Path(first_project).name)
         refresh()
+    def close_window():
+        # A pending or obsolete generation is never allowed to update Tk.
+        jobs.close()
+        root.destroy()
+
+    root.protocol("WM_DELETE_WINDOW", close_window)
     root.mainloop()
+    jobs.close()
     return 0
 
 
