@@ -27,7 +27,7 @@ class AtelierPreviewTests(unittest.TestCase):
         if node is None:
             self.skipTest('Node.js is not installed')
         result=subprocess.run([node,'--check','-'],input=scripts[0],
-                              text=True,capture_output=True,timeout=20)
+                              text=True,encoding='utf-8',capture_output=True,timeout=20)
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
 
     def test_five_navigation_steps_and_interactive_controls_exist(self):
