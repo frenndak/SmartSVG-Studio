@@ -66,7 +66,35 @@ def _source(project, raw):
     return real
 
 
-def _topology(path):
+def _check_png_density(metadata, expected_dpi):
+    """PNG pHYs rounds to integer pixels/metre; allow 0.1 PPI of rounding.
+
+    Missing legacy metadata may use the explicit manufacturing PPI, with a
+    warning. Present but malformed or contradictory metadata is not absence.
+    Neither this check nor PNG metadata certifies Design Space physical size.
+    """
+    if metadata is None:
+        return {'densite_metadata_ppp': None, 'densite_metadata_axes_ppp': None,
+                'densite_avertissement': 'Metadonnees PPP absentes : dimensions calculees avec les PPP de fabrication ; verifier la taille dans Design Space.'}
+    if not isinstance(metadata, (tuple, list)) or len(metadata) != 2:
+        raise ImportAuditError('Metadonnees PPP PNG invalides')
+    axes = []
+    for value in metadata:
+        try:
+            number = float(value)
+        except (TypeError, ValueError, OverflowError):
+            raise ImportAuditError('Metadonnees PPP PNG invalides') from None
+        if isinstance(value, bool) or not math.isfinite(number) or number <= 0:
+            raise ImportAuditError('Metadonnees PPP PNG invalides')
+        axes.append(number)
+    if expected_dpi is not None and any(abs(value-expected_dpi) > 0.1 for value in axes):
+        raise ImportAuditError(
+            f'Densite PNG incoherente : {axes[0]:.2f} x {axes[1]:.2f} PPP vs fabrication {expected_dpi} PPP ; refaire l export ou choisir les PPP correspondants')
+    return {'densite_metadata_ppp': round(axes[0], 2),
+            'densite_metadata_axes_ppp': [round(value, 2) for value in axes]}
+
+
+def _topology(path, *, expected_dpi=None):
     """Look at alpha as Design Space would, not at separate cut-only SVG.
 
     127 is only a simulation threshold; proprietary Design Space may differ.
@@ -79,9 +107,8 @@ def _topology(path):
         w,h=im.size
         if not w or not h or w*h>MAX_PIXELS:
             raise ImportAuditError('PNG vide ou trop volumineux')
+        density=_check_png_density(im.info.get('dpi'), expected_dpi)
         a=np.asarray(im.getchannel('A'),dtype=np.uint8)
-        d=im.info.get('dpi')
-        dpi=float(d[0]) if d and 50<float(d[0])<1200 else None
     binary=np.uint8(a>=128)
     n,_,stats,_=cv2.connectedComponentsWithStats(binary,8)
     components=n-1
@@ -97,7 +124,7 @@ def _topology(path):
     edge=bool(binary[0,:].any() or binary[-1,:].any() or binary[:,0].any() or binary[:,-1].any())
     return {'taille_px':[w,h], 'mode':'RGBA', 'composantes_alpha':components,
             'trous_transparents_significatifs':holes,'contact_bord':edge,
-            'densite_metadata_ppp':round(dpi,2) if dpi else None,
+            **density,
             'alpha_opaque_pixels':int(stats[1:,cv2.CC_STAT_AREA].sum()),
             'alpha_totalement_opaque':bool(np.all(a==255)),
             'alpha_rectangle_plein':rectangle_exact,
@@ -291,7 +318,7 @@ def prepare_cricut_import(report:dict,dpi:int) ->dict:
         try:
             if not isinstance(obj,dict):raise ImportAuditError('Objet du rapport invalide')
             source=_source(root,obj.get('fichier_png_cricut') or obj.get('png'))
-            geo=_topology(source);rec.update(geo)
+            geo=_topology(source, expected_dpi=dpi);rec.update(geo)
             rec['source']=str(source)
             physical=obj.get('largeur_finale_avec_marge_mm')
             if physical is not None:
@@ -338,7 +365,7 @@ def prepare_cricut_import(report:dict,dpi:int) ->dict:
                 if not isinstance(p,dict) or p.get('statut')!='CREATION_OK':
                     raise ImportAuditError('Planche non produite ou avertissement de fabrication')
                 source=_source(root,p.get('fichier'))
-                geo=_topology(source);rec.update(geo)
+                geo=_topology(source, expected_dpi=dpi);rec.update(geo)
                 expected=_sheet_expected_count(p)
                 if not 1<=expected<=MAX_ITEMS or geo['composantes_alpha']!=expected:
                     raise ImportAuditError(f'Ilots de decoupe : {geo["composantes_alpha"]} / attendus {expected}')

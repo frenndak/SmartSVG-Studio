@@ -87,5 +87,68 @@ class LiveSVGPublicationSmoke(unittest.TestCase):
         self.assertEqual((image.tobytes(), mask.tobytes()), before)
 
 
+class LivePNGDensitySmoke(unittest.TestCase):
+    @staticmethod
+    def sticker(folder, name, dpi):
+        from PIL import Image, ImageDraw
+        path = Path(folder)/name
+        image = Image.new('RGBA', (120, 120))
+        ImageDraw.Draw(image).ellipse((10, 10, 110, 110), fill=(230, 50, 60, 255))
+        image.save(path, **({'dpi': dpi} if dpi is not None else {}))
+        return path
+
+    def test_matching_density_and_legacy_absence_preserve_png_bytes(self):
+        from smartsvg_cricut.direct_import_v218 import prepare_cricut_import
+        for axes in [(300, 300), (450, 450), None]:
+            with self.subTest(axes=axes), tempfile.TemporaryDirectory() as folder:
+                source = self.sticker(folder, 'source.png', axes)
+                original = source.read_bytes()
+                dpi = axes[0] if axes else 300
+                result = prepare_cricut_import({'dossier': folder, 'objets': [{'png': str(source)}]}, dpi)
+                record = result['objets'][0]
+                self.assertEqual(result['statut'], 'PRET_POUR_IMPORT_LOCAL')
+                self.assertEqual(Path(record['fichier_import']).read_bytes(), original)
+                self.assertEqual(source.read_bytes(), original)
+                if axes:
+                    self.assertTrue(all(abs(value-dpi) <= 0.1 for value in record['densite_metadata_axes_ppp']))
+                else:
+                    self.assertIn('absentes', record['densite_avertissement'])
+
+    def test_contradictory_or_anisotropic_png_is_not_copied_over_previous_export(self):
+        from smartsvg_cricut.direct_import_v218 import prepare_cricut_import, FOLDER
+        for axes in [(450, 450), (300, 450), (450, 300)]:
+            with self.subTest(axes=axes), tempfile.TemporaryDirectory() as folder:
+                source = self.sticker(folder, 'source.png', (300, 300))
+                previous = source.read_bytes()
+                target_folder = Path(folder)/FOLDER;target_folder.mkdir()
+                target = target_folder/'STICKER_001_IMPRIMER_PUIS_DECOUPER.png'
+                target.write_bytes(previous)
+                source = self.sticker(folder, 'source.png', axes)
+                original = source.read_bytes()
+                result = prepare_cricut_import({'dossier': folder, 'objets': [{
+                    'png': str(source), 'largeur_finale_avec_marge_mm': 120*25.4/300}]}, 300)
+                self.assertEqual(result['fichiers_prets'], 0)
+                self.assertEqual(result['statut'], 'A_VERIFIER')
+                self.assertIn('Densite PNG incoherente', result['objets'][0]['raison'])
+                self.assertNotIn('fichier_import', result['objets'][0])
+                self.assertEqual(target.read_bytes(), previous)
+                self.assertEqual(source.read_bytes(), original)
+
+    def test_sheet_density_conflict_cannot_promote_batch_to_ready(self):
+        from smartsvg_cricut.direct_import_v218 import prepare_cricut_import, FOLDER
+        with tempfile.TemporaryDirectory() as folder:
+            source = self.sticker(folder, 'source.png', (300, 300))
+            sheet = self.sticker(folder, 'sheet.png', (300, 450))
+            original = sheet.read_bytes()
+            result = prepare_cricut_import({'dossier': folder, 'objets': [{'png': str(source)}],
+                'planches': [{'statut': 'CREATION_OK', 'fichier': str(sheet), 'objets': 1}]}, 300)
+            self.assertEqual(result['fichiers_prets'], 1)
+            self.assertEqual(result['planches_pretes'], 0)
+            self.assertEqual(result['statut'], 'PARTIEL')
+            self.assertIn('Densite PNG incoherente', result['planches'][0]['raison'])
+            self.assertFalse((Path(folder)/FOLDER/'PLANCHE_01_IMPRIMER_PUIS_DECOUPER.png').exists())
+            self.assertEqual(sheet.read_bytes(), original)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
