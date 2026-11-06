@@ -2,7 +2,7 @@
 
 **Dépôt public de développement**, basé sur le moteur ComfyUI SmartSVG. Objectif : passer d'une image à une planche de sujets et à des fichiers de découpe / impression préparés pour être vérifiés dans Cricut Design Space.
 
-> **Statut au 6 novembre 2026 : prototype autonome Python/Tk raccordé après #119.** Accueil, lecture de projets, Fabrique théorique et Apparence partagent une fenêtre. Création/sauvegarde, Atelier et exports natifs restent à raccorder aux moteurs existants. Le test graphique Windows automatisé est acquis sur trois tailles ; installation, DPI/accessibilité complets, GPU et fabrication restent à qualifier.
+> **Statut au 6 novembre 2026 : prototype autonome Python/Tk raccordé après #119, pas de version Cricut certifiée.** Accueil, lecture de projets, Fabrique théorique et Apparence partagent une fenêtre. Création/sauvegarde, Atelier et exports natifs restent à raccorder aux moteurs existants. Le test graphique Windows automatisé est acquis sur trois tailles ; installation, DPI/accessibilité complets, GPU RTX 3070 et fabrication restent à qualifier.
 
 📋 **[Voir l'état précis des fonctions et les prochaines étapes](docs/ETAT_ACTUEL_SMARTSVG.md)** · 🗺️ **[Roadmap V3.4 active](docs/roadmap-v3.4/README.md)** · **[Ordre de réalisation et raccordements](docs/roadmap-v3.4/EXECUTION_ET_INTEGRATION_2026_11_06.md)** · [Héritage V3.3](docs/ROADMAP_MASTER_v3_3.md) · 📦 [V3.2 historique](docs/ROADMAP_MASTER_v3_2.md) · 🧪 **[État du regroupement G1/G2 (archive historique du processus)](docs/INTEGRATION_CANDIDATE_2026_10_27.md)**
 
@@ -56,6 +56,6 @@ Les contrôles historiques Python, JavaScript et dépendances CPU/GPU complètes
 
 ## Automatisation et sécurité
 
-Les GitHub Actions publiques incluent des contrôles **lecture seule**. La tâche Codex optionnelle nécessiterait des variables et un secret API renseignés volontairement, ainsi qu'un budget déclaré et un plafond quotidien ; **aucun appel payant n'est une condition pour consulter le dépôt ou ouvrir l'aperçu**. Les tâches autonomes ne fusionnent pas de PR ; dans une session explicitement autorisée par le propriétaire, l'assistant peut fusionner uniquement après contre-expertise documentée et tests pertinents.
+Les GitHub Actions publiques incluent des contrôles **lecture seule**. La tâche Codex optionnelle nécessiterait des variables et un secret API renseignés volontairement, ainsi qu'un budget déclaré et un plafond quotidien ; **aucun appel payant n'est une condition pour consulter le dépôt ou ouvrir l'aperçu**. Les conditions de fusion sont celles du [contrat courant AGENTS.md](AGENTS.md), relu sur `main` : autorisation applicable, éligibilité du lot, revue indépendante et contrôles du candidat exact. Cette documentation ne crée ni n'active de tâche et ne modifie aucune autorisation.
 
 Ne jamais commiter de clé API, image personnelle, poids de modèle soumis à restriction ou artefact de fabrication confidentiel dans ce dépôt public.
