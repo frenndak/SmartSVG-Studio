@@ -36,6 +36,8 @@ class Widget:
         self.width, self.height = 720, 320
         self.lifts = 0
     def pack(self, **_kwargs): pass
+    def grid(self, **_kwargs): pass
+    def columnconfigure(self, *_args, **_kwargs): pass
     def configure(self, **kwargs): self.options.update(kwargs)
     def bind(self, event, callback): self.events[event] = callback
     def title(self, _text): pass

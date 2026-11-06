@@ -30,10 +30,14 @@ class TemplatePreviewContent:
         ttk.Label(row, text='Modèle', width=35).pack(side='left')
         ttk.Combobox(row, textvariable=self.kind, state='readonly',
                      values=('Boîte ouverte', 'Carte pliée'), width=20).pack(side='left')
-        self.width_label, self.width_entry = self._field(ttk, frame, self.width)
-        self.depth_label, self.depth_entry = self._field(ttk, frame, self.depth)
-        self.wall_label, self.wall_entry = self._field(ttk, frame, self.wall)
-        self.tab_label, self.tab_entry = self._field(ttk, frame, self.tab)
+        fields = ttk.Frame(frame)
+        fields.pack(fill='x')
+        fields.columnconfigure(0, weight=1)
+        fields.columnconfigure(1, weight=1)
+        self.width_label, self.width_entry = self._field(ttk, fields, self.width, 0, 0)
+        self.depth_label, self.depth_entry = self._field(ttk, fields, self.depth, 0, 1)
+        self.wall_label, self.wall_entry = self._field(ttk, fields, self.wall, 1, 0)
+        self.tab_label, self.tab_entry = self._field(ttk, fields, self.tab, 1, 1)
         self.wall_label.configure(text='Hauteur des parois (mm)')
         self.tab_label.configure(text='Largeur des languettes (mm)')
         ttk.Button(frame, text='Calculer l’aperçu', command=self.calculate).pack(anchor='w', pady=9)
@@ -55,13 +59,13 @@ class TemplatePreviewContent:
         self.calculate()
 
     @staticmethod
-    def _field(ttk, parent, variable):
+    def _field(ttk, parent, variable, row_index, column):
         row = ttk.Frame(parent)
-        row.pack(fill='x', pady=3)
-        label = ttk.Label(row, width=35)
-        label.pack(side='left')
+        row.grid(row=row_index, column=column, sticky='ew', padx=(0, 10), pady=3)
+        label = ttk.Label(row, wraplength=280)
+        label.pack(anchor='w')
         entry = ttk.Entry(row, textvariable=variable, width=20)
-        entry.pack(side='left')
+        entry.pack(anchor='w')
         return label, entry
 
     def _mode_changed(self, *_unused):

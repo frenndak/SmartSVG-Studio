@@ -268,7 +268,7 @@ def _start_gui(first_project: str | None) -> int:
             parent=root, title="Ouvrir un projet SmartSVG",
             filetypes=[("Projets SmartSVG", "*.smartsvg")])
         if chosen:
-            shell.show('project')
+            shell.show('project', focus=True)
             current[0] = chosen
             file_name.set(Path(chosen).name)
             refresh()
@@ -299,7 +299,7 @@ def _start_gui(first_project: str | None) -> int:
         return 'break'
 
     def refresh_shortcut(_event):
-        shell.show('project')
+        shell.show('project', focus=True)
         refresh()
         return 'break'
 
@@ -308,7 +308,7 @@ def _start_gui(first_project: str | None) -> int:
     shell.show('home')
 
     if first_project:
-        shell.show('project')
+        shell.show('project', focus=True)
         current[0] = first_project
         file_name.set(Path(first_project).name)
         refresh()

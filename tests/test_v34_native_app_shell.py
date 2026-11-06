@@ -194,7 +194,9 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 self.assertEqual(summary.get(), original_summary)
                 self.assertEqual(len(state.jobs.futures), 1)
                 self.assertEqual(project.read_bytes(), before)
+                state.shell.buttons['project'].focused = False
                 self.assertEqual(root.events['<F5>'](None), 'break')
+                self.assertTrue(state.shell.buttons['project'].focused)
                 self.assertEqual(state.shell.active_page, 'project')
                 self.assertEqual(len(state.jobs.futures), 2)
                 state.jobs.futures[-1].result(timeout=15)
@@ -229,6 +231,51 @@ class DesktopShellIntegrationTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'event loop failed'):
                 self.run_desktop(scenario)
             self.assertTrue(close.called)
+
+
+class ActualTkShellSmokeTests(unittest.TestCase):
+    """Real widget layout smoke when a GUI exists, not full Windows qualification."""
+    def test_actual_layout_navigation_and_template_canvas_at_supported_sizes(self):
+        try:
+            import tkinter as tk
+            from tkinter import ttk
+        except ImportError as exc:
+            self.skipTest(f'Tkinter unavailable: {exc}')
+        try:
+            root = tk.Tk()
+        except tk.TclError:
+            self.skipTest('No graphical Tk session available')
+        self.addCleanup(root.destroy)
+        from native_app_shell_v34 import NativeAppShell
+        from native_templates_tk_v34 import TemplatePreviewContent
+        from native_theme_tk_v34 import ArtisanThemePicker
+        shell = NativeAppShell(root, tk, ttk)
+        for key, label in (('home', 'Accueil'), ('project', 'Projet'),
+                           ('factory', 'Fabrique'), ('appearance', 'Apparence')):
+            shell.add_page(key, label)
+        with tempfile.TemporaryDirectory() as directory:
+            # A real theme styles and sizes the widgets; never user settings.
+            theme = ArtisanThemePicker(root=root, parent=shell.pages['appearance'],
+                tk=tk, ttk=ttk, settings_path=Path(directory) / 'appearance.json')
+            template = TemplatePreviewContent(shell.pages['factory'], tk, ttk)
+            for size in ('900x650', '1100x760', '1280x720'):
+                with self.subTest(size=size):
+                    root.geometry(size)
+                    shell.show('factory')
+                    root.update()
+                    self.assertGreater(template.canvas.winfo_width(), 48)
+                    self.assertGreater(template.canvas.winfo_height(), 48)
+                    self.assertEqual(len(template.canvas.find_all()), 13)
+                    self.assertLessEqual(template.canvas.winfo_rooty() + template.canvas.winfo_height(),
+                                         root.winfo_rooty() + root.winfo_height())
+                    for button in shell.buttons.values():
+                        self.assertTrue(button.winfo_viewable())
+            before = template.proposal
+            for index in range(100):
+                shell.show(('project', 'factory', 'appearance', 'home')[index % 4])
+            root.update()
+            self.assertIs(template.proposal, before)
+            self.assertFalse(theme.settings_path.exists())
 
 if __name__ == '__main__':
     unittest.main()
