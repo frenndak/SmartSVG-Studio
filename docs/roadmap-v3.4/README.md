@@ -28,6 +28,7 @@
 - [Lot 22 : corpus autorisé, validation auto/UX/Windows/RTX/Design Space/physique et preuves orthogonales (sans nouveau périmètre)](22_VALIDATION_CORPUS_PREUVES.md)
 - [Lot 23 : matrice 141 exigences ↔ tickets V34 ↔ recettes, index inverse des 140 tickets, backlog par vertical slices sans extension de périmètre](23_TRACEABILITE_BACKLOG.md)
 - [Lot 24 : contre-expertise finale, réconciliation bidirectionnelle, preuves manquantes et passation de développement (DRAFT)](24_CONTRE_EXPERTISE_PASSATION.md)
+- [**Annexe transversale UX/UI : design system, canevas dynamique, ergonomie Windows, motion, accessibilité, choix de framework et 20 recettes complémentaires**](UX_UI_DESIGN_SYSTEM_ADDENDUM.md) — précision des lots 02/06/07/18/21/22, sans changer les 24 lots, 141 exigences ni 140 tickets.
 - [Registre d'opportunités et arbitrages](OPPORTUNITIES.md)
 - [Index individuel des 141 exigences V3.3](HERITAGE_INDEX.md)
 - [Journal des cycles et reprises](PROGRESS.md)
