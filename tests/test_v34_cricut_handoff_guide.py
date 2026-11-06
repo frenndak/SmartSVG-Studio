@@ -288,6 +288,19 @@ class TestV34PhysicalWidthFailClosed(unittest.TestCase):
             result = inspect(project / "unused.png", str(svg), project, 25.4)
             self.assertEqual(result["statut"], "OK_LOCAL", result)
 
+    def test_svg_outside_project_is_never_approved_even_with_valid_mm(self):
+        ns = self.helpers()
+        with tempfile.TemporaryDirectory() as td, tempfile.TemporaryDirectory() as other:
+            project = Path(td)
+            foreign = Path(other) / "cut.svg"
+            foreign.write_text(
+                '<svg xmlns="http://www.w3.org/2000/svg" '
+                'width="25.4mm"><path d="M0 0 L1 1"/></svg>',
+                encoding="utf-8")
+            decision = ns["_svg_preflight"](
+                project / "unused.png", str(foreign), project, 25.4)
+            self.assertEqual(decision["statut"], "A_VERIFIER", decision)
+
     def test_png_handoff_validates_physical_width_before_copy(self):
         tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
         function = next(node for node in tree.body
