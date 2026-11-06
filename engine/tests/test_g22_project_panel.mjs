@@ -9,6 +9,7 @@ class Element {
     this.attrs={};this.events={};this.files=[];
   }
   append(...items){this.children.push(...items);}
+  replaceChildren(...items){this.children=[...items];}
   appendChild(item){this.children.push(item);return item;}
   setAttribute(name,value){this.attrs[name]=value;}
   removeAttribute(name){delete this.attrs[name];if(name==='src')this.src='';}
@@ -27,15 +28,20 @@ function harness(){
       notes:'départ',stage:'source_imported_only'},
   };
   const calls=[];
+  let noteHandler=null;
+  let listHandler=()=>makeResponse({ok:true,projects:[],pagination:{
+    offset:0,limit:20,total:0,has_more:false,next_offset:null}});
   const api={
     apiURL:route=>'/proxy/8188'+route,
     async fetchApi(route,options){
       calls.push({route,options});
+      if(route.startsWith('/smartsvg/g22/projects?'))return listHandler(route);
       if(route.startsWith('/smartsvg/g22/project?'))return makeResponse({ok:true,project:main});
       if(route.endsWith('/create')){
         return makeResponse({ok:true,result:{name:'snails',status:'created'}});
       }
       if(route.endsWith('/notes')){
+        if(noteHandler)return noteHandler();
         main={...main,sha256:'b'.repeat(64),document:{...main.document,notes:'nouveau'}};
         return makeResponse({ok:true,result:{status:'updated'}});
       }
@@ -67,7 +73,9 @@ function harness(){
   const preview=els.find(x=>x.tagName==='img');
   const status=els.find(x=>x.attrs.role==='status');
   return {root,buttons,name,file,notes,preview,status,calls,
-    setMain:value=>{main=value},getMain:()=>main};
+    setMain:value=>{main=value},getMain:()=>main,
+    setList:handler=>{listHandler=handler},
+    setNotes:handler=>{noteHandler=handler}};
 }
 test('project names never permit traversal, separators, or reserved names',()=>{
   for(const name of ['../a','/etc/passwd','C:\\x','a.b','a/b','', 'école',
@@ -79,7 +87,7 @@ test('project names never permit traversal, separators, or reserved names',()=>{
 test('creation uses chosen local PNG, historical settings and custom CSRF header',async()=>{
   const h=harness();
   // Preserve the four historical actions, then add explicit crash recovery.
-  assert.equal(h.buttons.length,8);
+  assert.equal(h.buttons.length,11);
   assert.deepEqual(h.buttons.slice(0,4).map(x=>x.textContent),
     ['Créer projet depuis PNG','Ouvrir et inspecter','Enregistrer les notes','Restaurer le secours']);
   assert.equal(h.buttons[7].disabled,true,'local SVG export disabled without reviewed paths');
@@ -165,4 +173,105 @@ test('no direct queue/automatic workflow mutation in project controls',()=>{
   assert.equal(h.root.attrs['aria-label'],'Projet SmartSVG sauvegarde et récupération');
   assert.ok(projectError('BACKUP_CONFLICT').includes('aucune donnée'));
   assert.ok(all(h.root).some(el=>el.textContent.includes('ne restaure pas encore')));
+});
+
+function catalog(h){
+  const elements=all(h.root);
+  return {
+    browse:elements.find(x=>x.tagName==='button'&&x.textContent==='Parcourir les projets'),
+    previous:elements.find(x=>x.tagName==='button'&&x.textContent==='Page précédente'),
+    next:elements.find(x=>x.tagName==='button'&&x.textContent==='Page suivante'),
+    select:elements.find(x=>x.tagName==='select'),
+    status:elements.find(x=>x.attrs['data-project-catalog']==='status'),
+  };
+}
+function page(offset,total=105){
+  const projects=Array.from({length:Math.min(20,Math.max(0,total-offset))},(_,i)=>({
+    name:'project'+String(offset+i).padStart(3,'0'),status:'PROJECT_HEALTHY'}));
+  const next=offset+projects.length;
+  return makeResponse({ok:true,projects,pagination:{offset,limit:20,total,
+    has_more:next<total,next_offset:next<total?next:null}});
+}
+test('project catalog reaches beyond 100, navigates back and selects without writing',async()=>{
+  const h=harness(),c=catalog(h);
+  h.name.value='snails';await h.buttons[1].trigger('click');
+  assert.equal(h.buttons[2].disabled,false);
+  h.setList(route=>page(Number(new URL('http://local'+route).searchParams.get('offset'))));
+  await c.browse.trigger('click');
+  assert.match(c.status.textContent,/1.*20.*105/);
+  assert.equal(c.previous.disabled,true);assert.equal(c.next.disabled,false);
+  for(let i=0;i<5;i++)await c.next.trigger('click');
+  assert.match(c.status.textContent,/101.*105/);
+  assert.equal(c.next.disabled,true);
+  assert.ok(c.select.children.some(x=>x.value==='project104'));
+  c.select.value='project104';await c.select.trigger('change');
+  assert.equal(h.name.value,'project104');
+  assert.equal(h.buttons[2].disabled,true);
+  assert.equal(h.preview.hidden,true);
+  assert.ok(h.calls.every(call=>!call.options?.method||call.options.method==='GET'));
+  await c.previous.trigger('click');
+  assert.match(h.calls.at(-1).route,/offset=80/);
+  assert.equal(c.next.disabled,false);
+});
+test('project catalog shows empty and failed results without stale selection',async()=>{
+  const h=harness(),c=catalog(h);
+  await c.browse.trigger('click');
+  assert.match(c.status.textContent,/Aucun projet/);
+  assert.equal(c.select.disabled,true);assert.equal(c.next.disabled,true);
+  h.setList(()=>page(0));await c.browse.trigger('click');
+  assert.equal(c.select.disabled,false);
+  h.setList(()=>makeResponse({ok:false,error_code:'INVALID_PROJECT_PAGE'},400));
+  await c.next.trigger('click');
+  assert.equal(c.select.disabled,true);assert.equal(c.next.disabled,true);
+  assert.match(c.status.textContent,/Impossible de charger/);
+  assert.equal(c.browse.disabled,false);
+});
+test('project catalog prevents overlapping requests and retains typed project name',async()=>{
+  const h=harness(),c=catalog(h);
+  let release;
+  h.setList(()=>new Promise(resolve=>{release=resolve}));
+  h.name.value='typed_project';
+  const pending=c.browse.trigger('click');
+  assert.equal(c.browse.disabled,true);
+  await c.browse.trigger('click');
+  assert.equal(h.calls.length,1);
+  release(page(0));await pending;
+  assert.equal(h.name.value,'typed_project');
+  assert.equal(c.browse.disabled,false);
+});
+test('project catalog rejects invalid API names and never interprets them as HTML',async()=>{
+  const h=harness(),c=catalog(h);
+  const bad=page(0);const body=await bad.json();body.projects[0].name='<script>alert(1)</script>';
+  h.setList(()=>makeResponse(body));await c.browse.trigger('click');
+  assert.equal(c.select.disabled,true);
+  assert.equal(c.select.children.some(x=>x.value?.includes('<script>')),false);
+});
+
+test('catalog cannot change the selected project during a pending notes save',async()=>{
+  const h=harness(),c=catalog(h);
+  h.name.value='snails';await h.buttons[1].trigger('click');
+  h.setList(()=>page(0));await c.browse.trigger('click');
+  let release;
+  h.setNotes(()=>new Promise(resolve=>{release=resolve}));
+  const saving=h.buttons[2].trigger('click');
+  assert.equal(c.select.disabled,true);assert.equal(c.browse.disabled,true);
+  c.select.value='project001';await c.select.trigger('change');
+  await c.next.trigger('click');
+  assert.equal(h.name.value,'snails');
+  assert.equal(h.calls.some(call=>call.route.includes('offset=20')),false);
+  release(makeResponse({ok:true,result:{status:'updated'}}));await saving;
+  assert.equal(h.calls.at(-1).route,'/smartsvg/g22/project?name=snails');
+  assert.equal(c.select.disabled,false);
+});
+test('opening and saving remain blocked during a catalogue request',async()=>{
+  const h=harness(),c=catalog(h);
+  h.name.value='snails';await h.buttons[1].trigger('click');
+  let release;h.setList(()=>new Promise(resolve=>{release=resolve}));
+  const browsing=c.browse.trigger('click');
+  assert.equal(h.buttons[1].disabled,true);assert.equal(h.buttons[2].disabled,true);
+  const count=h.calls.length;
+  await h.buttons[1].trigger('click');await h.buttons[2].trigger('click');
+  assert.equal(h.calls.length,count);
+  release(page(0));await browsing;
+  assert.equal(h.buttons[1].disabled,false);assert.equal(h.buttons[2].disabled,false);
 });

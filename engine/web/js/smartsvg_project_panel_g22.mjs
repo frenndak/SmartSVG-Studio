@@ -60,8 +60,17 @@ export function createProjectPanel(api, currentSettings, ownerId='default'){
   source.alt='Source conservée dans le projet, sans validation de découpe';
   const hint=el('p','Sauvegarde : sélectionner explicitement un PNG local. Ouvrir réaffiche sa source et ses notes, mais ne restaure pas encore les retouches ni le graphe ComfyUI.');
   hint.className='fine';
-  let loaded=null,pending=false;
+  let loaded=null,pending=false,listing=false;
   const actionButtons=[];
+  let syncCatalogControls=()=>{};
+  const syncActions=()=>{
+    const busy=pending||listing;
+    for(const button of actionButtons)button.disabled=busy;
+    saveNotes.disabled=busy||!loaded?.sha256;
+    restore.disabled=busy||!loaded?.recoverable;
+    resolvePending.disabled=busy||!loaded?.pending_resolution_available;
+    syncCatalogControls();
+  };
   const discard=()=>{
     loaded=null;
     saveNotes.disabled=true;restore.disabled=true;resolvePending.disabled=true;
@@ -71,18 +80,15 @@ export function createProjectPanel(api, currentSettings, ownerId='default'){
   const action=(text,handler)=>{
     const button=el('button',text);button.type='button';
     button.addEventListener('click',async()=>{
-      if(pending)return;
+      if(pending||listing)return;
       pending=true;
       root.setAttribute('aria-busy','true');
-      for(const b of actionButtons)b.disabled=true;
+      syncActions();
       try{await handler();}
       finally{
         pending=false;
         root.setAttribute('aria-busy','false');
-        for(const b of actionButtons)b.disabled=false;
-        saveNotes.disabled=!loaded?.sha256;
-        restore.disabled=!loaded?.recoverable;
-        resolvePending.disabled=!loaded?.pending_resolution_available;
+        syncActions();
       }
     });
     actions.appendChild(button);
@@ -201,5 +207,79 @@ export function createProjectPanel(api, currentSettings, ownerId='default'){
   root.append(title,label,name,fileLabel,file,noteLabel,notes,
     actions,status,readiness,details,source,hint,
     createCutReviewPanel(ownerId));
+  // Browse on explicit request. Paging never changes the opened project.
+  const pageSize=20;
+  const catalog=el('section');
+  catalog.setAttribute('aria-label','Liste des projets enregistrés');
+  const browse=el('button','Parcourir les projets');browse.type='button';
+  const catalogLabel=el('label','Choisir un projet enregistré');
+  const choices=el('select');choices.id=inputId+'-catalog';
+  catalogLabel.setAttribute('for',choices.id);
+  const catalogStatus=el('p','La liste est chargée à votre demande.');
+  catalogStatus.setAttribute('role','status');catalogStatus.setAttribute('aria-live','polite');
+  catalogStatus.setAttribute('data-project-catalog','status');
+  const previous=el('button','Page précédente');previous.type='button';
+  const next=el('button','Page suivante');next.type='button';
+  const navigation=el('div');navigation.className='toolbar';
+  navigation.append(browse,previous,next);
+  let currentPage=null;
+  syncCatalogControls=()=>{
+    const busy=pending||listing;
+    browse.disabled=busy;
+    choices.disabled=busy||!currentPage?.projects.length;
+    previous.disabled=busy||!currentPage||currentPage.offset===0;
+    next.disabled=busy||!currentPage?.has_more;
+  };
+  const clearChoices=()=>{
+    choices.replaceChildren();
+    const placeholder=el('option','Choisir puis cliquer sur Ouvrir et inspecter');
+    placeholder.value='';choices.appendChild(placeholder);choices.value='';
+    choices.disabled=true;previous.disabled=true;next.disabled=true;
+  };
+  clearChoices();
+  const loadPage=async(offset)=>{
+    if(listing||pending)return;
+    listing=true;currentPage=null;clearChoices();syncActions();
+    catalog.setAttribute('aria-busy','true');catalogStatus.textContent='Chargement des projets…';
+    try{
+      const body=await request('/projects?offset='+offset+'&limit='+pageSize);
+      const page=body.pagination,items=body.projects;
+      if(!page||!Array.isArray(items)||items.length>pageSize||
+         page.offset!==offset||page.limit!==pageSize||
+         !Number.isSafeInteger(page.total)||page.total<0||
+         items.length!==Math.min(pageSize,Math.max(0,page.total-offset))||
+         page.has_more!==(offset+items.length<page.total)||
+         page.next_offset!==(page.has_more?offset+items.length:null)||
+         items.some(item=>!validProjectName(item?.name))||
+         new Set(items.map(item=>item.name)).size!==items.length)
+        throw Error('INVALID_PROJECT_PAGE');
+      for(const item of items){
+        const option=el('option',item.name);option.value=item.name;choices.appendChild(option);
+      }
+      currentPage={...page,projects:items};
+      catalogStatus.textContent=page.total===0?'Aucun projet enregistré.':
+        items.length?'Projets '+(offset+1)+' à '+(offset+items.length)+' sur '+page.total+'.':
+        'Aucun projet sur cette page. Revenir à la page précédente ou actualiser la liste.';
+    }catch{
+      clearChoices();
+      catalogStatus.textContent='Impossible de charger les projets. Réessayer avec Parcourir les projets.';
+    }finally{
+      listing=false;syncActions();catalog.setAttribute('aria-busy','false');
+    }
+  };
+  browse.addEventListener('click',()=>loadPage(0));
+  previous.addEventListener('click',()=>{
+    if(currentPage&&currentPage.offset>0)return loadPage(Math.max(0,currentPage.offset-pageSize));
+  });
+  next.addEventListener('click',()=>{
+    if(currentPage?.has_more)return loadPage(currentPage.next_offset);
+  });
+  choices.addEventListener('change',()=>{
+    if(pending||listing||!currentPage?.projects.some(item=>item.name===choices.value))return;
+    name.value=choices.value;discard();details.textContent='';
+    show('Projet sélectionné. Cliquer sur Ouvrir et inspecter pour le vérifier.');
+  });
+  catalog.append(navigation,catalogLabel,choices,catalogStatus);
+  root.appendChild(catalog);
   return root;
 }
