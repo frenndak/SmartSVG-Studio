@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+from hashlib import sha256
 import json
 from pathlib import Path
 import sys
@@ -21,7 +22,7 @@ _ENGINE_DIR = str(Path(__file__).resolve().parent)
 if _ENGINE_DIR not in sys.path:
     sys.path.insert(0, _ENGINE_DIR)
 
-from smartsvg_core.project_archive import ProjectArchiveError, load_project
+from smartsvg_core.project_archive import MAX_ARCHIVE_BYTES, ProjectArchiveError, load_project
 from smartsvg_core.project_recovery import RecoveryError, inspect_project
 from smartsvg_core.source_preview_v34 import select_source_png
 from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
@@ -77,28 +78,64 @@ def inspect_native_project(path: str | Path) -> dict:
 
 
 
+
+def _archive_sha256(path: str | Path) -> str | None:
+    """Bounded read-only SHA before/after inspection: fail closed on a swap.
+
+    This is not a filesystem lock and does not certify concurrent writer safety;
+    it prevents presenting two different revisions of a single project ID.
+    """
+    try:
+        target = Path(path)
+        if (target.suffix.lower() != ".smartsvg" or target.is_symlink()
+                or not target.is_file() or target.stat().st_size > MAX_ARCHIVE_BYTES):
+            return None
+        digest = sha256()
+        with target.open("rb") as stream:
+            total = 0
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                total += len(chunk)
+                if total > MAX_ARCHIVE_BYTES:
+                    return None
+                digest.update(chunk)
+        return digest.hexdigest()
+    except (OSError, ValueError, TypeError):
+        return None
+
+
 def load_native_preview(path: str | Path):
-    """Disk and ZIP work only; no Tkinter calls and no project mutation."""
+    """Inspect and preview one verified revision, or refuse if bytes changed.
+
+    The initial digest is acquired BEFORE the first inspection. A digest after
+    the second archive read must match; project_id by itself is insufficient.
+    Does not mutate the archive or open external network resources.
+    """
+    before = _archive_sha256(path)
     state = inspect_native_project(path)
     if not state.get("ok"):
         return state, None
     try:
         project = load_project(path)
-        if project.project_id != state["project_id"]:
-            return {
-                "ok": False,
-                "status": "PROJECT_CHANGED_DURING_INSPECTION",
-                "message_fr": "Le projet a changé pendant son examen.",
-                "action_fr": "Réexaminer le projet.",
-                "read_only": True,
-            }, None
-        return state, select_source_png(project)
+        after = _archive_sha256(path)
+        if (before is None or after is None or before != after
+                or project.project_id != state["project_id"]
+                or project.app_version != state["app_version"]
+                or len(project.sources) != state["sources"]
+                or len(project.masks) != state["masks"]
+                or len(project.subjects) != state["subjects"]
+                or len(project.artifacts) != state["artifacts"]):
+            raise ProjectArchiveError("PROJECT_SNAPSHOT_CHANGED")
+        preview = select_source_png(project)
+        # One final boundary check before returning any image to the UI.
+        if _archive_sha256(path) != before:
+            raise ProjectArchiveError("PROJECT_SNAPSHOT_CHANGED")
+        return state, preview
     except (ProjectArchiveError, OSError):
         return {
             "ok": False,
             "status": "PROJECT_CHANGED_DURING_INSPECTION",
-            "message_fr": "Aperçu indisponible : projet modifié ou invalide.",
-            "action_fr": "Réexaminer le projet.",
+            "message_fr": "Le projet a changé pendant son examen.",
+            "action_fr": "Réexaminer le fichier avant de continuer.",
             "read_only": True,
         }, None
 
