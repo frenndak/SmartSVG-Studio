@@ -37,6 +37,7 @@ class LatestOnlyJob(Generic[T]):
             if self._closed:
                 raise RuntimeError("NATIVE_JOB_QUEUE_CLOSED")
             previous = self._future
+            displaced = self._pending
             self._version += 1
             version = self._version
             future: Future[T] = Future()
@@ -51,6 +52,11 @@ class LatestOnlyJob(Generic[T]):
         # callbacks to submit a newer selection without deadlock or overwrite.
         if previous is not None:
             previous.cancel()
+        if displaced is not None:
+            # The drain never claimed this removed slot. As its executor we
+            # must notify wait()/as_completed() after cancelling it, exactly
+            # once. A claimed request remains the drain's responsibility.
+            displaced[1].set_running_or_notify_cancel()
         return version, future
 
     def _drain(self) -> None:
@@ -81,7 +87,10 @@ class LatestOnlyJob(Generic[T]):
             self._closed = True
             self._version += 1
             future = self._future
+            displaced = self._pending
             self._pending = None
         if future is not None:
             future.cancel()
+        if displaced is not None:
+            displaced[1].set_running_or_notify_cancel()
         self._pool.shutdown(wait=False, cancel_futures=True)

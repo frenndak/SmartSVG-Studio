@@ -1,4 +1,5 @@
 """V34-047 / UX-09: responsive native reader without ComfyUI or Tk worker calls."""
+from concurrent.futures import wait, as_completed
 from dataclasses import replace
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
@@ -159,6 +160,48 @@ class NativePreviewJobTests(unittest.TestCase):
             self.assertTrue(jobs.current(callback_version))
             release.set()
             self.assertEqual(callback_future.result(timeout=5), "callback-latest")
+        finally:
+            release.set()
+
+    def test_displaced_cancelled_future_notifies_wait_and_as_completed(self):
+        entered, release = Event(), Event()
+        def read(value):
+            if value == "blocked":
+                entered.set()
+                if not release.wait(timeout=10): raise RuntimeError("blocked")
+            return value
+        jobs = LatestOnlyJob(read)
+        self.addCleanup(jobs.close)
+        try:
+            _, active = jobs.submit("blocked")
+            self.assertTrue(entered.wait(timeout=5))
+            _, obsolete = jobs.submit("obsolete")
+            _, latest = jobs.submit("latest")
+            release.set()
+            active.result(timeout=5)
+            latest.result(timeout=5)
+            self.assertTrue(obsolete.cancelled())
+            self.assertEqual(wait([obsolete], timeout=0).done, {obsolete})
+            self.assertEqual(list(as_completed([obsolete], timeout=1)), [obsolete])
+        finally:
+            release.set()
+
+    def test_close_notifies_waiters_of_removed_pending_future(self):
+        entered, release = Event(), Event()
+        def read(value):
+            entered.set()
+            if not release.wait(timeout=10): raise RuntimeError("blocked")
+            return value
+        jobs = LatestOnlyJob(read)
+        self.addCleanup(jobs.close)
+        try:
+            jobs.submit("running")
+            self.assertTrue(entered.wait(timeout=5))
+            _, pending = jobs.submit("pending")
+            jobs.close()
+            self.assertTrue(pending.cancelled())
+            self.assertEqual(wait([pending], timeout=0).done, {pending})
+            self.assertEqual(list(as_completed([pending], timeout=1)), [pending])
         finally:
             release.set()
 
