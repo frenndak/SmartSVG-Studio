@@ -441,15 +441,20 @@ class ManagedWorkspace:
     def editor_document(self, name):
         """Retrieve exact strokes for explicit import into a matching V21.6 node."""
         path=self._path(name)
+        revision=None
         try:
             revision=_file_sha256(path)
             project=load_project(path,expected_sha256=revision)
         except ProjectArchiveError as exc:
-            code=('PROJECT_CHANGED_DURING_INSPECTION' if str(exc)=='PROJECT_SNAPSHOT_CHANGED'
-                  else 'INVALID_PROJECT_CONTENTS')
+            try:
+                changed=(str(exc)=='PROJECT_SNAPSHOT_CHANGED' or _revision(path)!=revision)
+            except OSError:
+                changed=True
+            code='PROJECT_CHANGED_DURING_INSPECTION' if changed else 'INVALID_PROJECT_CONTENTS'
             raise WorkspaceError(code) from exc
         except OSError as exc:
-            raise WorkspaceError('INVALID_PROJECT_CONTENTS') from exc
+            code='PROJECT_CHANGED_DURING_INSPECTION' if revision is not None else 'INVALID_PROJECT_CONTENTS'
+            raise WorkspaceError(code) from exc
         if project.project_id!=name or len(project.sources)!=1:
             raise WorkspaceError('PROJECT_ID_MISMATCH')
         session=project.document.get('editor_v216')

@@ -107,6 +107,18 @@ class G23EditorSessions(unittest.TestCase):
                 self.workspace.editor_document('snails')
         self.assertEqual(self.path.read_bytes(),first)
 
+    def test_editor_read_rejects_disappearance_before_archive_validation(self):
+        from smartsvg_core import project_workspace_g22 as module
+        self.save()
+        load=module.load_project
+        def remove_before_load(path,**kwargs):
+            self.path.unlink()
+            return load(path,**kwargs)
+        with patch.object(module,'load_project',side_effect=remove_before_load):
+            with self.assertRaisesRegex(WorkspaceError,'PROJECT_CHANGED_DURING_INSPECTION'):
+                self.workspace.editor_document('snails')
+        self.assertFalse(self.path.exists())
+
     def test_editor_read_rejects_disappearance_after_session_parse(self):
         from smartsvg_core import project_workspace_g22 as module
         self.save()
