@@ -112,8 +112,17 @@ def register_project_routes(routes, trusted_output_root):
 
     @routes.get(prefix+'/projects')
     async def projects(request):
-        return web.json_response({'ok':True,'projects':workspace.list_projects(),
-                                  'certified':False})
+        try:
+            values=[]
+            for key, default in (('offset','0'),('limit','100')):
+                value=request.query.get(key,default)
+                if not isinstance(value,str) or not re.fullmatch(r'[0-9]{1,10}',value):
+                    raise WorkspaceError('INVALID_PROJECT_PAGE')
+                values.append(int(value))
+            page=workspace.list_projects_page(offset=values[0],limit=values[1])
+            return web.json_response({'ok':True,**page,'certified':False})
+        except WorkspaceError as exc:
+            return json_error(exc.code)
 
     @routes.get(prefix+'/project')
     async def project(request):

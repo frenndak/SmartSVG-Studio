@@ -226,8 +226,14 @@ class ManagedWorkspace:
         return {'name':name, 'status':'created', 'sha256':saved['sha256'],
                 'source_dimensions_px':[w,h], 'certified':False}
 
-    def list_projects(self):
-        results=[]
+    def list_projects(self, *, offset=0, limit=100):
+        """Compatibility list view; use page metadata to discover later results."""
+        return self.list_projects_page(offset=offset, limit=limit)['projects']
+
+    def list_projects_page(self, *, offset=0, limit=100):
+        """Inspect at most one page; no archive or recovery files are modified."""
+        if type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 100:
+            raise WorkspaceError('INVALID_PROJECT_PAGE')
         names=set()
         for entry in self.root.glob('*.smartsvg'):
             if entry.is_symlink():
@@ -243,9 +249,17 @@ class ManagedWorkspace:
                 continue
             if NAME.fullmatch(name) and not name.endswith('_previous'):
                 names.add(name)
-        for name in sorted(names)[:100]:
-            results.append(self.inspect(name))
-        return results
+        ordered=sorted(names)
+        selected=ordered[offset:offset+limit]
+        next_offset=offset+len(selected)
+        has_more=next_offset<len(ordered)
+        return {
+            'projects':[self.inspect(name) for name in selected],
+            'pagination':{
+                'offset':offset, 'limit':limit, 'total':len(ordered),
+                'has_more':has_more, 'next_offset':next_offset if has_more else None,
+            },
+        }
 
     def inspect(self, name):
         path=self._path(name)
