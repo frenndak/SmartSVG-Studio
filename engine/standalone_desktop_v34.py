@@ -11,6 +11,7 @@ loaded only when an actual graphical session is requested.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 from pathlib import Path
 import sys
@@ -22,6 +23,7 @@ if _ENGINE_DIR not in sys.path:
 
 from smartsvg_core.project_archive import ProjectArchiveError, load_project
 from smartsvg_core.project_recovery import RecoveryError, inspect_project
+from smartsvg_core.source_preview_v34 import select_source_png
 
 
 def inspect_native_project(path: str | Path) -> dict:
@@ -102,8 +104,8 @@ def _start_gui(first_project: str | None) -> int:
         return 2
 
     root.title("SmartSVG Studio V3.4 — prototype autonome")
-    root.geometry("740x425")
-    root.minsize(580, 350)
+    root.geometry("780x630")
+    root.minsize(610, 520)
 
     frame = ttk.Frame(root, padding=22)
     frame.pack(fill="both", expand=True)
@@ -115,16 +117,25 @@ def _start_gui(first_project: str | None) -> int:
     file_name = tk.StringVar(value="Aucun projet sélectionné")
     message = tk.StringVar(value="Ouvrez un fichier .smartsvg pour examiner son état.")
     summary = tk.StringVar(value="Aucune ressource chargée.")
+    preview_info = tk.StringVar(value="Aucun aperçu chargé.")
+    photo_holder: list[object | None] = [None]
     current: list[str | None] = [None]
 
     ttk.Label(frame, textvariable=file_name, font=("Segoe UI", 11, "bold"),
               wraplength=640).pack(anchor="w", pady=(0, 12))
     ttk.Label(frame, textvariable=message, wraplength=640).pack(anchor="w", pady=(0, 12))
     ttk.Label(frame, textvariable=summary, wraplength=640).pack(anchor="w")
+    ttk.Label(frame, textvariable=preview_info, wraplength=640).pack(anchor="w", pady=(16, 5))
+    preview_panel = ttk.Label(frame)
+    preview_panel.pack(anchor="w")
 
     def refresh(*_unused):
         if not current[0]:
             return
+        # Clear the previous photo before loading a different project.
+        preview_panel.configure(image="")
+        photo_holder[0] = None
+        preview_info.set("Aperçu non disponible.")
         state = inspect_native_project(current[0])
         message.set(state.get("message_fr") or state.get("error_code") or state["status"])
         if state.get("ok"):
@@ -133,6 +144,42 @@ def _start_gui(first_project: str | None) -> int:
                 "•  Sujets : {}  •  Exports : {}".format(
                     state["project_id"], state["app_version"], state["sources"],
                     state["masks"], state["subjects"], state["artifacts"]))
+            try:
+                # Existing validated V1 reader; no export, network or disk write.
+                project = load_project(current[0])
+                if project.project_id != state["project_id"]:
+                    preview_info.set("Projet modifié depuis l'inspection : réexaminer.")
+                else:
+                    preview = select_source_png(project)
+                    if preview.status == "READY_PNG":
+                        original = tk.PhotoImage(
+                            data=base64.b64encode(preview.png).decode("ascii"),
+                            format="png")
+                        display = (original.subsample(preview.subsample)
+                                   if preview.subsample > 1 else original)
+                        preview_panel.configure(image=display)
+                        photo_holder[0] = display
+                        preview_info.set(
+                            f"Source {preview.source_id} — "
+                            f"{preview.width_px} × {preview.height_px} px "
+                            f"(affichage réduit ×{preview.subsample}; originaux intacts)")
+                    else:
+                        explanations = {
+                            "NO_SOURCE": "Projet sans image source.",
+                            "SOURCE_FORMAT_UNSUPPORTED":
+                                "Aperçu limité aux sources PNG : JPEG/WebP à venir.",
+                            "SOURCE_TOO_LARGE":
+                                "Image trop grande pour l'aperçu sécurisé.",
+                            "SOURCE_CHANGED": "Source modifiée : aperçu refusé.",
+                            "SOURCE_INVALID_PNG": "Source PNG invalide : aperçu refusé.",
+                            "SOURCE_MISSING": "Source absente : aperçu refusé.",
+                        }
+                        preview_info.set(explanations.get(
+                            preview.status, "Aperçu non disponible."))
+            except (ProjectArchiveError, OSError, tk.TclError):
+                preview_panel.configure(image="")
+                photo_holder[0] = None
+                preview_info.set("Aperçu indisponible : réexaminer le projet.")
         else:
             summary.set("Aucune modification effectuée. " +
                         (state.get("action_fr") or "Contrôlez le projet avant de réessayer."))
@@ -153,7 +200,7 @@ def _start_gui(first_project: str | None) -> int:
     root.bind("<F5>", refresh)
     ttk.Separator(frame).pack(fill="x", pady=(25, 12))
     ttk.Label(frame, text=(
-        "Démonstrateur technique : pas de dessin, d'export, de sauvegarde, "
+        "Aperçu PNG source uniquement : pas de dessin, d'export, de sauvegarde, "
         "de restauration, de téléchargement ou de découpe Cricut."
     ), wraplength=660).pack(anchor="w")
 
