@@ -97,6 +97,15 @@ class CutPreflightIntegratedTests(unittest.TestCase):
                 self.assertEqual(ET.tostring(svg),before)
                 self.assertNotIn('physical_cut_verified',report)
 
+    def test_many_compact_arc_groups_keep_the_source_unchanged(self):
+        data='M0 0 '+('A5 5 0 0110 10 '*4000)+'Z'
+        svg=root('<path d="'+data+'"/>')
+        before=ET.tostring(svg)
+        report=inspect_cut_paths(svg)
+        self.assertEqual(report['path_elements'],1)
+        self.assertTrue(report['nonpolygonal_paths_require_visual_review'])
+        self.assertEqual(ET.tostring(svg),before)
+
     def test_live_quality_gate_is_connected_to_this_preflight(self):
         artifact = (ENGINE / "smartsvg_governance/artifact_qa.py").read_text()
         gate = (ENGINE / "smartsvg_quality/release_gate_v21152.py").read_text()

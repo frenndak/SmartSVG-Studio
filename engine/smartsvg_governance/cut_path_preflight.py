@@ -5,6 +5,7 @@ Only paths with a demonstrable closed, nonzero contour may pass the static gate.
 Non-polygonal paths remain subject to human inspection.
 """
 from __future__ import annotations
+from collections import deque
 import math
 import re
 from xml.etree.ElementTree import Element
@@ -52,17 +53,17 @@ def _validate_commands(tokens: list[str]) -> None:
     single-character flags without reinterpreting other numeric tokens.
     This is syntax validation, not curve topology or machine qualification.
     """
-    values=tokens[:]
+    # Consuming a deque keeps compact arc splitting linear: inserting flags
+    # into the middle of the entire token list would repeatedly shift its tail.
+    values=deque(tokens)
     if not values or values[0] not in ('M','m'):
         raise CutPathError('tracé SVG sans déplacement initial')
-    i=0
     opened=False
     drawing=False
-    while i<len(values):
-        command=values[i]
+    while values:
+        command=values.popleft()
         if command not in COMMANDS:
             raise CutPathError('commande SVG manquante')
-        i+=1
         if command in 'Zz':
             if not opened or not drawing:
                 raise CutPathError('fermeture de contour SVG invalide')
@@ -75,31 +76,27 @@ def _validate_commands(tokens: list[str]) -> None:
             drawing=False
         elif not opened:
             raise CutPathError('commande hors contour SVG')
-        arity=ARITY[command.upper()]
         groups=0
-        while i<len(values) and values[i] not in COMMANDS:
-            if command.upper()=='A':
-                for position in (i+3,i+4):
-                    if position>=len(values) or values[position] in COMMANDS or values[position][0] not in '01':
+        while values and values[0] not in COMMANDS:
+            for position in range(ARITY[command.upper()]):
+                if not values or values[0] in COMMANDS:
+                    raise CutPathError('coordonnées de commande SVG incomplètes')
+                number=values.popleft()
+                if command.upper()=='A' and position in (3,4):
+                    if number[0] not in '01':
                         raise CutPathError('indicateur d’arc SVG invalide')
-                    flag=values[position]
-                    if len(flag)>1:
-                        remainder=flag[1:]
-                        # The remainder was part of a numeric token, but may
-                        # start with a decimal point after a compact flag.
+                    if len(number)>1:
+                        remainder=number[1:]
                         try:
-                            number=float(remainder)
+                            value=float(remainder)
                         except ValueError as exc:
                             raise CutPathError('indicateur d’arc SVG invalide') from exc
-                        if not math.isfinite(number):
+                        if not math.isfinite(value):
                             raise CutPathError('coordonnée de contour invalide')
-                        values[position:position+1]=[flag[0],remainder]
-            if i+arity>len(values) or any(value in COMMANDS for value in values[i:i+arity]):
-                raise CutPathError('coordonnées de commande SVG incomplètes')
+                        values.appendleft(remainder)
             if command.upper()!='M' or groups:
                 drawing=True
             groups+=1
-            i+=arity
         if not groups:
             raise CutPathError('coordonnées de commande SVG absentes')
     if opened:
