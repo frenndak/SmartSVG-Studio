@@ -59,7 +59,17 @@ def _source(project, raw):
         raise ImportAuditError('PNG invalide, relatif ou lien symbolique')
     try:
         real=p.resolve(strict=True)
-        real.relative_to(Path(project).resolve(strict=True))
+        # Windows may resolve an 8.3 alias (RUNNER~1) and a long directory
+        # spelling differently. Containment is determined by the identity
+        # of an ancestor directory rather than by string prefixes.
+        root_dir = Path(project).resolve(strict=True)
+        if os.name == 'nt':
+            if not root_dir.is_dir() or not any(
+                os.path.samefile(parent, root_dir) for parent in real.parents
+            ):
+                raise ImportAuditError('SVG hors dossier du projet')
+        else:
+            real.relative_to(root_dir)
     except (OSError,ValueError):
         raise ImportAuditError('PNG hors du projet ou absent') from None
     if not real.is_file():raise ImportAuditError('PNG introuvable')
