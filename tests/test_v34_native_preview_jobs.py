@@ -1,7 +1,9 @@
 """V34-047 / UX-09: responsive native reader without ComfyUI or Tk worker calls."""
+from dataclasses import replace
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from threading import Event, get_ident
+from unittest.mock import patch
 import sys
 import tempfile
 import unittest
@@ -11,8 +13,9 @@ if str(ENGINE) not in sys.path:
     sys.path.insert(0, str(ENGINE))
 
 from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
+from smartsvg_core.project_archive import save_project
 from smartsvg_core.project_recovery import save_with_recovery
-from standalone_desktop_v34 import load_native_preview
+from standalone_desktop_v34 import inspect_native_project, load_native_preview
 
 FIXTURE = ENGINE / "tests" / "test_project_recovery_g14.py"
 spec = spec_from_file_location("v34_worker_fixture", FIXTURE)
@@ -128,6 +131,62 @@ class NativePreviewJobTests(unittest.TestCase):
         self.assertIsNone(preview)
         self.assertEqual({p.name: p.read_bytes() for p in self.path.parent.iterdir()},
                          before)
+
+
+    def test_same_project_id_replaced_after_inspection_is_not_mixed(self):
+        original = fixture_module.fixture()
+        save_project(self.path, original)
+        # Different VALID archive, with the SAME project ID. The old code
+        # compared only project_id, silently mixing its old summary and the
+        # new content. This regression checks the exact swap boundary.
+        second_path = self.path.parent / "replacement.smartsvg"
+        save_project(second_path, replace(original, app_version="v34-swapped"))
+        replacement_bytes = second_path.read_bytes()
+        self.assertNotEqual(self.path.read_bytes(), replacement_bytes)
+        first_inspect = inspect_native_project
+
+        def swap_after_inspection(path):
+            result = first_inspect(path)
+            self.path.write_bytes(replacement_bytes)
+            return result
+
+        with patch("standalone_desktop_v34.inspect_native_project",
+                   side_effect=swap_after_inspection):
+            state, preview = load_native_preview(self.path)
+        self.assertFalse(state["ok"])
+        self.assertEqual(state["status"], "PROJECT_CHANGED_DURING_INSPECTION")
+        self.assertIsNone(preview)
+        self.assertEqual(self.path.read_bytes(), replacement_bytes)
+
+    def test_same_id_swapped_after_second_read_is_rejected(self):
+        original = fixture_module.fixture()
+        save_project(self.path, original)
+        second_path = self.path.parent / "replacement.smartsvg"
+        save_project(second_path, replace(original, app_version="v34-swapped"))
+        replacement_bytes = second_path.read_bytes()
+        from standalone_desktop_v34 import load_project as original_load
+
+        def swap_after_second_load(path):
+            result = original_load(path)
+            self.path.write_bytes(replacement_bytes)
+            return result
+
+        with patch("standalone_desktop_v34.load_project",
+                   side_effect=swap_after_second_load):
+            state, preview = load_native_preview(self.path)
+        self.assertFalse(state["ok"])
+        self.assertEqual(state["status"], "PROJECT_CHANGED_DURING_INSPECTION")
+        self.assertIsNone(preview)
+
+    def test_no_snapshot_on_non_project_extension(self):
+        foreign = self.path.parent / "secret.txt"
+        foreign.write_text("local-only", encoding="utf-8")
+        before = foreign.read_bytes()
+        state, preview = load_native_preview(foreign)
+        self.assertFalse(state["ok"])
+        self.assertEqual(state["error_code"], "INVALID_RECOVERY_PATH")
+        self.assertIsNone(preview)
+        self.assertEqual(foreign.read_bytes(), before)
 
 
 if __name__ == "__main__":
