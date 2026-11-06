@@ -27,7 +27,8 @@ from smartsvg_core.project_recovery import RecoveryError, inspect_project_snapsh
 from smartsvg_core.source_preview_v34 import select_source_png
 from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
 from native_theme_tk_v34 import ArtisanThemePicker
-from native_templates_tk_v34 import open_template_preview
+from native_templates_tk_v34 import TemplatePreviewContent
+from native_app_shell_v34 import NativeAppShell
 
 
 def inspect_native_project(path: str | Path) -> dict:
@@ -158,20 +159,20 @@ def _start_gui(first_project: str | None) -> int:
         print("Aucune session graphique locale disponible.", file=sys.stderr)
         return 2
 
-    root.title("SmartSVG Studio V3.4 — prototype autonome")
-    root.geometry("920x710")
-    root.minsize(770, 600)
+    shell = NativeAppShell(root, tk, ttk)
+    home = shell.add_page('home', 'Accueil')
+    frame = shell.add_page('project', 'Projet')
+    factory = shell.add_page('factory', 'Fabrique')
+    appearance = shell.add_page('appearance', 'Apparence')
+    # Build each tool once. Navigation changes visibility, never the project.
+    # Load preferences immediately so the first screen uses the saved theme.
+    theme_picker = ArtisanThemePicker(root=root, parent=appearance, tk=tk, ttk=ttk)
+    template_panel = TemplatePreviewContent(factory, tk, ttk)
 
-    frame = ttk.Frame(root, padding=22)
-    frame.pack(fill="both", expand=True)
-    ttk.Label(frame, text="SmartSVG Studio", font=("Segoe UI", 18, "bold")).pack(anchor="w")
-    ttk.Label(frame,
-              text="Prototype local indépendant de ComfyUI • lecture seule • sans IA",
-              wraplength=720).pack(anchor="w", pady=(4, 18))
-    # UI preferences never enter the .smartsvg archive or its undo history.
-    # Kept independent of the final choice of GUI framework.
-    theme_picker = ArtisanThemePicker(root=root, parent=frame, tk=tk, ttk=ttk)
-
+    ttk.Label(frame, text='Votre projet', font=('Segoe UI', 16, 'bold')).pack(anchor='w', pady=(0, 12))
+    # Reserve primary actions above the image, including at minimum size.
+    buttons = ttk.Frame(frame)
+    buttons.pack(anchor="w", pady=(0, 12))
     file_name = tk.StringVar(value="Aucun projet sélectionné")
     message = tk.StringVar(value="Ouvrez un fichier .smartsvg pour examiner son état.")
     summary = tk.StringVar(value="Aucune ressource chargée.")
@@ -267,27 +268,47 @@ def _start_gui(first_project: str | None) -> int:
             parent=root, title="Ouvrir un projet SmartSVG",
             filetypes=[("Projets SmartSVG", "*.smartsvg")])
         if chosen:
+            shell.show('project', focus=True)
             current[0] = chosen
             file_name.set(Path(chosen).name)
             refresh()
 
-    template_panel = [None]
-    def show_templates():
-        template_panel[0] = open_template_preview(template_panel[0], root, tk, ttk)
-
-    buttons = ttk.Frame(frame)
-    buttons.pack(anchor="w", pady=(24, 0))
     ttk.Button(buttons, text="Ouvrir un projet…", command=select_project).pack(side="left")
     ttk.Button(buttons, text="Réexaminer (F5)", command=refresh).pack(side="left", padx=12)
-    ttk.Button(buttons, text="Fabrique · Gabarits…", command=show_templates).pack(side="left")
-    root.bind("<F5>", refresh)
-    ttk.Separator(frame).pack(fill="x", pady=(25, 12))
-    ttk.Label(frame, text=(
-        "Aperçus source PNG et gabarits théoriques : pas de dessin libre, d'export, de sauvegarde, "
-        "de restauration, de téléchargement ou de découpe Cricut."
-    ), wraplength=660).pack(anchor="w")
+
+    ttk.Label(home, text='Que souhaitez-vous préparer ?',
+              font=('Segoe UI', 18, 'bold')).pack(anchor='w', pady=(6, 16))
+    ttk.Label(home, text=(
+        'Retrouvez vos créations et explorez les gabarits dans une même fenêtre. '
+        'Les espaces conservent leur état pendant la navigation.'),
+        wraplength=620).pack(anchor='w', pady=(0, 22))
+    ttk.Button(home, text='Ouvrir un projet…', command=select_project).pack(anchor='w', pady=6)
+    ttk.Label(home, text='Examiner un fichier .smartsvg existant et son aperçu PNG, en lecture seule.',
+              wraplength=620).pack(anchor='w', pady=(0, 16))
+    ttk.Button(home, text='Préparer un gabarit',
+               command=lambda: shell.show('factory', focus=True)).pack(anchor='w', pady=6)
+    ttk.Label(home, text='Carte pliée ou boîte ouverte : dimensions en mm et aperçu CUT / SCORE.',
+              wraplength=620).pack(anchor='w', pady=(0, 16))
+    ttk.Button(home, text='Personnaliser mon espace',
+               command=lambda: shell.show('appearance', focus=True)).pack(anchor='w', pady=6)
+    ttk.Label(home, text='Thème et couleurs enregistrés localement pour toute l’application.',
+              wraplength=620).pack(anchor='w', pady=(0, 16))
+
+    def open_shortcut(_event):
+        select_project()
+        return 'break'
+
+    def refresh_shortcut(_event):
+        shell.show('project', focus=True)
+        refresh()
+        return 'break'
+
+    root.bind('<Control-o>', open_shortcut)
+    root.bind('<F5>', refresh_shortcut)
+    shell.show('home')
 
     if first_project:
+        shell.show('project', focus=True)
         current[0] = first_project
         file_name.set(Path(first_project).name)
         refresh()
@@ -297,8 +318,10 @@ def _start_gui(first_project: str | None) -> int:
         root.destroy()
 
     root.protocol("WM_DELETE_WINDOW", close_window)
-    root.mainloop()
-    jobs.close()
+    try:
+        root.mainloop()
+    finally:
+        jobs.close()
     return 0
 
 
