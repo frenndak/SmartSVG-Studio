@@ -27,6 +27,7 @@ from smartsvg_core.project_recovery import RecoveryError, inspect_project_snapsh
 from smartsvg_core.source_preview_v34 import select_source_png
 from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
 from native_theme_tk_v34 import ArtisanThemePicker
+from native_templates_tk_v34 import open_template_preview
 
 
 def inspect_native_project(path: str | Path) -> dict:
@@ -137,6 +138,7 @@ def _probe() -> int:
         "comfyui_required": False, "read_only": True,
         "tkinter_lazy": "tkinter" not in imported,
         "desktop_ui_tested": False, "windows_qualified": False,
+        "template_previews_available": True,
     }
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))
     return 0 if not imported else 2
@@ -269,14 +271,19 @@ def _start_gui(first_project: str | None) -> int:
             file_name.set(Path(chosen).name)
             refresh()
 
+    template_panel = [None]
+    def show_templates():
+        template_panel[0] = open_template_preview(template_panel[0], root, tk, ttk)
+
     buttons = ttk.Frame(frame)
     buttons.pack(anchor="w", pady=(24, 0))
     ttk.Button(buttons, text="Ouvrir un projet…", command=select_project).pack(side="left")
     ttk.Button(buttons, text="Réexaminer (F5)", command=refresh).pack(side="left", padx=12)
+    ttk.Button(buttons, text="Fabrique · Gabarits…", command=show_templates).pack(side="left")
     root.bind("<F5>", refresh)
     ttk.Separator(frame).pack(fill="x", pady=(25, 12))
     ttk.Label(frame, text=(
-        "Aperçu PNG source uniquement : pas de dessin, d'export, de sauvegarde, "
+        "Aperçus source PNG et gabarits théoriques : pas de dessin libre, d'export, de sauvegarde, "
         "de restauration, de téléchargement ou de découpe Cricut."
     ), wraplength=660).pack(anchor="w")
 
