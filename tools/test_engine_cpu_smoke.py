@@ -123,6 +123,143 @@ class LiveBasicCutGrammarSmoke(unittest.TestCase):
                     self.assertEqual({p.name:p.read_bytes() for p in root.iterdir()},before)
 
 
+class LiveProductionExportPipelineSmoke(unittest.TestCase):
+    @staticmethod
+    def production_module():
+        # Load the real relative-import package without executing the plugin's
+        # ComfyUI __init__. No pipeline function or dependency is mocked.
+        import importlib
+        import types
+        package='smartsvg_live_production_contracts'
+        if package not in sys.modules:
+            module=types.ModuleType(package)
+            module.__path__=[str(ROOT/'engine')]
+            sys.modules[package]=module
+        return importlib.import_module(package+'.production_v211')
+
+    @staticmethod
+    def artwork():
+        image=np.full((100,140,3),255,np.uint8)
+        mask=np.zeros((100,140),np.uint8)
+        cv2.circle(mask,(70,50),30,1,-1)
+        x=np.indices(mask.shape)[1]
+        image[(mask>0)&(x<70)]=(220,40,80)
+        image[(mask>0)&(x>=70)]=(40,80,220)
+        return image,mask
+
+    def test_real_production_print_contour_and_color_outputs_keep_contracts_distinct(self):
+        import hashlib
+        import xml.etree.ElementTree as ET
+        from PIL import Image
+        from inspect_svg_contracts import inspect_svg
+        from smartsvg_governance.artifact_qa import audit_project
+        from smartsvg_cricut.direct_import_v218 import prepare_cricut_import
+        from smartsvg_cricut.delivery_v21122 import delivery_manifest
+        from smartsvg_vector.layers_v2113 import vectorize_flat_art, save_svg
+        production=self.production_module()
+        # Fixture acceptance values established independently of exporter output:
+        # 25 mm content, 1.2 mm halo and 4 safety pixels per edge. At 300 ppi:
+        # 295 content pixels + 2*(14+4) = 331; at 450: 443 + 2*(21+4) = 493.
+        expected_sizes={300:(331,28.0246666667),450:(493,27.8275555556)}
+        for dpi in (300,450):
+            with self.subTest(dpi=dpi),tempfile.TemporaryDirectory() as folder:
+                image,mask=self.artwork()
+                source=(image.tobytes(),mask.tobytes())
+                report,_=production.run_v211(image,folder,profile='affiche',
+                    width_mm=25,dpi=dpi,masks=mask)
+                root=Path(report['dossier'])
+                self.assertEqual(len(report['objets']),1)
+                item=report['objets'][0]
+                png=Path(item['fichier_png_cricut'])
+                contour=Path(item['fichier_svg_contour'])
+                # These are actual files emitted by the historical producer.
+                png_bytes,contour_bytes=png.read_bytes(),contour.read_bytes()
+                geometry=inspect_svg(contour,profile='cut')
+                expected_pixels,expected_mm=expected_sizes[dpi]
+                self.assertAlmostEqual(geometry['width_mm'],expected_mm,delta=0.001)
+                self.assertAlmostEqual(geometry['height_mm'],expected_mm,delta=0.001)
+                with Image.open(png) as printed:
+                    self.assertEqual(printed.size,(expected_pixels,expected_pixels))
+                    self.assertEqual(printed.mode,'RGBA')
+                    self.assertAlmostEqual(printed.info['dpi'][0],dpi,delta=0.1)
+                    self.assertAlmostEqual(printed.info['dpi'][1],dpi,delta=0.1)
+                    self.assertAlmostEqual(printed.width*25.4/dpi,geometry['width_mm'],delta=0.01)
+                    self.assertAlmostEqual(printed.height*25.4/dpi,geometry['height_mm'],delta=0.01)
+                before={p.relative_to(root):p.read_bytes() for p in root.rglob('*') if p.is_file()}
+                audit=audit_project(root/'RAPPORT_V21_1.json')
+                self.assertEqual(audit['status'],'REVIEW_REQUIRED')
+                self.assertEqual(audit['blocking_codes'],[])
+                self.assertEqual({p.relative_to(root):p.read_bytes() for p in root.rglob('*') if p.is_file()},before)
+                handoff=prepare_cricut_import(report,dpi)
+                self.assertEqual(handoff['statut'],'PRET_POUR_IMPORT_LOCAL')
+                transferred=Path(handoff['objets'][0]['fichier_import'])
+                self.assertNotEqual(transferred,png)
+                self.assertEqual(transferred.read_bytes(),png_bytes)
+                self.assertTrue(handoff['ne_pas_ajouter_svg_contour'])
+                report['import_direct_cricut_v218']=handoff
+                delivery=delivery_manifest(report)
+                self.assertEqual(delivery['statut'],'CONTROLE_LOCAL_COMPLET_A_REVISER')
+                for role,original in [('impression',png_bytes),('png_fabrication',png_bytes),
+                                      ('svg_contour',contour_bytes)]:
+                    record=delivery['objets'][0]['fichiers'][role]
+                    self.assertEqual(record['sha256'],hashlib.sha256(original).hexdigest())
+                    self.assertEqual(record['octets'],len(original))
+                payload,_,vector=vectorize_flat_art(image,mask,colors=2,width_mm=25)
+                # One existing vectorizer supports two separate intended uses.
+                # Separate files are not proof of Design Space layer assignment.
+                color_cut=Path(save_svg(payload,str(root),prefix='COULEURS_A_DECOUPER'))
+                editable=Path(save_svg(payload,str(root),prefix='EDITION_COULEURS'))
+                self.assertEqual(len({png,contour,color_cut,editable}),4)
+                self.assertEqual(inspect_svg(color_cut,profile='cut')['width_mm'],25)
+                self.assertEqual(inspect_svg(editable,profile='editable')['width_mm'],25)
+                self.assertEqual(vector['calques_couleur'],2)
+                groups=[node for node in ET.fromstring(payload).iter() if node.tag.endswith('}g')]
+                self.assertEqual(len(groups),2)
+                self.assertEqual(len({group.get('id') for group in groups}),2)
+                self.assertEqual(len({group.get('fill') for group in groups}),2)
+                self.assertFalse(vector['svg_decoupe_cricut_certifie'])
+                self.assertFalse(delivery['certification_cricut'])
+                self.assertFalse(delivery['validation_physique'])
+                self.assertEqual(audit['external_validation']['design_space_import'],'NOT_TESTED')
+                self.assertEqual((png.read_bytes(),contour.read_bytes()),(png_bytes,contour_bytes))
+                self.assertEqual((image.tobytes(),mask.tobytes()),source)
+
+    def test_changed_manufactured_png_cannot_reuse_prior_successful_delivery(self):
+        from PIL import Image
+        from smartsvg_cricut.direct_import_v218 import prepare_cricut_import
+        from smartsvg_cricut.delivery_v21122 import delivery_manifest
+        with tempfile.TemporaryDirectory() as folder:
+            image,mask=self.artwork()
+            report,_=self.production_module().run_v211(image,folder,profile='affiche',
+                width_mm=25,dpi=300,masks=mask)
+            item=report['objets'][0]
+            png=Path(item['fichier_png_cricut'])
+            contour=Path(item['fichier_svg_contour'])
+            contour_bytes=contour.read_bytes()
+            handoff=prepare_cricut_import(report,300)
+            self.assertEqual(handoff['statut'],'PRET_POUR_IMPORT_LOCAL')
+            destination=Path(handoff['objets'][0]['fichier_import'])
+            previous=destination.read_bytes()
+            # Inject another valid raster revision after successful handoff.
+            with Image.open(png) as original:
+                changed=original.copy()
+            changed.putpixel((changed.width//2,changed.height//2),(1,2,3,255))
+            changed.save(png,dpi=(300,300))
+            modified=png.read_bytes()
+            self.assertNotEqual(modified,previous)
+            report['import_direct_cricut_v218']=handoff
+            stale=delivery_manifest(report)
+            self.assertEqual(stale['statut'],'REVISIONS_NECESSAIRES')
+            self.assertIn('PNG_IMPRESSION_DIFFERENT_DU_PNG_FABRICATION',
+                stale['objets'][0]['avertissements'])
+            retried=prepare_cricut_import(report,300)
+            self.assertEqual(retried['statut'],'A_VERIFIER')
+            self.assertEqual(retried['fichiers_prets'],0)
+            self.assertEqual(destination.read_bytes(),previous)
+            self.assertEqual(png.read_bytes(),modified)
+            self.assertEqual(contour.read_bytes(),contour_bytes)
+
+
 class LivePNGDensitySmoke(unittest.TestCase):
     @staticmethod
     def sticker(folder, name, dpi):
