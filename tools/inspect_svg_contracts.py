@@ -23,7 +23,7 @@ VECTOR_ELEMENTS = {"path", "rect", "circle", "ellipse", "polygon", "polyline", "
 NON_RENDERING_CONTAINERS = {"defs", "symbol", "clipPath", "mask", "pattern", "marker"}
 FORBIDDEN = {"script", "style", "a", "foreignObject", "image", "use", "animate", "animateColor",
              "animateMotion", "animateTransform", "set", "discard", "filter", "feImage", "textPath"}
-DIMENSION = re.compile(r"^(\d+(?:\.\d+)?)mm$")
+DIMENSION = re.compile(r"^([0-9]+(?:\.[0-9]+)?)mm$")
 CSS_SPACE = ' \t\n\r\f'
 
 
@@ -71,7 +71,8 @@ def _inline_declarations(style):
 
 
 # Strict syntax check only; no geometric/topological or machine certification.
-_PATH_NUMBER = re.compile(r'[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?')
+SVG_SPACE = ' \t\r\n\f'
+_PATH_NUMBER = re.compile(r'[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?')
 _PATH_COMMANDS = 'MmLlHhVvCcSsQqTtAaZz'
 _PATH_ARITY = {'M': 2, 'L': 2, 'H': 1, 'V': 1, 'C': 6, 'S': 4,
                'Q': 4, 'T': 2, 'A': 7}
@@ -83,7 +84,7 @@ def _validate_path_data(d: str) -> None:
     if re.search(r'^\s*,|,\s*,|,\s*$|,\s*[A-Za-z]|[A-Za-z]\s*,', d):
         raise SVGRejected('INVALID_PATH_DATA')
     while pos < len(d):
-        if d[pos].isspace() or d[pos] == ',':
+        if d[pos] in SVG_SPACE or d[pos] == ',':
             pos += 1
             continue
         if d[pos] in _PATH_COMMANDS:
@@ -161,7 +162,7 @@ def _validate_points_data(points: str, *, closed: bool) -> None:
         raise SVGRejected('INVALID_POINTS_DATA')
     pos, count = 0, 0
     while pos < len(points):
-        if points[pos].isspace() or points[pos] == ',':
+        if points[pos] in SVG_SPACE or points[pos] == ',':
             pos += 1
             continue
         match = _PATH_NUMBER.match(points, pos)
@@ -176,7 +177,7 @@ def _validate_points_data(points: str, *, closed: bool) -> None:
         # SVG points permit a negative Y directly after X (e.g. '10-5'),
         # but require a separator between consecutive coordinate pairs.
         if pos < len(points) and not (
-            points[pos].isspace() or points[pos] == ','
+            points[pos] in SVG_SPACE or points[pos] == ','
             or (points[pos] == '-' and count % 2 == 1)
         ):
             raise SVGRejected('INVALID_POINTS_DATA')
@@ -188,7 +189,7 @@ def _validate_points_data(points: str, *, closed: bool) -> None:
 # This is a syntax/finite-value guard, not a geometric renderer. Standard SVG
 # length units are accepted; their physical resolution is NOT verified here.
 _SHAPE_LENGTH = re.compile(
-    r"^([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)"
+    r"^([+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)"
     r"(?:px|mm|cm|in|pt|pc|em|ex|%)?$"
 )
 _SHAPE_FIELDS = {
@@ -212,7 +213,7 @@ def _validate_primitive_shape(tag: str, attrs: dict) -> None:
     for key in _SHAPE_FIELDS[tag]:
         if key not in attrs:
             continue
-        match = _SHAPE_LENGTH.fullmatch(attrs[key].strip())
+        match = _SHAPE_LENGTH.fullmatch(attrs[key].strip(SVG_SPACE))
         if match is None:
             raise SVGRejected("INVALID_SHAPE_GEOMETRY")
         value = float(match.group(1))
