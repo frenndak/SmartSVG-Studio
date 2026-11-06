@@ -14,7 +14,10 @@ from pathlib import Path
 import re
 import time
 
-from .project_archive import LoadedProject, ProjectArchiveError, load_project, _payload
+from .project_archive import (
+    LoadedProject, ProjectArchiveError, load_project, _payload,
+    _file_digest as _file_sha256,
+)
 from .project_contracts import SourceAsset
 from .editor_session_g23 import parse_editor_document, EditorSessionError
 from .project_contracts import Mask
@@ -64,11 +67,7 @@ def _revision(path):
     """Bounded-memory fingerprint; explicit sentinel for a missing revision."""
     if not path.exists():
         return 'missing'
-    digest=sha256()
-    with path.open('rb') as stream:
-        for block in iter(lambda:stream.read(1024*1024),b''):
-            digest.update(block)
-    return digest.hexdigest()
+    return _file_sha256(path)
 
 
 def _valid_name(name):
@@ -292,7 +291,7 @@ class ManagedWorkspace:
         if health.status=='PROJECT_RECOVERABLE':
             previous=path.with_name(path.stem+'.previous.smartsvg')
             # An explicit restore request must carry a fingerprint of this snapshot.
-            report['recovery_sha256']=_sha(previous.read_bytes())
+            report['recovery_sha256']=_file_sha256(previous)
         if health.status=='PENDING_BACKUP_REVIEW_REQUIRED':
             pending=path.with_name(path.stem+'.pending-backup.smartsvg')
             previous=path.with_name(path.stem+'.previous.smartsvg')
@@ -321,7 +320,7 @@ class ManagedWorkspace:
             raise WorkspaceError('EXPECTED_REVISION_REQUIRED')
         if not path.is_file():
             raise WorkspaceError('PROJECT_NOT_FOUND')
-        before=_sha(path.read_bytes())
+        before=_file_sha256(path)
         if before != expected_sha256:
             raise WorkspaceError('PROJECT_CHANGED')
         current=load_project(path)
@@ -403,7 +402,7 @@ class ManagedWorkspace:
             raise WorkspaceError('EXPECTED_REVISION_REQUIRED')
         if not path.is_file():
             raise WorkspaceError('PROJECT_NOT_FOUND')
-        previous_hash=_sha(path.read_bytes())
+        previous_hash=_file_sha256(path)
         if previous_hash!=expected_sha256:
             raise WorkspaceError('PROJECT_CHANGED')
         try:
@@ -442,10 +441,20 @@ class ManagedWorkspace:
     def editor_document(self, name):
         """Retrieve exact strokes for explicit import into a matching V21.6 node."""
         path=self._path(name)
+        revision=None
         try:
-            project=load_project(path)
-        except (ProjectArchiveError,OSError) as exc:
-            raise WorkspaceError('INVALID_PROJECT_CONTENTS') from exc
+            revision=_file_sha256(path)
+            project=load_project(path,expected_sha256=revision)
+        except ProjectArchiveError as exc:
+            try:
+                changed=(str(exc)=='PROJECT_SNAPSHOT_CHANGED' or _revision(path)!=revision)
+            except OSError:
+                changed=True
+            code='PROJECT_CHANGED_DURING_INSPECTION' if changed else 'INVALID_PROJECT_CONTENTS'
+            raise WorkspaceError(code) from exc
+        except OSError as exc:
+            code='PROJECT_CHANGED_DURING_INSPECTION' if revision is not None else 'INVALID_PROJECT_CONTENTS'
+            raise WorkspaceError(code) from exc
         if project.project_id!=name or len(project.sources)!=1:
             raise WorkspaceError('PROJECT_ID_MISMATCH')
         session=project.document.get('editor_v216')
@@ -458,8 +467,13 @@ class ManagedWorkspace:
                                    project.sources[0].height_px))
         except (EditorSessionError,ValueError,TypeError) as exc:
             raise WorkspaceError('CORRUPT_EDITOR_SESSION') from exc
+        try:
+            if _file_sha256(path)!=revision:
+                raise WorkspaceError('PROJECT_CHANGED_DURING_INSPECTION')
+        except OSError as exc:
+            raise WorkspaceError('PROJECT_CHANGED_DURING_INSPECTION') from exc
         return {'name':name,'editor_json':canonical,
-                'expected_sha256':_sha(path.read_bytes()),
+                'expected_sha256':revision,
                 'base_masks_persisted':False,'certified':False}
 
 
@@ -477,7 +491,7 @@ class ManagedWorkspace:
             raise WorkspaceError('EXPECTED_REVISION_REQUIRED')
         if not path.is_file():
             raise WorkspaceError('PROJECT_NOT_FOUND')
-        current_sha=_sha(path.read_bytes())
+        current_sha=_file_sha256(path)
         if current_sha!=expected_sha256:
             raise WorkspaceError('PROJECT_CHANGED')
         try:
@@ -636,7 +650,7 @@ class ManagedWorkspace:
             raise WorkspaceError('EXPECTED_REVISION_REQUIRED')
         if not path.is_file():
             raise WorkspaceError('PROJECT_NOT_FOUND')
-        if _sha(path.read_bytes())!=expected_sha256:
+        if _file_sha256(path)!=expected_sha256:
             raise WorkspaceError('PROJECT_CHANGED')
         try:
             loaded=load_project(path)

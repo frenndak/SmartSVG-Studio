@@ -5,6 +5,7 @@ from pathlib import Path
 import struct
 import tempfile
 import unittest
+from unittest.mock import patch
 import zlib
 
 from smartsvg_core.editor_session_g23 import parse_editor_document,EditorSessionError
@@ -65,6 +66,71 @@ class G23EditorSessions(unittest.TestCase):
         self.assertEqual(load_project(self.path).operations[-1]['kind'],'save_editor_v216')
         self.assertEqual(self.workspace.source_png('snails'),png())
         self.assertEqual(view['document']['notes'],'Initial')
+
+    def test_editor_read_rejects_replacement_instead_of_mixing_revision(self):
+        from smartsvg_core import project_workspace_g22 as module
+        self.save()
+        first=self.path.read_bytes()
+        changed=json.loads(editor_document())
+        changed['strokes'][0]['radius']=0.02
+        self.save(value=json.dumps(changed))
+        replacement=self.path.read_bytes()
+        self.path.write_bytes(first)
+        parse=module.parse_editor_document
+        def swap_during_parse(*args,**kwargs):
+            result=parse(*args,**kwargs)
+            self.path.write_bytes(replacement)
+            return result
+        with patch.object(module,'parse_editor_document',side_effect=swap_during_parse):
+            with self.assertRaisesRegex(WorkspaceError,'PROJECT_CHANGED_DURING_INSPECTION'):
+                self.workspace.editor_document('snails')
+        self.assertEqual(self.path.read_bytes(),replacement)
+
+    def test_editor_read_rejects_transient_replacement_during_validation(self):
+        from smartsvg_core import project_workspace_g22 as module
+        self.save()
+        first=self.path.read_bytes()
+        changed=json.loads(editor_document())
+        changed['strokes'][0]['radius']=0.02
+        self.save(value=json.dumps(changed))
+        replacement=self.path.read_bytes()
+        self.path.write_bytes(first)
+        load=module.load_project
+        def transient_read(path,**kwargs):
+            self.path.write_bytes(replacement)
+            try:
+                return load(path,**kwargs)
+            finally:
+                self.path.write_bytes(first)
+        with patch.object(module,'load_project',side_effect=transient_read):
+            with self.assertRaisesRegex(WorkspaceError,'PROJECT_CHANGED_DURING_INSPECTION'):
+                self.workspace.editor_document('snails')
+        self.assertEqual(self.path.read_bytes(),first)
+
+    def test_editor_read_rejects_disappearance_before_archive_validation(self):
+        from smartsvg_core import project_workspace_g22 as module
+        self.save()
+        load=module.load_project
+        def remove_before_load(path,**kwargs):
+            self.path.unlink()
+            return load(path,**kwargs)
+        with patch.object(module,'load_project',side_effect=remove_before_load):
+            with self.assertRaisesRegex(WorkspaceError,'PROJECT_CHANGED_DURING_INSPECTION'):
+                self.workspace.editor_document('snails')
+        self.assertFalse(self.path.exists())
+
+    def test_editor_read_rejects_disappearance_after_session_parse(self):
+        from smartsvg_core import project_workspace_g22 as module
+        self.save()
+        parse=module.parse_editor_document
+        def remove_during_parse(*args,**kwargs):
+            result=parse(*args,**kwargs)
+            self.path.unlink()
+            return result
+        with patch.object(module,'parse_editor_document',side_effect=remove_during_parse):
+            with self.assertRaisesRegex(WorkspaceError,'PROJECT_CHANGED_DURING_INSPECTION'):
+                self.workspace.editor_document('snails')
+        self.assertFalse(self.path.exists())
 
     def test_session_load_requires_saved_document(self):
         with self.assertRaisesRegex(WorkspaceError,'EDITOR_SESSION_NOT_FOUND'):
