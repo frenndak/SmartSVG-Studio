@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 import json
+import json.scanner
 import subprocess
 import sys
 import unittest
@@ -157,6 +158,23 @@ class NativeThemePickerTests(unittest.TestCase):
             self.assertNotIn("✓", picker._swatches["sage"].values["text"])
             self.assertIn("enregistrée", picker.status_var.get())
             self.assertEqual(project.read_bytes(), before)
+
+    def test_nested_corrupt_preferences_do_not_block_picker_startup(self):
+        with TemporaryDirectory() as tmp:
+            location = Path(tmp) / "appearance.json"
+            project = Path(tmp) / "creation.smartsvg"
+            project.write_bytes(b"original creation")
+            payload = b"[" * 1000 + b"]" * 1000
+            location.write_bytes(payload)
+            tk, ttk = self.widgets()
+            with patch("json.scanner.make_scanner", json.scanner.py_make_scanner):
+                picker = ArtisanThemePicker(root=FakeRoot(), parent=FakeWidget(),
+                                            tk=tk, ttk=ttk, settings_path=location)
+            self.assertEqual(picker.prefs, ThemePreferences())
+            self.assertEqual(location.read_bytes(), payload, "opening never silently repairs a file")
+            picker._on_accent("lagoon")  # an explicit user action may save valid preferences
+            self.assertEqual(load_theme_preferences(location).accent, "lagoon")
+            self.assertEqual(project.read_bytes(), b"original creation")
 
     def test_reopening_restores_saved_preferences(self):
         with TemporaryDirectory() as tmp:
