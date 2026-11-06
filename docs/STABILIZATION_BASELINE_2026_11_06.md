@@ -18,6 +18,23 @@ La première suite Windows a mis en évidence des problèmes d'encodage implicit
 
 **IMPORTANT :** ce tableau est une photographie de **preuves exécutées** du premier passage, pas une certification du HEAD final de la PR. Examiner les jobs du dernier HEAD avant d'annoncer le résultat de qualification.
 
+## Qualification de la correction (après première reproduction)
+
+**Candidat technique testé : `f2660840fbf534c0640110f8fa3bb551b3f8f3c1`**. Les preuves de la dernière exécution **complète**, à ne pas confondre avec la première passe défaillante :
+
+| Test sur SHA exact | ID workflow | Résultat |
+| --- | --- | --- |
+| [G0 Python/Linux](https://github.com/frenndak/SmartSVG-Studio/actions/runs/42162762348) | `42162762348` | **PASS** |
+| [Prévol public](https://github.com/frenndak/SmartSVG-Studio/actions/runs/42162762329) | `42162762329` | **PASS** |
+| [Moteur CPU historique](https://github.com/frenndak/SmartSVG-Studio/actions/runs/42162762324) | `42162762324` | **PASS** |
+| [Windows + Node + navigateur](https://github.com/frenndak/SmartSVG-Studio/actions/runs/42162762358) | `42162762358` | **3 jobs PASS** |
+
+**Windows : `Ran 556 tests` / `OK (skipped=48)`**, aucun échec ni erreur. Les contrôles de sécurité importants (`test_protected_source_renamed_into_unprotected_path_is_blocked`, `test_success_requires_explicit_budget_and_remaining_runs`, `test_windows_backslashes`, `test_svg_width_nan_cannot_be_reported_ok_local`, `test_svg_outside_project_is_never_approved_even_with_valid_mm`) sont **réellement exécutés et réussis**, et non ignorés. Les 48 skips concernent les tests soumis aux dépendances facultatives de l'environnement ; ne pas revendiquer 556 assertions toutes exécutées.
+
+Les changements sont concentrés sur l'outil de qualification, les assertions de tests liées aux encodages et chemins Windows, et une seule fonction de production : `_svg_preflight`, qui vérifie l'appartenance d'un SVG au répertoire du projet par **identité d'ancêtre** sur Windows. Le contrôle PNG `_source` a été vérifié octet pour octet identique à celui du `main` initial. Le nouveau test externe refuse un SVG valide localisé hors projet. **Ne pas modifier la sémantique de sécurité pour faire passer les tests.**
+
+La modification de cette documentation dans la PR crée un **HEAD plus récent** : relire les workflows du HEAD final avant tout squash. Les validations ci-dessus concernent explicitement le code `f2660840`.
+
 ## Matrice fonctionnelle : preuve existante ≠ recette de bout en bout
 
 | Parcours | Code et tests déjà présents | Ce qui n'est PAS encore prouvé | Verdict |
