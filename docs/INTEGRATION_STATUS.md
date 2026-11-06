@@ -1,5 +1,7 @@
 # SmartSVG Studio — statut d'intégration (24 octobre 2026)
 
+> **Document historique.** Conserver les preuves et critères datés ci-dessous ; les anciennes prochaines actions, autorisations et descriptions de dépôts ne sont pas des consignes courantes. Reprendre depuis [l’état V3.4 actuel](roadmap-v3.4/EXECUTION_ET_INTEGRATION_2026_11_06.md) et [AGENTS.md](../AGENTS.md).
+
 ## Source authentique admise (G0)
 
 - Archive V21.15.2 sauvegardée en privé dans `source-releases/ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip`.

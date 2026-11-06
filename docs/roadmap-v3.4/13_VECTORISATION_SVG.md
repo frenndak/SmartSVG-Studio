@@ -1,5 +1,7 @@
 # SmartSVG Studio V3.4 — Lot 13 : vectorisation, topologie, SVG d'édition et SVG de coupe
 
+> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
+
 **DRAFT DE SPÉCIFICATION — 29 octobre 2026.** V3.3 demeure ACTIVE ; suivi [#72](https://github.com/frenndak/SmartSVG-Studio/issues/72), PR [#73](https://github.com/frenndak/SmartSVG-Studio/pull/73) DRAFT. Référence code `main@fdbda304beb77d97340a8be4dd5c5e9cefde15f4` ; branche de travail documentaire issue du cycle 12. **Aucun moteur V3.4, aucun fichier de test ci-dessous, aucun SVG réel qualifié Design Space ou Cricut n'a été implémenté ou exécuté par ce lot.** Les exemples sont des **SPÉCIFICATIONS**, pas des preuves.
 
 ## 1. Résultat utilisateur, état réel et périmètre

@@ -1,5 +1,7 @@
 # SmartSVG Studio V3.4 — Lot 22/24 : corpus, validation et preuves
 
+> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
+
 **DRAFT — 29 octobre 2026.** V3.3 reste ACTIVE, avec ses **101 S + 40 R33**, F01–F15, P01–P10 et G0–G9 intacts. Ce lot améliore uniquement les protocoles de validation des fonctions déjà prévues : **aucune nouvelle fonction, aucun nouveau gate, aucun nouveau framework**. Références : main **fff374e5147689165839bd76e742713d714ff147**, branche avant lot **d5774c00c6a49f5fc3748e833aba8d55c249359f**, issue #72, PR #73 DRAFT. **Tous les tests T-V34-22 sont SPÉCIFIÉS / NON_EXECUTE**.
 
 ## 1. Contre-expertise du lot 21 et du code réel (3 précisions)

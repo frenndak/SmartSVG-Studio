@@ -84,3 +84,5 @@ Avant chaque micro-lot :
 6. Actualiser ici l'état du raccordement et la prochaine action ; conserver les anciennes photographies de preuve avec leur SHA au lieu de les faire passer pour l'état courant.
 
 **Définition d'une fonction raccordée :** action accessible dans le bureau → moteur réel → état/erreur visible → résultat inspectable/rechargeable → tests du parcours sur la révision concernée. La clôture de son ticket exige encore tous les critères du lot source et ses axes de preuve applicables.
+
+**Maintenance des consignes :** [guide des mécanismes de développement](../AUTOMATION_RUNBOOK.md) et [profil d’exécution natif](../NATIVE_RUNTIME_V34.md). Ces documents distinguent worker GitHub, tâche ChatGPT et session interactive ; le profil natif minimal est séparé des dépendances historiques de traitement. Le verrouillage de distribution reste à qualifier au ticket V34-139.

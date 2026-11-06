@@ -16,6 +16,26 @@ class ProjectStatusPortalTests(unittest.TestCase):
         cls.readme=README.read_text(encoding="utf-8")
         cls.status=STATUS.read_text(encoding="utf-8")
 
+    def assert_no_cricut_certification(self, text):
+        # Accept explicit equivalent notices, including capitalization and
+        # line wrapping; still reject compatibility or certification claims.
+        normalized = " ".join(text.casefold().split())
+        self.assertRegex(normalized,
+            r"\b(?:pas de version cricut certifiée|aucune certification cricut|"
+            r"cricut\s*:\s*non certifié(?:e)?)\b")
+
+    def test_certification_notice_accepts_equivalent_clear_negative_wording(self):
+        for text in ("Pas de version Cricut certifiée.",
+                     "Aucune certification Cricut.",
+                     "Cricut : non certifié."):
+            with self.subTest(text=text):
+                self.assert_no_cricut_certification(text)
+
+    def test_certification_notice_rejects_positive_or_unspecified_claims(self):
+        for text in ("Version Cricut certifiée.", "Cricut compatible.", "", "GPU non certifié."):
+            with self.subTest(text=text), self.assertRaises(AssertionError):
+                self.assert_no_cricut_certification(text)
+
     def test_public_repo_has_link_to_current_status_and_immutable_plan(self):
         self.assertIn("Dépôt public",self.readme)
         self.assertNotIn("source privée",self.readme)
@@ -31,14 +51,14 @@ class ProjectStatusPortalTests(unittest.TestCase):
                        "n'effectue pas encore une segmentation IA",
                        "G2.7/G2.9","brouillon"):
             self.assertIn(phrase,self.readme)
-        self.assertIn("pas de version Cricut certifiée",self.readme)
+        self.assert_no_cricut_certification(self.readme)
         self.assertIn("G3.2",self.status)
         self.assertIn("G3.3",self.status)
         self.assertIn("G3.4",self.status)
 
     def test_artifacts_are_not_mistaken_for_cricut_certification(self):
-        for phrase in ("pas de version Cricut certifiée",
-                       "RTX 3070", "Explore 5",
+        self.assert_no_cricut_certification(self.readme)
+        for phrase in ("RTX 3070", "Explore 5",
                        "651 empreintes", "V21.15.2"):
             self.assertIn(phrase,self.readme)
         self.assertIn("Certification Cricut",self.status)

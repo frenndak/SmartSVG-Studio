@@ -1,5 +1,7 @@
 # SmartSVG Studio V3.4 — Lot 11 : catalogue IA local, licences, téléchargements, budgets et benchmarks
 
+> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
+
 **DRAFT DE SPÉCIFICATION — 29 octobre 2026.** V3.3 ACTIVE ; aucun modèle téléchargé/installé, aucune inférence RTX 3070, aucune validation Windows, Design Space ou physique. Issue #72 ; PR draft #73. Référence `main` : `fdbda304beb77d97340a8be4dd5c5e9cefde15f4` ; HEAD documentaire avant lot : `6cabc78b987b52969c22acf73d2fa387c28c8897`. Les chemins de code et de tests ci-dessous sont **futurs**, pas des fichiers créés.
 
 ## 1. Besoin, héritage et réalité lue

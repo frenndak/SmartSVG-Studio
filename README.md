@@ -31,6 +31,8 @@ python -I -S engine/standalone_desktop_v34.py --probe
 
 Le premier lance la fenêtre autonome locale, le second contrôle les imports sans ouvrir de fenêtre. Ce n'est pas encore un installateur ; la lecture projet et la Fabrique n'écrivent ni n'exportent. Voir [le parcours de réalisation prioritaire](docs/roadmap-v3.4/EXECUTION_ET_INTEGRATION_2026_11_06.md).
 
+Dépendances et reproductibilité : [profil du socle natif](docs/NATIVE_RUNTIME_V34.md).
+
 **Interface web historique / démonstration :**
 
 Ouvrir `engine/web/js/smartsvg_express_atelier_preview.html` dans un navigateur pour tester la **maquette locale** sans GPU. On peut y naviguer, sélectionner les 12 exemples et prévisualiser un PNG/JPEG/WebP sans envoi.

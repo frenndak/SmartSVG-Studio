@@ -1,5 +1,7 @@
 # SmartSVG V3.4 — Cycle 03 : architecture cible, ADR et contrats entre moteurs
 
+> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
+
 **DRAFT de conception, 29 octobre 2026.** Roadmap active : V3.3. Base `main` relue : `fdbda304beb77d97340a8be4dd5c5e9cefde15f4` ; branche V3.4 avant ce lot : `5f82b88ef2d2c79f445bb0a6df6fe4dbcc434040`. **Aucune fonction de production implémentée par ce document.** Aucun benchmark Windows, RTX 3070, Design Space ou Cricut réalisé. Les types, chemins et tests « futurs » ci-dessous sont des propositions, pas des fichiers existants.
 
 ## 1. Objectif, périmètre et revue du lot 02

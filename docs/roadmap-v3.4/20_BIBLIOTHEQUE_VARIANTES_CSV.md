@@ -1,5 +1,7 @@
 # SmartSVG Studio V3.4 — Lot 20/24 : bibliothèque, modèles, variantes et CSV
 
+> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
+
 **DRAFT de conception — 29 octobre 2026.** V3.3 demeure **ACTIVE**. Périmètre strictement hérité de **F09/F10/F12, P05/P07/P08, G6/G7, S-017/S-024/S-038/S-039/S-041/S-091/S-097/S-098 et R33-010/011/012**. Aucun ajout de fonction, code, archive ou tâche planifiée. **Tous les tests proposés ci-dessous : NON_EXECUTE** (auto/UI/Windows/Design Space/physique). Référence de lecture : `main@fdbda304beb77d97340a8be4dd5c5e9cefde15f4`, branche documentaire issue de `fff374e5147689165839bd76e742713d714ff147`. Relecture des lots 05, 17, 18 et 19.
 
 ## 1. État réel, contre-expertise du lot 19 et trois écarts à résoudre

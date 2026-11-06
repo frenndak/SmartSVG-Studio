@@ -1,5 +1,7 @@
 # SmartSVG Studio V3.4 — Lot 16/24 : patrons paramétriques de cartes et boîtes (périmètre existant)
 
+> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
+
 **DRAFT DE CONCEPTION, 29 octobre 2026.** V3.3 reste **ACTIVE** ; issue [#72](https://github.com/frenndak/SmartSVG-Studio/issues/72), [PR #73](https://github.com/frenndak/SmartSVG-Studio/pull/73) documentaire. **Aucune nouvelle fonction imposée.** Les chemins et tickets ci-dessous sont des propositions, non du code exécuté. Les preuves produit/Windows/RTX/Design Space/physiques sont **NON_EXECUTE**.
 
 ## 1. Contre-expertise ciblée des lots 14–15 et état réel

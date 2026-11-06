@@ -1,5 +1,7 @@
 # SmartSVG V3.4 — Lot 04 / Annexe A : dépendances et frontières de migration
 
+> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
+
 **DRAFT de conception, 29 octobre 2026.** Base `main@fdbda304beb77d97340a8be4dd5c5e9cefde15f4`, branche documentaire `codex/docs-roadmap-v3-4-campaign`. **Inventaire du dépôt complet ; graphe d'imports ciblé, non exhaustif.** Aucune exécution Windows, inférence, installation de modèle ou modification du moteur. Cette distinction interdit d'annoncer « graphe exhaustif terminé ».
 
 ## 1. Périmètre effectivement vérifié
