@@ -320,10 +320,19 @@ class ActualTkShellSmokeTests(unittest.TestCase):
                 action.invoke()
                 dialog = captured[0]
                 dialog.choose_source(); dialog.choose_output()
+                # Long display paths must not push actions/errors out of the
+                # minimum-height dialog; original path variables stay intact.
+                dialog.window.geometry('660x580')
+                long_path = '/very-long-selected-path/'*30
+                dialog.source.set(long_path); dialog.output.set(long_path)
+                dialog.status.set('PNG invalide ou non pris en charge : choisir un autre fichier avant de continuer.')
                 root.update()
-                self.assertTrue(dialog.create_button.winfo_viewable())
-                self.assertLessEqual(dialog.create_button.winfo_rooty()+dialog.create_button.winfo_height(),
-                                     dialog.window.winfo_rooty()+dialog.window.winfo_height())
+                self.assertEqual(dialog.source.get(), long_path)
+                for widget in (dialog.create_button, dialog.status_label):
+                    self.assertTrue(widget.winfo_viewable())
+                    self.assertLessEqual(widget.winfo_rooty()+widget.winfo_height(),
+                                         dialog.window.winfo_rooty()+dialog.window.winfo_height())
+                dialog.source.set(str(source)); dialog.output.set(directory)
                 dialog.create_button.invoke()
                 deadline = time.monotonic()+15
                 while dialog.busy and time.monotonic()<deadline:

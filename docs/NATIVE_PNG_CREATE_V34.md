@@ -13,7 +13,7 @@ La confirmation « Projet créé, enregistré et relu » suit le retour du write
 ## Réemploi et frontière de mutation
 
 - [Port natif](../engine/smartsvg_core/native_project_create_v34.py) : lecture bornée d'un fichier PNG ordinaire, validation par les fonctions existantes, création via `ManagedWorkspace.create`, relecture V1 et reçu SHA. La provenance native utilise le champ V1 existant ; l'origine navigateur reste la valeur par défaut pour les anciens consommateurs.
-- [Formulaire Tk](../engine/native_create_tk_v34.py) : une seule création active, paramètres capturés avant le worker, statut sur le thread Tk, double activation ignorée et fermeture différée pendant l'écriture. Aucun usage de `LatestOnlyJob` pour une écriture.
+- [Formulaire Tk](../engine/native_create_tk_v34.py) : une seule création active, paramètres capturés avant le worker, statut sur le thread Tk, actions/diagnostic réservés en bas et chemins affichés de façon bornée sans changer les chemins utilisés, double activation ignorée et fermeture différée pendant l'écriture. Aucun usage de `LatestOnlyJob` pour une écriture.
 - [Writer existant](../engine/smartsvg_core/project_recovery.py) : option `require_absent`, désactivée par défaut pour les sauvegardes existantes ; la création gérée l'active. Sous le verrou OS, présence d'un primaire ou d'un secours/pending interdit la création. La publication initiale existante par lien atomique reste sans écrasement.
 - [Entrée bureau](../engine/standalone_desktop_v34.py) : création explicite depuis Accueil/Projet, fermeture et ouverture d'un autre projet différées pendant cette création ; réouverture du reçu vérifié. Les projets déjà existants restent en lecture seule dans cette version.
 

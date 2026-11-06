@@ -40,6 +40,38 @@ class NativeCreateUITests(unittest.TestCase):
             except Exception: pass  # callback, not the test, must expose the error
         while self.pending: self.pending.pop(0)()
 
+    def test_closing_dialog_removes_real_tcl_path_trace_callbacks(self):
+        try:
+            import tkinter as real_tk
+        except ImportError:
+            self.skipTest('Tkinter unavailable')
+        interpreter = real_tk.Tcl()  # no graphical session required
+        tk = SimpleNamespace(Toplevel=CreatorWidget, TclError=real_tk.TclError,
+            StringVar=lambda **kwargs:real_tk.StringVar(master=interpreter, **kwargs))
+        before = set(interpreter.call('info', 'commands'))
+        offset = len(LayoutWidget.all_widgets)
+        dialog = self.module.NativeCreateDialog(self.root, tk, self.ttk,
+            SimpleNamespace(), self.receipts.append)
+        try:
+            self.assertEqual(len(dialog.source.trace_info()), 1)
+            self.assertEqual(len(dialog.output.trace_info()), 1)
+            dialog.close()
+            self.assertEqual(set(interpreter.call('info', 'commands')), before)
+            self.assertEqual(dialog.source.trace_info(), [])
+            self.assertEqual(dialog.output.trace_info(), [])
+            self.assertTrue(dialog.close())  # cleanup is idempotent
+        finally:
+            # Release real Tcl references on this thread even on red baseline.
+            for variable in (dialog.source, dialog.output):
+                for mode, handle in variable.trace_info():
+                    variable.trace_remove('write', handle)
+            dialog.window.events.clear()
+            del LayoutWidget.all_widgets[offset:]
+            dialog.shutdown()
+            del dialog
+            import gc
+            gc.collect()  # release fake-widget cycles on the Tcl owner thread
+
     def test_cancelled_dialogs_and_close_never_create_any_files(self):
         with tempfile.TemporaryDirectory() as directory:
             self.dialog.choose_source()

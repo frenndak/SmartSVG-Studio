@@ -31,8 +31,21 @@ class NativeCreateDialog:
         self.status = tk.StringVar(value='Choisir un PNG et un dossier, puis créer le projet.')
         self.future, self.executor = None, None
         self.busy = False
+        self._path_traces = []
+        self._tcl_error = getattr(tk, 'TclError', RuntimeError)
         self.controls = []
-        frame = ttk.Frame(self.window, padding=18)
+        outer = ttk.Frame(self.window, padding=18)
+        outer.pack(fill='both', expand=True)
+        # Reserve actions and diagnostic space before the expanding form.
+        footer = ttk.Frame(outer)
+        footer.pack(side='bottom', fill='x')
+        actions = ttk.Frame(footer)
+        actions.pack(fill='x')
+        self.create_button = self._button(ttk, actions, 'Créer et ouvrir', self.start, side='left')
+        ttk.Button(actions, text='Fermer', command=self.close).pack(side='left', padx=8, pady=4)
+        self.status_label = ttk.Label(footer, textvariable=self.status, wraplength=610)
+        self.status_label.pack(anchor='w', pady=10)
+        frame = ttk.Frame(outer)
         frame.pack(fill='both', expand=True)
         ttk.Label(frame, text='Nouveau projet', font=('Segoe UI', 16, 'bold')).pack(anchor='w')
         ttk.Label(frame, text=(
@@ -40,33 +53,44 @@ class NativeCreateDialog:
             'dans le sous-dossier SmartSVG_Managed_Projects du dossier choisi. '
             'Aucun détourage, masque ou export n’est généré.'), wraplength=620).pack(anchor='w', pady=(6, 12))
         self._button(ttk, frame, 'Choisir le PNG…', self.choose_source)
-        ttk.Label(frame, textvariable=self.source, wraplength=610).pack(anchor='w', pady=(3, 8))
+        self._path_label(tk, ttk, frame, self.source)
         self._button(ttk, frame, 'Choisir le dossier des projets…', self.choose_output)
-        ttk.Label(frame, textvariable=self.output, wraplength=610).pack(anchor='w', pady=(3, 8))
+        self._path_label(tk, ttk, frame, self.output)
         self._field(ttk, frame, 'Nom (lettres/chiffres, tiret ou _, 48 caractères maximum)', self.name)
         self._field(ttk, frame, 'Intention (réglage initial, sans traitement automatique)', self.profile,
                     values=tuple(sorted(PROFILES)))
-        self._field(ttk, frame, 'Largeur souhaitée (mm, de 5 à 300)', self.width)
-        self._field(ttk, frame, 'Résolution souhaitée (DPI)', self.dpi, values=('300', '450'))
-        self.create_button = self._button(ttk, frame, 'Créer et ouvrir', self.start)
-        ttk.Button(frame, text='Fermer', command=self.close).pack(anchor='w', pady=4)
-        ttk.Label(frame, textvariable=self.status, wraplength=610).pack(anchor='w', pady=10)
+        dimensions = ttk.Frame(frame)
+        dimensions.pack(fill='x')
+        left, right = ttk.Frame(dimensions), ttk.Frame(dimensions)
+        left.pack(side='left', fill='x', expand=True)
+        right.pack(side='left', fill='x', expand=True)
+        self._field(ttk, left, 'Largeur (mm, de 5 à 300)', self.width, width=24)
+        self._field(ttk, right, 'Résolution (DPI)', self.dpi, values=('300', '450'), width=18)
 
-    def _button(self, ttk, frame, text, command):
+    def _path_label(self, tk, ttk, frame, variable):
+        display = tk.StringVar(value='')
+        def update(*_unused):
+            text = ' '.join(variable.get().split())
+            display.set(text if len(text) <= 96 else text[:24] + ' … ' + text[-68:])
+        self._path_traces.append((variable, variable.trace_add('write', update)))
+        update()
+        ttk.Label(frame, textvariable=display, wraplength=610).pack(anchor='w', pady=(3, 8))
+
+    def _button(self, ttk, frame, text, command, **pack_options):
         button = ttk.Button(frame, text=text, command=command)
-        button.pack(anchor='w', pady=4)
+        button.pack(anchor='w', pady=4, **pack_options)
         self.controls.append((button, 'normal'))
         return button
 
-    def _field(self, ttk, frame, label, variable, *, values=None):
+    def _field(self, ttk, frame, label, variable, *, values=None, width=48):
         row = ttk.Frame(frame)
         row.pack(fill='x', pady=4)
         ttk.Label(row, text=label, wraplength=600).pack(anchor='w')
         if values is None:
-            widget = ttk.Entry(row, textvariable=variable, width=48)
+            widget = ttk.Entry(row, textvariable=variable, width=width)
             normal = 'normal'
         else:
-            widget = ttk.Combobox(row, textvariable=variable, values=values, state='readonly', width=48)
+            widget = ttk.Combobox(row, textvariable=variable, values=values, state='readonly', width=width)
             normal = 'readonly'
         widget.pack(anchor='w')
         self.controls.append((widget, normal))
@@ -166,3 +190,10 @@ class NativeCreateDialog:
             # On an unexpected main-loop exit, settle the write before exit.
             self.executor.shutdown(wait=True)
             self.executor = None
+        traces, self._path_traces = self._path_traces, []
+        for variable, handle in traces:
+            try:
+                variable.trace_remove('write', handle)
+            except self._tcl_error:
+                # The interpreter may already have been destroyed by the host.
+                pass
