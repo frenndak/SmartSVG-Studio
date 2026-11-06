@@ -168,7 +168,7 @@ def load_theme_preferences(path: str | Path) -> ThemePreferences:
                 set(value) != {"appearance", "accent", "reduced_motion"}):
             return ThemePreferences()
         return ThemePreferences(**value)
-    except (OSError, ValueError, TypeError, UnicodeError):
+    except (OSError, ValueError, TypeError, UnicodeError, RecursionError):
         return ThemePreferences()
 
 

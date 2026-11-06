@@ -2,6 +2,8 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import json
+import json.scanner
+from unittest.mock import patch
 import sys
 import unittest
 
@@ -10,7 +12,7 @@ if str(ENGINE) not in sys.path:
     sys.path.insert(0, str(ENGINE))
 
 from smartsvg_core.native_theme_v34 import (
-    ACCENTS, ThemePreferences, ThemePreferenceError,
+    ACCENTS, MAX_PREFERENCES_BYTES, ThemePreferences, ThemePreferenceError,
     contrast_ratio, load_theme_preferences, resolve_theme, save_theme_preferences,
 )
 
@@ -89,6 +91,21 @@ class ArtisanThemeTests(unittest.TestCase):
                 location.write_bytes(invalid)
                 with self.subTest(value=invalid[:30]):
                     self.assertEqual(load_theme_preferences(location), ThemePreferences())
+
+    def test_deep_json_below_byte_limit_falls_back_without_rewriting(self):
+        # Byte bounds alone do not bound JSON nesting. Python versions and
+        # the stdlib's C/Python decoders have different recursion thresholds.
+        payload = b"[" * 1000 + b"]" * 1000
+        self.assertLessEqual(len(payload), MAX_PREFERENCES_BYTES)
+        with TemporaryDirectory() as tmp:
+            location = Path(tmp) / "appearance.json"
+            location.write_bytes(payload)
+            self.assertEqual(load_theme_preferences(location), ThemePreferences())
+            # Exercise the real recursive stdlib decoder, not a fabricated
+            # exception: this also reproduces the boundary on Python 3.12.
+            with patch("json.scanner.make_scanner", json.scanner.py_make_scanner):
+                self.assertEqual(load_theme_preferences(location), ThemePreferences())
+            self.assertEqual(location.read_bytes(), payload)
 
     def test_invalid_preference_types_fail_closed(self):
         for data in (
