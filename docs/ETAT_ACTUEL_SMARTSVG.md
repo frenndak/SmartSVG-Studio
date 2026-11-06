@@ -1,5 +1,7 @@
 # SmartSVG Studio — État réel et prochains développements
 
+**Point de reprise courant :** [reprise V3.4 — exports, après la PR #115](ROADMAP_RESUME_2026_11_06_EXPORTS.md). Ce registre distingue les changements intégrés et les essais encore absents. Le bilan détaillé ci-dessous conserve la **photographie historique des PR #85–94** ; ses compteurs et références ne décrivent pas le dernier `main`.
+
 **État logiciel vérifié : 6 novembre 2026 (Europe/Paris)**, code `main@a6f335c7c72658c07acf365ce111cf7682befc47` après les PR #85–94. Document vivant **non normatif** ; la référence active est la [roadmap V3.4](roadmap-v3.4/README.md), adoptée par la [promotion contrôlée](ROADMAP_PROMOTION_v3_4.md), avec les **141 exigences V3.3 conservées**. Les anciens lots de conception restent des photographies datées.
 
 **Reprise immédiate :** consulter le [point de reprise G3.3e du 6 novembre](G3_3E_REPRISE_2026_11_06.md). La sauvegarde de gestes cumulés, Undo/Redo persistants, le trait continu temporaire borné et les aperçus agrandissables sont intégrés. Les coordonnées/clavier restent disponibles pour un point ; les calques/propriétés complets restent à réaliser. Les essais Windows/ComfyUI/Design Space/Cricut restent à exécuter séparément.
