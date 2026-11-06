@@ -114,6 +114,64 @@ class SVGContractTests(unittest.TestCase):
                 with self.assertRaisesRegex(SVGRejected, "INVALID_VIEWBOX"):
                     inspect_svg(self.write(self.base('<circle r="8"/>', view=view)))
 
+    def test_non_ascii_digits_cannot_form_path_numbers(self):
+        for zero in (0x0660, 0x06F0, 0x0966, 0xFF10):
+            digits = str.maketrans({str(i): chr(zero+i) for i in range(10)})
+            for data in ['M0 0 L10 0 L0 10 Z'.translate(digits), 'M0 0 L1e'+chr(zero+2)+' 5 Z']:
+                with self.subTest(data=data):
+                    with self.assertRaisesRegex(SVGRejected, 'INVALID_PATH_DATA'):
+                        inspect_svg(self.write(self.base(f'<path d="{data}"/>')))
+
+    def test_non_ascii_digits_cannot_define_viewport_or_physical_size(self):
+        for zero in (0x0660, 0x06F0, 0x0966, 0xFF10):
+            twenty = chr(zero+2)+chr(zero)
+            for changes, error in [({'width':twenty+'mm'}, 'EXPLICIT_MM_REQUIRED'),
+                                   ({'height':twenty+'mm'}, 'EXPLICIT_MM_REQUIRED'),
+                                   ({'view':'0 0 '+twenty+' 20'}, 'INVALID_VIEWBOX')]:
+                with self.subTest(changes=changes):
+                    with self.assertRaisesRegex(SVGRejected, error):
+                        inspect_svg(self.write(self.base('<circle r="8"/>', **changes)))
+
+    def test_non_ascii_digits_cannot_form_points_or_primitive_lengths(self):
+        for zero in (0x0660, 0x06F0, 0x0966, 0xFF10):
+            five = chr(zero+5)
+            for tag, points in [('polygon', f'0,0 {five},0 0,{five}'),
+                                ('polyline', f'0,0 {five},{five}')]:
+                with self.subTest(tag=tag, points=points):
+                    with self.assertRaisesRegex(SVGRejected, 'INVALID_POINTS_DATA'):
+                        inspect_svg(self.write(self.base(f'<{tag} points="{points}"/>')))
+            for shape in [f'<circle r="{five}mm"/>', f'<rect x="{five}" width="10" height="10"/>',
+                          f'<line x1="{five}" y1="0" x2="10" y2="10"/>']:
+                with self.subTest(shape=shape):
+                    with self.assertRaisesRegex(SVGRejected, 'INVALID_SHAPE_GEOMETRY'):
+                        inspect_svg(self.write(self.base(shape)))
+
+    def test_non_svg_unicode_spaces_are_not_geometry_separators_or_padding(self):
+        # These characters are valid XML, but not SVG grammar whitespace.
+        for space in ('\u00a0', '\u0085', '\u2003', '\u2028'):
+            for shape, error in [
+                (f'<path d="M0{space}0 L10 10 Z"/>', 'INVALID_PATH_DATA'),
+                (f'<polygon points="0,0{space}10,0 0,10"/>', 'INVALID_POINTS_DATA'),
+                (f'<circle r="{space}5{space}"/>', 'INVALID_SHAPE_GEOMETRY'),
+            ]:
+                with self.subTest(space=repr(space), shape=shape):
+                    path = self.write(self.base(shape));before = path.read_bytes()
+                    with self.assertRaisesRegex(SVGRejected, error): inspect_svg(path)
+                    self.assertEqual(path.read_bytes(), before)
+
+    def test_ascii_geometry_and_existing_svg11_numeric_forms_still_pass(self):
+        for shape in [
+            '<path d="M.6.5 L1e1,-2.5 L10. 0 Z"/>',
+            '<path d="M0&#x9;0 L10&#xA;10 L0&#xD;10 Z"/>',
+            '<polygon points="0,0&#x9;10,0&#xA;0,10"/>',
+            '<circle r="&#x9;+5e0mm&#xA;"/>',
+            '<rect x="-.5" y="+1e0" width="10.5" height="2e1"/>',
+        ]:
+            with self.subTest(shape=shape):
+                result = inspect_svg(self.write(self.base(shape)))
+                self.assertEqual(result['vector_elements'], 1)
+                self.assertFalse(result['physical_cut_verified'])
+
     def test_script_forbidden(self):
         p = self.write(self.base("<script>alert('x')</script><circle r='8'/>"))
         with self.assertRaisesRegex(SVGRejected, "EMBEDDED_RESOURCE"):
