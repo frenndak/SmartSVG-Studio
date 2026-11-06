@@ -1,5 +1,7 @@
 # G3.3e-b1 Persistent Subject Identity Implementation Plan
 
+> Historical plan: authority statements below describe 28 October. Current authority is [AGENTS.md](../../../AGENTS.md); resume from the [V3.4 execution register](../../roadmap-v3.4/EXECUTION_ET_INTEGRATION_2026_11_06.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Explicitly register a durable G1.2 `Subject` for one verified G2.4 float32 mask, save it transactionally, expose it in the Atelier, and preserve all mask bytes.

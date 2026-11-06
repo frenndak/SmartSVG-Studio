@@ -70,6 +70,19 @@ class PrivateAgentRoutingTests(unittest.TestCase):
         self.assertEqual(self.source.count('--ref "$BRANCH"'), 2)
         self.assertIn('git diff --quiet HEAD^ HEAD -- engine/', self.source)
 
+    def test_worker_reads_current_execution_guidance_and_all_four_outputs(self):
+        # Only the AI instruction block is relevant here: the immutable V3.2
+        # archive hash elsewhere in the workflow must remain protected.
+        prompt = self.source.split('          prompt: |\n', 1)[1].split('\n      - name:', 1)[0]
+        for required in ('AGENTS.md', 'docs/roadmap-v3.4/README.md',
+                         'EXECUTION_ET_INTEGRATION_2026_11_06.md',
+                         '23_TRACEABILITE_BACKLOG.md', '24_CONTRE_EXPERTISE_PASSATION.md',
+                         'PNG Print Then Cut', 'SVG Basic Cut',
+                         'SVG Cut multicouche', "SVG d'édition"):
+            self.assertIn(required, prompt)
+        self.assertNotIn('canonical docs/ROADMAP_MASTER_v3_2.md', prompt)
+        self.assertIn('Never push, merge, release, or set readiness markers yourself.', prompt)
+
     def test_manual_default_is_preflight_only(self):
         self.assertIn('execute:', self.source)
         self.assertIn('default: false', self.source)

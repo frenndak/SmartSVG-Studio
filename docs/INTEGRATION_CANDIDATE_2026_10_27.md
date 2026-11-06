@@ -1,5 +1,7 @@
 # SmartSVG Studio — Candidat d'intégration UX/Cricut (27 octobre 2026)
 
+> **Document historique.** Conserver les preuves et critères datés ci-dessous ; les anciennes prochaines actions, autorisations et descriptions de dépôts ne sont pas des consignes courantes. Reprendre depuis [l’état V3.4 actuel](roadmap-v3.4/EXECUTION_ET_INTEGRATION_2026_11_06.md) et [AGENTS.md](../AGENTS.md).
+
 **Statut : DRAFT de regroupement. Ne constitue ni une release installable finalisée, ni un MVP certifié, ni une validation matérielle.**
 
 ## Objectif du regroupement

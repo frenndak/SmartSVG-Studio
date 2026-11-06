@@ -209,13 +209,20 @@ jobs:
           safety-strategy: drop-sudo
           prompt: |
             You implement or repair ONE short SmartSVG roadmap micro-lot.
-            Read AGENTS.md, the canonical docs/ROADMAP_MASTER_v3_2.md and
-            relevant engine source, tests, and private PR review comments.
+            Read current main AGENTS.md and docs/roadmap-v3.4/README.md,
+            docs/roadmap-v3.4/EXECUTION_ET_INTEGRATION_2026_11_06.md,
+            docs/roadmap-v3.4/23_TRACEABILITE_BACKLOG.md and
+            docs/roadmap-v3.4/24_CONTRE_EXPERTISE_PASSATION.md.
+            Revalidate main, open PRs, the selected existing ticket, relevant
+            engine source, tests, and PR review comments before editing.
+            V3.3 requirements remain binding; V3.2 is a protected historical
+            baseline, not the active execution order.
             Current phase: ${{ steps.gate.outputs.mode }}.
             Do not modify security workflows, provenance, frozen documents,
             .automation/READY, secrets, or original archive material.
-            Preserve all historical ComfyUI node contracts. Respect true PNG
-            Print Then Cut versus silhouette SVG and editable color-layer SVG.
+            Preserve all historical ComfyUI node contracts and four distinct
+            output contracts: PNG Print Then Cut, SVG Basic Cut,
+            SVG Cut multicouche, and SVG d'édition.
             Maintain precise dimensions/mm, safe mask polarity, escape handling,
             and accessible Express UI. Write focused regression tests.
             Never claim user GPU, ComfyUI frontend, Design Space or actual

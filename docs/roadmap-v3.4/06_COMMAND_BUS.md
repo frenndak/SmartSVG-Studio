@@ -1,5 +1,7 @@
 # SmartSVG Studio V3.4 — Lot 06 : commandes, historique, transactions, jobs et concurrence
 
+> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. La datation ne retire aucune exigence ni critère d’acceptation. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
+
 **PROPOSITION DOCUMENTAIRE — 29 octobre 2026.** Cycle 06/24 ; référence active : V3.3, 141 exigences. Base main relue : fdbda304beb77d97340a8be4dd5c5e9cefde15f4 ; branche documentaire PR #73, issue #72 ; HEAD avant lot : 1b58db515973061e6ecdd5d099fe793d30a0aaa1. Tous les types, chemins, événements et tests ci-dessous sont **SPÉCIFIÉS**, non implémentés. Aucune preuve Windows, RTX 3070, Design Space ou physique.
 
 ## 1. Besoin, état réel, frontières et revue critique du lot 05

@@ -1,5 +1,7 @@
 # SmartSVG Studio V3.4 — Lot 10 : analyse visuelle, sujets, accessoires et masques
 
+> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. La datation ne retire aucune exigence ni critère d’acceptation. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
+
 **DRAFT DE SPÉCIFICATION — 29 octobre 2026.** V3.3 reste ACTIVE ; aucun code V3.4, modèle, test Windows/GPU/Design Space ou découpe physique n'est réputé exécuté. Branche documentaire `codex/docs-roadmap-v3-4-campaign`, PR draft #73, issue #72. Base main observée : `fdbda304beb77d97340a8be4dd5c5e9cefde15f4` ; HEAD documentaire avant lot : `6fc5bf4c801e17507e134a7d05c8cf9623d25cb7`.
 
 ## 1. Résultat métier, non-objectifs et état réel

@@ -1,5 +1,7 @@
 # SmartSVG Studio V3.4 — Lot 07 : accueil, Express, navigation et ergonomie contractuelle
 
+> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. La datation ne retire aucune exigence ni critère d’acceptation. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
+
 **DRAFT / SPÉCIFICATION NON IMPLÉMENTÉE — 29 octobre 2026.** V3.3 demeure ACTIVE (101 S + 40 R33). Issue de suivi #72 ; PR documentaire #73. Base `main` observée : `fdbda304beb77d97340a8be4dd5c5e9cefde15f4` ; branche en avance de 31 commits, 0 retard avant ce lot. Aucune preuve Windows, RTX 3070, Design Space ou Cricut physique. Tous les composants `smartsvg_app/*` et `v34_*` ci-dessous sont **des fichiers futurs proposés**.
 
 ## 1. Constat réel, besoin, frontière

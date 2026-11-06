@@ -1,5 +1,7 @@
 # SmartSVG V3.4 — Lot 17/24 : quatre exports distincts et transfert guidé Design Space
 
+> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. La datation ne retire aucune exigence ni critère d’acceptation. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
+
 **DRAFT documentaire — 29 octobre 2026.** V3.3 reste **ACTIVE**. Coordination [#72](https://github.com/frenndak/SmartSVG-Studio/issues/72), [PR draft #73](https://github.com/frenndak/SmartSVG-Studio/pull/73). Ce lot affine **F05/F06/F07/F10/F14/F15, P01/P02/P06/P09, G4/G5** sans fonction ni gate supplémentaire. Aucune écriture moteur, aucune intégration Cricut automatisée. **Toutes les recettes ci-dessous sont NON_EXECUTE.**
 
 ## 1. Contre-expertise du lot 16 et trois écarts réels dans le code

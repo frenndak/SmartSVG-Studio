@@ -1,5 +1,7 @@
 # SmartSVG Studio V3.4 — Lot 18/24 : Atelier, canevas, calques, propriétés et Undo
 
+> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. La datation ne retire aucune exigence ni critère d’acceptation. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
+
 **DRAFT documentaire — 29 octobre 2026.** V3.3 reste **ACTIVE** ; coordination [issue #72](https://github.com/frenndak/SmartSVG-Studio/issues/72) et [PR #73](https://github.com/frenndak/SmartSVG-Studio/pull/73). Base du code relue : `main@fff374e5147689165839bd76e742713d714ff147`, branche avant ce lot : `c7dbd7ffd0fed5c4dc56a04e77997f343384876d`. Domaine approuvé F03/F05/F08/F10/F14, P03/P05/P06/P10, G2/G3/G5/G6. **Aucune fonction supplémentaire, aucune modification du moteur.** Tout test ci-dessous est **NON_EXECUTE**.
 
 ## 1. Contre-expertise du lot 17 et trois écarts réels

@@ -1,5 +1,7 @@
 # SmartSVG V3.4 — Lot 02 : vision, parcours de référence et contrats de réussite
 
+> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. La datation ne retire aucune exigence ni critère d’acceptation. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
+
 **Statut : DRAFT de conception, non normatif, non implémenté.** Référence code et V3.3 : `main@fdbda304beb77d97340a8be4dd5c5e9cefde15f4` ; branche de travail issue de PR #73. Examen : 29 octobre 2026. Cette spécification ne vaut ni import Design Space testé ni découpe physique. [Audit précédent](01_BASELINE_AUDIT.md) · [Index historique](HERITAGE_INDEX.md) · [Suivi](PROGRESS.md).
 
 ## 1. Problème, positionnement, périmètre et état réel

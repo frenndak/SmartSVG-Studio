@@ -1,5 +1,7 @@
 # Matrice de recette SmartSVG — V3.2
 
+> **Document historique.** Conserver les preuves et critères datés ci-dessous ; les anciennes prochaines actions, autorisations et descriptions de dépôts ne sont pas des consignes courantes. Reprendre depuis [l’état V3.4 actuel](roadmap-v3.4/EXECUTION_ET_INTEGRATION_2026_11_06.md) et [AGENTS.md](../AGENTS.md).
+
 > La mise en œuvre ci-dessous est une **liste de tests**, pas un procès-verbal de validation de la dernière version du moteur.
 
 | ID | Entrée | Sortie attendue | Contrôle automatique | Validation réelle requise |

@@ -1,5 +1,7 @@
 # SmartSVG V3.4 — Lot 04 : migration incrémentale vers runtime autonome et adaptateur ComfyUI
 
+> **Lecture historique de conception.** Les constats, chemins proposés et états de preuve ci-dessous sont ceux de ce document daté ; ils ne décrivent pas nécessairement le code courant. La datation ne retire aucune exigence ni critère d’acceptation. Autorité actuelle : [AGENTS.md](../../AGENTS.md), V3.4 active. Pour développer, suivre [l’état d’intégration et la prochaine action](EXECUTION_ET_INTEGRATION_2026_11_06.md).
+
 **DRAFT de spécification, 29 octobre 2026 ; aucune implémentation.** Roadmap **active** : V3.3, 141 exigences conservées. Base `main@fdbda304beb77d97340a8be4dd5c5e9cefde15f4`. PR documentaire #73, branche `codex/docs-roadmap-v3-4-campaign`. Annexe de dépendances : [04_DEPENDENCY_INVENTORY.md](04_DEPENDENCY_INVENTORY.md). Le code historique, les archives, les workflows et les planifications ne sont pas modifiés.
 
 ## 1. Problème et résultat vérifiable
