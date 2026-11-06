@@ -67,7 +67,7 @@ test('Atelier offers a brush preview only for an explicitly verified Subject',()
   // Before this regression, a legacy subject without proof still displayed
   // an enabled preview control although the request client rejects it.
   const html=readFileSync(
-    new URL('../engine/web/js/smartsvg_express_atelier_preview.html',import.meta.url),'utf8');
+    new URL('../engine/web/js/smartsvg_express_atelier_preview.html',import.meta.url),'utf8').replaceAll(/\r\n/g, '\n');
   const marker='    if(!reportAtPaint.identityActionStale&&linkedIdentity&&';
   const start=html.indexOf(marker);
   const end=html.indexOf('){\n      const previewBox',start);

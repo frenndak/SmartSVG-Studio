@@ -1,0 +1,117 @@
+name: SmartSVG - Stability qualification (Windows, Node, browser)
+
+# Owner-authorized manual validation micro-lot; complements (never replaces) G0.
+# A CI pass here does not certify native Windows UI, ComfyUI, GPU or Cricut.
+on:
+  pull_request:
+    paths:
+      - "engine/**"
+      - "tests/**"
+      - "tools/**"
+      - ".github/workflows/stability-qualification.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  node-dom:
+    name: Node 22 DOM contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run every existing Node test (including G3.3 interactions)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for script in tests/*.mjs; do
+            echo "NODE TEST: $script"
+            node "$script"
+          done
+          for script in tools/test_*.mjs; do
+            if [[ -f "$script" ]]; then
+              echo "NODE TEST: $script"
+              node "$script"
+            fi
+          done
+
+  windows-python:
+    name: Windows Python 3.11 full regression (no skip of known failures)
+    runs-on: windows-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Record platform diagnosis
+        shell: pwsh
+        run: |
+          python --version
+          git --version
+          bash --version
+          where.exe bash
+          $jq = Get-Command jq -ErrorAction SilentlyContinue
+          if ($jq) { jq --version } else { Write-Host "jq unavailable" }
+      - name: Full Python suite on native Windows
+        shell: pwsh
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          python -m unittest discover -s tests -p 'test_*.py' -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  chromium-layout:
+    name: Chromium responsive layout and navigation (demo only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install isolated Playwright for CI
+        shell: bash
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx --no-install playwright install --with-deps chromium
+      - name: Serve synthetic demo on localhost only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m http.server 8765 --bind 127.0.0.1 --directory engine/web/js >/tmp/smartsvg-http.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8765/smartsvg_express_atelier_preview.html -o /dev/null; then
+              echo "Local demo server ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/smartsvg-http.log
+          exit 1
+      - name: Browser stability five viewports, keyboard and navigation
+        run: node tests/stability_atelier_browser.cjs
+      - name: Preserve synthetic browser proof, including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stability-browser-synthetic
+          path: stability-artifacts/
+          if-no-files-found: warn
+          retention-days: 7

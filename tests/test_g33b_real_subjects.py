@@ -24,8 +24,8 @@ class RealSubjectHandoffTests(unittest.TestCase):
             self.assertEqual(result.returncode,0,(result.stdout+result.stderr)[-6000:])
 
     def test_sender_and_reception_reuse_real_g26_inspector(self):
-        html=(ROOT/'engine/web/js/smartsvg_express_atelier_preview.html').read_text()
-        source=(ROOT/'engine/web/js/smartsvg_subject_inspector_v21154.js').read_text()
+        html=(ROOT/'engine/web/js/smartsvg_express_atelier_preview.html').read_text(encoding='utf-8')
+        source=(ROOT/'engine/web/js/smartsvg_subject_inspector_v21154.js').read_text(encoding='utf-8')
         for txt in ('G2.6','source_sha256','chosenRealSubjects',
                     'realSubjectsStatus','receiveSubjects','realSubjectsGrid',
                     '90 secondes','aucun export ni masque modifié'):

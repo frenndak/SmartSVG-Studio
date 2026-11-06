@@ -28,7 +28,8 @@ class TestDeliveryManifestAtomicG34(unittest.TestCase):
 
     def test_publishes_json_and_refuses_replacement(self):
         output = delivery.write_delivery(self.root, {'version': 1, 'statut': 'non certifie'})
-        self.assertEqual(output, str(self.final))
+        self.assertTrue(Path(output).samefile(self.final),
+                        'The returned manifest must identify the actual published file')
         original = self.final.read_bytes()
         self.assertEqual(json.loads(original)['version'], 1)
         with self.assertRaisesRegex(delivery.DeliveryError, 'aucun ecrasement'):

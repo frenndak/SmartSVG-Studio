@@ -151,7 +151,16 @@ def _svg_preflight(png:Path,svg_raw,project,expected_width_mm):
         if not svg.is_absolute() or svg.suffix.lower()!='.svg' or svg.is_symlink():
             raise ImportAuditError('SVG invalide')
         real=svg.resolve(strict=True)
-        real.relative_to(project)
+        # Resolve both paths; Windows may expose 8.3 and long names for
+        # the same directory, which cannot be compared safely as strings.
+        root_dir = Path(project).resolve(strict=True)
+        if os.name == 'nt':
+            if not root_dir.is_dir() or not any(
+                os.path.samefile(parent, root_dir) for parent in real.parents
+            ):
+                raise ImportAuditError('SVG hors dossier du projet')
+        else:
+            real.relative_to(root_dir)
         root=ET.parse(real).getroot()
         if root.tag.rsplit('}',1)[-1]!='svg':raise ImportAuditError('Racine SVG incorrecte')
         width=root.get('width','')

@@ -6,6 +6,7 @@ import fnmatch
 import json
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -74,7 +75,7 @@ class ProtectedPathRenameTests(unittest.TestCase):
             git("commit", "-qm", "synthetic baseline")
             (root / new_path).parent.mkdir(parents=True, exist_ok=True)
             git("mv", old_path, new_path)
-            return subprocess.run(["bash", "-c", script], cwd=tmp,
+            return subprocess.run([shutil.which("bash") or "bash", "-c", script], cwd=tmp,
                                   capture_output=True, text=True, check=False)
 
     def test_protected_source_renamed_into_unprotected_path_is_blocked(self):

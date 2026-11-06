@@ -44,7 +44,7 @@ class PaidBudgetGateTests(unittest.TestCase):
                        MAX_PAID_RUNS_PER_DAY=cap,
                        GITHUB_RUN_ATTEMPT=attempt,
                        SMARTSVG_TEST_JSON='{"total_count":'+str(total)+'}')
-            return subprocess.run(["bash","-c",script()],env=env,
+            return subprocess.run([shutil.which("bash"),"-c",script()],env=env,
                                   text=True,capture_output=True,timeout=10)
 
     def test_success_requires_explicit_budget_and_remaining_runs(self):

@@ -59,7 +59,9 @@ class ArchiveGateTests(unittest.TestCase):
 
     def test_windows_backslashes(self):
         self.mkzip([("..\\escape.py", "bad")])
-        self.assert_rejected("UNSAFE_MEMBER_NAME")
+        # Python zipfile normalizes backslashes on Windows before writing ZIP.
+        # Either unsafe name or unsafe traversal must be rejected.
+        self.assert_rejected("UNSAFE_MEMBER_(NAME|PATH)")
 
     def test_windows_device_name(self):
         self.mkzip([("folder/CON.txt", "bad")])
