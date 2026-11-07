@@ -31,6 +31,11 @@ class LayoutWidget(Widget):
     def edit_reset(self): pass
     def pack_forget(self): self.visible = False
     def focus_set(self): self.focused = True
+    def create_image(self, *_args, **_kwargs): pass
+    def xview_moveto(self, _fraction): pass
+    def yview_moveto(self, _fraction): pass
+    def xview_scroll(self, *_args): pass
+    def yview_scroll(self, *_args): pass
 
 
 class AppShellTests(unittest.TestCase):
@@ -144,6 +149,8 @@ class DesktopShellIntegrationTests(unittest.TestCase):
         class Photo:
             def __init__(self, **_kwargs): pass
             def subsample(self, _factor): return self
+            def width(self): return 4
+            def height(self): return 3
         root = Root()
         tk = SimpleNamespace(Tk=lambda: root, Toplevel=Popup, Canvas=LayoutWidget,
             StringVar=Var, TclError=RuntimeError, PhotoImage=Photo, Text=LayoutWidget,

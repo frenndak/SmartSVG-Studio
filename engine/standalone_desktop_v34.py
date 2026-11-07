@@ -32,6 +32,7 @@ from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
 from native_theme_tk_v34 import ArtisanThemePicker
 from native_templates_tk_v34 import TemplatePreviewContent
 from native_app_shell_v34 import NativeAppShell
+from native_image_viewport_v34 import NativeImageViewport
 from native_create_tk_v34 import NativeCreateDialog
 from native_notes_tk_v34 import NativeNotesPanel, NotesRevision
 from native_recovery_tk_v34 import NativeRecoveryPanel
@@ -211,7 +212,6 @@ def _start_gui(first_project: str | None) -> int:
     message = tk.StringVar(value="Ouvrez un fichier .smartsvg pour examiner son état.")
     summary = tk.StringVar(value="Aucune ressource chargée.")
     preview_info = tk.StringVar(value="Aucun aperçu chargé.")
-    photo_holder: list[object | None] = [None]
     current: list[str | None] = [None]
     creator = [None]
     creation_info = tk.StringVar(value='')
@@ -225,8 +225,7 @@ def _start_gui(first_project: str | None) -> int:
     recovery_slot.pack(fill='x')
     notes = NativeNotesPanel(root, frame, tk, ttk, messagebox)
     ttk.Label(frame, textvariable=preview_info, wraplength=640).pack(anchor="w", pady=(16, 5))
-    preview_panel = ttk.Label(frame)
-    preview_panel.pack(anchor="w")
+    preview_panel = NativeImageViewport(frame, tk, ttk)
 
     jobs = LatestOnlyJob(load_native_preview)
 
@@ -236,8 +235,7 @@ def _start_gui(first_project: str | None) -> int:
         notes.load(None)
         recovery.load(None)
         # Only the Tk main thread manipulates PhotoImage and widgets.
-        preview_panel.configure(image="")
-        photo_holder[0] = None
+        preview_panel.load(None)
         message.set("Analyse du projet en cours…")
         summary.set("Lecture et vérification sans modification.")
         preview_info.set("Préparation de l'aperçu…")
@@ -292,17 +290,13 @@ def _start_gui(first_project: str | None) -> int:
                 # dimensions and SHA before any PhotoImage allocation.
                 original = tk.PhotoImage(
                     data=base64.b64encode(preview.png).decode("ascii"), format="png")
-                display = (original.subsample(preview.subsample)
-                           if preview.subsample > 1 else original)
-                preview_panel.configure(image=display)
-                photo_holder[0] = display
+                preview_panel.load(original)
                 preview_info.set(
                     f"Source {preview.source_id} — "
                     f"{preview.width_px} × {preview.height_px} px "
-                    f"(affichage réduit ×{preview.subsample}; originaux intacts)")
+                    f"(aperçu ajustable ; original intact)")
             except tk.TclError:
-                preview_panel.configure(image="")
-                photo_holder[0] = None
+                preview_panel.load(None)
                 preview_info.set("Décodage PNG impossible : aperçu refusé.")
 
         root.after(50, receive)
