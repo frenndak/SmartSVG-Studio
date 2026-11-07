@@ -300,7 +300,7 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                     self.assertEqual(notes.editor.get(), text)
                     root.events['<F5>'](None)  # declined discard
                     root.protocols['WM_DELETE_WINDOW']()
-                    root.events['<Control-o>'](None)
+                    self.assertEqual(notes.editor.events['<Control-o>'](None), 'break')
                     self.assertTrue(root.exists)
                     self.assertEqual(len(state.jobs.futures), 1)
                     self.assertEqual(path.read_bytes(), before)
@@ -322,7 +322,18 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 root.protocols['WM_DELETE_WINDOW']()
                 self.assertFalse(root.exists)
 
-            self.run_desktop(scenario, first_project=str(path), chosen=str(path))
+            def keep_draft(*, parent, default):
+                self.assertEqual(default, 'no')
+                # Native confirmation can run a nested event loop. Re-entry
+                # must neither close the window nor start a save.
+                parent.protocols['WM_DELETE_WINDOW']()
+                notes_button = next(widget for widget in LayoutWidget.all_widgets
+                    if widget.options.get('text') == 'Enregistrer les notes')
+                notes_button.options['command']()
+                self.assertTrue(parent.exists)
+                return False
+            self.run_desktop(scenario, first_project=str(path), chosen=str(path),
+                             discard_notes=keep_draft)
 
     def test_notes_keep_draft_after_conflict_and_failed_publication(self):
         from test_v34_native_preview_jobs import fixture_module
@@ -453,6 +464,13 @@ class ActualTkShellSmokeTests(unittest.TestCase):
                     if isinstance(widget, ttk.Button) and widget.cget('text') == 'Enregistrer les notes')
                 self.assertTrue(editor.winfo_viewable())
                 self.assertTrue(save_notes.winfo_viewable())
+                editor.focus_force()
+                root.update()
+                with patch.object(filedialog, 'askopenfilename', return_value='') as picker:
+                    editor.event_generate('<Control-o>')
+                    root.update()
+                    picker.assert_called_once()
+                self.assertEqual(editor.get('1.0', 'end-1c'), '')
                 notes = 'À vérifier\nVersion 2'
                 editor.insert('1.0', notes)
                 original = target.read_bytes()

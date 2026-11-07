@@ -349,9 +349,12 @@ def _start_gui(first_project: str | None) -> int:
         select_project()
         return 'break'
 
-    root.bind('<Control-o>', open_shortcut)
-    root.bind('<Control-n>', show_creator)
-    root.bind('<F5>', lambda _event: reexamine())
+    for key, action in (('<Control-o>', open_shortcut), ('<Control-n>', show_creator),
+                        ('<F5>', lambda _event: reexamine())):
+        root.bind(key, action)
+        # Tk's Text class processes shortcuts before the root bindtag.
+        # Ctrl+O must open the picker without inserting a newline first.
+        notes.editor.bind(key, action)
     shell.show('home')
 
     if first_project:
@@ -360,12 +363,15 @@ def _start_gui(first_project: str | None) -> int:
         file_name.set(Path(first_project).name)
         refresh()
     def close_window():
-        if not notes.can_leave():
-            return
-        # A pending or obsolete generation is never allowed to update Tk.
-        if creator[0] is not None and not creator[0].close():
+        if creation_busy():
+            creator[0].close()
             creator[0].window.lift()
             return
+        if not notes.can_leave():
+            return
+        if creator[0] is not None:
+            creator[0].close()
+        # A pending or obsolete generation is never allowed to update Tk.
         jobs.close()
         root.destroy()
 

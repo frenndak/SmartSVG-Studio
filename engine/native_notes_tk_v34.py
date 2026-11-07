@@ -22,6 +22,7 @@ class NativeNotesPanel:
         self.messagebox = messagebox
         self.revision = None
         self.future = None
+        self.confirming_discard = False
         self.worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix='smartsvg-notes')
         self.status = tk.StringVar()
         ttk.Label(parent, text=f'Notes du projet · {MAX_NOTE_LENGTH} caractères max.').pack(anchor='w')
@@ -61,12 +62,20 @@ class NativeNotesPanel:
         if self.busy:
             self.status.set('Sauvegarde en cours. Attendez son résultat.')
             return False
-        return (self.revision is None or self._draft() == self.revision.notes or
-                self.messagebox.askyesno('Notes non enregistrées',
-                    'Abandonner les modifications apportées aux notes ?', parent=self.root))
+        if self.confirming_discard:
+            return False
+        if self.revision is None or self._draft() == self.revision.notes:
+            return True
+        self.confirming_discard = True
+        try:
+            return self.messagebox.askyesno('Notes non enregistrées',
+                'Abandonner les modifications apportées aux notes ?',
+                parent=self.root, default='no')
+        finally:
+            self.confirming_discard = False
 
     def save(self):
-        if self.busy or self.revision is None:
+        if self.busy or self.confirming_discard or self.revision is None:
             return
         draft = self._draft()
         revision = self.revision
