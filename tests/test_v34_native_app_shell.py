@@ -537,6 +537,38 @@ class DesktopShellIntegrationTests(unittest.TestCase):
             self.run_desktop(scenario, first_project=str(target),
                              chosen=str(target.with_name('missing.smartsvg')))
 
+    def test_atelier_distinguishes_long_legacy_subject_ids_sharing_a_mask(self):
+        from dataclasses import replace
+        from smartsvg_core.project_archive import load_project, save_project
+        from smartsvg_core.subject_identity_g33e import BINDINGS_KEY
+
+        with tempfile.TemporaryDirectory() as directory:
+            target, _ids = create_atelier_project(directory)
+            project = load_project(target)
+            document = dict(project.document)
+            document.pop(BINDINGS_KEY)
+            prefix = 'legacy-' + 'a' * 120
+            first, second = prefix + '1', prefix + '2'
+            subject = project.subjects[0]
+            subjects = tuple(replace(subject, subject_id=key) for key in (first, second))
+            save_project(target, replace(project, document=document, subjects=subjects), overwrite=True)
+            original = target.read_bytes()
+
+            def scenario(root, state):
+                state.jobs.futures[-1].result(timeout=15)
+                root.pending.pop(0)()
+                root.events['<Control-Key-5>'](None)
+                for selected, other in ((first, second), (second, first)):
+                    state.atelier.selection.set(selected)
+                    state.atelier.picker.events['<<ComboboxSelected>>'](None)
+                    details = state.atelier.details.get()
+                    self.assertIn(selected, details)
+                    self.assertNotIn(other, details)
+                    self.assertIn('Masque ' + subject.mask_id, details)
+                self.assertEqual(target.read_bytes(), original)
+
+            self.run_desktop(scenario, first_project=str(target))
+
     def test_atelier_reads_the_archived_subjects_again_after_notes_save(self):
         from dataclasses import replace
         import native_notes_tk_v34 as notes_module

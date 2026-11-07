@@ -56,7 +56,8 @@ class NativeAtelierPanel:
             self.details.set('Aucun sujet enregistré dans ce projet.' if self.snapshot else '')
             return
         x, y, width, height = subject.bbox_px
-        info = (f'Source {subject.source_id} · Masque {subject.mask_id}\n'
+        info = (f'Sujet {subject.subject_id}\n'
+                f'Source {subject.source_id} · Masque {subject.mask_id}\n'
                 f'Zone dans la source : ({x}, {y}), {width} × {height} px\n'
                 f'{PROOF_LABELS[subject.proof_status]}. ')
         preview = subject.preview
