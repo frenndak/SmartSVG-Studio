@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import base64
 
+from native_image_viewport_v34 import NativeImageViewport
+
 
 PROOF_LABELS = {
     'verified': 'Liaison float32 vérifiée',
@@ -17,7 +19,6 @@ class NativeAtelierPanel:
         self.tk, self.parent = tk, parent
         self.snapshot = None
         self.subjects = {}
-        self.photo = None
         self.project = tk.StringVar()
         self.selection = tk.StringVar()
         self.details = tk.StringVar()
@@ -28,9 +29,8 @@ class NativeAtelierPanel:
         self.picker.pack(anchor='w', fill='x', pady=(3, 8))
         self.picker.bind('<<ComboboxSelected>>', self.render)
         ttk.Label(parent, textvariable=self.details, wraplength=640).pack(anchor='w', pady=(0, 8))
-        self.image = ttk.Label(parent)
-        self.image.pack(anchor='w')
-        parent.bind('<Map>', self.render)
+        self.viewport = NativeImageViewport(parent, tk, ttk)
+        parent.bind('<Map>', self._on_map)
         self.load(None)
 
     def load(self, snapshot, *, selected_subject=None):
@@ -48,9 +48,12 @@ class NativeAtelierPanel:
             f'Projet {self.snapshot.project_id} · SHA {self.snapshot.sha256[:12]}'
             if self.snapshot else 'Ouvrez un projet V1 sain depuis l’espace Projet.')
 
+    def _on_map(self, _event):
+        if self.viewport.original is None:
+            self.render()
+
     def render(self, _event=None):
-        self.image.configure(image='')
-        self.photo = None
+        self.viewport.load(None)
         subject = self.subjects.get(self.selection.get())
         if subject is None:
             self.details.set('Aucun sujet enregistré dans ce projet.' if self.snapshot else '')
@@ -71,9 +74,9 @@ class NativeAtelierPanel:
             return
         try:
             image = self.tk.PhotoImage(data=base64.b64encode(preview.png).decode('ascii'), format='png')
-            self.photo = image.subsample(preview.subsample) if preview.subsample > 1 else image
-            self.image.configure(image=self.photo)
+            self.viewport.load(image)
         except self.tk.TclError:
+            self.viewport.load(None)
             self.details.set(info + 'Impossible de décoder l’aperçu du masque.')
             return
-        self.details.set(info + f'Aperçu du masque archivé · réduction ×{preview.subsample}.')
+        self.details.set(info + 'Aperçu du masque archivé.')

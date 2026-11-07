@@ -503,7 +503,7 @@ class DesktopShellIntegrationTests(unittest.TestCase):
 
                 receive_project()
                 atelier = state.atelier
-                self.assertIsNone(atelier.photo)  # decoding waits until the Atelier is shown
+                self.assertIsNone(atelier.viewport.original)  # decoding waits until the Atelier is shown
                 root.events['<Control-Key-5>'](None)
                 self.assertEqual(state.shell.active_page, 'atelier')
                 self.assertEqual(set(atelier.picker.options['values']), set(ids))
@@ -513,7 +513,7 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                     atelier.picker.events['<<ComboboxSelected>>'](None)
                     self.assertIn('Masque ' + mask, atelier.details.get())
                     self.assertIn('Liaison float32 vérifiée', atelier.details.get())
-                    self.assertEqual(base64.b64decode(atelier.photo.data),
+                    self.assertEqual(base64.b64decode(atelier.viewport.original.data),
                                      archive.resources[archive.mask_paths[mask]])
                 self.assertEqual(target.read_bytes(), original)
                 selected = atelier.selection.get()
@@ -536,7 +536,7 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 self.assertEqual(atelier.selection.get(), selected)
                 self.assertEqual(load_project(target).resources, archive.resources)
                 root.events['<Control-o>'](None)
-                self.assertIsNone(atelier.photo)
+                self.assertIsNone(atelier.viewport.original)
                 self.assertIsNone(atelier.snapshot)
                 receive_project()
                 self.assertEqual(atelier.picker.options['values'], ())
@@ -824,14 +824,18 @@ class ActualTkShellSmokeTests(unittest.TestCase):
                 root.event_generate('<Control-Key-5>')
                 root.update()
                 self.assertTrue(atelier.picker.winfo_viewable())
-                self.assertIsNotNone(atelier.photo)
+                self.assertIsNotNone(atelier.viewport.original)
                 for subject, mask in ids.items():
                     atelier.picker.set(subject)
                     atelier.picker.event_generate('<<ComboboxSelected>>')
                     root.update()
                     self.assertIn('Masque ' + mask, atelier.details.get())
-                    self.assertEqual((atelier.photo.width(), atelier.photo.height()), (4, 3))
-                    self.assertTrue(atelier.image.winfo_viewable())
+                    self.assertEqual((atelier.viewport.original.width(), atelier.viewport.original.height()), (4, 3))
+                    self.assertTrue(atelier.viewport.canvas.winfo_viewable())
+                    self.assertEqual(atelier.viewport.fit_scale, 1)
+                    atelier.viewport.actual_button.invoke()
+                    self.assertIs(atelier.viewport.display, atelier.viewport.original)
+                    self.assertIsNone(atelier.viewport.fit_scale)
                 self.assertEqual(target.read_bytes(), before)
 
             with patch.object(tk, 'Tk', return_value=root), \
