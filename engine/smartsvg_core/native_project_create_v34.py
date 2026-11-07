@@ -35,7 +35,12 @@ class NativeCreateReceipt:
 def _read_source(path):
     if not isinstance(path, (str, Path)) or not str(path):
         raise NativeCreateError('INVALID_SOURCE_PATH')
-    source = Path(path)
+    try:
+        source = Path(path)
+    except (TypeError, ValueError, OSError) as exc:
+        raise NativeCreateError('INVALID_SOURCE_PATH') from exc
+    if '\x00' in str(source):
+        raise NativeCreateError('INVALID_SOURCE_PATH')
     if source.suffix.lower() != '.png' or source.is_symlink():
         raise NativeCreateError('INVALID_SOURCE_PATH')
     flags = os.O_RDONLY | getattr(os, 'O_BINARY', 0) | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_NONBLOCK', 0)
