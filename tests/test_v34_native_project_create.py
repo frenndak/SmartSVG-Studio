@@ -74,7 +74,7 @@ class NativeProjectCreationTests(unittest.TestCase):
         self.assertEqual(list(self.output.iterdir()), [])
 
     def test_malformed_source_path_is_a_stable_error_without_workspace(self):
-        for path in ('bad\\x00name.png', b'raw.png', object()):
+        for path in ('bad\x00name.png', b'raw.png', object()):
             with self.subTest(path=repr(path)):
                 with self.assertRaises(self.port.NativeCreateError) as failure:
                     self.create(source_path=path)
