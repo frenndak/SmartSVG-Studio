@@ -577,10 +577,15 @@ class ActualTkShellSmokeTests(unittest.TestCase):
                 deadline = time.monotonic()+15
                 while time.monotonic()<deadline:
                     root.update()
-                    if any(value.startswith('Projet restauré depuis') for value in visible_values()):
+                    values = visible_values()
+                    if (any(value.startswith('Projet restauré depuis') for value in values)
+                            and any(value.startswith('Source source-original') for value in values)):
                         break
                     time.sleep(0.005)
-                self.assertTrue(any(value.startswith('Projet restauré depuis') for value in visible_values()))
+                values = visible_values()
+                self.assertTrue(any(value.startswith('Projet restauré depuis') for value in values))
+                self.assertTrue(any(value.startswith('Source source-original') for value in values))
+                self.assertEqual(editor.get('1.0', 'end-1c'), '')
                 self.assertEqual(target.read_bytes(), original)
                 self.assertEqual(target.with_suffix('.previous.smartsvg').read_bytes(), original)
 
