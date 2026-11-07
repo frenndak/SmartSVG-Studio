@@ -32,6 +32,8 @@ from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
 from native_theme_tk_v34 import ArtisanThemePicker
 from native_templates_tk_v34 import TemplatePreviewContent
 from native_app_shell_v34 import NativeAppShell
+from native_atelier_tk_v34 import NativeAtelierPanel
+from smartsvg_core.native_atelier_v34 import inspect_atelier_snapshot
 from native_create_tk_v34 import NativeCreateDialog
 from native_notes_tk_v34 import NativeNotesPanel, NotesRevision
 from native_recovery_tk_v34 import NativeRecoveryPanel
@@ -138,6 +140,7 @@ def load_native_preview(path: str | Path):
         return state, None
     try:
         preview = select_source_png(project)
+        state['atelier_snapshot'] = inspect_atelier_snapshot(project, before)
         # One final boundary check before returning any image to the UI.
         if _archive_sha256(path) != before:
             raise ProjectArchiveError("PROJECT_SNAPSHOT_CHANGED")
@@ -171,6 +174,7 @@ def _probe() -> int:
         "comfyui_required": False, "read_only": False,
         "project_notes_available": True, "project_creation_available": True,
         "project_recovery_available": True,
+        "atelier_inspection_available": True,
         "tkinter_lazy": "tkinter" not in imported,
         "desktop_ui_tested": False, "windows_qualified": False,
         "template_previews_available": True,
@@ -198,6 +202,7 @@ def _start_gui(first_project: str | None) -> int:
     frame = shell.add_page('project', 'Projet')
     factory = shell.add_page('factory', 'Fabrique')
     appearance = shell.add_page('appearance', 'Apparence')
+    atelier = NativeAtelierPanel(shell.add_page('atelier', 'Atelier'), tk, ttk)
     # Build each tool once. Navigation changes visibility, never the project.
     # Load preferences immediately so the first screen uses the saved theme.
     theme_picker = ArtisanThemePicker(root=root, parent=appearance, tk=tk, ttk=ttk)
@@ -223,7 +228,7 @@ def _start_gui(first_project: str | None) -> int:
     ttk.Label(frame, textvariable=summary, wraplength=640).pack(anchor="w")
     recovery_slot = ttk.Frame(frame)
     recovery_slot.pack(fill='x')
-    notes = NativeNotesPanel(root, frame, tk, ttk, messagebox)
+    notes = NativeNotesPanel(root, frame, tk, ttk, messagebox, on_saved=atelier.notes_saved)
     ttk.Label(frame, textvariable=preview_info, wraplength=640).pack(anchor="w", pady=(16, 5))
     preview_panel = ttk.Label(frame)
     preview_panel.pack(anchor="w")
@@ -234,6 +239,7 @@ def _start_gui(first_project: str | None) -> int:
         if not current[0]:
             return
         notes.load(None)
+        atelier.load(None)
         recovery.load(None)
         # Only the Tk main thread manipulates PhotoImage and widgets.
         preview_panel.configure(image="")
@@ -273,6 +279,7 @@ def _start_gui(first_project: str | None) -> int:
                     state["masks"], state["subjects"], state["artifacts"]))
 
             notes.load(state.get('notes_revision'))
+            atelier.load(state['atelier_snapshot'])
             if preview is None:
                 preview_info.set("Aperçu non disponible : réexaminer le projet.")
                 return

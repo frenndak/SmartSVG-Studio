@@ -30,7 +30,37 @@ class LayoutWidget(Widget):
     def get(self, *_indices): return self.content
     def edit_reset(self): pass
     def pack_forget(self): self.visible = False
+    def winfo_ismapped(self): return self.visible
     def focus_set(self): self.focused = True
+
+
+def create_atelier_project(directory):
+    """Build and bind two exact masks using the existing V1 workspace."""
+    import struct
+    import time
+    from smartsvg_core.project_workspace_g22 import ManagedWorkspace
+    from test_g33e_persistent_subject_identity import png
+
+    workspace = ManagedWorkspace(directory)
+    name = 'atelier-project'
+    created = workspace.create(name, png(), profile='Sticker - contour du sujet')
+    raw = struct.pack('<24f', 1.0, 0.5, *([0.0] * 20), 0.75, 1.0)
+    workspace.save_base_masks(name, raw_float32=raw, shape=[2, 3, 4],
+                              image_fingerprint='b' * 64, editor_fingerprint='a' * 64,
+                              expected_sha256=created['sha256'])
+    ids = {}
+    for index in (1, 0):
+        state = workspace.inspect(name)
+        catalog = state['base_masks']['mask_identity']
+        binding = catalog['bindings'][index]
+        result = workspace.register_subject_identity(
+            name, mask_index=index, mask_id=binding['mask_id'],
+            mask_sha256_float32=binding['mask_sha256_float32'],
+            source_id=catalog['source_id'], source_sha256='a' * 64,
+            expected_sha256=state['sha256'], confirmed=True,
+            expires_at_ms=int(time.time() * 1000) + 60_000)
+        ids[result['subject_id']] = binding['mask_id']
+    return workspace.root / (name + '.smartsvg'), ids
 
 
 class AppShellTests(unittest.TestCase):
@@ -103,7 +133,7 @@ class DesktopShellIntegrationTests(unittest.TestCase):
         from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
         from native_templates_tk_v34 import TemplatePreviewContent
         LayoutWidget.all_widgets = []
-        captured = SimpleNamespace(shell=None, jobs=None, template=None, creator=None, notes=None)
+        captured = SimpleNamespace(shell=None, jobs=None, template=None, creator=None, notes=None, atelier=None)
         class Root(LayoutWidget):
             def __init__(self):
                 super().__init__()
@@ -138,11 +168,15 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 super().__init__(*args, **kwargs)
                 captured.creator = self
         class Notes(desktop.NativeNotesPanel):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                captured.notes = self
+        class Atelier(desktop.NativeAtelierPanel):
             def __init__(self, *args):
                 super().__init__(*args)
-                captured.notes = self
+                captured.atelier = self
         class Photo:
-            def __init__(self, **_kwargs): pass
+            def __init__(self, **kwargs): self.data = kwargs.get('data')
             def subsample(self, _factor): return self
         root = Root()
         tk = SimpleNamespace(Tk=lambda: root, Toplevel=Popup, Canvas=LayoutWidget,
@@ -159,6 +193,7 @@ class DesktopShellIntegrationTests(unittest.TestCase):
              patch.object(desktop, 'NativeAppShell', Shell), \
              patch.object(desktop, 'LatestOnlyJob', Jobs), \
              patch.object(desktop, 'TemplatePreviewContent', Template), \
+             patch.object(desktop, 'NativeAtelierPanel', Atelier), \
              patch.object(desktop, 'NativeNotesPanel', Notes), \
              patch.object(desktop, 'NativeCreateDialog', Creator):
             self.assertEqual(desktop._start_gui(first_project), 0)
@@ -441,6 +476,53 @@ class DesktopShellIntegrationTests(unittest.TestCase):
 
                 self.run_desktop(scenario, chosen=str(selected), discard_notes=consent)
 
+    def test_atelier_selects_real_mask_and_tracks_the_active_project_revision(self):
+        import base64
+        from smartsvg_core.project_archive import load_project
+
+        with tempfile.TemporaryDirectory() as directory:
+            target, ids = create_atelier_project(directory)
+            original = target.read_bytes()
+            archive = load_project(target)
+
+            def scenario(root, state):
+                def receive_project():
+                    state.jobs.futures[-1].result(timeout=15)
+                    root.pending.pop(0)()
+
+                receive_project()
+                atelier = state.atelier
+                self.assertIsNone(atelier.photo)  # decoding waits until the Atelier is shown
+                root.events['<Control-Key-5>'](None)
+                self.assertEqual(state.shell.active_page, 'atelier')
+                self.assertEqual(set(atelier.picker.options['values']), set(ids))
+                old_revision = atelier.snapshot.sha256
+                for subject, mask in ids.items():
+                    atelier.selection.set(subject)
+                    atelier.picker.events['<<ComboboxSelected>>'](None)
+                    self.assertIn('Masque ' + mask, atelier.details.get())
+                    self.assertIn('Liaison float32 vérifiée', atelier.details.get())
+                    self.assertEqual(base64.b64decode(atelier.photo.data),
+                                     archive.resources[archive.mask_paths[mask]])
+                self.assertEqual(target.read_bytes(), original)
+                selected = atelier.selection.get()
+                state.notes.editor.insert('1.0', 'Révision suivante')
+                state.notes.save()
+                state.notes.future.result(timeout=15)
+                root.pending.pop(0)()
+                self.assertNotEqual(atelier.snapshot.sha256, old_revision)
+                self.assertEqual(atelier.snapshot.sha256, state.notes.revision.sha256)
+                self.assertEqual(atelier.selection.get(), selected)
+                self.assertEqual(load_project(target).resources, archive.resources)
+                root.events['<Control-o>'](None)
+                self.assertIsNone(atelier.photo)
+                self.assertIsNone(atelier.snapshot)
+                receive_project()
+                self.assertEqual(atelier.picker.options['values'], ())
+
+            self.run_desktop(scenario, first_project=str(target),
+                             chosen=str(target.with_name('missing.smartsvg')))
+
     def test_reader_closed_even_if_event_loop_raises(self):
         def scenario(_root, _state):
             raise RuntimeError('event loop failed')
@@ -596,6 +678,62 @@ class ActualTkShellSmokeTests(unittest.TestCase):
                  patch.object(desktop, 'ArtisanThemePicker', side_effect=theme), \
                  patch.object(desktop, 'NativeCreateDialog', Creator):
                 self.assertEqual(desktop._start_gui(None), 0)
+
+    def test_actual_atelier_selects_two_archived_subject_masks(self):
+        try:
+            import tkinter as tk
+        except ImportError as exc:
+            self.skipTest(f'Tkinter unavailable: {exc}')
+        try:
+            root = tk.Tk()
+        except tk.TclError:
+            self.skipTest('No graphical Tk session available')
+        self.addCleanup(root.destroy)
+        import time
+        import standalone_desktop_v34 as desktop
+        from native_theme_tk_v34 import ArtisanThemePicker
+        captured = []
+
+        class Atelier(desktop.NativeAtelierPanel):
+            def __init__(self, *args):
+                super().__init__(*args)
+                captured.append(self)
+
+        with tempfile.TemporaryDirectory() as directory:
+            target, ids = create_atelier_project(directory)
+            before = target.read_bytes()
+
+            def theme(**kwargs):
+                return ArtisanThemePicker(**kwargs, settings_path=Path(directory) / 'appearance.json')
+
+            def scenario():
+                root.geometry('900x650')
+                deadline = time.monotonic() + 15
+                while not captured[0].subjects and time.monotonic() < deadline:
+                    root.update()
+                    time.sleep(0.005)
+                atelier = captured[0]
+                self.assertEqual(set(atelier.subjects), set(ids))
+                root.focus_force()
+                root.update()
+                root.event_generate('<Control-Key-5>')
+                root.update()
+                self.assertTrue(atelier.picker.winfo_viewable())
+                self.assertIsNotNone(atelier.photo)
+                for subject, mask in ids.items():
+                    atelier.picker.set(subject)
+                    atelier.picker.event_generate('<<ComboboxSelected>>')
+                    root.update()
+                    self.assertIn('Masque ' + mask, atelier.details.get())
+                    self.assertEqual((atelier.photo.width(), atelier.photo.height()), (4, 3))
+                    self.assertTrue(atelier.image.winfo_viewable())
+                self.assertEqual(target.read_bytes(), before)
+
+            with patch.object(tk, 'Tk', return_value=root), \
+                 patch.object(root, 'mainloop', side_effect=scenario), \
+                 patch.object(desktop, 'ArtisanThemePicker', side_effect=theme), \
+                 patch.object(desktop, 'NativeAtelierPanel', Atelier):
+                self.assertEqual(desktop._start_gui(str(target)), 0)
 
     def test_actual_layout_navigation_and_template_canvas_at_supported_sizes(self):
         try:
