@@ -1,6 +1,6 @@
 """V34-019 native desktop shell: inspect V1 projects without ComfyUI.
 
-Existing projects remain read-only; explicit PNG creation uses the V1 writer.
+Explicit PNG creation and notes edits use the V1 writer.
 This is an offline Tkinter prototype, NOT a packaged
 Windows application or a validated rendering/editing environment. Tkinter is
 loaded only when an actual graphical session is requested.
@@ -31,6 +31,8 @@ from native_theme_tk_v34 import ArtisanThemePicker
 from native_templates_tk_v34 import TemplatePreviewContent
 from native_app_shell_v34 import NativeAppShell
 from native_create_tk_v34 import NativeCreateDialog
+from native_notes_tk_v34 import NativeNotesPanel, NotesRevision
+from smartsvg_core.project_workspace_g22 import MAX_NOTE_LENGTH, NAME
 
 
 def inspect_native_project(path: str | Path) -> dict:
@@ -127,6 +129,13 @@ def load_native_preview(path: str | Path):
         # One final boundary check before returning any image to the UI.
         if _archive_sha256(path) != before:
             raise ProjectArchiveError("PROJECT_SNAPSHOT_CHANGED")
+        target = Path(path)
+        notes = project.document.get('notes', '')
+        if (target.suffix == '.smartsvg' and target.stem == project.project_id
+                and NAME.fullmatch(target.stem)
+                and not target.stem.endswith('_previous')
+                and isinstance(notes, str) and len(notes) <= MAX_NOTE_LENGTH):
+            state['notes_revision'] = NotesRevision(target.absolute(), project.project_id, before, notes)
         return state, preview
     except (ProjectArchiveError, OSError):
         return _changed_project(), None
@@ -139,7 +148,7 @@ def _probe() -> int:
     result = {
         "ok": not imported, "phase": "V34-019_DESKTOP_SHELL",
         "comfyui_required": False, "read_only": False,
-        "existing_projects_read_only": True, "project_creation_available": True,
+        "project_notes_available": True, "project_creation_available": True,
         "tkinter_lazy": "tkinter" not in imported,
         "desktop_ui_tested": False, "windows_qualified": False,
         "template_previews_available": True,
@@ -151,7 +160,7 @@ def _probe() -> int:
 def _start_gui(first_project: str | None) -> int:
     try:
         import tkinter as tk
-        from tkinter import filedialog, ttk
+        from tkinter import filedialog, messagebox, ttk
     except ImportError:
         print("Interface graphique Tkinter indisponible dans cet environnement.", file=sys.stderr)
         return 2
@@ -190,15 +199,17 @@ def _start_gui(first_project: str | None) -> int:
               wraplength=640).pack(anchor="w", pady=(0, 12))
     ttk.Label(frame, textvariable=message, wraplength=640).pack(anchor="w", pady=(0, 12))
     ttk.Label(frame, textvariable=summary, wraplength=640).pack(anchor="w")
+    notes = NativeNotesPanel(root, frame, tk, ttk, messagebox)
     ttk.Label(frame, textvariable=preview_info, wraplength=640).pack(anchor="w", pady=(16, 5))
     preview_panel = ttk.Label(frame)
     preview_panel.pack(anchor="w")
 
     jobs = LatestOnlyJob(load_native_preview)
 
-    def refresh(*_unused):
+    def refresh():
         if not current[0]:
             return
+        notes.load(None)
         # Only the Tk main thread manipulates PhotoImage and widgets.
         preview_panel.configure(image="")
         photo_holder[0] = None
@@ -235,6 +246,7 @@ def _start_gui(first_project: str | None) -> int:
                     state["project_id"], state["app_version"], state["sources"],
                     state["masks"], state["subjects"], state["artifacts"]))
 
+            notes.load(state.get('notes_revision'))
             if preview is None:
                 preview_info.set("Aperçu non disponible : réexaminer le projet.")
                 return
@@ -279,11 +291,19 @@ def _start_gui(first_project: str | None) -> int:
         shell.show('project', focus=True)
         refresh()
 
+    def reexamine():
+        if creation_busy():
+            return show_creator()
+        if notes.can_leave():
+            shell.show('project', focus=True)
+            refresh()
+        return 'break'
+
     def show_creator(*_unused):
         if creator[0] is not None and creator[0].window.winfo_exists():
             creator[0].window.lift()
         else:
-            creator[0] = NativeCreateDialog(root, tk, ttk, filedialog, open_created)
+            creator[0] = NativeCreateDialog(root, tk, ttk, filedialog, open_created, can_create=notes.can_leave)
         return 'break'
 
     def select_project():
@@ -293,7 +313,7 @@ def _start_gui(first_project: str | None) -> int:
         chosen = filedialog.askopenfilename(
             parent=root, title="Ouvrir un projet SmartSVG",
             filetypes=[("Projets SmartSVG", "*.smartsvg")])
-        if chosen:
+        if chosen and notes.can_leave():
             creation_info.set('')
             shell.show('project', focus=True)
             current[0] = chosen
@@ -302,7 +322,7 @@ def _start_gui(first_project: str | None) -> int:
 
     ttk.Button(buttons, text="Ouvrir un projet…", command=select_project).pack(side="left")
     ttk.Button(buttons, text="Créer depuis un PNG…", command=show_creator).pack(side="left", padx=12)
-    ttk.Button(buttons, text="Réexaminer (F5)", command=refresh).pack(side="left")
+    ttk.Button(buttons, text="Réexaminer (F5)", command=reexamine).pack(side="left")
 
     ttk.Label(home, text='Que souhaitez-vous préparer ?',
               font=('Segoe UI', 18, 'bold')).pack(anchor='w', pady=(6, 16))
@@ -314,7 +334,7 @@ def _start_gui(first_project: str | None) -> int:
     ttk.Label(home, text='Choisir une image, enregistrer un nouveau projet et l’ouvrir après vérification.',
               wraplength=620).pack(anchor='w', pady=(0, 16))
     ttk.Button(home, text='Ouvrir un projet…', command=select_project).pack(anchor='w', pady=6)
-    ttk.Label(home, text='Examiner un fichier .smartsvg existant et son aperçu PNG, en lecture seule.',
+    ttk.Label(home, text='Examiner un fichier .smartsvg et son aperçu PNG. Modifier ses notes si le projet le permet.',
               wraplength=620).pack(anchor='w', pady=(0, 16))
     ttk.Button(home, text='Préparer un gabarit',
                command=lambda: shell.show('factory', focus=True)).pack(anchor='w', pady=6)
@@ -329,16 +349,12 @@ def _start_gui(first_project: str | None) -> int:
         select_project()
         return 'break'
 
-    def refresh_shortcut(_event):
-        if creation_busy():
-            return show_creator()
-        shell.show('project', focus=True)
-        refresh()
-        return 'break'
-
-    root.bind('<Control-o>', open_shortcut)
-    root.bind('<Control-n>', show_creator)
-    root.bind('<F5>', refresh_shortcut)
+    for key, action in (('<Control-o>', open_shortcut), ('<Control-n>', show_creator),
+                        ('<F5>', lambda _event: reexamine())):
+        root.bind(key, action)
+        # Tk's Text class processes shortcuts before the root bindtag.
+        # Ctrl+O must open the picker without inserting a newline first.
+        notes.editor.bind(key, action)
     shell.show('home')
 
     if first_project:
@@ -347,10 +363,15 @@ def _start_gui(first_project: str | None) -> int:
         file_name.set(Path(first_project).name)
         refresh()
     def close_window():
-        # A pending or obsolete generation is never allowed to update Tk.
-        if creator[0] is not None and not creator[0].close():
+        if creation_busy():
+            creator[0].close()
             creator[0].window.lift()
             return
+        if not notes.can_leave():
+            return
+        if creator[0] is not None:
+            creator[0].close()
+        # A pending or obsolete generation is never allowed to update Tk.
         jobs.close()
         root.destroy()
 
@@ -361,6 +382,7 @@ def _start_gui(first_project: str | None) -> int:
         if creator[0] is not None:
             creator[0].shutdown()
         jobs.close()
+        notes.shutdown()
     return 0
 
 

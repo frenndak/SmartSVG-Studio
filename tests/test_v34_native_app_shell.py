@@ -25,6 +25,10 @@ class LayoutWidget(Widget):
     def pack(self, **kwargs):
         self.visible = True
         self.pack_options = kwargs
+    def delete(self, *_indices): self.content = ''
+    def insert(self, _index, value): self.content = value
+    def get(self, *_indices): return self.content
+    def edit_reset(self): pass
     def pack_forget(self): self.visible = False
     def focus_set(self): self.focused = True
 
@@ -93,13 +97,13 @@ class AppShellTests(unittest.TestCase):
 
 
 class DesktopShellIntegrationTests(unittest.TestCase):
-    def run_desktop(self, scenario, *, first_project=None, chosen='', source_choice='', output_choice=''):
+    def run_desktop(self, scenario, *, first_project=None, chosen='', source_choice='', output_choice='', discard_notes=lambda **_: False):
         import standalone_desktop_v34 as desktop
         from native_app_shell_v34 import NativeAppShell
         from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
         from native_templates_tk_v34 import TemplatePreviewContent
         LayoutWidget.all_widgets = []
-        captured = SimpleNamespace(shell=None, jobs=None, template=None, creator=None)
+        captured = SimpleNamespace(shell=None, jobs=None, template=None, creator=None, notes=None)
         class Root(LayoutWidget):
             def __init__(self):
                 super().__init__()
@@ -130,15 +134,20 @@ class DesktopShellIntegrationTests(unittest.TestCase):
         class Popup(LayoutWidget):
             def protocol(self, event, callback): self.events[event] = callback
         class Creator(desktop.NativeCreateDialog):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                captured.creator = self
+        class Notes(desktop.NativeNotesPanel):
             def __init__(self, *args):
                 super().__init__(*args)
-                captured.creator = self
+                captured.notes = self
         class Photo:
             def __init__(self, **_kwargs): pass
             def subsample(self, _factor): return self
         root = Root()
         tk = SimpleNamespace(Tk=lambda: root, Toplevel=Popup, Canvas=LayoutWidget,
-            StringVar=Var, TclError=RuntimeError, PhotoImage=Photo,
+            StringVar=Var, TclError=RuntimeError, PhotoImage=Photo, Text=LayoutWidget,
+            messagebox=SimpleNamespace(askyesno=lambda _title, _message, **kwargs: discard_notes(**kwargs)),
             filedialog=SimpleNamespace(askopenfilename=lambda **kwargs:
                 source_choice if kwargs.get('filetypes') == [('Image PNG', '*.png')] else chosen,
                 askdirectory=lambda **kwargs:output_choice),
@@ -150,6 +159,7 @@ class DesktopShellIntegrationTests(unittest.TestCase):
              patch.object(desktop, 'NativeAppShell', Shell), \
              patch.object(desktop, 'LatestOnlyJob', Jobs), \
              patch.object(desktop, 'TemplatePreviewContent', Template), \
+             patch.object(desktop, 'NativeNotesPanel', Notes), \
              patch.object(desktop, 'NativeCreateDialog', Creator):
             self.assertEqual(desktop._start_gui(first_project), 0)
             self.assertEqual(theme.call_count, 1)
@@ -268,6 +278,100 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 self.assertTrue(any(str(value).startswith('Projet créé, enregistré et relu') for value in notices))
             self.run_desktop(scenario, source_choice=str(source), output_choice=directory)
 
+    def test_notes_save_twice_preserves_sources_and_rotates_backup(self):
+        from hashlib import sha256
+        from test_v34_native_preview_jobs import fixture_module
+        from smartsvg_core.project_archive import load_project, save_project
+        project = fixture_module.fixture()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / (project.project_id + '.smartsvg')
+            backup = path.with_suffix('.previous.smartsvg')
+            save_project(path, project)
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                notes = state.notes
+                for text in ('Découpe\nVersion A', 'Deuxième version'):
+                    before = path.read_bytes()
+                    notes.editor.insert('1.0', text)
+                    state.shell.show('factory')
+                    state.shell.show('project')
+                    self.assertEqual(notes.editor.get(), text)
+                    root.events['<F5>'](None)  # declined discard
+                    root.protocols['WM_DELETE_WINDOW']()
+                    self.assertEqual(notes.editor.events['<Control-o>'](None), 'break')
+                    self.assertTrue(root.exists)
+                    self.assertEqual(len(state.jobs.futures), 1)
+                    self.assertEqual(path.read_bytes(), before)
+                    notes.save()
+                    future = notes.future
+                    notes.save()
+                    root.protocols['WM_DELETE_WINDOW']()
+                    self.assertIs(notes.future, future)
+                    self.assertTrue(root.exists)
+                    future.result(timeout=15)
+                    root.pending.pop(0)()
+                    saved = load_project(path)
+                    self.assertEqual(saved.document['notes'], text)
+                    self.assertEqual(saved.resources, project.resources)
+                    self.assertEqual(saved.operations[-1], {'kind': 'update_notes', 'notes': text})
+                    self.assertEqual(backup.read_bytes(), before)
+                    self.assertEqual(notes.revision.sha256, sha256(path.read_bytes()).hexdigest())
+                    self.assertIn('enregistrées et relues', notes.status.get())
+                root.protocols['WM_DELETE_WINDOW']()
+                self.assertFalse(root.exists)
+
+            def keep_draft(*, parent, default):
+                self.assertEqual(default, 'no')
+                # Native confirmation can run a nested event loop. Re-entry
+                # must neither close the window nor start a save.
+                parent.protocols['WM_DELETE_WINDOW']()
+                notes_button = next(widget for widget in LayoutWidget.all_widgets
+                    if widget.options.get('text') == 'Enregistrer les notes')
+                notes_button.options['command']()
+                self.assertTrue(parent.exists)
+                return False
+            self.run_desktop(scenario, first_project=str(path), chosen=str(path),
+                             discard_notes=keep_draft)
+
+    def test_notes_keep_draft_after_conflict_and_failed_publication(self):
+        from test_v34_native_preview_jobs import fixture_module
+        from smartsvg_core.project_archive import save_project
+        from smartsvg_core import project_recovery
+        from smartsvg_core.project_workspace_g22 import WorkspaceError, save_project_notes
+        project = fixture_module.fixture()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / (project.project_id + '.smartsvg')
+            save_project(path, project)
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                notes = state.notes
+                notes.editor.insert('1.0', 'Brouillon local')
+                before = path.read_bytes()
+                with patch.object(project_recovery, 'save_project', side_effect=OSError('disk full')):
+                    notes.save()
+                    with self.assertRaisesRegex(WorkspaceError, 'SAVE_FAILED'):
+                        notes.future.result(timeout=15)
+                    root.pending.pop(0)()
+                self.assertIn('non confirmée', notes.status.get())
+                self.assertEqual(path.read_bytes(), before)
+                self.assertFalse(path.with_suffix('.pending-backup.smartsvg').exists())
+                save_project_notes(path, project.project_id, notes='Édition externe',
+                                   expected_sha256=notes.revision.sha256)
+                changed = path.read_bytes()
+                notes.save()
+                with self.assertRaisesRegex(WorkspaceError, 'PROJECT_CHANGED'):
+                    notes.future.result(timeout=15)
+                root.pending.pop(0)()
+                self.assertIn('modifié ailleurs', notes.status.get())
+                self.assertEqual(notes.editor.get(), 'Brouillon local')
+                self.assertEqual(path.read_bytes(), changed)
+
+            self.run_desktop(scenario, first_project=str(path))
+
     def test_reader_closed_even_if_event_loop_raises(self):
         def scenario(_root, _state):
             raise RuntimeError('event loop failed')
@@ -300,8 +404,8 @@ class ActualTkShellSmokeTests(unittest.TestCase):
         from smartsvg_core.project_archive import load_project
         captured = []
         class Creator(desktop.NativeCreateDialog):
-            def __init__(self, *args):
-                super().__init__(*args)
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
                 captured.append(self)
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / 'image.png'
@@ -355,6 +459,33 @@ class ActualTkShellSmokeTests(unittest.TestCase):
                 self.assertTrue(any(value.startswith('Projet créé, enregistré et relu') for value in values))
                 self.assertTrue(any(value.startswith('Projet : image') for value in values))
                 self.assertTrue(any(value.startswith('Source source-original') for value in values))
+                editor = next(widget for widget in widgets(root) if isinstance(widget, tk.Text))
+                save_notes = next(widget for widget in widgets(root)
+                    if isinstance(widget, ttk.Button) and widget.cget('text') == 'Enregistrer les notes')
+                self.assertTrue(editor.winfo_viewable())
+                self.assertTrue(save_notes.winfo_viewable())
+                editor.focus_force()
+                root.update()
+                with patch.object(filedialog, 'askopenfilename', return_value='') as picker:
+                    editor.event_generate('<Control-o>')
+                    root.update()
+                    picker.assert_called_once()
+                self.assertEqual(editor.get('1.0', 'end-1c'), '')
+                notes = 'À vérifier\nVersion 2'
+                editor.insert('1.0', notes)
+                original = target.read_bytes()
+                save_notes.invoke()
+                deadline = time.monotonic()+15
+                while time.monotonic()<deadline:
+                    root.update()
+                    if any(value.startswith('Notes enregistrées et relues')
+                           for value in visible_values()):
+                        break
+                    time.sleep(0.005)
+                self.assertTrue(any(value.startswith('Notes enregistrées et relues')
+                                    for value in visible_values()))
+                self.assertEqual(load_project(target).document['notes'], notes)
+                self.assertEqual(target.with_suffix('.previous.smartsvg').read_bytes(), original)
             with patch.object(tk, 'Tk', return_value=root), \
                  patch.object(root, 'mainloop', side_effect=scenario), \
                  patch.object(filedialog, 'askopenfilename', return_value=str(source)), \

@@ -51,6 +51,8 @@ class Widget:
     def winfo_width(self): return self.width
     def winfo_height(self): return self.height
     def winfo_exists(self): return self.exists
+    def grab_set(self): pass
+    def grab_release(self): pass
     def lift(self): self.lifts += 1
     def destroy(self): self.exists = False
     def delete(self, _what): self.lines.clear()

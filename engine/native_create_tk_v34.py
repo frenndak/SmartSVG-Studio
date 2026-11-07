@@ -14,8 +14,9 @@ from smartsvg_core.project_workspace_g22 import PROFILES
 
 
 class NativeCreateDialog:
-    def __init__(self, root, tk, ttk, filedialog, on_created):
+    def __init__(self, root, tk, ttk, filedialog, on_created, *, can_create=None):
         self.root, self.filedialog, self.on_created = root, filedialog, on_created
+        self.can_create = can_create
         self.window = tk.Toplevel(root)
         self.window.title('Créer un projet depuis un PNG')
         self.window.geometry('700x620')
@@ -126,6 +127,9 @@ class NativeCreateDialog:
         except (ValueError, TypeError):
             self.status.set('Vérifier la largeur en mm et la résolution (300 ou 450 DPI).')
             return
+        if self.can_create is not None and not self.can_create():
+            return
+        self.window.grab_set()
         self.busy = True
         for widget, _state in self.controls: widget.configure(state='disabled')
         self.status.set('Création et vérification de la sauvegarde en cours…')
@@ -139,6 +143,7 @@ class NativeCreateDialog:
         self.root.after(50, self._receive)
 
     def _error(self, error):
+        self.window.grab_release()
         self.busy = False
         for widget, state in self.controls: widget.configure(state=state)
         code = error.code if isinstance(error, NativeCreateError) else ''
@@ -169,6 +174,7 @@ class NativeCreateDialog:
             self._error(error)
             return
         self.busy = False
+        self.window.grab_release()
         self.status.set('Projet enregistré et vérifié.')
         try:
             self.on_created(receipt)
