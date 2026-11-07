@@ -235,13 +235,17 @@ def _start_gui(first_project: str | None) -> int:
     preview_panel.pack(anchor="w")
 
     jobs = LatestOnlyJob(load_native_preview)
+    selected_subject = None
 
     def refresh(*, saved_notes=None):
+        nonlocal selected_subject
         if not current[0]:
             return
-        selected_subject = atelier.selection.get() if saved_notes is not None else None
         if saved_notes is None:
+            selected_subject = None
             notes.load(None)
+        else:
+            selected_subject = atelier.selection.get() or selected_subject
         atelier.load(None)
         atelier.project.set("Vérification de la révision du projet…")
         recovery.load(None)
