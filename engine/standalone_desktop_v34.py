@@ -128,7 +128,7 @@ def load_native_preview(path: str | Path):
     if not state.get("ok"):
         if state['status'] in ('PROJECT_RECOVERABLE', 'PENDING_BACKUP_REVIEW_REQUIRED'):
             target = Path(path)
-            if target.suffix == '.smartsvg' and NAME.fullmatch(target.stem):
+            if target.suffix.lower() == '.smartsvg' and NAME.fullmatch(target.stem):
                 state['recovery_plan'] = inspect_recovery_plan(target)
             state['action_fr'] = (
                 'Consultez la copie vérifiée et confirmez l’action proposée.'
@@ -157,7 +157,7 @@ def _project_path(selection):
     """The chooser can locate a missing primary via an existing sidecar."""
     path = Path(selection)
     for suffix in ('.previous.smartsvg', '.pending-backup.smartsvg'):
-        if path.name.endswith(suffix) and NAME.fullmatch(path.name[:-len(suffix)]):
+        if path.name.lower().endswith(suffix) and NAME.fullmatch(path.name[:-len(suffix)]):
             return str(path.with_name(path.name[:-len(suffix)] + '.smartsvg'))
     return selection
 

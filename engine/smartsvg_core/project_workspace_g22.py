@@ -32,7 +32,7 @@ from .subject_brush_history_g33e import (
     SAVE_KINDS, HISTORY_KIND, BrushHistoryError, editor_digest, plan_history_change,
 )
 from .project_recovery import (
-    RecoveryError, inspect_project, recover_previous, resolve_pending_backup,
+    RecoveryError, inspect_project, inspect_recovery_plan, recover_previous, resolve_pending_backup,
     save_with_recovery,
 )
 
@@ -304,7 +304,7 @@ class ManagedWorkspace:
         health=inspect_project(path)
         report={'name':name,'status':health.status,
                 'primary':health.primary,'previous':health.previous,
-                'recoverable':health.status=='PROJECT_RECOVERABLE',
+                'recoverable':False,
                 'pending_resolution_available':False,
                 'certified':False,'message_fr':health.message_fr,
                 'action_fr':health.action_fr}
@@ -340,30 +340,20 @@ class ManagedWorkspace:
                     'source_fingerprint':session.get('source'),
                     'base_masks_persisted':False,
                 }
-        if health.status=='PROJECT_RECOVERABLE':
-            previous=path.with_name(path.stem+'.previous.smartsvg')
-            # An explicit restore request must carry a fingerprint of this snapshot.
-            report['recovery_sha256']=_file_sha256(previous)
-        if health.status=='PENDING_BACKUP_REVIEW_REQUIRED':
-            pending=path.with_name(path.stem+'.pending-backup.smartsvg')
-            previous=path.with_name(path.stem+'.previous.smartsvg')
-            # Never offer a one-click resolution for corrupt or foreign files.
-            if pending.is_file() and health.previous!='invalid':
-                try:
-                    staged=load_project(pending)
-                    primary_ok=(health.primary!='valid' or
-                                load_project(path).project_id==name)
-                    previous_ok=(health.previous!='valid' or
-                                 load_project(previous).project_id==name)
-                    if staged.project_id==name and primary_ok and previous_ok:
-                        report.update({
-                            'pending_resolution_available':True,
-                            'pending_sha256':_revision(pending),
-                            'primary_sha256':_revision(path),
-                            'previous_sha256':_revision(previous),
-                        })
-                except (ProjectArchiveError,OSError):
-                    pass
+        if health.status in ('PROJECT_RECOVERABLE', 'PENDING_BACKUP_REVIEW_REQUIRED'):
+            plan = inspect_recovery_plan(path, pin_primary=health.status != 'PROJECT_RECOVERABLE')
+            if health.status == 'PROJECT_RECOVERABLE':
+                if plan and plan.outcome == 'restored_from_previous':
+                    report.update(recoverable=True, recovery_sha256=plan.previous_sha256)
+                else:
+                    report.update(status='PROJECT_UNRECOVERABLE',
+                                  message_fr='La sauvegarde précédente n’a pas pu être vérifiée pour ce projet.',
+                                  action_fr='Conserver les fichiers et réexaminer le projet.')
+            elif plan and plan.pending_sha256 != 'missing':
+                report.update(pending_resolution_available=True,
+                              pending_sha256=plan.pending_sha256,
+                              primary_sha256=plan.primary_sha256,
+                              previous_sha256=plan.previous_sha256)
         return report
 
     def update_notes(self, name, *, notes, expected_sha256):

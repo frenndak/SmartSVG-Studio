@@ -209,16 +209,16 @@ def _file_sha(path: Path, *, max_bytes=None) -> str:
     return digest.hexdigest()
 
 
-def _recovery_revision(path: Path) -> str:
+def _recovery_revision(path: Path, *, archive=True) -> str:
     if path.is_symlink() or (path.exists() and not path.is_file()):
         raise RecoveryError('RECOVERY_SNAPSHOT_CHANGED')
     if not path.exists():
         return 'missing'
-    return _file_sha(path, max_bytes=MAX_ARCHIVE_BYTES)
+    return _file_sha(path, max_bytes=MAX_ARCHIVE_BYTES if archive else None)
 
 
-def _check_revision(path: Path, expected: str | None) -> None:
-    if expected is not None and _recovery_revision(path) != expected:
+def _check_revision(path: Path, expected: str | None, *, archive=True) -> None:
+    if expected is not None and _recovery_revision(path, archive=archive) != expected:
         raise RecoveryError('RECOVERY_SNAPSHOT_CHANGED')
 
 
@@ -229,7 +229,7 @@ class RecoveryPlan:
     path: Path
     project_id: str
     outcome: str
-    primary_sha256: str
+    primary_sha256: str | None
     previous_sha256: str
     pending_sha256: str
 
@@ -243,13 +243,20 @@ class RecoveryPlan:
             expected_primary_sha256=self.primary_sha256, expected_previous_sha256=self.previous_sha256)
 
 
-def inspect_recovery_plan(path) -> RecoveryPlan | None:
-    """Bind the recovery summary to the same bytes that were validated."""
+def inspect_recovery_plan(path, *, pin_primary=True) -> RecoveryPlan | None:
+    """Bind the recovery summary to the same bytes that were validated.
+
+    Express restore confirms the backup only and may replace an oversized
+    invalid primary. Pending resolution and native restore pin every path.
+    """
     target = _location(path).absolute()
     previous, pending = _previous(target), _pending(target)
     paths = (target, previous, pending)
     try:
-        revisions = tuple(_recovery_revision(candidate) for candidate in paths)
+        revisions = (
+            _recovery_revision(target, archive=False) if pin_primary else None,
+            _recovery_revision(previous), _recovery_revision(pending),
+        )
         states = []
         for candidate, revision in zip(paths, revisions):
             state, project = _diagnose(candidate, expected_sha256=revision)
@@ -260,15 +267,16 @@ def inspect_recovery_plan(path) -> RecoveryPlan | None:
         primary_state, previous_state, pending_state = states
         # Existing archives that are invalid must still have the same digest
         # across inspection, as do the validated archives and absent paths.
-        for candidate, revision in zip(paths, revisions):
-            _check_revision(candidate, revision)
+        _check_revision(target, revisions[0], archive=False)
+        _check_revision(previous, revisions[1])
+        _check_revision(pending, revisions[2])
     except (OSError, ProjectArchiveError, RecoveryError):
         return None
     if pending_state == 'missing':
         if primary_state == 'valid' or previous_state != 'valid':
             return None
         outcome = 'restored_from_previous'
-    elif pending_state != 'valid' or previous_state == 'invalid':
+    elif not pin_primary or pending_state != 'valid' or previous_state == 'invalid':
         return None
     elif primary_state != 'valid':
         outcome = 'staged_primary_restored'
@@ -292,7 +300,15 @@ def _atomic_copy(source: Path, destination: Path, *,
         ) as handle:
             tmp = Path(handle.name)
             with source.open('rb') as origin:
-                shutil.copyfileobj(origin, handle, 1024 * 1024)
+                if expected_sha256 is None:
+                    shutil.copyfileobj(origin, handle, 1024 * 1024)
+                else:
+                    remaining = MAX_ARCHIVE_BYTES
+                    for block in iter(lambda: origin.read(1024 * 1024), b''):
+                        remaining -= len(block)
+                        if remaining < 0:
+                            raise RecoveryError('RECOVERY_SNAPSHOT_CHANGED')
+                        handle.write(block)
             handle.flush()
             os.fsync(handle.fileno())
         copied = _file_sha(tmp, max_bytes=MAX_ARCHIVE_BYTES) if expected_sha256 else _file_sha(tmp)
@@ -303,7 +319,7 @@ def _atomic_copy(source: Path, destination: Path, *,
             _check_revision(source, expected_sha256)
         elif _file_sha(source) != copied:
             raise RecoveryError('PROJECT_CHANGED_DURING_SAVE')
-        _check_revision(destination, expected_destination_sha256)
+        _check_revision(destination, expected_destination_sha256, archive=False)
         if destination.is_symlink():
             raise RecoveryError('SAVE_FAILED')
         os.replace(tmp, destination)
@@ -416,7 +432,7 @@ def resolve_pending_backup(path, *, confirmed: bool = False,
         pending_path = _pending(target)
         # Bind all inspected versions under the writer's lock.
         _check_revision(pending_path, expected_pending_sha256)
-        _check_revision(target, expected_primary_sha256)
+        _check_revision(target, expected_primary_sha256, archive=False)
         _check_revision(_previous(target), expected_previous_sha256)
         pending_state, staged = _diagnose(pending_path)
         if pending_state != 'valid':
@@ -467,10 +483,8 @@ def recover_previous(path, *, confirmed: bool = False,
         if _pending(target).exists() or _pending(target).is_symlink():
             raise RecoveryError('PENDING_BACKUP_REVIEW_REQUIRED')
         previous_path = _previous(target)
-        _check_revision(target, expected_primary_sha256)
+        _check_revision(target, expected_primary_sha256, archive=False)
         _check_revision(previous_path, expected_previous_sha256)
-        if expected_primary_sha256 is None and expected_previous_sha256 is not None:
-            expected_primary_sha256 = _recovery_revision(target)
         primary, _ = _diagnose(target)
         previous, snapshot = _diagnose(previous_path)
         if primary == 'valid':
