@@ -32,10 +32,10 @@ from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
 from native_theme_tk_v34 import ArtisanThemePicker
 from native_templates_tk_v34 import TemplatePreviewContent
 from native_app_shell_v34 import NativeAppShell
-from native_image_viewport_v34 import NativeImageViewport
 from native_create_tk_v34 import NativeCreateDialog
 from native_notes_tk_v34 import NativeNotesPanel, NotesRevision
 from native_recovery_tk_v34 import NativeRecoveryPanel
+from native_image_viewport_v34 import NativeImageViewport
 from smartsvg_core.project_workspace_g22 import MAX_NOTE_LENGTH, NAME
 
 
