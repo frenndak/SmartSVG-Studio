@@ -13,7 +13,9 @@ from pathlib import Path
 import shutil
 import tempfile
 
-from .project_archive import LoadedProject, ProjectArchiveError, _payload, load_project, save_project
+from .project_archive import (
+    MAX_ARCHIVE_BYTES, LoadedProject, ProjectArchiveError, _payload, load_project, save_project,
+)
 
 
 class RecoveryError(ValueError):
@@ -195,15 +197,98 @@ def _project_lock(target: Path):
         raise RecoveryError('SAVE_FAILED') from exc
 
 
-def _file_sha(path: Path) -> str:
+def _file_sha(path: Path, *, max_bytes=None) -> str:
     digest = sha256()
     with path.open('rb') as handle:
+        total = 0
         for block in iter(lambda: handle.read(1024 * 1024), b''):
+            total += len(block)
+            if max_bytes is not None and total > max_bytes:
+                raise RecoveryError('RECOVERY_SNAPSHOT_CHANGED')
             digest.update(block)
     return digest.hexdigest()
 
 
-def _atomic_copy(source: Path, destination: Path) -> None:
+def _recovery_revision(path: Path, *, archive=True) -> str:
+    if path.is_symlink() or (path.exists() and not path.is_file()):
+        raise RecoveryError('RECOVERY_SNAPSHOT_CHANGED')
+    if not path.exists():
+        return 'missing'
+    return _file_sha(path, max_bytes=MAX_ARCHIVE_BYTES if archive else None)
+
+
+def _check_revision(path: Path, expected: str | None, *, archive=True) -> None:
+    if expected is not None and _recovery_revision(path, archive=archive) != expected:
+        raise RecoveryError('RECOVERY_SNAPSHOT_CHANGED')
+
+
+@dataclass(frozen=True)
+class RecoveryPlan:
+    """Read-only description of one user-confirmable recovery transaction."""
+
+    path: Path
+    project_id: str
+    outcome: str
+    primary_sha256: str | None
+    previous_sha256: str
+    pending_sha256: str
+
+    def apply(self, *, confirmed=False):
+        if self.pending_sha256 == 'missing':
+            return recover_previous(self.path, confirmed=confirmed,
+                                    expected_previous_sha256=self.previous_sha256,
+                                    expected_primary_sha256=self.primary_sha256)
+        return resolve_pending_backup(
+            self.path, confirmed=confirmed, expected_pending_sha256=self.pending_sha256,
+            expected_primary_sha256=self.primary_sha256, expected_previous_sha256=self.previous_sha256)
+
+
+def inspect_recovery_plan(path, *, pin_primary=True) -> RecoveryPlan | None:
+    """Bind the recovery summary to the same bytes that were validated.
+
+    Express restore confirms the backup only and may replace an oversized
+    invalid primary. Pending resolution and native restore pin every path.
+    """
+    target = _location(path).absolute()
+    previous, pending = _previous(target), _pending(target)
+    paths = (target, previous, pending)
+    try:
+        revisions = (
+            _recovery_revision(target, archive=False) if pin_primary else None,
+            _recovery_revision(previous), _recovery_revision(pending),
+        )
+        states = []
+        for candidate, revision in zip(paths, revisions):
+            state, project = _diagnose(candidate, expected_sha256=revision)
+            if project is not None and project.project_id != target.stem:
+                return None
+            states.append(state)
+            del project  # do not retain multiple expanded project archives
+        primary_state, previous_state, pending_state = states
+        # Existing archives that are invalid must still have the same digest
+        # across inspection, as do the validated archives and absent paths.
+        _check_revision(target, revisions[0], archive=False)
+        _check_revision(previous, revisions[1])
+        _check_revision(pending, revisions[2])
+    except (OSError, ProjectArchiveError, RecoveryError):
+        return None
+    if pending_state == 'missing':
+        if primary_state == 'valid' or previous_state != 'valid':
+            return None
+        outcome = 'restored_from_previous'
+    elif not pin_primary or pending_state != 'valid' or previous_state == 'invalid':
+        return None
+    elif primary_state != 'valid':
+        outcome = 'staged_primary_restored'
+    elif revisions[0] == revisions[2]:
+        outcome = 'unpublished_candidate_discarded'
+    else:
+        outcome = 'pending_backup_finalized'
+    return RecoveryPlan(target, target.stem, outcome, *revisions)
+
+
+def _atomic_copy(source: Path, destination: Path, *,
+                 expected_sha256=None, expected_destination_sha256=None) -> None:
     """Copy into a sibling temp, revalidate ZIP and only then publish."""
     if source.is_symlink() or destination.is_symlink():
         raise RecoveryError('SAVE_FAILED')
@@ -215,12 +300,26 @@ def _atomic_copy(source: Path, destination: Path) -> None:
         ) as handle:
             tmp = Path(handle.name)
             with source.open('rb') as origin:
-                shutil.copyfileobj(origin, handle, 1024 * 1024)
+                if expected_sha256 is None:
+                    shutil.copyfileobj(origin, handle, 1024 * 1024)
+                else:
+                    remaining = MAX_ARCHIVE_BYTES
+                    for block in iter(lambda: origin.read(1024 * 1024), b''):
+                        remaining -= len(block)
+                        if remaining < 0:
+                            raise RecoveryError('RECOVERY_SNAPSHOT_CHANGED')
+                        handle.write(block)
             handle.flush()
             os.fsync(handle.fileno())
+        copied = _file_sha(tmp, max_bytes=MAX_ARCHIVE_BYTES) if expected_sha256 else _file_sha(tmp)
+        if expected_sha256 is not None and copied != expected_sha256:
+            raise RecoveryError('RECOVERY_SNAPSHOT_CHANGED')
         load_project(tmp)
-        if _file_sha(source) != _file_sha(tmp):
+        if expected_sha256 is not None:
+            _check_revision(source, expected_sha256)
+        elif _file_sha(source) != copied:
             raise RecoveryError('PROJECT_CHANGED_DURING_SAVE')
+        _check_revision(destination, expected_destination_sha256, archive=False)
         if destination.is_symlink():
             raise RecoveryError('SAVE_FAILED')
         os.replace(tmp, destination)
@@ -331,23 +430,13 @@ def resolve_pending_backup(path, *, confirmed: bool = False,
         raise RecoveryError('RECOVERY_CONFIRMATION_REQUIRED')
     with _project_lock(target):
         pending_path = _pending(target)
+        # Bind all inspected versions under the writer's lock.
+        _check_revision(pending_path, expected_pending_sha256)
+        _check_revision(target, expected_primary_sha256, archive=False)
+        _check_revision(_previous(target), expected_previous_sha256)
         pending_state, staged = _diagnose(pending_path)
         if pending_state != 'valid':
             raise RecoveryError('NO_VALID_RECOVERY_SNAPSHOT')
-        # Compare all three inspected revisions UNDER the project lock before
-        # touching any file. None retains compatibility for direct Python users;
-        # the managed HTTP workspace always supplies all three fingerprints.
-        for expected, candidate in (
-            (expected_pending_sha256, pending_path),
-            (expected_primary_sha256, target),
-            (expected_previous_sha256, _previous(target)),
-        ):
-            if expected is not None:
-                if candidate.is_symlink():
-                    raise RecoveryError('RECOVERY_SNAPSHOT_CHANGED')
-                actual = _file_sha(candidate) if candidate.exists() else 'missing'
-                if actual != expected:
-                    raise RecoveryError('RECOVERY_SNAPSHOT_CHANGED')
         primary, current = _diagnose(target)
         if primary == 'valid':
             if current.project_id != staged.project_id:
@@ -363,7 +452,8 @@ def resolve_pending_backup(path, *, confirmed: bool = False,
                 if previous_state == 'missing' or (
                     _file_sha(previous_path) != _file_sha(pending_path)
                 ):
-                    _atomic_copy(pending_path, previous_path)
+                    _atomic_copy(pending_path, previous_path, expected_sha256=expected_pending_sha256,
+                                 expected_destination_sha256=expected_previous_sha256)
                 outcome = 'pending_backup_finalized'
             else:
                 # The new primary was never published; older backup is intact.
@@ -371,8 +461,10 @@ def resolve_pending_backup(path, *, confirmed: bool = False,
         else:
             if target.is_symlink():
                 raise RecoveryError('SAVE_FAILED')
-            _atomic_copy(pending_path, target)
+            _atomic_copy(pending_path, target, expected_sha256=expected_pending_sha256,
+                         expected_destination_sha256=expected_primary_sha256)
             outcome = 'staged_primary_restored'
+        _check_revision(pending_path, expected_pending_sha256)
         try:
             pending_path.unlink()
         except OSError as exc:
@@ -381,7 +473,8 @@ def resolve_pending_backup(path, *, confirmed: bool = False,
                 'physical_cut_verified': False}
 
 
-def recover_previous(path, *, confirmed: bool = False) -> dict:
+def recover_previous(path, *, confirmed: bool = False,
+                     expected_previous_sha256=None, expected_primary_sha256=None) -> dict:
     """Explicitly restore backup only when primary is missing or invalid."""
     target = _location(path)
     if not confirmed:
@@ -389,8 +482,10 @@ def recover_previous(path, *, confirmed: bool = False) -> dict:
     with _project_lock(target):
         if _pending(target).exists() or _pending(target).is_symlink():
             raise RecoveryError('PENDING_BACKUP_REVIEW_REQUIRED')
-        primary, _ = _diagnose(target)
         previous_path = _previous(target)
+        _check_revision(target, expected_primary_sha256, archive=False)
+        _check_revision(previous_path, expected_previous_sha256)
+        primary, _ = _diagnose(target)
         previous, snapshot = _diagnose(previous_path)
         if primary == 'valid':
             raise RecoveryError('RECOVERY_WOULD_OVERWRITE_VALID_PROJECT')
@@ -398,7 +493,8 @@ def recover_previous(path, *, confirmed: bool = False) -> dict:
             raise RecoveryError('NO_VALID_RECOVERY_SNAPSHOT')
         if target.is_symlink():
             raise RecoveryError('SAVE_FAILED')
-        _atomic_copy(previous_path, target)
+        _atomic_copy(previous_path, target, expected_sha256=expected_previous_sha256,
+                     expected_destination_sha256=expected_primary_sha256)
         restored = load_project(target)
         if restored.project_id != snapshot.project_id:
             raise RecoveryError('PROJECT_CHANGED_DURING_SAVE')

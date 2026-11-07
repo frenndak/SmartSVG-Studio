@@ -166,6 +166,69 @@ class G22ManagedWorkspaceTests(unittest.TestCase):
         self.assertEqual(result['status'],'restored_from_previous')
         self.assertEqual(self.workspace.inspect('snails')['document']['notes'],'première version')
 
+    def test_restore_refuses_backup_replaced_before_lock(self):
+        from smartsvg_core.project_recovery import recover_previous
+        self.create()
+        first = self.workspace.inspect('snails')
+        self.workspace.update_notes('snails', notes='version2', expected_sha256=first['sha256'])
+        target = self.workspace.root / 'snails.smartsvg'
+        backup = target.with_suffix('.previous.smartsvg')
+        replacement = target.read_bytes()
+        target.write_bytes(b'invalid primary')
+        original = self.workspace.inspect('snails')['recovery_sha256']
+
+        def switch_backup(*args, **kwargs):
+            backup.write_bytes(replacement)
+            return recover_previous(*args, **kwargs)
+
+        with patch('smartsvg_core.project_workspace_g22.recover_previous', side_effect=switch_backup):
+            with self.assertRaisesRegex(WorkspaceError, 'RECOVERY_SNAPSHOT_CHANGED'):
+                self.workspace.restore('snails', confirmed=True, expected_recovery_sha256=original)
+        self.assertEqual(target.read_bytes(), b'invalid primary')
+        self.assertEqual(backup.read_bytes(), replacement)
+
+    def test_workspace_recovers_over_oversized_invalid_primary(self):
+        for suffix in ('previous', 'pending-backup'):
+            with self.subTest(suffix=suffix):
+                name = 'snails-' + suffix
+                self.create(name)
+                target = self.workspace.root / (name + '.smartsvg')
+                sidecar = target.with_suffix('.' + suffix + '.smartsvg')
+                original = target.read_bytes()
+                sidecar.write_bytes(original)
+                limit = len(original) + 128
+                target.write_bytes(b'x' * (limit + 1))
+                with patch('smartsvg_core.project_archive.MAX_ARCHIVE_BYTES', limit), \
+                     patch('smartsvg_core.project_recovery.MAX_ARCHIVE_BYTES', limit):
+                    report = self.workspace.inspect(name)
+                    if suffix == 'previous':
+                        self.assertTrue(report['recoverable'])
+                        self.workspace.restore(name, confirmed=True,
+                                               expected_recovery_sha256=report['recovery_sha256'])
+                    else:
+                        self.assertTrue(report['pending_resolution_available'])
+                        self.workspace.resolve_pending(
+                            name, confirmed=True, expected_pending_sha256=report['pending_sha256'],
+                            expected_primary_sha256=report['primary_sha256'],
+                            expected_previous_sha256=report['previous_sha256'])
+                self.assertEqual(target.read_bytes(), original)
+
+    def test_workspace_refuses_a_valid_backup_for_another_project(self):
+        self.create('foreign')
+        foreign = self.workspace.root / 'foreign.smartsvg'
+        target = self.workspace.root / 'snails.smartsvg'
+        backup = target.with_suffix('.previous.smartsvg')
+        backup.write_bytes(foreign.read_bytes())
+        before = backup.read_bytes()
+        state = self.workspace.inspect('snails')
+        self.assertFalse(state['recoverable'])
+        self.assertNotIn('recovery_sha256', state)
+        with self.assertRaisesRegex(WorkspaceError, 'NOT_RECOVERABLE'):
+            self.workspace.restore('snails', confirmed=True,
+                                   expected_recovery_sha256=sha256(before).hexdigest())
+        self.assertFalse(target.exists())
+        self.assertEqual(backup.read_bytes(), before)
+
     def test_orphan_backup_still_listed_and_restorable(self):
         self.create()
         old=self.workspace.inspect('snails')
