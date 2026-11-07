@@ -382,7 +382,8 @@ class ManagedWorkspace:
                 before['recovery_sha256']!=expected_recovery_sha256):
             raise WorkspaceError('RECOVERY_SNAPSHOT_CHANGED')
         try:
-            result=recover_previous(path,confirmed=True)
+            result=recover_previous(path,confirmed=True,
+                                    expected_previous_sha256=expected_recovery_sha256)
         except RecoveryError as exc:
             raise WorkspaceError(exc.code) from exc
         return {'name':name,'status':result['status'],

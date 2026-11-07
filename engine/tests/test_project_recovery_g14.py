@@ -13,7 +13,7 @@ from smartsvg_core.project_archive import LoadedProject, ProjectArchiveError, lo
 from smartsvg_core.project_contracts import Mask, SourceAsset, Subject
 from smartsvg_core.project_recovery import (
     RecoveryError, _project_lock, inspect_project, inspect_project_snapshot, recover_previous,
-    recovery_message, save_with_recovery, resolve_pending_backup, _pending,
+    recovery_message, save_with_recovery, resolve_pending_backup, inspect_recovery_plan, _pending,
 )
 
 
@@ -97,6 +97,49 @@ class ProjectRecoveryTests(unittest.TestCase):
             save_with_recovery(self.path, fixture(x))
         self.assertEqual(load_project(self.path).document['objects'][0]['x'], 3)
         self.assertEqual(load_project(self.backup).document['objects'][0]['x'], 2)
+
+    def test_plan_refuses_a_primary_changed_after_inspection(self):
+        save_with_recovery(self.path, fixture(3, project_id='design'))
+        save_with_recovery(self.path, fixture(7, project_id='design'))
+        self.path.write_bytes(b'broken main')
+        plan = inspect_recovery_plan(self.path)
+        self.assertIsNotNone(plan)
+        replacement = b'another broken revision'
+        self.path.write_bytes(replacement)
+        before = self.backup.read_bytes()
+        with self.assertRaisesRegex(RecoveryError, 'RECOVERY_SNAPSHOT_CHANGED'):
+            plan.apply(confirmed=True)
+        self.assertEqual(self.path.read_bytes(), replacement)
+        self.assertEqual(self.backup.read_bytes(), before)
+
+    def test_plan_refuses_backup_swapped_between_lock_check_and_copy(self):
+        from smartsvg_core import project_recovery
+        from smartsvg_core.project_archive import save_project
+
+        save_project(self.backup, fixture(3, project_id='design'))
+        plan = inspect_recovery_plan(self.path)
+        real_copy = project_recovery._atomic_copy
+
+        def replace_backup(source, destination, **kwargs):
+            save_project(source, fixture(7, project_id='design'), overwrite=True)
+            return real_copy(source, destination, **kwargs)
+
+        with patch.object(project_recovery, '_atomic_copy', side_effect=replace_backup):
+            with self.assertRaisesRegex(RecoveryError, 'RECOVERY_SNAPSHOT_CHANGED'):
+                plan.apply(confirmed=True)
+        self.assertFalse(self.path.exists())
+        self.assertEqual(load_project(self.backup).document['objects'][0]['x'], 7)
+
+    def test_plan_rejects_foreign_backup_and_keeps_a_corrupt_pending_file(self):
+        from smartsvg_core.project_archive import save_project
+        save_project(self.backup, fixture(project_id='foreign'))
+        self.assertIsNone(inspect_recovery_plan(self.path))
+        save_project(self.backup, fixture(project_id='design'), overwrite=True)
+        pending = _pending(self.path)
+        pending.write_bytes(b'corrupt pending')
+        self.assertIsNone(inspect_recovery_plan(self.path))
+        self.assertEqual(pending.read_bytes(), b'corrupt pending')
+        self.assertFalse(self.path.exists())
 
     def test_recovery_does_not_start_without_confirmation(self):
         save_with_recovery(self.path, fixture(3))

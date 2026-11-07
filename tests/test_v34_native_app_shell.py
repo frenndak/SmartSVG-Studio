@@ -372,6 +372,75 @@ class DesktopShellIntegrationTests(unittest.TestCase):
 
             self.run_desktop(scenario, first_project=str(path))
 
+    def test_recovery_via_sidecar_selection_cancels_or_finalizes_exact_bytes(self):
+        from test_v34_native_preview_jobs import fixture_module
+        from smartsvg_core.project_archive import save_project
+
+        cases = (
+            ('previous', 'missing', 'Restaurer le secours'),
+            ('pending-backup', 'missing', 'Récupérer le projet'),
+            ('pending-backup', 'new', 'Finaliser la sauvegarde'),
+            ('pending-backup', 'same', 'Clore la sauvegarde interrompue'),
+        )
+        for suffix, primary_state, action in cases:
+            with self.subTest(suffix=suffix, primary=primary_state), tempfile.TemporaryDirectory() as directory:
+                folder = Path(directory)
+                project_id = 'project-test'
+                target = folder / (project_id + '.smartsvg')
+                selected = target.with_suffix('.' + suffix + '.smartsvg')
+                backup = target.with_suffix('.previous.smartsvg')
+                save_project(selected, fixture_module.fixture(2))
+                old = selected.read_bytes()
+                if suffix != 'previous':
+                    save_project(backup, fixture_module.fixture(1))
+                if primary_state == 'same':
+                    target.write_bytes(old)
+                if primary_state == 'new':
+                    save_project(target, fixture_module.fixture(3))
+                previous = backup.read_bytes()
+                main = target.read_bytes() if target.exists() else None
+                confirmations = []
+
+                def consent(*, parent, default):
+                    self.assertEqual(default, 'no')
+                    parent.protocols['WM_DELETE_WINDOW']()
+                    self.assertTrue(parent.exists)
+                    confirmations.append(True)
+                    return len(confirmations) == 2
+
+                def scenario(root, state):
+                    def drain_read():
+                        state.jobs.futures[-1].result(timeout=15)
+                        root.pending.pop(0)()
+                    root.events['<Control-o>'](None)
+                    drain_read()
+                    button = next(w for w in LayoutWidget.all_widgets if w.options.get('text') == action)
+                    callback = button.options['command']
+                    callback()
+                    self.assertEqual(root.pending, [])
+                    self.assertEqual(selected.read_bytes(), old)
+                    self.assertEqual(target.read_bytes() if target.exists() else None, main)
+                    callback()
+                    callback()
+                    root.events['<Control-o>'](None)
+                    root.protocols['WM_DELETE_WINDOW']()
+                    self.assertTrue(root.exists)
+                    self.assertEqual(len(confirmations), 2)
+                    self.assertEqual(len(state.jobs.futures), 1)
+                    import time
+                    deadline = time.monotonic() + 15
+                    while len(state.jobs.futures) == 1 and time.monotonic() < deadline:
+                        root.pending.pop(0)()
+                        time.sleep(0.005)
+                    self.assertEqual(len(state.jobs.futures), 2)
+                    drain_read()
+                    self.assertEqual(target.read_bytes(), main if main is not None else old)
+                    self.assertEqual(backup.read_bytes(), old if primary_state == 'new' else previous)
+                    self.assertEqual(selected.exists(), suffix == 'previous')
+                    self.assertIsNotNone(state.notes.revision)
+
+                self.run_desktop(scenario, chosen=str(selected), discard_notes=consent)
+
     def test_reader_closed_even_if_event_loop_raises(self):
         def scenario(_root, _state):
             raise RuntimeError('event loop failed')
@@ -486,6 +555,35 @@ class ActualTkShellSmokeTests(unittest.TestCase):
                                     for value in visible_values()))
                 self.assertEqual(load_project(target).document['notes'], notes)
                 self.assertEqual(target.with_suffix('.previous.smartsvg').read_bytes(), original)
+                target.write_bytes(b'synthetic damaged project')
+                recheck = next(widget for widget in widgets(root)
+                    if isinstance(widget, ttk.Button) and widget.cget('text') == 'Réexaminer (F5)')
+                recheck.invoke()
+                deadline = time.monotonic()+15
+                restore = None
+                while time.monotonic()<deadline:
+                    root.update()
+                    restore = next((widget for widget in widgets(root)
+                        if isinstance(widget, ttk.Button) and widget.cget('text') == 'Restaurer le secours'
+                        and widget.winfo_viewable()), None)
+                    if restore is not None:
+                        break
+                    time.sleep(0.005)
+                self.assertIsNotNone(restore)
+                from tkinter import messagebox
+                with patch.object(messagebox, 'askyesno', return_value=True) as confirm:
+                    restore.invoke()
+                    self.assertEqual(confirm.call_args.kwargs['default'], 'no')
+                deadline = time.monotonic()+15
+                while time.monotonic()<deadline:
+                    root.update()
+                    if any(value.startswith('Projet restauré depuis') for value in visible_values()):
+                        break
+                    time.sleep(0.005)
+                self.assertTrue(any(value.startswith('Projet restauré depuis') for value in visible_values()))
+                self.assertEqual(target.read_bytes(), original)
+                self.assertEqual(target.with_suffix('.previous.smartsvg').read_bytes(), original)
+
             with patch.object(tk, 'Tk', return_value=root), \
                  patch.object(root, 'mainloop', side_effect=scenario), \
                  patch.object(filedialog, 'askopenfilename', return_value=str(source)), \

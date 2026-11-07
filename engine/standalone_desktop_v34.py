@@ -1,6 +1,6 @@
 """V34-019 native desktop shell: inspect V1 projects without ComfyUI.
 
-Explicit PNG creation and notes edits use the V1 writer.
+Explicit PNG creation, notes edits and recovery use the V1 backend.
 This is an offline Tkinter prototype, NOT a packaged
 Windows application or a validated rendering/editing environment. Tkinter is
 loaded only when an actual graphical session is requested.
@@ -24,7 +24,9 @@ if _ENGINE_DIR not in sys.path:
     sys.path.insert(0, _ENGINE_DIR)
 
 from smartsvg_core.project_archive import MAX_ARCHIVE_BYTES, ProjectArchiveError
-from smartsvg_core.project_recovery import RecoveryError, inspect_project_snapshot
+from smartsvg_core.project_recovery import (
+    RecoveryError, inspect_project_snapshot, inspect_recovery_plan,
+)
 from smartsvg_core.source_preview_v34 import select_source_png
 from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
 from native_theme_tk_v34 import ArtisanThemePicker
@@ -32,6 +34,7 @@ from native_templates_tk_v34 import TemplatePreviewContent
 from native_app_shell_v34 import NativeAppShell
 from native_create_tk_v34 import NativeCreateDialog
 from native_notes_tk_v34 import NativeNotesPanel, NotesRevision
+from native_recovery_tk_v34 import NativeRecoveryPanel
 from smartsvg_core.project_workspace_g22 import MAX_NOTE_LENGTH, NAME
 
 
@@ -123,6 +126,15 @@ def load_native_preview(path: str | Path):
     """
     state, project, before = _inspect_native_project_snapshot(path)
     if not state.get("ok"):
+        if state['status'] in ('PROJECT_RECOVERABLE', 'PENDING_BACKUP_REVIEW_REQUIRED'):
+            target = Path(path)
+            if target.suffix == '.smartsvg' and NAME.fullmatch(target.stem):
+                state['recovery_plan'] = inspect_recovery_plan(target)
+            state['action_fr'] = (
+                'Consultez la copie vérifiée et confirmez l’action proposée.'
+                if state.get('recovery_plan') else
+                'Récupération indisponible. Conservez les fichiers et réexaminez le projet.'
+            )
         return state, None
     try:
         preview = select_source_png(project)
@@ -141,6 +153,15 @@ def load_native_preview(path: str | Path):
         return _changed_project(), None
 
 
+def _project_path(selection):
+    """The chooser can locate a missing primary via an existing sidecar."""
+    path = Path(selection)
+    for suffix in ('.previous.smartsvg', '.pending-backup.smartsvg'):
+        if path.name.endswith(suffix) and NAME.fullmatch(path.name[:-len(suffix)]):
+            return str(path.with_name(path.name[:-len(suffix)] + '.smartsvg'))
+    return selection
+
+
 def _probe() -> int:
     forbidden = ("engine", "nodes", "server", "folder_paths", "torch", "aiohttp", "tkinter")
     imported = sorted(name for name in forbidden if name in sys.modules or
@@ -149,6 +170,7 @@ def _probe() -> int:
         "ok": not imported, "phase": "V34-019_DESKTOP_SHELL",
         "comfyui_required": False, "read_only": False,
         "project_notes_available": True, "project_creation_available": True,
+        "project_recovery_available": True,
         "tkinter_lazy": "tkinter" not in imported,
         "desktop_ui_tested": False, "windows_qualified": False,
         "template_previews_available": True,
@@ -199,6 +221,8 @@ def _start_gui(first_project: str | None) -> int:
               wraplength=640).pack(anchor="w", pady=(0, 12))
     ttk.Label(frame, textvariable=message, wraplength=640).pack(anchor="w", pady=(0, 12))
     ttk.Label(frame, textvariable=summary, wraplength=640).pack(anchor="w")
+    recovery_slot = ttk.Frame(frame)
+    recovery_slot.pack(fill='x')
     notes = NativeNotesPanel(root, frame, tk, ttk, messagebox)
     ttk.Label(frame, textvariable=preview_info, wraplength=640).pack(anchor="w", pady=(16, 5))
     preview_panel = ttk.Label(frame)
@@ -210,6 +234,7 @@ def _start_gui(first_project: str | None) -> int:
         if not current[0]:
             return
         notes.load(None)
+        recovery.load(None)
         # Only the Tk main thread manipulates PhotoImage and widgets.
         preview_panel.configure(image="")
         photo_holder[0] = None
@@ -235,6 +260,7 @@ def _start_gui(first_project: str | None) -> int:
 
             message.set(state.get("message_fr") or state.get("error_code") or state["status"])
             if not state.get("ok"):
+                recovery.load(state.get('recovery_plan'))
                 summary.set("Aucune modification effectuée. " +
                             (state.get("action_fr") or "Contrôlez le projet avant de réessayer."))
                 preview_info.set("Aperçu non disponible.")
@@ -285,6 +311,7 @@ def _start_gui(first_project: str | None) -> int:
         return creator[0] is not None and creator[0].busy
 
     def open_created(receipt):
+        recovery.status.set('')
         current[0] = receipt.path
         file_name.set(Path(receipt.path).name)
         creation_info.set('Projet créé, enregistré et relu · SHA ' + receipt.sha256[:12])
@@ -292,6 +319,8 @@ def _start_gui(first_project: str | None) -> int:
         refresh()
 
     def reexamine():
+        if recovery.busy:
+            return 'break'
         if creation_busy():
             return show_creator()
         if notes.can_leave():
@@ -300,25 +329,35 @@ def _start_gui(first_project: str | None) -> int:
         return 'break'
 
     def show_creator(*_unused):
+        if recovery.busy:
+            return 'break'
         if creator[0] is not None and creator[0].window.winfo_exists():
             creator[0].window.lift()
         else:
-            creator[0] = NativeCreateDialog(root, tk, ttk, filedialog, open_created, can_create=notes.can_leave)
+            creator[0] = NativeCreateDialog(
+                root, tk, ttk, filedialog, open_created,
+                can_create=lambda: not recovery.busy and notes.can_leave())
         return 'break'
 
     def select_project():
+        if recovery.busy:
+            return
         if creation_busy():
             show_creator()
             return
         chosen = filedialog.askopenfilename(
             parent=root, title="Ouvrir un projet SmartSVG",
             filetypes=[("Projets SmartSVG", "*.smartsvg")])
-        if chosen and notes.can_leave():
+        if chosen and not recovery.busy and notes.can_leave():
             creation_info.set('')
+            recovery.status.set('')
             shell.show('project', focus=True)
-            current[0] = chosen
-            file_name.set(Path(chosen).name)
+            current[0] = _project_path(chosen)
+            file_name.set(Path(current[0]).name)
             refresh()
+
+    recovery = NativeRecoveryPanel(root, recovery_slot, tk, ttk, messagebox, refresh,
+                                   lambda: not creation_busy() and notes.can_leave())
 
     ttk.Button(buttons, text="Ouvrir un projet…", command=select_project).pack(side="left")
     ttk.Button(buttons, text="Créer depuis un PNG…", command=show_creator).pack(side="left", padx=12)
@@ -334,7 +373,7 @@ def _start_gui(first_project: str | None) -> int:
     ttk.Label(home, text='Choisir une image, enregistrer un nouveau projet et l’ouvrir après vérification.',
               wraplength=620).pack(anchor='w', pady=(0, 16))
     ttk.Button(home, text='Ouvrir un projet…', command=select_project).pack(anchor='w', pady=6)
-    ttk.Label(home, text='Examiner un fichier .smartsvg et son aperçu PNG. Modifier ses notes si le projet le permet.',
+    ttk.Label(home, text='Examiner un projet ou sélectionner son fichier de secours si le projet principal manque.',
               wraplength=620).pack(anchor='w', pady=(0, 16))
     ttk.Button(home, text='Préparer un gabarit',
                command=lambda: shell.show('factory', focus=True)).pack(anchor='w', pady=6)
@@ -359,10 +398,12 @@ def _start_gui(first_project: str | None) -> int:
 
     if first_project:
         shell.show('project', focus=True)
-        current[0] = first_project
-        file_name.set(Path(first_project).name)
+        current[0] = _project_path(first_project)
+        file_name.set(Path(current[0]).name)
         refresh()
     def close_window():
+        if recovery.busy:
+            return
         if creation_busy():
             creator[0].close()
             creator[0].window.lift()
@@ -383,6 +424,7 @@ def _start_gui(first_project: str | None) -> int:
             creator[0].shutdown()
         jobs.close()
         notes.shutdown()
+        recovery.shutdown()
     return 0
 
 

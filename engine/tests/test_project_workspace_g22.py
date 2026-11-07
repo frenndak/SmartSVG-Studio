@@ -166,6 +166,27 @@ class G22ManagedWorkspaceTests(unittest.TestCase):
         self.assertEqual(result['status'],'restored_from_previous')
         self.assertEqual(self.workspace.inspect('snails')['document']['notes'],'première version')
 
+    def test_restore_refuses_backup_replaced_before_lock(self):
+        from smartsvg_core.project_recovery import recover_previous
+        self.create()
+        first = self.workspace.inspect('snails')
+        self.workspace.update_notes('snails', notes='version2', expected_sha256=first['sha256'])
+        target = self.workspace.root / 'snails.smartsvg'
+        backup = target.with_suffix('.previous.smartsvg')
+        replacement = target.read_bytes()
+        target.write_bytes(b'invalid primary')
+        original = self.workspace.inspect('snails')['recovery_sha256']
+
+        def switch_backup(*args, **kwargs):
+            backup.write_bytes(replacement)
+            return recover_previous(*args, **kwargs)
+
+        with patch('smartsvg_core.project_workspace_g22.recover_previous', side_effect=switch_backup):
+            with self.assertRaisesRegex(WorkspaceError, 'RECOVERY_SNAPSHOT_CHANGED'):
+                self.workspace.restore('snails', confirmed=True, expected_recovery_sha256=original)
+        self.assertEqual(target.read_bytes(), b'invalid primary')
+        self.assertEqual(backup.read_bytes(), replacement)
+
     def test_orphan_backup_still_listed_and_restorable(self):
         self.create()
         old=self.workspace.inspect('snails')
