@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import base64
-from dataclasses import replace
 
 
 PROOF_LABELS = {
@@ -34,21 +33,15 @@ class NativeAtelierPanel:
         parent.bind('<Map>', self.render)
         self.load(None)
 
-    def load(self, snapshot):
+    def load(self, snapshot, *, selected_subject=None):
         self.snapshot = snapshot
         self.subjects = {subject.subject_id: subject for subject in snapshot.subjects} if snapshot else {}
         self.picker.configure(values=tuple(self.subjects),
                               state='readonly' if self.subjects else 'disabled')
-        self.selection.set(next(iter(self.subjects), ''))
+        self.selection.set(selected_subject if selected_subject in self.subjects
+                           else next(iter(self.subjects), ''))
         self._project_label()
         self.render()
-
-    def notes_saved(self, previous, current):
-        # The existing writer verified the new revision and changed only notes.
-        if (self.snapshot is not None and self.snapshot.project_id == previous.project_id
-                and self.snapshot.sha256 == previous.sha256):
-            self.snapshot = replace(self.snapshot, sha256=current.sha256)
-            self._project_label()
 
     def _project_label(self):
         self.project.set(
@@ -68,7 +61,9 @@ class NativeAtelierPanel:
                 f'{PROOF_LABELS[subject.proof_status]}. ')
         preview = subject.preview
         if preview.status != 'READY_PNG':
-            self.details.set(info + 'Aperçu indisponible pour ce masque.')
+            reason = ('Limite de taille des aperçus atteinte.'
+                      if preview.status == 'SOURCE_TOO_LARGE' else 'Aperçu indisponible pour ce masque.')
+            self.details.set(info + reason)
             return
         if not self.parent.winfo_ismapped():
             self.details.set(info)

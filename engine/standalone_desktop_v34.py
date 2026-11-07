@@ -228,18 +228,22 @@ def _start_gui(first_project: str | None) -> int:
     ttk.Label(frame, textvariable=summary, wraplength=640).pack(anchor="w")
     recovery_slot = ttk.Frame(frame)
     recovery_slot.pack(fill='x')
-    notes = NativeNotesPanel(root, frame, tk, ttk, messagebox, on_saved=atelier.notes_saved)
+    notes = NativeNotesPanel(root, frame, tk, ttk, messagebox,
+                             on_saved=lambda revision: refresh(saved_notes=revision))
     ttk.Label(frame, textvariable=preview_info, wraplength=640).pack(anchor="w", pady=(16, 5))
     preview_panel = ttk.Label(frame)
     preview_panel.pack(anchor="w")
 
     jobs = LatestOnlyJob(load_native_preview)
 
-    def refresh():
+    def refresh(*, saved_notes=None):
         if not current[0]:
             return
-        notes.load(None)
+        selected_subject = atelier.selection.get() if saved_notes is not None else None
+        if saved_notes is None:
+            notes.load(None)
         atelier.load(None)
+        atelier.project.set("Vérification de la révision du projet…")
         recovery.load(None)
         # Only the Tk main thread manipulates PhotoImage and widgets.
         preview_panel.configure(image="")
@@ -262,11 +266,22 @@ def _start_gui(first_project: str | None) -> int:
                 message.set("Impossible de lire ce projet.")
                 summary.set("Aucune modification effectuée.")
                 preview_info.set("Aperçu indisponible.")
+                atelier.project.set("Impossible de lire ce projet.")
                 return
 
+            snapshot = state.get('atelier_snapshot')
+            if saved_notes is not None and (
+                    snapshot is None or snapshot.sha256 != saved_notes.sha256
+                    or snapshot.project_id != saved_notes.project_id):
+                message.set("La révision enregistrée ne peut plus être vérifiée. Réexaminez le projet (F5).")
+                summary.set("Aucune ressource chargée pour cette révision.")
+                preview_info.set("Aperçu indisponible.")
+                atelier.project.set("La révision a changé. Réexaminez le projet (F5).")
+                return
             message.set(state.get("message_fr") or state.get("error_code") or state["status"])
             if not state.get("ok"):
                 recovery.load(state.get('recovery_plan'))
+                atelier.project.set("Ouvrez ou récupérez un projet V1 sain depuis l’espace Projet.")
                 summary.set("Aucune modification effectuée. " +
                             (state.get("action_fr") or "Contrôlez le projet avant de réessayer."))
                 preview_info.set("Aperçu non disponible.")
@@ -278,8 +293,9 @@ def _start_gui(first_project: str | None) -> int:
                     state["project_id"], state["app_version"], state["sources"],
                     state["masks"], state["subjects"], state["artifacts"]))
 
-            notes.load(state.get('notes_revision'))
-            atelier.load(state['atelier_snapshot'])
+            if saved_notes is None:
+                notes.load(state.get('notes_revision'))
+            atelier.load(snapshot, selected_subject=selected_subject)
             if preview is None:
                 preview_info.set("Aperçu non disponible : réexaminer le projet.")
                 return

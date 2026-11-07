@@ -116,7 +116,7 @@ class NativeNotesPanel:
         self.revision = NotesRevision(revision.path, revision.project_id, receipt['sha256'], draft)
         self.status.set('Notes enregistrées et relues · SHA ' + receipt['sha256'][:12])
         if self.on_saved is not None:
-            self.on_saved(revision, self.revision)
+            self.on_saved(self.revision)
 
     def shutdown(self):
         self.worker.shutdown(wait=True)

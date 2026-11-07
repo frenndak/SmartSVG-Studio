@@ -329,6 +329,7 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 notes = state.notes
                 for text in ('Découpe\nVersion A', 'Deuxième version'):
                     before = path.read_bytes()
+                    reads = len(state.jobs.futures)
                     notes.editor.insert('1.0', text)
                     state.shell.show('factory')
                     state.shell.show('project')
@@ -337,7 +338,7 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                     root.protocols['WM_DELETE_WINDOW']()
                     self.assertEqual(notes.editor.events['<Control-o>'](None), 'break')
                     self.assertTrue(root.exists)
-                    self.assertEqual(len(state.jobs.futures), 1)
+                    self.assertEqual(len(state.jobs.futures), reads)
                     self.assertEqual(path.read_bytes(), before)
                     notes.save()
                     future = notes.future
@@ -346,6 +347,8 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                     self.assertIs(notes.future, future)
                     self.assertTrue(root.exists)
                     future.result(timeout=15)
+                    root.pending.pop(0)()
+                    state.jobs.futures[-1].result(timeout=15)
                     root.pending.pop(0)()
                     saved = load_project(path)
                     self.assertEqual(saved.document['notes'], text)
@@ -510,6 +513,8 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 state.notes.save()
                 state.notes.future.result(timeout=15)
                 root.pending.pop(0)()
+                self.assertIsNone(atelier.snapshot)
+                receive_project()
                 self.assertNotEqual(atelier.snapshot.sha256, old_revision)
                 self.assertEqual(atelier.snapshot.sha256, state.notes.revision.sha256)
                 self.assertEqual(atelier.selection.get(), selected)
@@ -522,6 +527,50 @@ class DesktopShellIntegrationTests(unittest.TestCase):
 
             self.run_desktop(scenario, first_project=str(target),
                              chosen=str(target.with_name('missing.smartsvg')))
+
+    def test_atelier_reads_the_archived_subjects_again_after_notes_save(self):
+        from dataclasses import replace
+        import native_notes_tk_v34 as notes_module
+        from smartsvg_core.project_archive import load_project, save_project
+        from smartsvg_core.subject_identity_g33e import BINDINGS_KEY
+
+        with tempfile.TemporaryDirectory() as directory:
+            target, ids = create_atelier_project(directory)
+            save_notes = notes_module.save_project_notes
+            kept_id = next(iter(ids))
+
+            def save_with_replacement(*args, **kwargs):
+                receipt = save_notes(*args, **kwargs)
+                project = load_project(target, expected_sha256=receipt['sha256'])
+                document = dict(project.document)
+                document[BINDINGS_KEY] = {
+                    'version': True,
+                    'items': [item for item in document[BINDINGS_KEY]['items']
+                              if item['subject_id'] == kept_id],
+                }
+                replacement = replace(project, document=document, subjects=tuple(
+                    subject for subject in project.subjects if subject.subject_id == kept_id))
+                saved = save_project(target, replacement, overwrite=True)
+                return {**receipt, 'sha256': saved['sha256']}
+
+            def scenario(root, state):
+                state.jobs.futures[-1].result(timeout=15)
+                root.pending.pop(0)()
+                self.assertEqual(set(state.atelier.subjects), set(ids))
+                state.notes.editor.insert('1.0', 'Notes enregistrées')
+                with patch.object(notes_module, 'save_project_notes', side_effect=save_with_replacement):
+                    state.notes.save()
+                    state.notes.future.result(timeout=15)
+                    root.pending.pop(0)()
+                self.assertIsNone(state.atelier.snapshot)
+                state.jobs.futures[-1].result(timeout=15)
+                root.pending.pop(0)()
+                self.assertEqual(state.atelier.snapshot.sha256, state.notes.revision.sha256)
+                self.assertEqual(tuple(state.atelier.subjects), (kept_id,))
+                self.assertEqual(state.atelier.subjects[kept_id].proof_status, 'unverified')
+                self.assertEqual(state.notes.editor.get(), 'Notes enregistrées')
+
+            self.run_desktop(scenario, first_project=str(target))
 
     def test_reader_closed_even_if_event_loop_raises(self):
         def scenario(_root, _state):
@@ -629,8 +678,9 @@ class ActualTkShellSmokeTests(unittest.TestCase):
                 deadline = time.monotonic()+15
                 while time.monotonic()<deadline:
                     root.update()
-                    if any(value.startswith('Notes enregistrées et relues')
-                           for value in visible_values()):
+                    values = visible_values()
+                    if (any(value.startswith('Notes enregistrées et relues') for value in values)
+                            and any(value.startswith('Source source-original') for value in values)):
                         break
                     time.sleep(0.005)
                 self.assertTrue(any(value.startswith('Notes enregistrées et relues')
