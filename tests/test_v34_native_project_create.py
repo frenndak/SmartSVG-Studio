@@ -73,6 +73,14 @@ class NativeProjectCreationTests(unittest.TestCase):
         with self.assertRaises(self.port.NativeCreateError): self.create()
         self.assertEqual(list(self.output.iterdir()), [])
 
+    def test_malformed_source_path_is_a_stable_error_without_workspace(self):
+        for path in ('bad\\x00name.png', b'raw.png', object()):
+            with self.subTest(path=repr(path)):
+                with self.assertRaises(self.port.NativeCreateError) as failure:
+                    self.create(source_path=path)
+                self.assertEqual(failure.exception.code, 'INVALID_SOURCE_PATH')
+                self.assertEqual(list(self.output.iterdir()), [])
+
     def test_missing_and_oversized_source_rejected_before_any_project(self):
         self.source.unlink()
         with self.assertRaises(self.port.NativeCreateError): self.create()
