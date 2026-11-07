@@ -177,6 +177,39 @@ def _verify_png(data):
     return width, height, mode
 
 
+def save_project_notes(path, name, *, notes, expected_sha256):
+    """Save notes for an explicit, trusted local path at its loaded revision."""
+    if not isinstance(expected_sha256, str) or len(expected_sha256) != 64:
+        raise WorkspaceError('EXPECTED_REVISION_REQUIRED')
+    if not path.is_file():
+        raise WorkspaceError('PROJECT_NOT_FOUND')
+    try:
+        current = load_project(path, expected_sha256=expected_sha256)
+    except ProjectArchiveError as exc:
+        if str(exc) in ('PROJECT_SNAPSHOT_CHANGED', 'ARCHIVE_MISSING_OR_TOO_LARGE'):
+            raise WorkspaceError('PROJECT_CHANGED') from exc
+        raise
+    if current.project_id != name:
+        raise WorkspaceError('PROJECT_ID_MISMATCH')
+    note = _notes(notes)
+    modified = dict(current.document)
+    modified['notes'] = note
+    if len(current.operations) >= 4999:
+        raise WorkspaceError('HISTORY_LIMIT')
+    updated = replace(current, document=modified,
+                      operations=[*current.operations, {'kind': 'update_notes', 'notes': note}])
+    try:
+        result = save_with_recovery(
+            path, updated, expected_sha256=expected_sha256,
+            verify_saved_project=lambda saved: (
+                saved.document.get('notes') == note and
+                saved.operations == updated.operations))
+    except RecoveryError as exc:
+        raise WorkspaceError(exc.code) from exc
+    return {'name': name, 'status': 'updated', 'sha256': result['sha256'],
+            'previous_available': result['previous_available'], 'certified': False}
+
+
 class ManagedWorkspace:
     def __init__(self, trusted_output_root):
         base = Path(trusted_output_root)
@@ -335,29 +368,8 @@ class ManagedWorkspace:
 
     def update_notes(self, name, *, notes, expected_sha256):
         path=self._path(name)
-        if not isinstance(expected_sha256,str) or len(expected_sha256)!=64:
-            raise WorkspaceError('EXPECTED_REVISION_REQUIRED')
-        if not path.is_file():
-            raise WorkspaceError('PROJECT_NOT_FOUND')
-        before=_file_sha256(path)
-        if before != expected_sha256:
-            raise WorkspaceError('PROJECT_CHANGED')
-        current=load_project(path)
-        if current.project_id!=name:
-            raise WorkspaceError('PROJECT_ID_MISMATCH')
-        note=_notes(notes)
-        modified=dict(current.document)
-        modified['notes']=note
-        if len(current.operations)>=4999:
-            raise WorkspaceError('HISTORY_LIMIT')
-        updated=replace(current,document=modified,
-                        operations=[*current.operations,{'kind':'update_notes','notes':note}])
-        try:
-            result=save_with_recovery(path,updated,expected_sha256=before)
-        except RecoveryError as exc:
-            raise WorkspaceError(exc.code) from exc
-        return {'name':name,'status':'updated','sha256':result['sha256'],
-                'previous_available':result['previous_available'],'certified':False}
+        return save_project_notes(path, name, notes=notes,
+                                  expected_sha256=expected_sha256)
 
     def restore(self, name, *, expected_recovery_sha256, confirmed=False):
         path=self._path(name)
