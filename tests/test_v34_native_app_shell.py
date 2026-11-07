@@ -1,4 +1,5 @@
 """Shared native navigation behavior; widget doubles do not qualify rendering."""
+import gc
 import importlib
 from pathlib import Path
 from types import SimpleNamespace
@@ -514,12 +515,14 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 state.notes.future.result(timeout=15)
                 root.pending.pop(0)()
                 self.assertIsNone(atelier.snapshot)
+                state.jobs.futures[-1].result(timeout=15)
                 obsolete_refresh = root.pending.pop(0)
                 state.notes.editor.insert('1.0', 'Deux sauvegardes consécutives')
                 state.notes.save()
                 state.notes.future.result(timeout=15)
                 root.pending.pop(0)()
                 obsolete_refresh()
+                self.assertIsNone(atelier.snapshot)
                 receive_project()
                 self.assertNotEqual(atelier.snapshot.sha256, old_revision)
                 self.assertEqual(atelier.snapshot.sha256, state.notes.revision.sha256)
@@ -592,6 +595,13 @@ class DesktopShellIntegrationTests(unittest.TestCase):
 
 class ActualTkShellSmokeTests(unittest.TestCase):
     """Real widget layout smoke when a GUI exists, not full Windows qualification."""
+
+    def setUp(self):
+        # Collect test widget cycles on the Tk thread after root.destroy().
+        # Otherwise the next worker can trigger Tcl finalizers off-thread.
+        gc.collect()
+        self.addCleanup(gc.collect)
+
     def test_actual_desktop_png_creation_and_reopen(self):
         try:
             import tkinter as tk
