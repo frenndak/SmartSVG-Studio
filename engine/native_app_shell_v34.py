@@ -30,7 +30,7 @@ class NativeAppShell:
         footer.pack(side='bottom', fill='x', pady=(10, 0))
         ttk.Separator(footer).pack(fill='x', pady=(0, 6))
         ttk.Label(footer, text=(
-            'Création PNG · notes de projet · gabarits sans export\n'
+            'Création PNG · notes de projet · inspection des sujets · gabarits sans export\n'
             'Retouche, exports et installation Windows : intégration à venir.'),
             wraplength=820).pack(anchor='w')
         body = ttk.Frame(frame)
@@ -40,7 +40,7 @@ class NativeAppShell:
         ttk.Label(self.navigation, text='ESPACES', font=('Segoe UI', 10, 'bold')).pack(anchor='w', pady=(0, 10))
         self.content = ttk.Frame(body)
         self.content.pack(side='left', fill='both', expand=True)
-        ttk.Label(self.navigation, text='Ctrl+1 à Ctrl+4\npour naviguer\nCtrl+O : ouvrir\nCtrl+N : créer\nF5 : réexaminer',
+        ttk.Label(self.navigation, text='Ctrl+1 à Ctrl+5\npour naviguer\nCtrl+O : ouvrir\nCtrl+N : créer\nF5 : réexaminer',
                   wraplength=140).pack(side='bottom', anchor='w', pady=12)
 
     def add_page(self, key, label):
@@ -53,7 +53,7 @@ class NativeAppShell:
         button.pack(fill='x', pady=4)
         self.pages[key], self.buttons[key], self.labels[key] = page, button, label
         number = len(self.pages)
-        if number <= 4:
+        if number <= 5:
             self.root.bind(f'<Control-Key-{number}>', lambda _event, target=key: self.show(target, focus=True))
         return page
 

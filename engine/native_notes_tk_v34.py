@@ -17,9 +17,10 @@ class NotesRevision:
 
 
 class NativeNotesPanel:
-    def __init__(self, root, parent, tk, ttk, messagebox):
+    def __init__(self, root, parent, tk, ttk, messagebox, *, on_saved=None):
         self.root = root
         self.messagebox = messagebox
+        self.on_saved = on_saved
         self.revision = None
         self.future = None
         self.confirming_discard = False
@@ -114,6 +115,8 @@ class NativeNotesPanel:
             return
         self.revision = NotesRevision(revision.path, revision.project_id, receipt['sha256'], draft)
         self.status.set('Notes enregistrées et relues · SHA ' + receipt['sha256'][:12])
+        if self.on_saved is not None:
+            self.on_saved(self.revision)
 
     def shutdown(self):
         self.worker.shutdown(wait=True)
