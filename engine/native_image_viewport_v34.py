@@ -26,7 +26,9 @@ class NativeImageViewport:
         self.zoom_in_button.pack(side='left', padx=(0, 4))
         self.zoom_out_button = ttk.Button(controls, text='Zoom −', command=self.zoom_out)
         self.zoom_out_button.pack(side='left', padx=(0, 6))
-        ttk.Label(controls, text='Déplacer : glisser ou flèches · Zoom : + / −').pack(side='left')
+        # Avoid a wide single-row toolbar in a narrow Atelier pane.
+        ttk.Label(self.frame, text='Déplacer : glisser ou flèches · Zoom : + / −',
+                  wraplength=460).pack(anchor='w', pady=(0, 4))
         self.canvas = tk.Canvas(self.frame, width=MAX_SCREEN_WIDTH, height=MAX_SCREEN_HEIGHT,
                                 highlightthickness=1, takefocus=True)
         self.canvas.pack(fill='both', expand=True)
