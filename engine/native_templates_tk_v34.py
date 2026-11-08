@@ -6,6 +6,7 @@ projects, exports, networks, model calls or machine operations are performed.
 from __future__ import annotations
 
 from smartsvg_core.template_geometry_v34 import folded_card, open_tray
+from smartsvg_core.template_preflight_v34 import preflight_template
 
 
 class TemplatePreviewContent:
@@ -19,6 +20,7 @@ class TemplatePreviewContent:
         self.wall = tk.StringVar(value='30')
         self.tab = tk.StringVar(value='10')
         self.status = tk.StringVar(value='')
+        self.preflight_status = tk.StringVar(value='')
         frame = ttk.Frame(parent, padding=16)
         frame.pack(fill='both', expand=True)
         ttk.Label(frame, text='Fabrique · aperçu de gabarit',
@@ -40,8 +42,12 @@ class TemplatePreviewContent:
         self.tab_label, self.tab_entry = self._field(ttk, fields, self.tab, 1, 1)
         self.wall_label.configure(text='Hauteur des parois (mm)')
         self.tab_label.configure(text='Largeur des languettes (mm)')
-        ttk.Button(frame, text='Calculer l’aperçu', command=self.calculate).pack(anchor='w', pady=9)
+        actions = ttk.Frame(frame)
+        actions.pack(fill='x', pady=9)
+        ttk.Button(actions, text='Calculer l’aperçu', command=self.calculate).pack(side='left')
+        ttk.Button(actions, text='Lancer le prévol', command=self.run_preflight).pack(side='left', padx=10)
         ttk.Label(frame, textvariable=self.status, wraplength=620).pack(anchor='w', pady=5)
+        ttk.Label(frame, textvariable=self.preflight_status, wraplength=620).pack(anchor='w', pady=5)
         ttk.Label(frame, text='CUT : trait plein sombre · SCORE : pointillés bleus',
                   wraplength=620).pack(anchor='w', pady=4)
         ttk.Label(frame, text=(
@@ -81,6 +87,7 @@ class TemplatePreviewContent:
         self.proposal = None
         self.canvas.delete('all')
         self.status.set('Paramètres modifiés : cliquer sur Calculer l’aperçu.')
+        self.preflight_status.set('Prévol indisponible tant que l’aperçu n’est pas recalculé.')
 
     @staticmethod
     def _dimension(variable):
@@ -108,7 +115,23 @@ class TemplatePreviewContent:
         cuts = sum(path['operation'] == 'CUT' for path in geometry['paths'])
         scores = sum(path['operation'] == 'SCORE' for path in geometry['paths'])
         self.status.set(f'Développé théorique : {width:g} × {height:g} mm · {cuts} tracé(s) CUT · {scores} SCORE.')
+        self.preflight_status.set('Prévol statique à lancer avant tout export brouillon.')
         self._redraw()
+
+    def run_preflight(self):
+        if self.proposal is None:
+            self.preflight_status.set('Recalculer un aperçu valide avant le prévol.')
+            return None
+        result = preflight_template(self.proposal)
+        if result['status'] == 'BLOCKED':
+            paths = ', '.join(result['path_ids'])
+            detail = f' · tracés : {paths}' if paths else ''
+            self.preflight_status.set(
+                f"Prévol bloqué : {result['blocking_codes'][0]}{detail}.")
+        else:
+            self.preflight_status.set(
+                'Prévol statique cohérent · matière, outil, Design Space et fabrication non qualifiés.')
+        return result
 
     def _redraw(self, *_unused):
         self.canvas.delete('all')

@@ -97,6 +97,17 @@ class NativeTemplatePreviewTests(unittest.TestCase):
         self.assertEqual(self.panel.wall_entry.options['state'], 'disabled')
         self.assertEqual(self.panel.tab_entry.options['state'], 'disabled')
 
+    def test_static_preflight_is_explicit_and_never_claims_machine_readiness(self):
+        self.assertIn('à lancer', self.panel.preflight_status.get())
+        result = self.panel.run_preflight()
+        self.assertEqual(result['status'], 'REVIEW_REQUIRED')
+        self.assertIn('non qualifiés', self.panel.preflight_status.get())
+        self.panel.width.set('90')
+        self.assertIsNone(self.panel.proposal)
+        self.assertIn('indisponible', self.panel.preflight_status.get())
+        self.assertIsNone(self.panel.run_preflight())
+        self.assertIn('Recalculer', self.panel.preflight_status.get())
+
     def test_parameter_edit_immediately_discards_stale_drawing(self):
         self.panel.calculate()
         self.panel.width.set('90')
