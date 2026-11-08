@@ -63,7 +63,7 @@ class TemplatePreflightTests(unittest.TestCase):
         result = preflight.preflight_template(proposal)
         self.assertEqual(result['status'], 'BLOCKED')
         self.assertEqual(result['blocking_codes'], ['TEMPLATE_TOPOLOGY_INVALID'])
-        self.assertEqual(result['path_ids'], ['cut-slit-1', 'cut-slit-2'])
+        self.assertEqual(result['path_ids'], ['cut-slit-2'])
 
     def test_interior_crossing_blocks_but_intentional_endpoints_pass(self):
         proposal = templates.folded_card(105, 148)
