@@ -9,6 +9,8 @@ from __future__ import annotations
 import math
 import re
 
+from smartsvg_core.template_geometry_v34 import folded_card, open_tray
+
 
 class _Invalid(ValueError):
     def __init__(self, code, path_ids=()):
@@ -61,10 +63,14 @@ def _unexpected_intersection(first, second, tolerance):
             contacts.append(point)
     if not contacts:
         return False
-    # A contact is intentional only when it is an endpoint of both segments.
-    return any(not (( _same(point, a) or _same(point, b))
-                    and (_same(point, c) or _same(point, d)))
-               for point in contacts)
+    # Approved templates intentionally terminate folds/slits on longer
+    # contour or fold segments. Proper crossings were rejected above; only
+    # collinear overlap remains unexpected here.
+    collinear = all(abs(turn) <= tolerance for turn in turns)
+    return collinear and any(
+        not ((_same(point, a) or _same(point, b))
+             and (_same(point, c) or _same(point, d)))
+        for point in contacts)
 
 
 def _blocked(code, path_ids=()):
@@ -124,6 +130,22 @@ def preflight_template(proposal):
         }.get(proposal.get('template_id'))
         if expected_counts is None:
             _fail('TEMPLATE_CONTRACT_INVALID')
+        parameters = proposal.get('parameters')
+        if not isinstance(parameters, dict):
+            _fail('TEMPLATE_CONTRACT_INVALID')
+        try:
+            if proposal['template_id'] == 'folded-card':
+                canonical = folded_card(parameters['width_mm'], parameters['height_mm'])
+            else:
+                canonical = open_tray(
+                    parameters['base_width_mm'], parameters['base_depth_mm'],
+                    parameters['wall_height_mm'], parameters['tab_width_mm'])
+        except (KeyError, TypeError, ValueError, OverflowError):
+            _fail('TEMPLATE_CONTRACT_INVALID')
+        if parameters != canonical['parameters']:
+            _fail('TEMPLATE_CONTRACT_INVALID')
+        if bbox != canonical['geometry']['bbox_mm']:
+            _fail('TEMPLATE_BOUNDS_INVALID')
 
         catalogue = [('cut-outer', 'CUT', True, geometry.get('cut_outer'))]
         slits, folds = geometry.get('cut_slits'), geometry.get('score_folds')
@@ -164,6 +186,12 @@ def preflight_template(proposal):
                     _fail('TEMPLATE_TOPOLOGY_INVALID', path_id)
                 segments.append((path_id, index, len(points)-1, start, end))
             parsed.append((path_id, expected_operation, points))
+
+        for path, expected_path in zip(paths, canonical['geometry']['paths']):
+            if path != expected_path:
+                _fail('TEMPLATE_TOPOLOGY_INVALID', path['id'])
+        if geometry.get('area_mm2') != canonical['geometry']['area_mm2']:
+            _fail('TEMPLATE_TOPOLOGY_INVALID', 'cut-outer')
 
         counts = (sum(operation == 'CUT' for _, operation, _ in parsed),
                   sum(operation == 'SCORE' for _, operation, _ in parsed))

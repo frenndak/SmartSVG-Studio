@@ -69,7 +69,7 @@ class TemplatePreflightTests(unittest.TestCase):
         proposal['geometry']['paths'][1]['points_mm'] = [[0, 74], [210, 74]]
         result = preflight.preflight_template(proposal)
         self.assertEqual(result['status'], 'BLOCKED')
-        self.assertEqual(result['path_ids'], ['cut-outer', 'score-fold-1'])
+        self.assertEqual(result['path_ids'], ['score-fold-1'])
 
     def test_out_of_bounds_and_mismatched_catalogue_fail_closed(self):
         proposal = templates.folded_card(105, 148)
