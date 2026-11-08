@@ -39,13 +39,20 @@ def _workspace_from_path(project_path):
                 not path.parent.is_dir() or not path.parent.parent.is_dir() or
                 not path.is_file()):
             raise NativeSubjectPreviewError("UNMANAGED_PROJECT")
+        # Check the *whole* path, not only its final two parent directories.
+        # On Windows a junction (or a more distant symlink) can redirect a
+        # syntactically managed path to another tree without appearing as a
+        # symlink on the project, managed folder or immediate workspace root.
+        # Path.resolve(strict=True) resolves reparse points without writing.
+        if path.resolve(strict=True) != path.absolute():
+            raise NativeSubjectPreviewError("UNMANAGED_PROJECT")
         workspace = ManagedWorkspace(path.parent.parent)
         if workspace.root != path.parent or workspace._path(path.stem) != path:
             raise NativeSubjectPreviewError("UNMANAGED_PROJECT")
         return workspace, path.stem
     except NativeSubjectPreviewError:
         raise
-    except (OSError, ValueError, TypeError, WorkspaceError) as exc:
+    except (OSError, ValueError, TypeError, RuntimeError, WorkspaceError) as exc:
         raise NativeSubjectPreviewError("INVALID_PROJECT_PATH") from exc
 
 
