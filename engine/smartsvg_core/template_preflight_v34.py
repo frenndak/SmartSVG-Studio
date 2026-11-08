@@ -12,6 +12,10 @@ import re
 from smartsvg_core.template_geometry_v34 import folded_card, open_tray
 
 
+MAX_TEMPLATE_POINTS = 256
+MAX_POINTS_PER_PATH = 64
+
+
 class _Invalid(ValueError):
     def __init__(self, code, path_ids=()):
         super().__init__(code)
@@ -151,6 +155,10 @@ def preflight_template(proposal):
         slits, folds = geometry.get('cut_slits'), geometry.get('score_folds')
         if not isinstance(slits, list) or not isinstance(folds, list):
             _fail('TEMPLATE_CONTRACT_INVALID')
+        expected_catalogue_counts = ((0, 1) if proposal['template_id'] == 'folded-card'
+                                     else (4, 8))
+        if (len(slits), len(folds)) != expected_catalogue_counts:
+            _fail('TEMPLATE_CONTRACT_INVALID')
         catalogue += [(f'cut-slit-{index}', 'CUT', False, points)
                       for index, points in enumerate(slits, 1)]
         catalogue += [(f'score-fold-{index}', 'SCORE', False, points)
@@ -159,6 +167,7 @@ def preflight_template(proposal):
             _fail('TEMPLATE_TOPOLOGY_INVALID')
 
         ids, parsed, segments = set(), [], []
+        total_points = 0
         for path, (expected_id, expected_operation, expected_closed, expected_points) in zip(paths, catalogue):
             if not isinstance(path, dict):
                 _fail('TEMPLATE_CONTRACT_INVALID')
@@ -168,12 +177,16 @@ def preflight_template(proposal):
                     or path_id in ids):
                 _fail('TEMPLATE_TOPOLOGY_INVALID', str(path_id))
             ids.add(path_id)
+            raw_points = path.get('points_mm')
+            if (not isinstance(raw_points, list)
+                    or not 2 <= len(raw_points) <= MAX_POINTS_PER_PATH):
+                _fail('TEMPLATE_CONTRACT_INVALID', path_id)
+            total_points += len(raw_points)
+            if total_points > MAX_TEMPLATE_POINTS:
+                _fail('TEMPLATE_CONTRACT_INVALID', path_id)
             if (path_id != expected_id or path.get('operation') != expected_operation
                     or path.get('closed') is not expected_closed
-                    or path.get('points_mm') != expected_points):
-                _fail('TEMPLATE_TOPOLOGY_INVALID', path_id)
-            raw_points = path.get('points_mm')
-            if not isinstance(raw_points, list) or len(raw_points) < 2:
+                    or raw_points != expected_points):
                 _fail('TEMPLATE_TOPOLOGY_INVALID', path_id)
             points = [_point(point, path_id) for point in raw_points]
             if expected_closed != _same(points[0], points[-1]):

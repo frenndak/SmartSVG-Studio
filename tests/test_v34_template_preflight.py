@@ -87,6 +87,22 @@ class TemplatePreflightTests(unittest.TestCase):
             preflight.preflight_template(proposal)['blocking_codes'],
             ['TEMPLATE_TOPOLOGY_INVALID'])
 
+    def test_oversized_public_catalogues_fail_before_topology_work(self):
+        proposal = templates.open_tray(80, 50, 30, 10)
+        oversized = [[index, 0] for index in range(65)]
+        proposal['geometry']['cut_outer'] = oversized
+        proposal['geometry']['paths'][0]['points_mm'] = copy.deepcopy(oversized)
+        result = preflight.preflight_template(proposal)
+        self.assertEqual(result['status'], 'BLOCKED')
+        self.assertEqual(result['blocking_codes'], ['TEMPLATE_CONTRACT_INVALID'])
+        self.assertEqual(result['path_ids'], ['cut-outer'])
+
+        proposal = templates.open_tray(80, 50, 30, 10)
+        proposal['geometry']['cut_slits'] = proposal['geometry']['cut_slits'] * 1000
+        result = preflight.preflight_template(proposal)
+        self.assertEqual(result['status'], 'BLOCKED')
+        self.assertEqual(result['blocking_codes'], ['TEMPLATE_CONTRACT_INVALID'])
+
     def test_malformed_public_inputs_never_raise_or_gain_capability(self):
         bad = (None, [], {}, {'schema': 'smartsvg-template-preview/1-draft'})
         for value in bad:
