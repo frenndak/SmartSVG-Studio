@@ -13,6 +13,14 @@ PROOF_LABELS = {
     'png_only': 'Masque PNG archivé',
 }
 
+# Read-only, actionable feedback. Never expose file-system paths or attempt repair.
+MASK_PREVIEW_ERRORS = {
+    'SOURCE_TOO_LARGE': 'Masque trop volumineux pour l’aperçu sécurisé. L’archive reste intacte.',
+    'SOURCE_MISSING': 'Ressource du masque absente. Réexaminez le projet (F5) et vérifiez ses sauvegardes.',
+    'SOURCE_INVALID_PNG': 'PNG du masque invalide. Réexaminez le projet (F5) avant toute modification.',
+    'SOURCE_CHANGED': 'Le masque ne correspond pas aux dimensions ou à l’empreinte attendues. Réexaminez le projet (F5).',
+}
+
 
 class NativeAtelierPanel:
     def __init__(self, parent, tk, ttk):
@@ -62,11 +70,11 @@ class NativeAtelierPanel:
         info = (f'Sujet {subject.subject_id}\n'
                 f'Source {subject.source_id} · Masque {subject.mask_id}\n'
                 f'Zone dans la source : ({x}, {y}), {width} × {height} px\n'
-                f'{PROOF_LABELS[subject.proof_status]}. ')
+                f'{PROOF_LABELS.get(subject.proof_status, "Liaison de masque non vérifiée")}. ')
         preview = subject.preview
         if preview.status != 'READY_PNG':
-            reason = ('Limite de taille des aperçus atteinte.'
-                      if preview.status == 'SOURCE_TOO_LARGE' else 'Aperçu indisponible pour ce masque.')
+            reason = MASK_PREVIEW_ERRORS.get(
+                preview.status, 'Aperçu indisponible pour ce masque. Réexaminez le projet (F5).')
             self.details.set(info + reason)
             return
         if not self.parent.winfo_ismapped():
