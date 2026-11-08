@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
+import stat
 
 from .project_workspace_g22 import ManagedWorkspace, WorkspaceError, NAME
 
@@ -39,13 +40,15 @@ def _workspace_from_path(project_path):
                 not path.parent.is_dir() or not path.parent.parent.is_dir() or
                 not path.is_file()):
             raise NativeSubjectPreviewError("UNMANAGED_PROJECT")
-        # Check the *whole* path, not only its final two parent directories.
-        # On Windows a junction (or a more distant symlink) can redirect a
-        # syntactically managed path to another tree without appearing as a
-        # symlink on the project, managed folder or immediate workspace root.
-        # Path.resolve(strict=True) resolves reparse points without writing.
-        if path.resolve(strict=True) != path.absolute():
-            raise NativeSubjectPreviewError("UNMANAGED_PROJECT")
+        # Check every path component for an actual redirect, not whether
+        # the canonical spelling matches the supplied Windows path. Windows
+        # may canonicalize drives, casing or short names even for ordinary
+        # directories; resolve() != absolute() wrongly rejects valid projects.
+        for component in (path, *path.parents):
+            attributes = getattr(component.lstat(), "st_file_attributes", 0)
+            if (component.is_symlink() or
+                    attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)):
+                raise NativeSubjectPreviewError("UNMANAGED_PROJECT")
         workspace = ManagedWorkspace(path.parent.parent)
         if workspace.root != path.parent or workspace._path(path.stem) != path:
             raise NativeSubjectPreviewError("UNMANAGED_PROJECT")
