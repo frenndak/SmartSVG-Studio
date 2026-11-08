@@ -2,9 +2,13 @@
 import copy
 import importlib.util
 from pathlib import Path
+import sys
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
+ENGINE = ROOT / 'engine'
+if str(ENGINE) not in sys.path:
+    sys.path.insert(0, str(ENGINE))
 GEOMETRY = ROOT / 'engine/smartsvg_core/template_geometry_v34.py'
 PREFLIGHT = ROOT / 'engine/smartsvg_core/template_preflight_v34.py'
 
