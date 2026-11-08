@@ -39,6 +39,16 @@ class ImageViewportTests(unittest.TestCase):
         self.assertGreater(viewport.canvas.xview()[0], 0)
         self.assertGreater(viewport.canvas.yview()[0], 0)
 
+        # Exercise the actual mouse bindings, not just Canvas scrolling APIs.
+        viewport.canvas.xview_moveto(0)
+        viewport.canvas.yview_moveto(0)
+        root.update()
+        viewport.canvas.event_generate('<ButtonPress-1>', x=120, y=100)
+        viewport.canvas.event_generate('<B1-Motion>', x=40, y=30)
+        root.update()
+        self.assertGreater(viewport.canvas.xview()[0], 0)
+        self.assertGreater(viewport.canvas.yview()[0], 0)
+
         viewport.load(tk.PhotoImage(master=root, width=32, height=16))
         root.update()
         self.assertEqual(viewport.canvas.xview()[0], 0)
