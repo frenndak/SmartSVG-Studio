@@ -80,7 +80,10 @@ class NativeImageViewport:
     def actual_size(self):
         if self.original is not None:
             self.auto_fit = False
-            self._set_scale(1)
+            # Preserve the existing "100 %" state contract: fit_scale is
+            # None when the original image is displayed unscaled.
+            self.fit_scale = None
+            self._show(self.original)
 
     def zoom_in(self):
         if self.original is not None:
