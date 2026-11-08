@@ -139,7 +139,9 @@ class DesktopShellIntegrationTests(unittest.TestCase):
         from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
         from native_templates_tk_v34 import TemplatePreviewContent
         LayoutWidget.all_widgets = []
-        captured = SimpleNamespace(shell=None, jobs=None, template=None, creator=None, notes=None, atelier=None)
+        captured = SimpleNamespace(
+            shell=None, jobs=None, template=None, creator=None, notes=None,
+            atelier=None, theme=None, lifecycle=[])
         class Root(LayoutWidget):
             def __init__(self):
                 super().__init__()
@@ -147,6 +149,9 @@ class DesktopShellIntegrationTests(unittest.TestCase):
             def after(self, _ms, callback): self.pending.append(callback)
             def protocol(self, key, callback): self.protocols[key] = callback
             def mainloop(root): scenario(root, captured)
+            def destroy(self):
+                captured.lifecycle.append('root.destroy')
+                super().destroy()
         class Shell(NativeAppShell):
             def __init__(self, *args):
                 super().__init__(*args)
@@ -167,6 +172,13 @@ class DesktopShellIntegrationTests(unittest.TestCase):
             def __init__(self, *args):
                 super().__init__(*args)
                 captured.template = self
+        class Theme:
+            def __init__(self, **_kwargs):
+                self.shutdown_calls = 0
+                captured.theme = self
+            def shutdown(self):
+                self.shutdown_calls += 1
+                captured.lifecycle.append('theme.shutdown')
         class Popup(LayoutWidget):
             def protocol(self, event, callback): self.events[event] = callback
         class Creator(desktop.NativeCreateDialog):
@@ -197,7 +209,7 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 Button=LayoutWidget, Entry=LayoutWidget, Combobox=LayoutWidget,
                 Separator=LayoutWidget))
         with patch.dict(sys.modules, {'tkinter': tk}), \
-             patch.object(desktop, 'ArtisanThemePicker', return_value=object()) as theme, \
+             patch.object(desktop, 'ArtisanThemePicker', side_effect=Theme) as theme, \
              patch.object(desktop, 'NativeAppShell', Shell), \
              patch.object(desktop, 'LatestOnlyJob', Jobs), \
              patch.object(desktop, 'TemplatePreviewContent', Template), \
@@ -207,6 +219,7 @@ class DesktopShellIntegrationTests(unittest.TestCase):
             self.assertEqual(desktop._start_gui(first_project), 0)
             self.assertEqual(theme.call_count, 1)
             self.assertIs(theme.call_args.kwargs['parent'], captured.shell.pages['appearance'])
+        self.assertGreaterEqual(captured.theme.shutdown_calls, 1)
         self.assertTrue(captured.jobs.closed)
         return root, captured
 
@@ -230,6 +243,8 @@ class DesktopShellIntegrationTests(unittest.TestCase):
             self.assertEqual(state.jobs.futures, [])
             root.protocols['WM_DELETE_WINDOW']()
             self.assertFalse(root.exists)
+            self.assertEqual(
+                state.lifecycle[:2], ['theme.shutdown', 'root.destroy'])
         self.run_desktop(scenario)
 
     def test_startup_project_real_reader_keeps_summary_and_bytes_across_navigation(self):
@@ -866,6 +881,7 @@ class ActualTkShellSmokeTests(unittest.TestCase):
             # A real theme styles and sizes the widgets; never user settings.
             theme = ArtisanThemePicker(root=root, parent=shell.pages['appearance'],
                 tk=tk, ttk=ttk, settings_path=Path(directory) / 'appearance.json')
+            self.addCleanup(theme.shutdown)
             template = TemplatePreviewContent(shell.pages['factory'], tk, ttk)
             for size in ('900x650', '1100x760', '1280x720'):
                 with self.subTest(size=size):

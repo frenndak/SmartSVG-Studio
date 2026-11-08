@@ -433,6 +433,8 @@ def _start_gui(first_project: str | None) -> int:
             return
         if creator[0] is not None:
             creator[0].close()
+        # Tcl callbacks must be cancelled while their commands still exist.
+        theme_picker.shutdown()
         # A pending or obsolete generation is never allowed to update Tk.
         jobs.close()
         root.destroy()
@@ -441,6 +443,7 @@ def _start_gui(first_project: str | None) -> int:
     try:
         root.mainloop()
     finally:
+        theme_picker.shutdown()
         if creator[0] is not None:
             creator[0].shutdown()
         jobs.close()
