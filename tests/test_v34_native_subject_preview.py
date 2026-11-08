@@ -141,6 +141,35 @@ class NativeSubjectPreviewTests(unittest.TestCase):
         self.assertEqual(outside.read_bytes(), outside_bytes)
         self.assertEqual(self.bytes_before(), before)
 
+    def test_indirect_ancestor_alias_is_rejected_before_workspace_inspection(self):
+        """An alias several directories above the project must not pass admission."""
+        with tempfile.TemporaryDirectory() as directory:
+            real_root = Path(directory) / "real-root"
+            nested = real_root / "inner" / "deep"
+            nested.mkdir(parents=True)
+            secondary = ManagedWorkspace(nested)
+            real_project = secondary.root / (self.name + ".smartsvg")
+            real_project.write_bytes(self.path.read_bytes())
+            original = real_project.read_bytes()
+            alias = Path(directory) / "indirect-alias"
+            try:
+                alias.symlink_to(real_root, target_is_directory=True)
+            except (OSError, NotImplementedError) as exc:
+                self.skipTest(f"Directory aliases unavailable: {exc}")
+            redirected = alias / "inner" / "deep" / "SmartSVG_Managed_Projects" / real_project.name
+            self.assertTrue(redirected.is_file())
+            self.assertFalse(redirected.is_symlink())
+            self.assertFalse(redirected.parent.is_symlink())
+            self.assertFalse(redirected.parent.parent.is_symlink())
+            with patch.object(ManagedWorkspace, "inspect",
+                              side_effect=AssertionError("redirected path inspected")) as inspect:
+                with self.assertRaises(NativeSubjectPreviewError) as context:
+                    preview_native_subject_stroke(
+                        **self.command(project_path=str(redirected)))
+                inspect.assert_not_called()
+            self.assertEqual(context.exception.code, "UNMANAGED_PROJECT")
+            self.assertEqual(real_project.read_bytes(), original)
+
     def test_existing_backend_revision_failure_is_explicit_and_read_only(self):
         before = self.bytes_before()
         with patch.object(ManagedWorkspace, "preview_subject_brush_readonly",
