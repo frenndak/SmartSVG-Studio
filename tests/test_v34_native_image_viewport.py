@@ -14,6 +14,71 @@ class ImageViewportTests(unittest.TestCase):
         self.assertEqual(fit_factor(300, 471, 480, 235), 3)
         self.assertEqual(fit_factor(8, 12, 480, 235), 1)
 
+    def test_incremental_zoom_keeps_manual_scale_across_resizes_and_clamps(self):
+        from native_image_viewport_v34 import NativeImageViewport
+
+        class FakeImage:
+            def __init__(self, width=960, height=470):
+                self.w, self.h = width, height
+            def width(self): return self.w
+            def height(self): return self.h
+            def subsample(self, factor):
+                return FakeImage(max(1, self.w // factor),
+                                 max(1, self.h // factor))
+
+        class FakeCanvas:
+            w, h = 482, 237
+            def winfo_width(self): return self.w
+            def winfo_height(self): return self.h
+
+        viewport = NativeImageViewport.__new__(NativeImageViewport)
+        viewport.original = FakeImage()
+        viewport.canvas = FakeCanvas()
+        viewport.fit_scale = None
+        viewport.auto_fit = True
+        shown = []
+        viewport._show = lambda image: shown.append(
+            (image.width(), image.height()))
+
+        viewport.fit()
+        self.assertEqual(viewport.fit_scale, 2)
+        self.assertEqual(shown[-1], (480, 235))
+        viewport.zoom_in()
+        self.assertEqual(viewport.fit_scale, 1)
+        self.assertFalse(viewport.auto_fit)
+        self.assertEqual(shown[-1], (960, 470))
+        viewport.canvas.w, viewport.canvas.h = 202, 102
+        viewport._resize(None)
+        self.assertEqual(viewport.fit_scale, 1,
+                         'Manual zoom must survive resizing the Atelier pane')
+        viewport.zoom_out()
+        self.assertEqual(viewport.fit_scale, 2)
+        self.assertEqual(shown[-1], (480, 235))
+        viewport.fit()
+        self.assertEqual(viewport.fit_scale, 5)
+        self.assertTrue(viewport.auto_fit)
+        viewport.actual_size()
+        self.assertEqual(viewport.fit_scale, 1)
+        self.assertFalse(viewport.auto_fit)
+        self.assertEqual(viewport._zoom_out_key(None), 'break')
+        self.assertEqual(viewport.fit_scale, 2)
+        self.assertEqual(viewport._zoom_in_key(None), 'break')
+        self.assertEqual(viewport.fit_scale, 1)
+        for _ in range(40):
+            viewport.zoom_out()
+        self.assertEqual(viewport.fit_scale, 32)
+        viewport.zoom_out()
+        self.assertEqual(viewport.fit_scale, 32)
+        for _ in range(40):
+            viewport.zoom_in()
+        self.assertEqual(viewport.fit_scale, 1)
+        no_image = len(shown)
+        viewport.original = None
+        viewport.zoom_in()
+        viewport.zoom_out()
+        viewport.actual_size()
+        self.assertEqual(len(shown), no_image)
+
     def test_native_pixels_pan_and_reset_on_image_replacement(self):
         import tkinter as tk
         from tkinter import ttk
