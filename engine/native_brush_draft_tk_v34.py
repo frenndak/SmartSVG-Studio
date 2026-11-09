@@ -311,7 +311,8 @@ class NativeBrushDraftPanel:
         self._controls()
 
     def show(self, variant):
-        if self._result_images is not None and variant in ('before', 'after'):
+        if (not self._closed and self._result_images is not None
+                and variant in ('before', 'after')):
             self._variant = variant
             self._draw()
 
