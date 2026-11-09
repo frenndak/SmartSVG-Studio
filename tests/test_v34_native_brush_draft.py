@@ -224,6 +224,11 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         points_before = [point[:] for point in self.panel._points]
         self.panel._press(SimpleNamespace(x=10, y=10))
         self.panel._drag(SimpleNamespace(x=11, y=10))
+        # A late release must not touch controls in a destroyed Tk window.
+        from unittest.mock import patch
+        with patch.object(self.panel, '_controls',
+                          side_effect=AssertionError('closed widget accessed')):
+            self.panel._release(None)
         self.panel.discard()
         self.assertEqual(self.panel._points, points_before)
         self.assertFalse(self.panel.preview())
