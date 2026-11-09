@@ -8,7 +8,6 @@ G3.3e brush; do not create a writer, save a gesture or publish an export.
 from __future__ import annotations
 
 from pathlib import Path
-from io import BytesIO
 import re
 import stat
 
@@ -63,7 +62,8 @@ def _workspace_from_path(project_path):
 
 def _validated_preview(result):
     """Fail closed at the backend/UI boundary; never trust preview metadata."""
-    from PIL import Image, UnidentifiedImageError
+    import struct
+    import zlib
 
     dims = result.get("dimensions_px")
     if (not isinstance(dims, (list, tuple)) or len(dims) != 2 or
@@ -82,12 +82,54 @@ def _validated_preview(result):
         data = result.get(key)
         if type(data) is not bytes or len(data) > 8 * 1024 * 1024 or len(data) < 33:
             raise NativeSubjectPreviewError("INVALID_PREVIEW_RESULT")
+        # Standard-library validation: CI admission intentionally lacks Pillow.
+        # Bound compressed and decompressed streams; reject malformed chunks.
         try:
-            with Image.open(BytesIO(data)) as image:
-                if image.format != "PNG" or image.mode != "L" or image.size != (width, height):
-                    raise NativeSubjectPreviewError("INVALID_PREVIEW_RESULT")
-                image.load()
-        except (OSError, ValueError, UnidentifiedImageError, SyntaxError) as exc:
+            if data[:8] != b"\\x89PNG\\r\\n\\x1a\\n":
+                raise ValueError("signature")
+            pos, compressed, seen_header, seen_end = 8, [], False, False
+            while pos + 12 <= len(data):
+                size = struct.unpack_from(">I", data, pos)[0]
+                if size > 8 * 1024 * 1024 or pos + 12 + size > len(data):
+                    raise ValueError("chunk size")
+                kind = data[pos + 4:pos + 8]
+                payload = data[pos + 8:pos + 8 + size]
+                crc = struct.unpack_from(">I", data, pos + 8 + size)[0]
+                if zlib.crc32(kind + payload) != crc:
+                    raise ValueError("crc")
+                pos += 12 + size
+                if not seen_header:
+                    if kind != b"IHDR" or size != 13:
+                        raise ValueError("header")
+                    w, h, depth, color, comp, filt, interlace = struct.unpack(">IIBBBBB", payload)
+                    if ((w, h) != (width, height) or
+                            (depth, color, comp, filt, interlace) != (8, 0, 0, 0, 0)):
+                        raise ValueError("format")
+                    seen_header = True
+                elif kind == b"IDAT":
+                    compressed.append(payload)
+                elif kind == b"IEND":
+                    if size != 0 or not compressed or pos != len(data):
+                        raise ValueError("end")
+                    seen_end = True
+                    break
+                elif kind in (b"IHDR", b"PLTE") or (kind[0] & 0x20) == 0:
+                    raise ValueError("unexpected chunk")
+            if not seen_end:
+                raise ValueError("missing end")
+            decoder = zlib.decompressobj()
+            expected = height * (width + 1)
+            raw = bytearray()
+            for chunk in compressed:
+                raw.extend(decoder.decompress(chunk, expected + 1 - len(raw)))
+                if len(raw) > expected or decoder.unconsumed_tail:
+                    raise ValueError("inflated size")
+            raw.extend(decoder.flush(expected + 1 - len(raw)))
+            if len(raw) != expected or not decoder.eof or decoder.unused_data:
+                raise ValueError("inflated size")
+            if any(raw[row * (width + 1)] > 4 for row in range(height)):
+                raise ValueError("filter")
+        except (ValueError, IndexError, struct.error, zlib.error) as exc:
             raise NativeSubjectPreviewError("INVALID_PREVIEW_RESULT") from exc
 
 
