@@ -51,9 +51,11 @@ class NativeImageViewport:
         self.auto_fit = True
         if image is None:
             self.frame.pack_forget()
-            self._show(None)
+            self._show(None, reset_view=True)
             return
         self.fit()
+        self.canvas.xview_moveto(0)
+        self.canvas.yview_moveto(0)
         self.frame.pack(fill='both', expand=True)
 
     def _set_scale(self, factor):
@@ -107,7 +109,14 @@ class NativeImageViewport:
         self.zoom_out()
         return 'break'
 
-    def _show(self, image):
+    def _show(self, image, reset_view=False):
+        # Preserve the image-relative viewport centre when changing scale.
+        # Loading a different image explicitly resets the view instead.
+        previous = None
+        if not reset_view and self.display is not None:
+            x0, x1 = self.canvas.xview()
+            y0, y1 = self.canvas.yview()
+            previous = ((x0 + x1) / 2, (y0 + y1) / 2)
         self.canvas.delete('all')
         self.display = image
         region = (0, 0, 0, 0)
@@ -115,8 +124,14 @@ class NativeImageViewport:
             self.canvas.create_image(0, 0, anchor='nw', image=image)
             region = (0, 0, image.width(), image.height())
         self.canvas.configure(scrollregion=region)
-        self.canvas.xview_moveto(0)
-        self.canvas.yview_moveto(0)
+        if previous is None or image is None:
+            self.canvas.xview_moveto(0)
+            self.canvas.yview_moveto(0)
+        else:
+            x0, x1 = self.canvas.xview()
+            y0, y1 = self.canvas.yview()
+            self.canvas.xview_moveto(max(0, previous[0] - (x1 - x0) / 2))
+            self.canvas.yview_moveto(max(0, previous[1] - (y1 - y0) / 2))
 
     def _start_drag(self, event):
         self.canvas.focus_set()
