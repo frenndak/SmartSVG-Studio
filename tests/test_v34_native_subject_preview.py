@@ -20,13 +20,13 @@ from smartsvg_core.native_subject_preview_v34 import (
 from smartsvg_core.project_workspace_g22 import ManagedWorkspace, WorkspaceError
 
 
-def _png(width=16, height=12):
+def _png(width=16, height=12, *, grayscale=False):
     def chunk(kind, data):
         return (struct.pack(">I", len(data)) + kind + data +
                 struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff))
-    row = b"\x00" + bytes([95]) * (width * 4)
+    row = b"\x00" + bytes([95]) * (width * (1 if grayscale else 4))
     return (b"\x89PNG\r\n\x1a\n" +
-            chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)) +
+            chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 0 if grayscale else 6, 0, 0, 0)) +
             chunk(b"IDAT", zlib.compress(row * height)) +
             chunk(b"IEND", b""))
 
@@ -74,8 +74,8 @@ class NativeSubjectPreviewTests(unittest.TestCase):
     def test_verified_subject_resolves_index_only_in_backend_and_restricts_output(self):
         before = self.bytes_before()
         backend = dict(project_sha256=self.sha, subject_id=self.subject_id,
-            mask_id=self.binding["mask_id"], before_png_l8=b"before",
-            after_png_l8=b"after", dimensions_px=[16, 12],
+            mask_id=self.binding["mask_id"], before_png_l8=_png(grayscale=True),
+            after_png_l8=_png(grayscale=True), dimensions_px=[16, 12],
             changed_pixels=4, preview_mask_sha256_float32="e" * 64,
             persisted=False, preview_float32=b"secret-float32",
             editor_document={"strokes": [1]}, private_path="never-expose")
@@ -98,6 +98,34 @@ class NativeSubjectPreviewTests(unittest.TestCase):
         self.assertEqual(result["changed_pixels"], 4)
         self.assertIs(result["persisted"], False)
         self.assertIs(result["cricut_certified"], False)
+        self.assertEqual(self.bytes_before(), before)
+
+
+    def test_malformed_backend_preview_is_rejected_without_writes(self):
+        before = self.bytes_before()
+        valid = dict(project_sha256=self.sha, subject_id=self.subject_id,
+            mask_id=self.binding["mask_id"], before_png_l8=_png(grayscale=True),
+            after_png_l8=_png(grayscale=True), dimensions_px=[16, 12],
+            changed_pixels=4, preview_mask_sha256_float32="e" * 64,
+            persisted=False)
+        bad = (
+            {"dimensions_px": [16, True]},
+            {"dimensions_px": [16, 13]},
+            {"dimensions_px": [100000, 100000]},
+            {"changed_pixels": True},
+            {"changed_pixels": -1},
+            {"changed_pixels": 193},
+            {"before_png_l8": b"not-png"},
+            {"after_png_l8": _png()},
+            {"preview_mask_sha256_float32": "invalid"},
+        )
+        for changes in bad:
+            with self.subTest(changes=changes):
+                with patch.object(ManagedWorkspace, "preview_subject_brush_readonly",
+                                  return_value={**valid, **changes}):
+                    with self.assertRaises(NativeSubjectPreviewError) as context:
+                        preview_native_subject_stroke(**self.command())
+                    self.assertEqual(context.exception.code, "INVALID_PREVIEW_RESULT")
         self.assertEqual(self.bytes_before(), before)
 
     def test_reject_missing_wrong_or_unverified_selection_before_backend(self):
