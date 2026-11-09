@@ -17,6 +17,7 @@ if str(ENGINE) not in sys.path:
 
 from native_brush_draft_tk_v34 import (
     NativeBrushDraftPanel, MAX_GESTURE_POINTS, normalized_mask_point,
+    bounded_tk_png,
 )
 
 
@@ -41,6 +42,16 @@ class NativeBrushMappingTests(unittest.TestCase):
         self.assertIsNone(normalized_mask_point(39, 70, box))
         self.assertIsNone(normalized_mask_point(140, 19, box))
         self.assertEqual(normalized_mask_point(239, 119, box), [0.995, 0.99])
+
+    def test_png_bounds_reject_compressed_dimensions_before_tk(self):
+        original = _png()
+        self.assertTrue(bounded_tk_png(original))
+        huge = bytearray(original)
+        struct.pack_into('>I', huge, 16, 50000)
+        self.assertFalse(bounded_tk_png(bytes(huge)))
+        self.assertFalse(bounded_tk_png(b'not-a-png'))
+        self.assertFalse(bounded_tk_png(original[:30]))
+        self.assertFalse(bounded_tk_png(original + b'X' * 9_000_000))
 
     def test_invalid_numbers_and_boxes_fail_closed(self):
         cases = [
@@ -130,6 +141,29 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.panel.show('after')
         self.panel.discard()
         self.assertIsNone(self.panel._result_images)
+        self.assertEqual(self.project.read_bytes(), self.before)
+
+    def test_malformed_or_huge_png_never_reaches_tk_decoder(self):
+        from unittest.mock import patch
+        huge = bytearray(self.source)
+        struct.pack_into('>I', huge, 16, 60000)
+        with patch.object(self.tk, 'PhotoImage',
+                          side_effect=AssertionError('unbounded decode')):
+            self.panel.load(project_path=str(self.project), expected_sha256=self.sha,
+                            subject_id=self.subject, preview_png=bytes(huge))
+        self.assertIsNone(self.panel._identity)
+        self.assertEqual(self.project.read_bytes(), self.before)
+        self.load()
+        result = dict(subject_id=self.subject, project_sha256=self.sha,
+                      persisted=False, before_png_l8=self.source,
+                      after_png_l8=bytes(huge), changed_pixels=1)
+        completed = Future()
+        completed.set_result(result)
+        with patch.object(self.tk, 'PhotoImage',
+                          side_effect=AssertionError('unbounded decode')):
+            self.panel._receive(self.panel._token, 0, completed)
+        self.assertIsNone(self.panel._result_images)
+        self.assertIn('refusé', self.panel.status.get())
         self.assertEqual(self.project.read_bytes(), self.before)
 
     def test_missing_proof_invalid_source_and_outside_click_refused(self):
