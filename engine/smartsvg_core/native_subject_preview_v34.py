@@ -85,7 +85,7 @@ def _validated_preview(result):
         # Standard-library validation: CI admission intentionally lacks Pillow.
         # Bound compressed and decompressed streams; reject malformed chunks.
         try:
-            if data[:8] != b"\\x89PNG\\r\\n\\x1a\\n":
+            if data[:8] != b"\x89PNG\r\n\x1a\n":
                 raise ValueError("signature")
             pos, compressed, seen_header, seen_end = 8, [], False, False
             while pos + 12 <= len(data):
