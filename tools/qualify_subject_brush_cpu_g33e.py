@@ -19,6 +19,7 @@ import unittest
 TEST_CASE = "test_g33e_subject_brush_preview.SubjectBrushPreviewTests"
 CPU_TESTS = (
     "test_add_preview_is_deterministic_and_does_not_write_archive_or_backup",
+    "test_native_second_subject_preview_is_readonly_and_revision_pinned",
     "test_erase_preview_preserves_other_subject_and_base_float32",
     "test_fail_closed_on_identity_revision_source_and_stroke",
 )
