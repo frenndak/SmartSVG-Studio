@@ -115,6 +115,19 @@ class ImageViewportTests(unittest.TestCase):
         self.assertGreater(viewport.canvas.xview()[0], 0)
         self.assertGreater(viewport.canvas.yview()[0], 0)
 
+        # Zooming a panned image must retain its relative viewport centre.
+        viewport.canvas.xview_moveto(0.45)
+        viewport.canvas.yview_moveto(0.30)
+        root.update()
+        before_x = sum(viewport.canvas.xview()) / 2
+        before_y = sum(viewport.canvas.yview()) / 2
+        viewport.zoom_out()
+        root.update()
+        after_x = sum(viewport.canvas.xview()) / 2
+        after_y = sum(viewport.canvas.yview()) / 2
+        self.assertAlmostEqual(before_x, after_x, delta=0.08)
+        self.assertAlmostEqual(before_y, after_y, delta=0.08)
+
         viewport.load(tk.PhotoImage(master=root, width=32, height=16))
         root.update()
         self.assertEqual(viewport.canvas.xview()[0], 0)
