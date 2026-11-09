@@ -115,6 +115,11 @@ class ImageViewportTests(unittest.TestCase):
         self.assertGreater(viewport.canvas.xview()[0], 0)
         self.assertGreater(viewport.canvas.yview()[0], 0)
 
+        # Use a large image so both zoom levels remain scrollable.
+        viewport.load(tk.PhotoImage(master=root, width=1920, height=940))
+        root.update()
+        viewport.actual_size()
+        root.update()
         # Zooming a panned image must retain its relative viewport centre.
         viewport.canvas.xview_moveto(0.45)
         viewport.canvas.yview_moveto(0.30)
