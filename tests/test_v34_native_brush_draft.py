@@ -234,6 +234,22 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.assertFalse(self.panel.preview())
         self.assertEqual(self.project.read_bytes(), self.before)
 
+    def test_late_before_after_callback_does_not_draw_destroyed_widgets(self):
+        self.load()
+        self.stroke()
+        self.assertTrue(self.panel.preview())
+        self.receive()
+        self.assertIsNotNone(self.panel._result_images)
+        variant_before = self.panel._variant
+        self.panel.shutdown()
+        from unittest.mock import patch
+        with patch.object(self.panel, '_draw',
+                          side_effect=AssertionError('closed canvas accessed')):
+            self.panel.show('before')
+            self.panel.show('after')
+        self.assertEqual(self.panel._variant, variant_before)
+        self.assertEqual(self.project.read_bytes(), self.before)
+
     def test_rejected_backend_data_is_not_displayed(self):
         self.panel.shutdown()
         def bad(**request):
