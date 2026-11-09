@@ -230,7 +230,9 @@ class NativeBrushDraftPanel:
         self._append(event.x, event.y)
 
     def _release(self, _event):
-        self._controls()
+        # A queued release can arrive after the parent Tk widget was destroyed.
+        if not self._closed:
+            self._controls()
 
     def preview(self):
         if (self._closed or self._identity is None or not self._points
