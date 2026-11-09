@@ -12,6 +12,7 @@ import base64
 from math import ceil, isfinite
 from pathlib import Path
 import re
+import struct
 
 from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
 from smartsvg_core.native_subject_preview_v34 import preview_native_subject_stroke
@@ -23,6 +24,22 @@ _SUBJECT = re.compile(r"^subject-[0-9a-f]{32}$")
 MAX_GESTURE_POINTS = 64
 _MODES = {"Ajouter": "add", "Effacer": "erase"}
 _RADII = ("0.02", "0.05", "0.10")
+_PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+def bounded_tk_png(raw):
+    """Reject compressed dimension bombs before Tk allocates a PhotoImage.
+
+    Source previews are already archive-verified and backend results are
+    trusted encodings, but Tk still needs an independent allocation bound.
+    This is a strict preflight, not an alternative PNG authenticity check.
+    """
+    if (type(raw) is not bytes or not 33 <= len(raw) <= MAX_ENCODED_BYTES or
+            raw[:8] != _PNG_SIGNATURE or raw[12:16] != b'IHDR' or
+            struct.unpack_from('>I', raw, 8)[0] != 13):
+        return False
+    width, height = struct.unpack_from('>II', raw, 16)
+    return 0 < width <= 2048 and 0 < height <= 2048
 
 
 def normalized_mask_point(x, y, image_box):
@@ -131,8 +148,7 @@ class NativeBrushDraftPanel:
                 not _SHA.fullmatch(expected_sha256) or
                 type(subject_id) is not str or
                 not _SUBJECT.fullmatch(subject_id) or
-                type(preview_png) is not bytes or
-                not 0 < len(preview_png) <= MAX_ENCODED_BYTES):
+                not bounded_tk_png(preview_png)):
             self.status.set('Sujet absent ou non vérifié : retouche indisponible.')
             self._draw()
             self._controls()
@@ -260,7 +276,7 @@ class NativeBrushDraftPanel:
             photos = {}
             for variant in ('before', 'after'):
                 raw = result[variant + '_png_l8']
-                if type(raw) is not bytes or not 0 < len(raw) <= MAX_ENCODED_BYTES:
+                if not bounded_tk_png(raw):
                     raise ValueError('INVALID_PREVIEW_PNG')
                 photo = self.tk.PhotoImage(
                     master=self.root, data=base64.b64encode(raw).decode('ascii'),
