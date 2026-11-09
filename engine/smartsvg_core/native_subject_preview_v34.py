@@ -8,6 +8,7 @@ G3.3e brush; do not create a writer, save a gesture or publish an export.
 from __future__ import annotations
 
 from pathlib import Path
+from io import BytesIO
 import re
 import stat
 
@@ -57,6 +58,37 @@ def _workspace_from_path(project_path):
         raise
     except (OSError, ValueError, TypeError, RuntimeError, WorkspaceError) as exc:
         raise NativeSubjectPreviewError("INVALID_PROJECT_PATH") from exc
+
+
+
+def _validated_preview(result):
+    """Fail closed at the backend/UI boundary; never trust preview metadata."""
+    from PIL import Image, UnidentifiedImageError
+
+    dims = result.get("dimensions_px")
+    if (not isinstance(dims, (list, tuple)) or len(dims) != 2 or
+            any(type(value) is not int for value in dims)):
+        raise NativeSubjectPreviewError("INVALID_PREVIEW_RESULT")
+    width, height = dims
+    if width < 1 or height < 1 or width * height > 5_000_000:
+        raise NativeSubjectPreviewError("INVALID_PREVIEW_RESULT")
+    changed = result.get("changed_pixels")
+    if type(changed) is not int or not 0 <= changed <= width * height:
+        raise NativeSubjectPreviewError("INVALID_PREVIEW_RESULT")
+    digest = result.get("preview_mask_sha256_float32")
+    if type(digest) is not str or not _SHA.fullmatch(digest):
+        raise NativeSubjectPreviewError("INVALID_PREVIEW_RESULT")
+    for key in ("before_png_l8", "after_png_l8"):
+        data = result.get(key)
+        if type(data) is not bytes or len(data) > 8 * 1024 * 1024 or len(data) < 33:
+            raise NativeSubjectPreviewError("INVALID_PREVIEW_RESULT")
+        try:
+            with Image.open(BytesIO(data)) as image:
+                if image.format != "PNG" or image.mode != "L" or image.size != (width, height):
+                    raise NativeSubjectPreviewError("INVALID_PREVIEW_RESULT")
+                image.load()
+        except (OSError, ValueError, UnidentifiedImageError, SyntaxError) as exc:
+            raise NativeSubjectPreviewError("INVALID_PREVIEW_RESULT") from exc
 
 
 def preview_native_subject_stroke(
@@ -114,6 +146,7 @@ def preview_native_subject_stroke(
                 result.get("mask_id") != match["mask_id"] or
                 result.get("persisted") is not False):
             raise NativeSubjectPreviewError("PREVIEW_IDENTITY_CHANGED")
+        _validated_preview(result)
         return {
             "project_sha256": expected_sha256,
             "subject_id": subject_id,
