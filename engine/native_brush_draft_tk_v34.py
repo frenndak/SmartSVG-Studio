@@ -200,7 +200,7 @@ class NativeBrushDraftPanel:
                     width=2)
 
     def _append(self, x, y):
-        if self._identity is None or self._result_images is not None:
+        if self._closed or self._identity is None or self._result_images is not None:
             return
         point = normalized_mask_point(x, y, self._box)
         if point is None or (self._points and point == self._points[-1]):
@@ -216,7 +216,7 @@ class NativeBrushDraftPanel:
         self._draw()
 
     def _press(self, event):
-        if self._identity is None:
+        if self._closed or self._identity is None:
             return
         self._token += 1  # invalidate any previous asynchronous reply
         self._busy = False
@@ -314,6 +314,8 @@ class NativeBrushDraftPanel:
             self._draw()
 
     def discard(self):
+        if self._closed:
+            return
         self._token += 1
         self._busy = False
         self._points = []
