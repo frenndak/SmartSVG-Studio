@@ -217,6 +217,18 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         finally:
             release.set()
 
+    def test_shutdown_rejects_late_canvas_gestures_without_mutating_archive(self):
+        self.load()
+        self.stroke()
+        self.panel.shutdown()
+        points_before = [point[:] for point in self.panel._points]
+        self.panel._press(SimpleNamespace(x=10, y=10))
+        self.panel._drag(SimpleNamespace(x=11, y=10))
+        self.panel.discard()
+        self.assertEqual(self.panel._points, points_before)
+        self.assertFalse(self.panel.preview())
+        self.assertEqual(self.project.read_bytes(), self.before)
+
     def test_rejected_backend_data_is_not_displayed(self):
         self.panel.shutdown()
         def bad(**request):
