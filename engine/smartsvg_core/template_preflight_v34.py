@@ -94,8 +94,11 @@ def _blocked(code, path_ids=()):
     }
 
 
-def preflight_template(proposal):
-    """Validate one generated draft without mutating or persisting it."""
+def preflight_template(proposal, usable_sheet_mm=None):
+    """Validate one generated draft and optional user-declared usable sheet.
+
+    No automatic rotation, machine capability, material or cutting claim.
+    """
     try:
         if not isinstance(proposal, dict):
             _fail('TEMPLATE_CONTRACT_INVALID')
@@ -252,7 +255,30 @@ def preflight_template(proposal):
     except (ArithmeticError, KeyError, TypeError, ValueError):
         return _blocked('TEMPLATE_CONTRACT_INVALID')
 
-    return {
+    # A declared usable area is not a machine-specific cuttable area.
+    if usable_sheet_mm is not None:
+        try:
+            valid_sheet = (type(usable_sheet_mm) in (tuple, list)
+                           and len(usable_sheet_mm) == 2
+                           and all(type(v) in (int, float) and
+                                   math.isfinite(v) and v > 0
+                                   for v in usable_sheet_mm))
+        except (OverflowError, ValueError, TypeError):
+            valid_sheet = False
+        if not valid_sheet:
+            invalid = _blocked('TEMPLATE_SHEET_INVALID')
+            invalid.update(static_geometry_verified=True, bbox_mm=list(bbox))
+            return invalid
+        sheet_width, sheet_height = usable_sheet_mm
+        if width > sheet_width or height > sheet_height:
+            blocked = _blocked('TEMPLATE_BOUNDS_EXCEEDED')
+            blocked.update(
+                static_geometry_verified=True, bbox_mm=list(bbox),
+                declared_usable_sheet_mm=[sheet_width, sheet_height],
+                fits_declared_sheet=False)
+            return blocked
+
+    result = {
         'schema': 'smartsvg-template-preflight/1',
         'status': 'REVIEW_REQUIRED',
         'blocking_codes': [],
@@ -270,3 +296,7 @@ def preflight_template(proposal):
         },
         'scope': 'STATIC_TEMPLATE_GEOMETRY_NOT_MACHINE_QUALIFICATION',
     }
+    if usable_sheet_mm is not None:
+        result['declared_usable_sheet_mm'] = [sheet_width, sheet_height]
+        result['fits_declared_sheet'] = True
+    return result
