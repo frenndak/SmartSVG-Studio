@@ -41,6 +41,24 @@ class AtelierBrushAdmissionTests(unittest.TestCase):
         finally:
             self.snapshot, self.subject = original_snapshot, original_subject
 
+    def test_incomplete_preview_fields_fail_closed(self):
+        """Missing metadata in an archived preview must never escape into Tk."""
+        original = self.subject.preview
+        try:
+            for preview in (
+                SimpleNamespace(),
+                SimpleNamespace(status="READY_PNG"),
+                SimpleNamespace(status="READY_PNG", png=b"x" * 40),
+                SimpleNamespace(status="READY_PNG", png=b"x" * 40, width_px=16),
+                SimpleNamespace(status="READY_PNG", png=b"x" * 40, height_px=12),
+            ):
+                with self.subTest(preview=vars(preview)):
+                    self.subject.preview = preview
+                    self.assertIsNone(brush_preview_request(
+                        self.snapshot, self.subject, self.path))
+        finally:
+            self.subject.preview = original
+
     def test_missing_preview_fails_closed(self):
         self.subject.preview = None
         self.assertIsNone(brush_preview_request(self.snapshot, self.subject, self.path))
