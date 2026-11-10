@@ -185,6 +185,61 @@ class BrushHandoffTests(unittest.TestCase):
             self.assertFalse(atelier.open_brush())
             self.assertEqual(len(created), 2)
 
+    def test_real_atelier_opens_integrated_native_brush_without_writes(self):
+        """E3 integration test: actual Atelier -> actual native brush widget.
+
+        This Windows GUI smoke complements the separate strict real-CPU
+        qualification of the V1 Subject bridge. No workspace writer is used.
+        """
+        import struct
+        import tempfile
+        import tkinter as tk
+        import zlib
+        from dataclasses import replace
+        from tkinter import ttk
+        from native_brush_draft_tk_v34 import NativeBrushDraftPanel
+
+        try:
+            root = tk.Tk()
+        except tk.TclError:
+            self.skipTest('No graphical Tk session available')
+        self.addCleanup(root.destroy)
+        root.withdraw()
+
+        def png_chunk(kind, data):
+            return (struct.pack('>I', len(data)) + kind + data
+                    + struct.pack('>I', zlib.crc32(kind + data) & 0xffffffff))
+
+        width, height = 8, 8
+        png = (b'\x89PNG\r\n\x1a\n'
+               + png_chunk(b'IHDR', struct.pack('>IIBBBBB',
+                                               width, height, 8, 6, 0, 0, 0))
+               + png_chunk(b'IDAT', zlib.compress(
+                   (b'\x00' + b'\xff\x00\x00\xff' * width) * height))
+               + png_chunk(b'IEND', b''))
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'synthetic.smartsvg'
+            original = b'UNTOUCHED SYNTHETIC FILE'
+            path.write_bytes(original)
+            subject = replace(self.subject, preview=SourcePreview(
+                'READY_PNG', png, width_px=width, height_px=height))
+            snapshot = replace(self.snapshot, subjects=(subject,))
+            atelier = NativeAtelierPanel(root, tk, ttk)
+            self.addCleanup(atelier.shutdown)
+            self.assertIs(atelier._brush_class, NativeBrushDraftPanel)
+            atelier.load(snapshot, project_path=str(path))
+            self.assertEqual(str(atelier.brush_button.cget('state')), 'normal')
+            self.assertTrue(atelier.open_brush())
+            self.assertIsInstance(atelier._brush_panel, NativeBrushDraftPanel)
+            self.assertEqual(atelier._brush_panel._identity,
+                             (str(path), self.sha, self.subject_id))
+            self.assertEqual(path.read_bytes(), original)
+            atelier.load(None)
+            self.assertIsNone(atelier._brush_dialog)
+            self.assertIsNone(atelier._brush_panel)
+            self.assertEqual(path.read_bytes(), original)
+
     def test_native_subject_navigation_is_bounded_and_invalidates_stale_brush(self):
         import tkinter as tk
         from tkinter import ttk
