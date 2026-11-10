@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 
 from native_image_viewport_v34 import NativeImageViewport
+from smartsvg_core.source_preview_v34 import MAX_ENCODED_BYTES
 
 
 PROOF_LABELS = {
@@ -25,6 +26,8 @@ MASK_PREVIEW_ERRORS = {
 
 _PROVEN_SUBJECT = re.compile(r'^subject-[0-9a-f]{32}$')
 _REVISION = re.compile(r'^[0-9a-f]{64}$')
+# Match the read-only Tk brush allocation ceiling; backend checks PNG again.
+BRUSH_PREVIEW_MAX_AXIS = 2048
 
 
 def brush_preview_request(snapshot, subject, project_path):
@@ -41,7 +44,10 @@ def brush_preview_request(snapshot, subject, project_path):
             or not _PROVEN_SUBJECT.fullmatch(subject.subject_id)
             or subject.proof_status != 'verified'
             or subject.preview.status != 'READY_PNG'
-            or type(subject.preview.png) is not bytes):
+            or type(subject.preview.png) is not bytes
+            or not 33 <= len(subject.preview.png) <= MAX_ENCODED_BYTES
+            or not 0 < subject.preview.width_px <= BRUSH_PREVIEW_MAX_AXIS
+            or not 0 < subject.preview.height_px <= BRUSH_PREVIEW_MAX_AXIS):
         return None
     return {
         'project_path': project_path,
@@ -142,7 +148,18 @@ class NativeAtelierPanel:
             self.viewport.load(None)
             self.details.set(info + 'Impossible de décoder l’aperçu du masque.')
             return
-        self.details.set(info + 'Aperçu du masque archivé.')
+        if (subject.proof_status == 'verified' and
+                (preview.width_px > BRUSH_PREVIEW_MAX_AXIS or
+                 preview.height_px > BRUSH_PREVIEW_MAX_AXIS)):
+            self.details.set(
+                info + 'Masque inspectable mais trop grand pour la retouche native '
+                '(limite : 2 048 px par axe). Aucune modification.')
+        elif self._brush_class is None and subject.proof_status == 'verified':
+            self.details.set(
+                info + 'Aperçu du masque archivé. '
+                'Le pinceau natif sera disponible après son intégration.')
+        else:
+            self.details.set(info + 'Aperçu du masque archivé.')
 
     def open_brush(self):
         """Open a read-only comparison draft for this exact subject revision."""
