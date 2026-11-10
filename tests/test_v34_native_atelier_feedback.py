@@ -31,6 +31,9 @@ class AtelierFeedbackTests(unittest.TestCase):
         self.panel.snapshot = SimpleNamespace(project_id='synthetic', sha256='a' * 64)
         self.panel.selection = Variable('subject-synthetic')
         self.panel.details = Variable()
+        self.panel.subject_position = Variable()
+        self.panel.previous_button = SimpleNamespace(configure=lambda **_kwargs: None)
+        self.panel.next_button = SimpleNamespace(configure=lambda **_kwargs: None)
         self.panel.viewport = SimpleNamespace(
             load=lambda image: self.loaded_images.append(image))
         self.panel.parent = SimpleNamespace(winfo_ismapped=lambda: True)
