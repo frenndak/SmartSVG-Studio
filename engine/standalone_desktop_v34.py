@@ -297,7 +297,9 @@ def _start_gui(first_project: str | None) -> int:
 
             if saved_notes is None:
                 notes.load(state.get('notes_revision'))
-            atelier.load(snapshot, selected_subject=selected_subject)
+            atelier.load(
+                snapshot, selected_subject=selected_subject,
+                project_path=str(Path(current[0]).absolute()))
             if preview is None:
                 preview_info.set("Aperçu non disponible : réexaminer le projet.")
                 return
@@ -435,6 +437,7 @@ def _start_gui(first_project: str | None) -> int:
             creator[0].close()
         # Tcl callbacks must be cancelled while their commands still exist.
         theme_picker.shutdown()
+        atelier.shutdown()
         # A pending or obsolete generation is never allowed to update Tk.
         jobs.close()
         root.destroy()
@@ -443,6 +446,7 @@ def _start_gui(first_project: str | None) -> int:
     try:
         root.mainloop()
     finally:
+        atelier.shutdown()
         theme_picker.shutdown()
         if creator[0] is not None:
             creator[0].shutdown()
