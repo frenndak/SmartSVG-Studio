@@ -250,6 +250,16 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.assertEqual(self.panel._variant, variant_before)
         self.assertEqual(self.project.read_bytes(), self.before)
 
+    def test_late_resize_after_shutdown_does_not_touch_destroyed_canvas(self):
+        self.load()
+        self.panel.shutdown()
+        from unittest.mock import patch
+        with patch.object(self.panel.canvas, 'delete',
+                          side_effect=AssertionError('closed canvas accessed')):
+            self.panel._draw()
+            self.panel._draw(SimpleNamespace(width=200, height=100))
+        self.assertEqual(self.project.read_bytes(), self.before)
+
     def test_rejected_backend_data_is_not_displayed(self):
         self.panel.shutdown()
         def bad(**request):
