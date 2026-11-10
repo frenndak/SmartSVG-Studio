@@ -38,11 +38,11 @@ def brush_preview_request(snapshot, subject, project_path):
     """
     if (snapshot is None or subject is None or type(project_path) is not str
             or not Path(project_path).is_absolute()
-            or type(snapshot.sha256) is not str
+            or type(getattr(snapshot, 'sha256', None)) is not str
             or not _REVISION.fullmatch(snapshot.sha256)
-            or type(subject.subject_id) is not str
+            or type(getattr(subject, 'subject_id', None)) is not str
             or not _PROVEN_SUBJECT.fullmatch(subject.subject_id)
-            or subject.proof_status != 'verified'
+            or getattr(subject, 'proof_status', None) != 'verified'
             or getattr(subject, 'preview', None) is None
             or subject.preview.status != 'READY_PNG'
             or type(subject.preview.png) is not bytes
