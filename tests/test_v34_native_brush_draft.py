@@ -143,6 +143,46 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.assertIsNone(self.panel._result_images)
         self.assertEqual(self.project.read_bytes(), self.before)
 
+    def test_click_on_letterbox_keeps_existing_comparison_and_revision(self):
+        self.load()
+        self.stroke()
+        self.assertTrue(self.panel.preview())
+        self.receive()
+        result = self.panel._result_images
+        token = self.panel._token
+        calls = len(self.preview_calls)
+        self.panel._press(SimpleNamespace(x=-10, y=-10))
+        self.panel._release(None)
+        self.assertIs(self.panel._result_images, result)
+        self.assertEqual(self.panel._token, token)
+        self.assertEqual(len(self.preview_calls), calls)
+        self.assertEqual(self.project.read_bytes(), self.before)
+
+    def test_mode_and_radius_changes_invalidate_stale_comparison(self):
+        self.load()
+        self.stroke()
+        points = [p[:] for p in self.panel._points]
+        self.assertTrue(self.panel.preview())
+        self.receive()
+        self.assertIsNotNone(self.panel._result_images)
+        self.panel.mode.set('Effacer')
+        self.panel.mode_picker.event_generate('<<ComboboxSelected>>')
+        self.root.update()
+        self.assertIsNone(self.panel._result_images)
+        self.assertEqual(self.panel._points, points)
+        self.assertTrue(self.panel.preview())
+        self.receive()
+        self.assertEqual(self.preview_calls[-1]['mode'], 'erase')
+        self.assertIsNotNone(self.panel._result_images)
+        self.panel.radius.set('0.10')
+        self.panel.radius_picker.event_generate('<<ComboboxSelected>>')
+        self.root.update()
+        self.assertIsNone(self.panel._result_images)
+        self.assertTrue(self.panel.preview())
+        self.receive()
+        self.assertEqual(self.preview_calls[-1]['radius'], 0.10)
+        self.assertEqual(self.project.read_bytes(), self.before)
+
     def test_malformed_or_huge_png_never_reaches_tk_decoder(self):
         from unittest.mock import patch
         huge = bytearray(self.source)
