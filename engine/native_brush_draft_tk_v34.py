@@ -86,11 +86,13 @@ class NativeBrushDraftPanel:
             controls, textvariable=self.mode, state='readonly',
             values=tuple(_MODES), width=10)
         self.mode_picker.pack(side='left', padx=(4, 8))
+        self.mode_picker.bind('<<ComboboxSelected>>', self._parameter_changed)
         ttk.Label(controls, text='Rayon :').pack(side='left')
         self.radius_picker = ttk.Combobox(
             controls, textvariable=self.radius, state='readonly',
             values=_RADII, width=7)
         self.radius_picker.pack(side='left', padx=4)
+        self.radius_picker.bind('<<ComboboxSelected>>', self._parameter_changed)
         self.canvas = tk.Canvas(
             parent, width=480, height=320, highlightthickness=1,
             takefocus=True)
@@ -219,7 +221,10 @@ class NativeBrushDraftPanel:
         self._draw()
 
     def _press(self, event):
-        if self._closed or self._identity is None:
+        if (self._closed or self._identity is None or
+                normalized_mask_point(event.x, event.y, self._box) is None):
+            # A click in the letterbox is not a new stroke; keep the last
+            # comparison and in-flight request intact.
             return
         self._token += 1  # invalidate any previous asynchronous reply
         self._busy = False
@@ -231,6 +236,18 @@ class NativeBrushDraftPanel:
 
     def _drag(self, event):
         self._append(event.x, event.y)
+
+    def _parameter_changed(self, _event=None):
+        """Invalidate a result computed with an older mode or radius."""
+        if self._closed or self._identity is None:
+            return
+        self._token += 1  # ignore an in-flight result from the old settings
+        self._busy = False
+        self._result_images = None
+        self._variant = 'after'
+        self.status.set('Pinceau modifié : recalculez l’aperçu avant/après.')
+        self._draw()
+        self._controls()
 
     def _release(self, _event):
         # A queued release can arrive after the parent Tk widget was destroyed.
