@@ -101,6 +101,17 @@ class NativeSubjectPreviewTests(unittest.TestCase):
         self.assertEqual(self.bytes_before(), before)
 
 
+    def test_backend_non_mapping_is_rejected_with_stable_code_without_writes(self):
+        before = self.bytes_before()
+        for payload in (None, [], (), "invalid", 1, b"invalid"):
+            with self.subTest(payload=repr(payload)):
+                with patch.object(ManagedWorkspace, "preview_subject_brush_readonly",
+                                  return_value=payload):
+                    with self.assertRaises(NativeSubjectPreviewError) as context:
+                        preview_native_subject_stroke(**self.command())
+                    self.assertEqual(context.exception.code, "INVALID_PREVIEW_RESULT")
+        self.assertEqual(self.bytes_before(), before)
+
     def test_malformed_backend_preview_is_rejected_without_writes(self):
         before = self.bytes_before()
         valid = dict(project_sha256=self.sha, subject_id=self.subject_id,
