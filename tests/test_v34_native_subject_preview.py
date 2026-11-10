@@ -267,6 +267,55 @@ class NativeSubjectPreviewTests(unittest.TestCase):
     @unittest.skipUnless(importlib.util.find_spec("numpy") and
                          importlib.util.find_spec("PIL"),
                          "Native CPU brush needs NumPy and Pillow")
+    def test_real_v1_tk_brush_gesture_uses_cpu_without_persisting(self):
+        """Actual managed V1 -> Tk brush -> CPU before/after; no V1 writes."""
+        import tkinter as tk
+        from tkinter import ttk
+        from native_brush_draft_tk_v34 import NativeBrushDraftPanel
+
+        try:
+            root = tk.Tk()
+        except tk.TclError:
+            self.skipTest("No graphical Tk session available")
+        self.addCleanup(root.destroy)
+        root.withdraw()
+        host = ttk.Frame(root)
+        host.pack()
+        panel = NativeBrushDraftPanel(root, host, tk, ttk)
+        self.addCleanup(panel.shutdown)
+        before = self.bytes_before()
+        panel.load(project_path=str(self.path), expected_sha256=self.sha,
+                   subject_id=self.subject_id, preview_png=_png())
+        self.assertEqual(panel._identity,
+                         (str(self.path), self.sha, self.subject_id))
+        # A real gesture enters via the same normalized point path as Tk.
+        panel._box = (0, 0, 160, 120)
+        panel._append(80, 60)
+        self.assertEqual(panel._points, [[0.5, 0.5]])
+        self.assertTrue(panel.preview())
+        future = panel._job._future
+        self.assertIsNotNone(future)
+        result = future.result(timeout=20)
+        self.assertGreater(result["changed_pixels"], 0)
+        self.assertFalse(result["persisted"])
+        # Receive the exact generation on the GUI thread; no Tk callback
+        # may commit the preview or alter any primary/backup/lock bytes.
+        panel._receive(panel._token, panel._job._version, future)
+        self.assertIsNotNone(panel._result_images)
+        self.assertIn("Non enregistré", panel.status.get())
+        self.assertEqual(self.bytes_before(), before)
+        panel.discard()
+        self.assertIsNone(panel._result_images)
+        self.assertEqual(self.bytes_before(), before)
+        with self.assertRaises(NativeSubjectPreviewError) as stale:
+            preview_native_subject_stroke(**self.command(
+                expected_sha256="0" * 64))
+        self.assertEqual(stale.exception.code, "PROJECT_CHANGED")
+        self.assertEqual(self.bytes_before(), before)
+
+    @unittest.skipUnless(importlib.util.find_spec("numpy") and
+                         importlib.util.find_spec("PIL"),
+                         "Native CPU brush needs NumPy and Pillow")
     def test_real_cpu_preview_preserves_archive_and_other_subject(self):
         before = self.bytes_before()
         result = preview_native_subject_stroke(**self.command())
