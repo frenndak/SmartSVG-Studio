@@ -171,6 +171,9 @@ class NativeBrushDraftPanel:
         self._controls()
 
     def _draw(self, _event=None):
+        # Configure events may be queued while the parent window is closing.
+        if self._closed:
+            return
         self.canvas.delete('all')
         self._box, self._display = None, None
         image = (self._result_images or {}).get(self._variant, self._image)
