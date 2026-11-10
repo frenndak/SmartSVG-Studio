@@ -181,6 +181,10 @@ def preview_native_subject_stroke(
             source_sha256=masks["editor_fingerprint"],
             mode=mode, radius=radius, points=points,
         )
+        # Treat an unexpected backend return type as a stable, fail-closed
+        # preview error, not an AttributeError escaping the Tk worker.
+        if not isinstance(result, dict):
+            raise NativeSubjectPreviewError("INVALID_PREVIEW_RESULT")
         # Whitelist UI output even if the underlying backend gains internal
         # fields later. Never leak exact float32 pixels or the editor session.
         if (result.get("project_sha256") != expected_sha256 or
