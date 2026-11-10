@@ -178,16 +178,34 @@ class NativeAtelierPanel:
         if subject is None:
             self.details.set('Aucun sujet enregistré dans ce projet.' if self.snapshot else '')
             return
-        x, y, width, height = subject.bbox_px
-        info = (f'Sujet {subject.subject_id}\n'
-                f'Source {subject.source_id} · Masque {subject.mask_id}\n'
-                f'Zone dans la source : ({x}, {y}), {width} × {height} px\n'
-                f'{PROOF_LABELS.get(subject.proof_status, "Liaison de masque non vérifiée")}. ')
-        preview = subject.preview
+        # Refuse malformed V1 inspector records before touching Tk images.
+        bbox = getattr(subject, 'bbox_px', None)
+        preview = getattr(subject, 'preview', None)
+        if (type(getattr(subject, 'subject_id', None)) is not str
+                or type(getattr(subject, 'source_id', None)) is not str
+                or type(getattr(subject, 'mask_id', None)) is not str
+                or not isinstance(bbox, (tuple, list)) or len(bbox) != 4
+                or any(type(v) is not int or v < 0 for v in bbox)
+                or bbox[2] == 0 or bbox[3] == 0
+                or preview is None or type(getattr(preview, 'status', None)) is not str):
+            self.details.set('Métadonnées du sujet incomplètes. Réexaminez le projet (F5).')
+            return
+        x, y, width, height = bbox
+        info = (f'Sujet {subject.subject_id}\\n'
+                f'Source {subject.source_id} · Masque {subject.mask_id}\\n'
+                f'Zone dans la source : ({x}, {y}), {width} × {height} px\\n'
+                f'{PROOF_LABELS.get(getattr(subject, "proof_status", None), "Liaison de masque non vérifiée")}. ')
         if preview.status != 'READY_PNG':
             reason = MASK_PREVIEW_ERRORS.get(
                 preview.status, 'Aperçu indisponible pour ce masque. Réexaminez le projet (F5).')
             self.details.set(info + reason)
+            return
+        if (type(getattr(preview, 'png', None)) is not bytes
+                or not 33 <= len(preview.png) <= MAX_ENCODED_BYTES
+                or type(getattr(preview, 'width_px', None)) is not int
+                or type(getattr(preview, 'height_px', None)) is not int
+                or preview.width_px <= 0 or preview.height_px <= 0):
+            self.details.set(info + 'Aperçu invalide. Réexaminez le projet (F5).')
             return
         if not self.parent.winfo_ismapped():
             self.details.set(info)
