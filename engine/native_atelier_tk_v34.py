@@ -77,9 +77,23 @@ class NativeAtelierPanel:
         ttk.Label(parent, text='Atelier', font=('Segoe UI', 16, 'bold')).pack(anchor='w', pady=(0, 12))
         ttk.Label(parent, textvariable=self.project, wraplength=640).pack(anchor='w')
         ttk.Label(parent, text='Sujet enregistré · inspection en lecture seule').pack(anchor='w', pady=(8, 0))
-        self.picker = ttk.Combobox(parent, textvariable=self.selection, state='disabled', width=52)
-        self.picker.pack(anchor='w', fill='x', pady=(3, 8))
+        # In the same row to preserve canvas height on smaller Windows panes.
+        navigation = ttk.Frame(parent)
+        navigation.pack(fill='x', pady=(3, 8))
+        self.previous_button = ttk.Button(
+            navigation, text='◀ Préc.', width=9,
+            command=self.previous_subject, state='disabled')
+        self.previous_button.pack(side='left', padx=(0, 4))
+        self.picker = ttk.Combobox(
+            navigation, textvariable=self.selection, state='disabled', width=38)
+        self.picker.pack(side='left', fill='x', expand=True)
         self.picker.bind('<<ComboboxSelected>>', self.render)
+        self.next_button = ttk.Button(
+            navigation, text='Suiv. ▶', width=9,
+            command=self.next_subject, state='disabled')
+        self.next_button.pack(side='left', padx=(4, 0))
+        self.subject_position = tk.StringVar(value='')
+        ttk.Label(parent, textvariable=self.subject_position).pack(anchor='w')
         ttk.Label(parent, textvariable=self.details, wraplength=640).pack(anchor='w', pady=(0, 8))
         self.brush_button = ttk.Button(
             parent, text='Retoucher ce sujet (aperçu non enregistré)',
@@ -102,6 +116,39 @@ class NativeAtelierPanel:
         self._project_label()
         self.render()
 
+    def _update_navigation(self):
+        # Choose the canonical order already returned by the V1 inspector.
+        # An unknown selection is not silently mapped to a different subject.
+        keys = tuple(self.subjects)
+        selected = self.selection.get()
+        index = keys.index(selected) if selected in self.subjects else -1
+        self.subject_position.set(
+            f'Sujet {index + 1} sur {len(keys)} · sélectionner pour inspecter'
+            if index >= 0 else ('Aucun sujet sélectionné' if keys else ''))
+        self.previous_button.configure(
+            state='normal' if index > 0 else 'disabled')
+        self.next_button.configure(
+            state='normal' if 0 <= index < len(keys) - 1 else 'disabled')
+
+    def _step_subject(self, offset):
+        keys = tuple(self.subjects)
+        selected = self.selection.get()
+        if selected not in self.subjects:
+            return False
+        index = keys.index(selected) + offset
+        if not 0 <= index < len(keys):
+            return False
+        self.selection.set(keys[index])
+        # Same render path as the combobox: closes any stale brush preview.
+        self.render()
+        return True
+
+    def previous_subject(self):
+        return self._step_subject(-1)
+
+    def next_subject(self):
+        return self._step_subject(1)
+
     def _project_label(self):
         self.project.set(
             f'Projet {self.snapshot.project_id} · SHA {self.snapshot.sha256[:12]}'
@@ -112,6 +159,7 @@ class NativeAtelierPanel:
             self.render()
 
     def render(self, _event=None):
+        self._update_navigation()
         subject = self.subjects.get(self.selection.get())
         request = brush_preview_request(
             self.snapshot, subject, getattr(self, '_project_path', None))
