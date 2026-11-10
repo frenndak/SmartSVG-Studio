@@ -43,9 +43,12 @@ def brush_preview_request(snapshot, subject, project_path):
             or type(subject.subject_id) is not str
             or not _PROVEN_SUBJECT.fullmatch(subject.subject_id)
             or subject.proof_status != 'verified'
+            or getattr(subject, 'preview', None) is None
             or subject.preview.status != 'READY_PNG'
             or type(subject.preview.png) is not bytes
             or not 33 <= len(subject.preview.png) <= MAX_ENCODED_BYTES
+            or type(subject.preview.width_px) is not int
+            or type(subject.preview.height_px) is not int
             or not 0 < subject.preview.width_px <= BRUSH_PREVIEW_MAX_AXIS
             or not 0 < subject.preview.height_px <= BRUSH_PREVIEW_MAX_AXIS):
         return None
