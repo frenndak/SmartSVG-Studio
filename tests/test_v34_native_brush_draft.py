@@ -273,6 +273,28 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.assertEqual(str(self.panel.after_button.cget('state')), 'disabled')
         self.assertEqual(self.project.read_bytes(), self.before)
 
+    def test_invalid_backend_pixel_count_is_rejected_without_tk_callback_crash(self):
+        # The counter is rendered after the backend exception handler; a
+        # missing or malformed value must fail closed before images are shown.
+        for bad_count in (None, True, -1, "3", 2.5):
+            with self.subTest(bad_count=bad_count):
+                self.panel.shutdown()
+                def bad(**request):
+                    return dict(subject_id=request['subject_id'],
+                                project_sha256=request['expected_sha256'],
+                                persisted=False, before_png_l8=self.source,
+                                after_png_l8=self.source,
+                                changed_pixels=bad_count)
+                self.panel = NativeBrushDraftPanel(
+                    self.root, self.root, self.tk, self.ttk, preview_fn=bad)
+                self.load()
+                self.stroke()
+                self.assertTrue(self.panel.preview())
+                self.receive()
+                self.assertIsNone(self.panel._result_images)
+                self.assertIn('refusé', self.panel.status.get())
+                self.assertEqual(self.project.read_bytes(), self.before)
+
     def test_rejected_backend_data_is_not_displayed(self):
         self.panel.shutdown()
         def bad(**request):
