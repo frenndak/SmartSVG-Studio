@@ -84,7 +84,7 @@ class BrushHandoffTests(unittest.TestCase):
         self.subject_id = 'subject-' + 'a' * 32
         self.subject = AtelierSubject(
             self.subject_id, 'source-synthetic', 'mask-synthetic',
-            (0, 0, 8, 8), 'verified', SourcePreview('READY_PNG', b'png'))
+            (0, 0, 8, 8), 'verified', SourcePreview('READY_PNG', b'0' * 33, width_px=8, height_px=8))
         self.snapshot = AtelierSnapshot('synthetic', self.sha, (self.subject,))
 
     def test_only_verified_subject_and_absolute_revision_are_eligible(self):
@@ -104,6 +104,21 @@ class BrushHandoffTests(unittest.TestCase):
                          replace(self.subject, subject_id='wrong'), self.path))
         self.assertIsNone(brush_preview_request(self.snapshot,
                          replace(self.subject, preview=SourcePreview('SOURCE_CHANGED')), self.path))
+        # Archive inspection permits a dimension the brush Tk loader rejects.
+        for width, height in ((2049, 8), (8, 2049), (0, 8), (8, 0)):
+            with self.subTest(size=(width, height)):
+                self.assertIsNone(brush_preview_request(
+                    self.snapshot, replace(self.subject, preview=SourcePreview(
+                        'READY_PNG', self.subject.preview.png,
+                        width_px=width, height_px=height)), self.path))
+        self.assertIsNotNone(brush_preview_request(
+            self.snapshot, replace(self.subject, preview=SourcePreview(
+                'READY_PNG', self.subject.preview.png,
+                width_px=2048, height_px=2048)), self.path))
+        self.assertIsNone(brush_preview_request(
+            self.snapshot, replace(self.subject, preview=SourcePreview(
+                'READY_PNG', b'a' * (8 * 1024 * 1024 + 1),
+                width_px=8, height_px=8)), self.path))
 
     def test_tk_handoff_closes_stale_draft_on_selection_change_and_refresh(self):
         import tkinter as tk
@@ -156,6 +171,16 @@ class BrushHandoffTests(unittest.TestCase):
             self.assertEqual(created[-1].closed, 1)
             self.assertIsNone(atelier._brush_dialog)
             self.assertEqual(str(atelier.brush_button.cget('state')), 'disabled')
+            # A verified oversized mask must not launch a doomed Tk dialog.
+            from dataclasses import replace
+            too_big = replace(self.subject, preview=SourcePreview(
+                'READY_PNG', self.subject.preview.png,
+                width_px=3000, height_px=8))
+            oversized = replace(self.snapshot, subjects=(too_big,))
+            atelier.load(oversized, project_path=self.path)
+            self.assertEqual(str(atelier.brush_button.cget('state')), 'disabled')
+            self.assertFalse(atelier.open_brush())
+            self.assertEqual(len(created), 2)
 
 
 if __name__ == '__main__':
