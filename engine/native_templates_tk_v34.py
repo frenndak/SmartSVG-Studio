@@ -19,6 +19,8 @@ class TemplatePreviewContent:
         self.depth = tk.StringVar(value='50')
         self.wall = tk.StringVar(value='30')
         self.tab = tk.StringVar(value='10')
+        self.sheet_width = tk.StringVar(value='')
+        self.sheet_height = tk.StringVar(value='')
         self.status = tk.StringVar(value='')
         self.preflight_status = tk.StringVar(value='')
         frame = ttk.Frame(parent, padding=16)
@@ -42,6 +44,16 @@ class TemplatePreviewContent:
         self.tab_label, self.tab_entry = self._field(ttk, fields, self.tab, 1, 1)
         self.wall_label.configure(text='Hauteur des parois (mm)')
         self.tab_label.configure(text='Largeur des languettes (mm)')
+        ttk.Label(frame, text=(
+            'Zone utile déclarée (facultatif) : dimensions disponibles en mm. '
+            'Ce contrôle ne qualifie pas une machine.'
+        ), wraplength=620).pack(anchor='w', pady=(7, 2))
+        self.sheet_width_label, self.sheet_width_entry = self._field(
+            ttk, fields, self.sheet_width, 2, 0)
+        self.sheet_height_label, self.sheet_height_entry = self._field(
+            ttk, fields, self.sheet_height, 2, 1)
+        self.sheet_width_label.configure(text='Largeur disponible (mm)')
+        self.sheet_height_label.configure(text='Hauteur disponible (mm)')
         actions = ttk.Frame(frame)
         actions.pack(fill='x', pady=9)
         ttk.Button(actions, text='Calculer l’aperçu', command=self.calculate).pack(side='left')
@@ -60,6 +72,8 @@ class TemplatePreviewContent:
         self.canvas.bind('<Configure>', self._redraw)
         for variable in (self.width, self.depth, self.wall, self.tab):
             variable.trace_add('write', self.invalidate)
+        for variable in (self.sheet_width, self.sheet_height):
+            variable.trace_add('write', self.invalidate_preflight)
         self.kind.trace_add('write', self._mode_changed)
         self._mode_changed()
         self.calculate()
@@ -88,6 +102,13 @@ class TemplatePreviewContent:
         self.canvas.delete('all')
         self.status.set('Paramètres modifiés : cliquer sur Calculer l’aperçu.')
         self.preflight_status.set('Prévol indisponible tant que l’aperçu n’est pas recalculé.')
+
+    def invalidate_preflight(self, *_unused):
+        # A sheet change invalidates only preflight, not geometry or canvas.
+        self.preflight_status.set(
+            'Zone utile modifiée : relancer le prévol.'
+            if self.proposal is not None else
+            'Prévol indisponible tant que l’aperçu n’est pas recalculé.')
 
     @staticmethod
     def _dimension(variable):
@@ -122,15 +143,44 @@ class TemplatePreviewContent:
         if self.proposal is None:
             self.preflight_status.set('Recalculer un aperçu valide avant le prévol.')
             return None
-        result = preflight_template(self.proposal)
-        if result['status'] == 'BLOCKED':
+        sheet_width = self.sheet_width.get().strip()
+        sheet_height = self.sheet_height.get().strip()
+        if bool(sheet_width) != bool(sheet_height):
+            self.preflight_status.set(
+                'Zone utile incomplète : indiquez les deux dimensions en mm '
+                'ou laissez les deux champs vides.')
+            return None
+        usable_sheet = None
+        if sheet_width:
+            try:
+                usable_sheet = (self._dimension(self.sheet_width),
+                                self._dimension(self.sheet_height))
+            except (ValueError, OverflowError):
+                self.preflight_status.set(
+                    'Zone utile invalide : utilisez deux dimensions positives en mm.')
+                return None
+        result = preflight_template(self.proposal, usable_sheet_mm=usable_sheet)
+        if result['blocking_codes'] == ['TEMPLATE_BOUNDS_EXCEEDED']:
+            self.preflight_status.set(
+                'Prévol bloqué : le développé ne tient pas dans la zone utile '
+                'déclarée. Adaptez les dimensions ou la disposition.')
+        elif result['blocking_codes'] == ['TEMPLATE_SHEET_INVALID']:
+            self.preflight_status.set(
+                'Zone utile invalide : utilisez deux dimensions positives en mm.')
+        elif result['status'] == 'BLOCKED':
             paths = ', '.join(result['path_ids'])
             detail = f' · tracés : {paths}' if paths else ''
             self.preflight_status.set(
                 f"Prévol bloqué : {result['blocking_codes'][0]}{detail}.")
         else:
-            self.preflight_status.set(
-                'Prévol statique cohérent · matière, outil, Design Space et fabrication non qualifiés.')
+            if usable_sheet is None:
+                self.preflight_status.set(
+                    'Prévol statique cohérent · zone utile non déclarée ; '
+                    'matière, outil, Design Space et fabrication non qualifiés.')
+            else:
+                self.preflight_status.set(
+                    'Prévol : développé dans la zone utile déclarée, '
+                    'sans validation machine, matière, Design Space ou découpe.')
         return result
 
     def _redraw(self, *_unused):
