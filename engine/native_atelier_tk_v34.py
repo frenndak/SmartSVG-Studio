@@ -217,13 +217,14 @@ class NativeAtelierPanel:
             self.viewport.load(None)
             self.details.set(info + 'Impossible de décoder l’aperçu du masque.')
             return
-        if (subject.proof_status == 'verified' and
+        if (getattr(subject, 'proof_status', None) == 'verified' and
                 (preview.width_px > BRUSH_PREVIEW_MAX_AXIS or
                  preview.height_px > BRUSH_PREVIEW_MAX_AXIS)):
             self.details.set(
                 info + 'Masque inspectable mais trop grand pour la retouche native '
                 '(limite : 2 048 px par axe). Aucune modification.')
-        elif self._brush_class is None and subject.proof_status == 'verified':
+        elif (self._brush_class is None and
+              getattr(subject, 'proof_status', None) == 'verified'):
             self.details.set(
                 info + 'Aperçu du masque archivé. '
                 'Le pinceau natif sera disponible après son intégration.')
