@@ -129,7 +129,7 @@ class NativeBrushDraftPanel:
             else 'disabled')
         for button in (self.before_button, self.after_button):
             button.configure(
-                state='normal' if self._result_images is not None else 'disabled')
+                state='normal' if active and self._result_images is not None else 'disabled')
 
     def load(self, *, project_path=None, expected_sha256=None,
              subject_id=None, preview_png=None):
