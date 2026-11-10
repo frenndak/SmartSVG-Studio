@@ -25,6 +25,22 @@ class AtelierBrushAdmissionTests(unittest.TestCase):
         self.assertEqual(request["subject_id"], self.subject.subject_id)
         self.assertEqual(request["preview_png"], self.preview.png)
 
+    def test_incomplete_snapshot_or_subject_fails_closed(self):
+        """Malformed session objects must not crash the Tk event callback."""
+        original_snapshot, original_subject = self.snapshot, self.subject
+        try:
+            for snapshot, subject in (
+                (SimpleNamespace(), original_subject),
+                (original_snapshot, SimpleNamespace()),
+                (original_snapshot, SimpleNamespace(subject_id=original_subject.subject_id)),
+                (original_snapshot, SimpleNamespace(subject_id=original_subject.subject_id,
+                                                    proof_status="verified")),
+            ):
+                with self.subTest(snapshot=snapshot, subject=subject):
+                    self.assertIsNone(brush_preview_request(snapshot, subject, self.path))
+        finally:
+            self.snapshot, self.subject = original_snapshot, original_subject
+
     def test_missing_preview_fails_closed(self):
         self.subject.preview = None
         self.assertIsNone(brush_preview_request(self.snapshot, self.subject, self.path))
