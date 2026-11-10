@@ -113,6 +113,48 @@ class TemplatePreflightTests(unittest.TestCase):
                 self.assertNotIn('CAPABILITY_UNKNOWN', result['warning_codes'])
                 self.assertEqual(result['external_validation']['physical_cut'], 'NOT_TESTED')
 
+    def test_declared_usable_sheet_fit_preserves_geometry_and_honest_scope(self):
+        proposal = templates.open_tray(80, 50, 30, 10)
+        original = copy.deepcopy(proposal)
+        result = preflight.preflight_template(proposal, usable_sheet_mm=(140, 110))
+        self.assertEqual(result['status'], 'REVIEW_REQUIRED')
+        self.assertTrue(result['static_geometry_verified'])
+        self.assertTrue(result['fits_declared_sheet'])
+        self.assertEqual(result['declared_usable_sheet_mm'], [140, 110])
+        self.assertEqual(result['external_validation']['physical_cut'], 'NOT_TESTED')
+        self.assertEqual(proposal, original)
+        self.assertNotIn('fits_declared_sheet', preflight.preflight_template(proposal))
+
+    def test_sheet_smaller_than_developed_bbox_blocks_in_declared_orientation(self):
+        proposal = templates.folded_card(105, 148)
+        for sheet in ((209, 148), (210, 147), (148, 210)):
+            with self.subTest(sheet=sheet):
+                blocked = preflight.preflight_template(proposal, usable_sheet_mm=sheet)
+                self.assertEqual(blocked['status'], 'BLOCKED')
+                self.assertEqual(blocked['blocking_codes'], ['TEMPLATE_BOUNDS_EXCEEDED'])
+                self.assertTrue(blocked['static_geometry_verified'])
+                self.assertFalse(blocked['fits_declared_sheet'])
+                self.assertEqual(blocked['bbox_mm'], [0, 0, 210, 148])
+                self.assertEqual(blocked['external_validation']['design_space_import'], 'NOT_TESTED')
+        self.assertEqual(
+            preflight.preflight_template(proposal, usable_sheet_mm=(210, 148))['status'],
+            'REVIEW_REQUIRED')
+
+    def test_invalid_sheet_is_blocked_without_mutating_canonical_geometry(self):
+        proposal = templates.open_tray(80, 50, 30, 10)
+        original = copy.deepcopy(proposal)
+        bad_sheets = ([], [140], [140, 110, 1], [0, 110], [-1, 110],
+                      [float('nan'), 110], [float('inf'), 110],
+                      [True, 110], ['140', 110], [10**400, 110], {})
+        for sheet in bad_sheets:
+            with self.subTest(sheet=str(sheet)[:35]):
+                result = preflight.preflight_template(proposal, usable_sheet_mm=sheet)
+                self.assertEqual(result['status'], 'BLOCKED')
+                self.assertEqual(result['blocking_codes'], ['TEMPLATE_SHEET_INVALID'])
+                self.assertTrue(result['static_geometry_verified'])
+                self.assertEqual(result['external_validation']['physical_cut'], 'NOT_TESTED')
+        self.assertEqual(proposal, original)
+
 
 if __name__ == '__main__':
     unittest.main()
