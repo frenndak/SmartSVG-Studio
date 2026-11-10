@@ -23,7 +23,7 @@ class TemplatePreviewContent:
         self.sheet_height = tk.StringVar(value='')
         self.status = tk.StringVar(value='')
         self.preflight_status = tk.StringVar(value='')
-        frame = ttk.Frame(parent, padding=16)
+        frame = ttk.Frame(parent, padding=10)
         frame.pack(fill='both', expand=True)
         ttk.Label(frame, text='Fabrique · aperçu de gabarit',
                   font=('Segoe UI', 15, 'bold')).pack(anchor='w')
@@ -44,16 +44,20 @@ class TemplatePreviewContent:
         self.tab_label, self.tab_entry = self._field(ttk, fields, self.tab, 1, 1)
         self.wall_label.configure(text='Hauteur des parois (mm)')
         self.tab_label.configure(text='Largeur des languettes (mm)')
-        ttk.Label(frame, text=(
-            'Zone utile déclarée (facultatif) : dimensions disponibles en mm. '
-            'Ce contrôle ne qualifie pas une machine.'
-        ), wraplength=620).pack(anchor='w', pady=(7, 2))
-        self.sheet_width_label, self.sheet_width_entry = self._field(
-            ttk, fields, self.sheet_width, 2, 0)
-        self.sheet_height_label, self.sheet_height_entry = self._field(
-            ttk, fields, self.sheet_height, 2, 1)
-        self.sheet_width_label.configure(text='Largeur disponible (mm)')
-        self.sheet_height_label.configure(text='Hauteur disponible (mm)')
+        # Keep declared-area controls on one compact row: the native canvas
+        # must remain visible at the 900x650 Windows regression size.
+        sheet_row = ttk.Frame(frame)
+        sheet_row.pack(fill='x', pady=(2, 3))
+        ttk.Label(sheet_row, text='Zone utile (mm, facultatif)').pack(
+            side='left', padx=(0, 8))
+        ttk.Label(sheet_row, text='Largeur').pack(side='left')
+        self.sheet_width_entry = ttk.Entry(
+            sheet_row, textvariable=self.sheet_width, width=8)
+        self.sheet_width_entry.pack(side='left', padx=(3, 10))
+        ttk.Label(sheet_row, text='Hauteur').pack(side='left')
+        self.sheet_height_entry = ttk.Entry(
+            sheet_row, textvariable=self.sheet_height, width=8)
+        self.sheet_height_entry.pack(side='left', padx=(3, 0))
         actions = ttk.Frame(frame)
         actions.pack(fill='x', pady=9)
         ttk.Button(actions, text='Calculer l’aperçu', command=self.calculate).pack(side='left')
