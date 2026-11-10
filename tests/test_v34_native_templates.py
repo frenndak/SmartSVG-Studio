@@ -188,6 +188,44 @@ class NativeTemplatePreviewTests(unittest.TestCase):
                 self.panel.window.destroy()
             self.assertEqual({p.name: p.read_bytes() for p in Path(directory).iterdir()}, before)
 
+    def test_sheet_fit_reuses_existing_geometry_and_reports_status(self):
+        original = self.panel.proposal
+        self.panel.sheet_width.set('139')
+        self.panel.sheet_height.set('120')
+        self.assertIs(self.panel.proposal, original)
+        self.assertIn('relancer', self.panel.preflight_status.get())
+        blocked = self.panel.run_preflight()
+        self.assertEqual(blocked['blocking_codes'], ['TEMPLATE_BOUNDS_EXCEEDED'])
+        self.assertIn('ne tient pas', self.panel.preflight_status.get())
+        self.assertEqual(len(self.panel.canvas.lines), 13)
+
+        self.panel.sheet_width.set('140')
+        self.panel.sheet_height.set('110')
+        valid = self.panel.run_preflight()
+        self.assertEqual(valid['status'], 'REVIEW_REQUIRED')
+        self.assertTrue(valid['fits_declared_sheet'])
+        self.assertIn('sans validation', self.panel.preflight_status.get())
+        self.assertIs(self.panel.proposal, original)
+
+        self.panel.sheet_width.set('')
+        self.assertIsNone(self.panel.run_preflight())
+        self.assertIn('incomplète', self.panel.preflight_status.get())
+        self.panel.sheet_height.set('')
+        self.assertEqual(self.panel.run_preflight()['status'], 'REVIEW_REQUIRED')
+        self.assertIs(self.panel.proposal, original)
+        self.assertFalse(original['persisted'])
+
+    def test_invalid_sheet_fails_closed_and_does_not_clear_preview(self):
+        original = self.panel.proposal
+        for width in ('0', 'nan', '1e309', 'abc'):
+            with self.subTest(width=width):
+                self.panel.sheet_width.set(width)
+                self.panel.sheet_height.set('100')
+                result = self.panel.run_preflight()
+                self.assertTrue(result is None or result['status'] == 'BLOCKED')
+                self.assertIn('invalide', self.panel.preflight_status.get())
+                self.assertIs(self.panel.proposal, original)
+
 
 if __name__ == '__main__':
     unittest.main()
