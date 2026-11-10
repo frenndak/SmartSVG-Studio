@@ -42,6 +42,14 @@ def run() -> int:
     loader = unittest.TestLoader()
     for name in CPU_TESTS:
         suite.addTests(loader.loadTestsFromName(f"{TEST_CASE}.{name}"))
+    # V34-132 native bridge must run under the real CPU dependency environment.
+    # The Windows stdlib-only suite intentionally skips these two cases.
+    for name in (
+        "test_real_cpu_preview_preserves_archive_and_other_subject",
+        "test_real_cpu_second_subject_is_revision_pinned_and_read_only",
+    ):
+        suite.addTests(loader.loadTestsFromName(
+            "test_v34_native_subject_preview.NativeSubjectPreviewTests." + name))
     suite.addTests(loader.loadTestsFromName(
         "test_g33e_subject_brush_save.SubjectBrushSaveTests"))
     suite.addTests(loader.loadTestsFromName(
