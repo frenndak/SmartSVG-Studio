@@ -260,6 +260,19 @@ class NativeBrushDraftTkTests(unittest.TestCase):
             self.panel._draw(SimpleNamespace(width=200, height=100))
         self.assertEqual(self.project.read_bytes(), self.before)
 
+    def test_closed_panel_never_reenables_before_after_controls(self):
+        self.load()
+        self.stroke()
+        self.assertTrue(self.panel.preview())
+        self.receive()
+        self.assertIsNotNone(self.panel._result_images)
+        self.panel.shutdown()
+        # An async or late UI refresh must not re-enable a closed panel.
+        self.panel._controls()
+        self.assertEqual(str(self.panel.before_button.cget('state')), 'disabled')
+        self.assertEqual(str(self.panel.after_button.cget('state')), 'disabled')
+        self.assertEqual(self.project.read_bytes(), self.before)
+
     def test_rejected_backend_data_is_not_displayed(self):
         self.panel.shutdown()
         def bad(**request):
