@@ -233,6 +233,40 @@ class NativeSubjectPreviewTests(unittest.TestCase):
     @unittest.skipUnless(importlib.util.find_spec("numpy") and
                          importlib.util.find_spec("PIL"),
                          "Native CPU brush needs NumPy and Pillow")
+    def test_real_cpu_second_subject_is_revision_pinned_and_read_only(self):
+        """Resolve a different verified V1 mask via its persistent Subject ID."""
+        catalog = self.workspace.inspect(self.name)["base_masks"]["mask_identity"]
+        other = catalog["bindings"][1]
+        registered = self.workspace.register_subject_identity(
+            self.name, mask_index=1, mask_id=other["mask_id"],
+            mask_sha256_float32=other["mask_sha256_float32"],
+            source_id=catalog["source_id"], source_sha256="a" * 64,
+            expected_sha256=self.sha, confirmed=True,
+            expires_at_ms=int(time.time() * 1000) + 60_000)
+        second_id = registered["subject_id"]
+        self.assertNotEqual(second_id, self.subject_id)
+        new_sha = self.workspace.inspect(self.name)["sha256"]
+        before = self.bytes_before()
+        second = preview_native_subject_stroke(**self.command(
+            subject_id=second_id, expected_sha256=new_sha,
+            points=[[0.2, 0.25]]))
+        self.assertEqual(second["subject_id"], second_id)
+        self.assertEqual(second["mask_id"], other["mask_id"])
+        self.assertEqual(second["project_sha256"], new_sha)
+        self.assertGreater(second["changed_pixels"], 0)
+        self.assertIs(second["persisted"], False)
+        self.assertNotEqual(second["before_png_l8"], second["after_png_l8"])
+        self.assertEqual(self.bytes_before(), before)
+        # A stale Atelier selection must not silently retarget the new mask.
+        with self.assertRaises(NativeSubjectPreviewError) as error:
+            preview_native_subject_stroke(**self.command(
+                subject_id=second_id, expected_sha256=self.sha))
+        self.assertEqual(error.exception.code, "PROJECT_CHANGED")
+        self.assertEqual(self.bytes_before(), before)
+
+    @unittest.skipUnless(importlib.util.find_spec("numpy") and
+                         importlib.util.find_spec("PIL"),
+                         "Native CPU brush needs NumPy and Pillow")
     def test_real_cpu_preview_preserves_archive_and_other_subject(self):
         before = self.bytes_before()
         result = preview_native_subject_stroke(**self.command())
