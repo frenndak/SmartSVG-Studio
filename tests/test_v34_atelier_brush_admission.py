@@ -111,5 +111,47 @@ class RenderMalformedMetadataTests(unittest.TestCase):
                 self.assertEqual(panel.viewport.loads[-1], None)
 
 
+    def test_render_ready_preview_without_proof_status_is_read_only(self):
+        """An incomplete legacy record may render but must never enable editing."""
+        class Cell:
+            def __init__(self, value=None): self.value = value
+            def get(self): return self.value
+            def set(self, value): self.value = value
+        class Viewport:
+            def __init__(self): self.loads = []
+            def load(self, value): self.loads.append(value)
+        class Button:
+            def __init__(self): self.state = None
+            def configure(self, **kwargs): self.state = kwargs.get('state')
+        class Parent:
+            def winfo_ismapped(self): return True
+        class Tk:
+            class TclError(Exception): pass
+            @staticmethod
+            def PhotoImage(**kwargs): return object()
+        panel = object.__new__(NativeAtelierPanel)
+        panel.snapshot = SimpleNamespace(sha256='a' * 64)
+        panel._project_path = '/synthetic/project.smartsvg'
+        panel._brush_key = None
+        panel._brush_class = None
+        panel.selection = Cell('subject-' + 'b' * 32)
+        panel.details = Cell()
+        panel.viewport = Viewport()
+        panel.brush_button = Button()
+        panel.parent = Parent()
+        panel.tk = Tk
+        panel._update_navigation = lambda: None
+        subject = SimpleNamespace(
+            subject_id=panel.selection.get(), source_id='source', mask_id='mask',
+            bbox_px=(0, 0, 8, 8),
+            preview=SimpleNamespace(status='READY_PNG', png=b'x' * 40,
+                                    width_px=8, height_px=8))
+        panel.subjects = {subject.subject_id: subject}
+        NativeAtelierPanel.render(panel)
+        self.assertIn('non vérifiée', panel.details.get())
+        self.assertEqual(panel.brush_button.state, 'disabled')
+        self.assertEqual(len(panel.viewport.loads), 2)
+
+
 if __name__ == "__main__":
     unittest.main()
