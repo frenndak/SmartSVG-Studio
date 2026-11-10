@@ -182,6 +182,68 @@ class BrushHandoffTests(unittest.TestCase):
             self.assertFalse(atelier.open_brush())
             self.assertEqual(len(created), 2)
 
+    def test_native_subject_navigation_is_bounded_and_invalidates_stale_brush(self):
+        import tkinter as tk
+        from tkinter import ttk
+        from dataclasses import replace
+        from unittest.mock import patch
+        from types import ModuleType
+        try:
+            root = tk.Tk()
+        except tk.TclError:
+            self.skipTest('No graphical Tk session available')
+        self.addCleanup(root.destroy)
+        root.withdraw()
+        closed = []
+
+        class FakeBrush:
+            def __init__(self, *_args):
+                self._identity = None
+                self.shut = False
+
+            def load(self, **request):
+                self._identity = (request['project_path'],
+                                  request['expected_sha256'],
+                                  request['subject_id'])
+
+            def shutdown(self):
+                closed.append(self._identity)
+                self.shut = True
+
+        second = replace(
+            self.subject, subject_id='subject-' + 'c' * 32,
+            mask_id='mask-second')
+        project = replace(self.snapshot, subjects=(self.subject, second))
+        module = ModuleType('native_brush_draft_tk_v34')
+        module.NativeBrushDraftPanel = FakeBrush
+        with patch.dict(sys.modules, {'native_brush_draft_tk_v34': module}):
+            panel = NativeAtelierPanel(root, tk, ttk)
+            self.addCleanup(panel.shutdown)
+            panel.load(project, project_path=self.path)
+            self.assertEqual(panel.selection.get(), self.subject_id)
+            self.assertIn('1 sur 2', panel.subject_position.get())
+            self.assertEqual(str(panel.previous_button.cget('state')), 'disabled')
+            self.assertEqual(str(panel.next_button.cget('state')), 'normal')
+            self.assertFalse(panel.previous_subject())
+            self.assertTrue(panel.open_brush())
+            self.assertTrue(panel.next_subject())
+            self.assertEqual(panel.selection.get(), second.subject_id)
+            self.assertIn('2 sur 2', panel.subject_position.get())
+            self.assertEqual(str(panel.next_button.cget('state')), 'disabled')
+            self.assertEqual(len(closed), 1)
+            self.assertEqual(closed[0][2], self.subject_id)
+            self.assertFalse(panel.next_subject())
+            self.assertTrue(panel.previous_subject())
+            self.assertEqual(panel.selection.get(), self.subject_id)
+            panel.selection.set('subject-not-present')
+            panel.render()
+            self.assertEqual(str(panel.next_button.cget('state')), 'disabled')
+            self.assertEqual(str(panel.previous_button.cget('state')), 'disabled')
+            self.assertFalse(panel.next_subject())
+            panel.load(None)
+            self.assertEqual(panel.subject_position.get(), '')
+            self.assertEqual(str(panel.next_button.cget('state')), 'disabled')
+
 
 if __name__ == '__main__':
     unittest.main()
