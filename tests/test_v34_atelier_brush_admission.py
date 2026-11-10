@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "engine"))
-from native_atelier_tk_v34 import brush_preview_request
+from native_atelier_tk_v34 import brush_preview_request, NativeAtelierPanel
 
 
 class AtelierBrushAdmissionTests(unittest.TestCase):
@@ -72,6 +72,43 @@ class AtelierBrushAdmissionTests(unittest.TestCase):
                     setattr(self.preview, axis, value)
                     self.assertIsNone(brush_preview_request(
                         self.snapshot, self.subject, self.path))
+
+
+
+class RenderMalformedMetadataTests(unittest.TestCase):
+    def test_render_rejects_incomplete_subject_without_allocating_image(self):
+        class Cell:
+            def __init__(self, value=None): self.value = value
+            def get(self): return self.value
+            def set(self, value): self.value = value
+        class Viewport:
+            def __init__(self): self.loads = []
+            def load(self, value): self.loads.append(value)
+        class Button:
+            def configure(self, **kwargs): pass
+        panel = object.__new__(NativeAtelierPanel)
+        panel.snapshot = SimpleNamespace(sha256='a' * 64)
+        panel._project_path = '/synthetic/project.smartsvg'
+        panel._brush_key = None
+        panel._brush_class = None
+        panel.selection = Cell('subject-' + 'b' * 32)
+        panel.details = Cell()
+        panel.viewport = Viewport()
+        panel.brush_button = Button()
+        panel._update_navigation = lambda: None
+        for subject in (
+            SimpleNamespace(subject_id=panel.selection.get()),
+            SimpleNamespace(subject_id=panel.selection.get(), source_id='source',
+                            mask_id='mask', bbox_px=(0, 0, 8, 8)),
+            SimpleNamespace(subject_id=panel.selection.get(), source_id='source',
+                            mask_id='mask', bbox_px=(0, 0, 8, 8),
+                            preview=SimpleNamespace(status='READY_PNG')),
+        ):
+            with self.subTest(subject=vars(subject)):
+                panel.subjects = {panel.selection.get(): subject}
+                NativeAtelierPanel.render(panel)
+                self.assertIn('Réexaminez', panel.details.get())
+                self.assertEqual(panel.viewport.loads[-1], None)
 
 
 if __name__ == "__main__":
