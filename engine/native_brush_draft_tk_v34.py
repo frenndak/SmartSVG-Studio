@@ -278,6 +278,12 @@ class NativeBrushDraftPanel:
                     result['project_sha256'] != self._identity[1] or
                     result['persisted'] is not False):
                 raise ValueError('STALE_PREVIEW')
+            # Validate the displayed count before publishing any preview images.
+            # A malformed backend result must not crash the Tk callback after
+            # the exception handler has completed.
+            if (type(result.get('changed_pixels')) is not int or
+                    result['changed_pixels'] < 0):
+                raise ValueError('INVALID_CHANGED_PIXELS')
             photos = {}
             for variant in ('before', 'after'):
                 raw = result[variant + '_png_l8']
