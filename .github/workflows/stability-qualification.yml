@@ -63,13 +63,37 @@ jobs:
           where.exe bash
           $jq = Get-Command jq -ErrorAction SilentlyContinue
           if ($jq) { jq --version } else { Write-Host "jq unavailable" }
-      - name: Full Python suite on native Windows
+      # Existing Linux CPU smoke covers engine behavior but cannot exercise
+      # the real Tk event loop on Windows. These are TEST-ONLY dependencies,
+      # already required by the G3.3e brush; not product requirements or IA.
+      - name: Install native brush CPU test dependencies on Windows
+        shell: pwsh
+        run: |
+          python -m pip install --only-binary=:all: "numpy>=1.24,<3" "Pillow>=10"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -c 'import numpy, PIL; print("Windows native brush test runtime:", numpy.__version__, PIL.__version__)'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Full Python suite on native Windows (with brush CPU dependencies)
         shell: pwsh
         env:
           PYTHONIOENCODING: utf-8
         run: |
           python -m unittest discover -s tests -p 'test_*.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      # A generic unittest SUCCESS allows SKIP. This targeted runner instead
+      # proves precisely one complete managed-V1 -> Tk -> real-CPU brush case
+      # with zero skips, once the native Atelier PR supplies that test.
+      - name: Strict native V1 to Tk to CPU regression (no skips)
+        shell: pwsh
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          if (-not (Test-Path "tests/test_v34_native_subject_preview.py")) {
+            Write-Host "NON_EXECUTE: native Atelier integration test absent on this HEAD."
+          } else {
+            python -c 'import sys, unittest; sys.path[:0]=["engine","tests"]; suite=unittest.defaultTestLoader.loadTestsFromName("test_v34_native_subject_preview.NativeSubjectPreviewTests.test_real_v1_tk_brush_gesture_uses_cpu_without_persisting"); result=unittest.TextTestRunner(verbosity=2).run(suite); sys.exit(0 if result.testsRun==1 and result.wasSuccessful() and not result.skipped else 1)'
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
 
   chromium-layout:
     name: Chromium responsive layout and navigation (demo only)
