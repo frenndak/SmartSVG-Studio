@@ -97,7 +97,7 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         return dict(subject_id=request['subject_id'],
                     project_sha256=request['expected_sha256'], persisted=False,
                     before_png_l8=self.source, after_png_l8=self.source,
-                    changed_pixels=3)
+                    changed_pixels=3, preview_mask_sha256_float32='c' * 64)
 
     def load(self):
         self.panel.load(project_path=str(self.project),
@@ -140,6 +140,34 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.assertEqual(self.panel._variant, 'before')
         self.panel.show('after')
         self.panel.discard()
+        self.assertIsNone(self.panel._result_images)
+        self.assertEqual(self.project.read_bytes(), self.before)
+
+    def test_cpu_digest_is_pinned_and_discard_invalidates_save_signature(self):
+        self.load()
+        self.stroke()
+        self.assertTrue(self.panel.preview())
+        self.receive()
+        self.assertIsNotNone(self.panel._result_images)
+        self.assertEqual(self.panel._verified_save_request[0], 'c' * 64)
+        self.panel.discard()
+        self.assertIsNone(self.panel._verified_save_request)
+        self.assertEqual(self.project.read_bytes(), self.before)
+
+    def test_missing_cpu_digest_refuses_preview_without_writing(self):
+        self.panel.shutdown()
+        def missing(**request):
+            return dict(subject_id=request['subject_id'],
+                        project_sha256=request['expected_sha256'],
+                        persisted=False, before_png_l8=self.source,
+                        after_png_l8=self.source, changed_pixels=1)
+        self.panel = NativeBrushDraftPanel(
+            self.root, self.root, self.tk, self.ttk, preview_fn=missing)
+        self.load()
+        self.stroke()
+        self.assertTrue(self.panel.preview())
+        self.receive()
+        self.assertIsNone(self.panel._verified_save_request)
         self.assertIsNone(self.panel._result_images)
         self.assertEqual(self.project.read_bytes(), self.before)
 
