@@ -137,8 +137,9 @@ class BrushHandoffTests(unittest.TestCase):
         created = []
 
         class FakeBrush:
-            def __init__(self, *_args):
+            def __init__(self, *_args, **kwargs):
                 self._identity = None
+                self.on_saved = kwargs.get('on_saved')
                 self.closed = 0
                 created.append(self)
 
@@ -153,13 +154,22 @@ class BrushHandoffTests(unittest.TestCase):
         module = ModuleType('native_brush_draft_tk_v34')
         module.NativeBrushDraftPanel = FakeBrush
         with patch.dict(sys.modules, {'native_brush_draft_tk_v34': module}):
-            atelier = NativeAtelierPanel(root, tk, ttk)
+            confirmed_saves = []
+            atelier = NativeAtelierPanel(
+                root, tk, ttk, on_saved=confirmed_saves.append)
             self.addCleanup(atelier.shutdown)
             atelier.load(self.snapshot, project_path=self.path)
             self.assertEqual(str(atelier.brush_button.cget('state')), 'normal')
             self.assertTrue(atelier.open_brush())
             self.assertEqual(created[-1].request['expected_sha256'], self.sha)
             self.assertEqual(created[-1].request['subject_id'], self.subject_id)
+            valid = {'subject_id': self.subject_id, 'persisted': True,
+                     'project_sha256': 'd' * 64}
+            created[-1].on_saved(valid)
+            self.assertEqual(confirmed_saves, [valid])
+            created[-1].on_saved({**valid, 'persisted': False})
+            created[-1].on_saved({**valid, 'subject_id': 'other'})
+            self.assertEqual(confirmed_saves, [valid])
             # Same subject does not create duplicate workers/windows.
             self.assertTrue(atelier.open_brush())
             self.assertEqual(len(created), 1)
@@ -167,6 +177,9 @@ class BrushHandoffTests(unittest.TestCase):
             atelier.render()
             self.assertEqual(created[-1].closed, 1)
             self.assertIsNone(atelier._brush_dialog)
+            # A late success from the closed dialog must not refresh a new subject.
+            created[-1].on_saved(valid)
+            self.assertEqual(confirmed_saves, [valid])
             self.assertEqual(str(atelier.brush_button.cget('state')), 'disabled')
             atelier.load(self.snapshot, project_path=self.path)
             self.assertTrue(atelier.open_brush())
