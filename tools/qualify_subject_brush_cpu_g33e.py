@@ -67,6 +67,11 @@ def run() -> int:
         "test_v34_native_subject_save.NativeSubjectSaveTests.test_wrong_preview_fingerprint_fails_closed_without_writes"))
     suite.addTests(loader.loadTestsFromName(
         "test_v34_native_subject_save.NativeSubjectSaveTests.test_stale_project_and_forged_subject_do_not_overwrite"))
+    # A successful archive write followed by an invalid receipt is an
+    # indeterminate outcome, not proof that the V1 project was untouched.
+    # This regression must run with the real CPU dependencies (never SKIP).
+    suite.addTests(loader.loadTestsFromName(
+        "test_v34_native_subject_save.NativeSubjectSaveTests.test_writer_committed_but_malformed_receipt_requires_reinspection"))
     expected_count = suite.countTestCases()
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     if (result.testsRun != expected_count or result.skipped or
