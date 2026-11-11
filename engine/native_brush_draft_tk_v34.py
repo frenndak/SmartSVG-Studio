@@ -69,6 +69,7 @@ class NativeBrushDraftPanel:
         self._identity = None
         self._image = self._display = None
         self._result_images = None
+        self._verified_save_request = None
         self._box = None
         self._points = []
         self._overflow = False
@@ -138,6 +139,7 @@ class NativeBrushDraftPanel:
         """Reset selection and invalidate every outstanding CPU result."""
         self._token += 1
         self._identity, self._image, self._result_images = None, None, None
+        self._verified_save_request = None
         self._points = []
         self._box = None
         self._overflow = self._busy = False
@@ -226,6 +228,7 @@ class NativeBrushDraftPanel:
             # A click in the letterbox is not a new stroke; keep the last
             # comparison and in-flight request intact.
             return
+        self._verified_save_request = None
         self._token += 1  # invalidate any previous asynchronous reply
         self._busy = False
         self._result_images = None
@@ -241,6 +244,7 @@ class NativeBrushDraftPanel:
         """Invalidate a result computed with an older mode or radius."""
         if self._closed or self._identity is None:
             return
+        self._verified_save_request = None
         self._token += 1  # ignore an in-flight result from the old settings
         self._busy = False
         self._result_images = None
@@ -266,6 +270,7 @@ class NativeBrushDraftPanel:
             'radius': float(self.radius.get()),
             'points': [point[:] for point in self._points],
         }
+        self._verified_save_request = None
         self._token += 1
         token = self._token
         self._busy = True
@@ -301,6 +306,9 @@ class NativeBrushDraftPanel:
             if (type(result.get('changed_pixels')) is not int or
                     result['changed_pixels'] < 0):
                 raise ValueError('INVALID_CHANGED_PIXELS')
+            digest = result.get('preview_mask_sha256_float32')
+            if type(digest) is not str or not _SHA.fullmatch(digest):
+                raise ValueError('INVALID_CPU_PREVIEW_DIGEST')
             photos = {}
             for variant in ('before', 'after'):
                 raw = result[variant + '_png_l8']
@@ -328,6 +336,7 @@ class NativeBrushDraftPanel:
                 self.status.set('Aperçu refusé. Corrigez le geste ou réexaminez le projet.')
             self._controls()
             return
+        self._verified_save_request = (result['preview_mask_sha256_float32'], token)
         self._result_images = photos
         self._variant = 'after'
         self._draw()
@@ -350,6 +359,7 @@ class NativeBrushDraftPanel:
         self._points = []
         self._overflow = False
         self._result_images = None
+        self._verified_save_request = None
         self._variant = 'after'
         self.status.set('Brouillon abandonné. Le projet n’a pas été modifié.')
         self._draw()
