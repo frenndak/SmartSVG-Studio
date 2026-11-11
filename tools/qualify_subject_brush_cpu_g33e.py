@@ -60,6 +60,13 @@ def run() -> int:
         "test_g33e_brush_save_route.BrushSaveRouteTests.test_real_preview_save_reopen_and_duplicate_ack_preserve_base_resources"))
     suite.addTests(loader.loadTestsFromName(
         "test_g33e_brush_history_route.BrushHistoryRouteTests.test_real_native_status_undo_redo_without_new_comfyui_report"))
+    # Exact native V1 save bridge: real confirmation, CAS and preview digest.
+    suite.addTests(loader.loadTestsFromName(
+        "test_v34_native_subject_save.NativeSubjectSaveTests.test_confirmed_real_cpu_save_reopens_and_preserves_original_resources"))
+    suite.addTests(loader.loadTestsFromName(
+        "test_v34_native_subject_save.NativeSubjectSaveTests.test_wrong_preview_fingerprint_fails_closed_without_writes"))
+    suite.addTests(loader.loadTestsFromName(
+        "test_v34_native_subject_save.NativeSubjectSaveTests.test_stale_project_and_forged_subject_do_not_overwrite"))
     expected_count = suite.countTestCases()
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     if (result.testsRun != expected_count or result.skipped or
