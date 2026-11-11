@@ -203,7 +203,9 @@ def _start_gui(first_project: str | None) -> int:
     frame = shell.add_page('project', 'Projet')
     factory = shell.add_page('factory', 'Fabrique')
     appearance = shell.add_page('appearance', 'Apparence')
-    atelier = NativeAtelierPanel(shell.add_page('atelier', 'Atelier'), tk, ttk)
+    atelier = NativeAtelierPanel(
+        shell.add_page('atelier', 'Atelier'), tk, ttk,
+        on_saved=lambda receipt: refresh(saved_brush=receipt))
     # Build each tool once. Navigation changes visibility, never the project.
     # Load preferences immediately so the first screen uses the saved theme.
     theme_picker = ArtisanThemePicker(root=root, parent=appearance, tk=tk, ttk=ttk)
@@ -236,14 +238,16 @@ def _start_gui(first_project: str | None) -> int:
     jobs = LatestOnlyJob(load_native_preview)
     selected_subject = None
 
-    def refresh(*, saved_notes=None):
+    def refresh(*, saved_notes=None, saved_brush=None):
         nonlocal selected_subject
         if not current[0]:
             return
-        if saved_notes is None:
+        if saved_notes is None and saved_brush is None:
             selected_subject = None
             notes.load(None)
         else:
+            # Preserve an unsaved notes draft after an unrelated brush commit.
+            # The new CAS revision is adopted only after verified reinspection.
             selected_subject = atelier.selection.get() or selected_subject
         atelier.load(None)
         atelier.project.set("Vérification de la révision du projet…")
@@ -272,6 +276,19 @@ def _start_gui(first_project: str | None) -> int:
                 return
 
             snapshot = state.get('atelier_snapshot')
+            if saved_brush is not None and (
+                    type(saved_brush) is not dict
+                    or saved_brush.get('persisted') is not True
+                    or snapshot is None
+                    or snapshot.sha256 != saved_brush.get('project_sha256')
+                    or saved_brush.get('subject_id') != selected_subject):
+                message.set(
+                    'Révision de retouche non vérifiable. Les notes locales sont conservées ; '
+                    'réexaminez le projet (F5).')
+                summary.set('Aucune ressource chargée pour cette révision.')
+                preview_info.set('Aperçu indisponible.')
+                atelier.project.set('Retouche non synchronisée : réexaminez le projet (F5).')
+                return
             if saved_notes is not None and (
                     snapshot is None or snapshot.sha256 != saved_notes.sha256
                     or snapshot.project_id != saved_notes.project_id):
@@ -295,7 +312,15 @@ def _start_gui(first_project: str | None) -> int:
                     state["project_id"], state["app_version"], state["sources"],
                     state["masks"], state["subjects"], state["artifacts"]))
 
-            if saved_notes is None:
+            if saved_brush is not None:
+                notes_synced = notes.rebase_after_external_save(
+                    state.get('notes_revision'))
+                message.set(
+                    'Retouche sauvegardée et projet réexaminé.'
+                    if notes_synced else
+                    'Retouche sauvegardée, mais les notes locales ne peuvent '
+                    'pas être resynchronisées automatiquement.')
+            elif saved_notes is None:
                 notes.load(state.get('notes_revision'))
             atelier.load(
                 snapshot, selected_subject=selected_subject,
