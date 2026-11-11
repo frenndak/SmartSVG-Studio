@@ -89,8 +89,9 @@ def _admit_subject_catalog(snapshot):
 
 
 class NativeAtelierPanel:
-    def __init__(self, parent, tk, ttk):
+    def __init__(self, parent, tk, ttk, *, on_saved=None):
         self.tk, self.ttk, self.parent = tk, ttk, parent
+        self._on_saved = on_saved
         self.snapshot = None
         self.subjects = {}
         self._project_path = None
@@ -127,7 +128,7 @@ class NativeAtelierPanel:
         ttk.Label(parent, textvariable=self.subject_position).pack(anchor='w')
         ttk.Label(parent, textvariable=self.details, wraplength=640).pack(anchor='w', pady=(0, 8))
         self.brush_button = ttk.Button(
-            parent, text='Retoucher ce sujet (aperçu non enregistré)',
+            parent, text='Retoucher ce sujet (aperçu puis sauvegarde)',
             command=self.open_brush, state='disabled')
         self.brush_button.pack(anchor='w', pady=(0, 8))
         self.viewport = NativeImageViewport(parent, tk, ttk)
@@ -270,8 +271,21 @@ class NativeAtelierPanel:
         else:
             self.details.set(info + 'Aperçu du masque archivé.')
 
+    def _brush_saved(self, key, receipt):
+        """Forward a real receipt only for the still-active native selection."""
+        if (self._on_saved is None or self._brush_key != key or
+                self._project_path != key[0] or self.snapshot is None or
+                getattr(self.snapshot, 'sha256', None) != key[1] or
+                not isinstance(receipt, dict) or
+                receipt.get('subject_id') != key[2] or
+                receipt.get('persisted') is not True or
+                type(receipt.get('project_sha256')) is not str or
+                not _REVISION.fullmatch(receipt['project_sha256'])):
+            return
+        self._on_saved(receipt)
+
     def open_brush(self):
-        """Open a read-only comparison draft for this exact subject revision."""
+        """Open a verified V1 Subject draft with an explicit save path."""
         request = brush_preview_request(
             self.snapshot, self.subjects.get(self.selection.get()),
             self._project_path)
@@ -287,9 +301,11 @@ class NativeAtelierPanel:
         panel = None
         try:
             dialog = self.tk.Toplevel(self.parent)
-            dialog.title('Retouche du masque · aperçu uniquement')
+            dialog.title('Retouche du masque · avant/après et sauvegarde')
             dialog.geometry('560x540')
-            panel = self._brush_class(dialog, dialog, self.tk, self.ttk)
+            panel = self._brush_class(
+                dialog, dialog, self.tk, self.ttk,
+                on_saved=lambda receipt: self._brush_saved(key, receipt))
             panel.load(**request)
             if panel._identity is None:
                 raise ValueError('BRUSH_IDENTITY_REFUSED')
