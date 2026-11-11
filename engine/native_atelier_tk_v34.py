@@ -60,6 +60,32 @@ def brush_preview_request(snapshot, subject, project_path):
     }
 
 
+def _admit_subject_catalog(snapshot):
+    """Fail closed on incomplete V1 inspection records, before Tk consumes IDs.
+
+    Only the historical inspector's ordered tuple is admitted. A duplicate
+    persistent Subject ID must never silently select/overwrite another mask.
+    This helper does not inspect, decode or mutate any archive resource.
+    """
+    if snapshot is None:
+        return {}, False
+    project_id = getattr(snapshot, 'project_id', None)
+    revision = getattr(snapshot, 'sha256', None)
+    entries = getattr(snapshot, 'subjects', None)
+    if (type(project_id) is not str or not project_id
+            or type(revision) is not str or not _REVISION.fullmatch(revision)
+            or type(entries) is not tuple):
+        return {}, True
+    catalog = {}
+    for subject in entries:
+        sid = getattr(subject, 'subject_id', None)
+        if (type(sid) is not str or not _PROVEN_SUBJECT.fullmatch(sid)
+                or sid in catalog):
+            return {}, True
+        catalog[sid] = subject
+    return catalog, False
+
+
 class NativeAtelierPanel:
     def __init__(self, parent, tk, ttk):
         self.tk, self.ttk, self.parent = tk, ttk, parent
@@ -111,13 +137,16 @@ class NativeAtelierPanel:
         self._close_brush()
         self._project_path = project_path
         self.snapshot = snapshot
-        self.subjects = {subject.subject_id: subject for subject in snapshot.subjects} if snapshot else {}
+        self.subjects, invalid_catalog = _admit_subject_catalog(snapshot)
         self.picker.configure(values=tuple(self.subjects),
                               state='readonly' if self.subjects else 'disabled')
         self.selection.set(selected_subject if selected_subject in self.subjects
                            else next(iter(self.subjects), ''))
         self._project_label()
         self.render()
+        if invalid_catalog:
+            self.details.set('Liste des sujets invalide. Réexaminez le projet (F5). '
+                             'Aucune retouche disponible ; archive inchangée.')
 
     def _update_navigation(self):
         # Choose the canonical order already returned by the V1 inspector.
