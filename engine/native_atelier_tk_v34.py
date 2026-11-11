@@ -159,7 +159,7 @@ class NativeAtelierPanel:
         revision = getattr(snapshot, 'sha256', None)
         if (type(project_id) is not str or not project_id
                 or type(revision) is not str or not _REVISION.fullmatch(revision)):
-            self.project.set('Projet indisponible : réexaminez le projet (F5).'
+            self.project.set('Projet indisponible. Réexaminez le projet (F5).'
                              if snapshot is not None else
                              'Ouvrez un projet V1 sain depuis l’espace Projet.')
             return
