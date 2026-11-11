@@ -897,8 +897,8 @@ class ActualTkShellSmokeTests(unittest.TestCase):
         captured = []
 
         class Atelier(desktop.NativeAtelierPanel):
-            def __init__(self, *args):
-                super().__init__(*args)
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
                 captured.append(self)
 
         with tempfile.TemporaryDirectory() as directory:
