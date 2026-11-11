@@ -9,6 +9,7 @@ claims. All Tk objects are confined to the UI thread.
 from __future__ import annotations
 
 import base64
+from uuid import uuid4
 from math import ceil, isfinite
 from pathlib import Path
 import re
@@ -16,6 +17,7 @@ import struct
 
 from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
 from smartsvg_core.native_subject_preview_v34 import preview_native_subject_stroke
+from smartsvg_core.native_subject_save_v34 import save_native_subject_stroke
 from smartsvg_core.source_preview_v34 import MAX_ENCODED_BYTES
 
 
@@ -61,8 +63,12 @@ def normalized_mask_point(x, y, image_box):
 
 
 class NativeBrushDraftPanel:
-    def __init__(self, root, parent, tk, ttk, *, preview_fn=preview_native_subject_stroke):
+    def __init__(self, root, parent, tk, ttk, *, preview_fn=preview_native_subject_stroke,
+                 save_fn=save_native_subject_stroke, confirm_fn=None, on_saved=None):
         self.root, self.tk = root, tk
+        self._save_fn = save_fn
+        self._confirm_fn = confirm_fn
+        self._on_saved = on_saved
         self._closed = False
         self._token = 0
         self._job = LatestOnlyJob(lambda request: preview_fn(**request))
@@ -71,6 +77,7 @@ class NativeBrushDraftPanel:
         self._result_images = None
         self._verified_save_request = None
         self._inflight_request = None
+        self._save_pending = False
         self._box = None
         self._points = []
         self._overflow = False
@@ -117,20 +124,27 @@ class NativeBrushDraftPanel:
         self.discard_button = ttk.Button(
             actions, text='Effacer le brouillon', command=self.discard)
         self.discard_button.pack(side='left', padx=4)
+        self.save_button = ttk.Button(
+            actions, text='Enregistrer…', command=self.save)
+        self.save_button.pack(side='left', padx=4)
         ttk.Label(parent, textvariable=self.status,
                   wraplength=530).pack(anchor='w', pady=(5, 0))
         self._controls()
 
     def _controls(self):
         active = self._identity is not None and not self._closed
-        self.mode_picker.configure(state='readonly' if active else 'disabled')
-        self.radius_picker.configure(state='readonly' if active else 'disabled')
+        self.mode_picker.configure(state='readonly' if active and not self._save_pending else 'disabled')
+        self.radius_picker.configure(state='readonly' if active and not self._save_pending else 'disabled')
         self.preview_button.configure(
             state='normal' if active and bool(self._points)
-            and not self._overflow and not self._busy else 'disabled')
+            and not self._overflow and not self._busy and not self._save_pending else 'disabled')
         self.discard_button.configure(
-            state='normal' if active and (self._points or self._result_images)
+            state='normal' if active and not self._save_pending and (self._points or self._result_images)
             else 'disabled')
+        self.save_button.configure(
+            state='normal' if active and not self._busy and not self._save_pending
+            and self._result_images is not None
+            and self._verified_save_request is not None else 'disabled')
         for button in (self.before_button, self.after_button):
             button.configure(
                 state='normal' if active and self._result_images is not None else 'disabled')
@@ -142,6 +156,7 @@ class NativeBrushDraftPanel:
         self._identity, self._image, self._result_images = None, None, None
         self._verified_save_request = None
         self._inflight_request = None
+        self._save_pending = False
         self._points = []
         self._box = None
         self._overflow = self._busy = False
@@ -209,7 +224,7 @@ class NativeBrushDraftPanel:
                     width=2)
 
     def _append(self, x, y):
-        if (self._closed or self._identity is None or self._busy or
+        if (self._closed or self._identity is None or self._busy or self._save_pending or
                 self._result_images is not None):
             return
         point = normalized_mask_point(x, y, self._box)
@@ -226,7 +241,7 @@ class NativeBrushDraftPanel:
         self._draw()
 
     def _press(self, event):
-        if (self._closed or self._identity is None or self._busy or
+        if (self._closed or self._identity is None or self._busy or self._save_pending or
                 normalized_mask_point(event.x, event.y, self._box) is None):
             # A click in the letterbox is not a new stroke; keep the last
             # comparison and in-flight request intact.
@@ -245,7 +260,7 @@ class NativeBrushDraftPanel:
 
     def _parameter_changed(self, _event=None):
         """Invalidate a result computed with an older mode or radius."""
-        if self._closed or self._identity is None:
+        if self._closed or self._identity is None or self._save_pending:
             return
         self._verified_save_request = None
         self._inflight_request = None
@@ -264,7 +279,7 @@ class NativeBrushDraftPanel:
 
     def preview(self):
         if (self._closed or self._identity is None or not self._points
-                or self._overflow or self._busy or
+                or self._overflow or self._busy or self._save_pending or
                 self.mode.get() not in _MODES or self.radius.get() not in _RADII):
             return False
         project_path, expected_sha256, subject_id = self._identity
@@ -369,6 +384,95 @@ class NativeBrushDraftPanel:
             "Non enregistré : aucune écriture dans le projet.")
         self._controls()
 
+    def save(self):
+        """Explicit confirmation; only the proven historical writer may persist."""
+        if (self._closed or self._busy or self._save_pending or
+                self._identity is None or self._result_images is None or
+                self._verified_save_request is None):
+            return False
+        digest, token, bound = self._verified_save_request
+        if (token != self._token or bound[0] != self._identity or
+                bound[1] != _MODES.get(self.mode.get()) or
+                self.radius.get() not in _RADII or
+                bound[2] != float(self.radius.get()) or
+                bound[3] != tuple(tuple(p) for p in self._points)):
+            self._verified_save_request = None
+            self.status.set('Aperçu périmé : recalculez avant d’enregistrer.')
+            self._controls()
+            return False
+        from tkinter import messagebox
+        confirm = self._confirm_fn or (
+            lambda: messagebox.askyesno(
+                'Confirmer la retouche',
+                'Enregistrer cette retouche dans le projet V1 ? '
+                'Une sauvegarde précédente sera conservée.',
+                parent=self.root))
+        # A confirmation can dispatch nested Tk events. Recheck every proof
+        # after the dialog returns, before any call to the writer.
+        try:
+            accepted = confirm() is True
+        except Exception:
+            accepted = False
+        if not accepted or self._closed or token != self._token or (
+                digest, token, bound) != self._verified_save_request:
+            return False
+        self._save_pending = True
+        self._controls()
+        self.status.set('Enregistrement confirmé · vérification du projet…')
+        project_path, revision, subject_id = bound[0]
+        try:
+            result = self._save_fn(
+                project_path=project_path, expected_sha256=revision,
+                subject_id=subject_id, mode=bound[1], radius=bound[2],
+                points=[list(p) for p in bound[3]],
+                expected_preview_mask_sha256_float32=digest,
+                command_id='native-' + uuid4().hex, confirmed=True)
+            if (type(result) is not dict or
+                    result.get('persisted') is not True or
+                    result.get('subject_id') != subject_id or
+                    result.get('status') not in
+                    ('subject_brush_saved', 'subject_brush_already_saved') or
+                    type(result.get('project_sha256')) is not str or
+                    not _SHA.fullmatch(result['project_sha256'])):
+                raise ValueError('UNCERTAIN_SAVE_RECEIPT')
+        except Exception as exc:
+            # A failed receipt is NOT evidence that the archive was unchanged.
+            # Discard the stale preview; require a new F5 inspection.
+            self._token += 1
+            self._verified_save_request = None
+            self._result_images = None
+            self._identity = None
+            self._save_pending = False
+            code = getattr(exc, 'code', '')
+            self.status.set(
+                'Projet modifié ailleurs : réexaminez-le (F5).' if
+                code == 'PROJECT_CHANGED' else
+                'Enregistrement non confirmé : réexaminez le projet (F5) '
+                'avant toute nouvelle retouche.')
+            if not self._closed:
+                self._draw()
+                self._controls()
+            return False
+        # Invalidate this entire panel, including any pending CPU result.
+        self._token += 1
+        self._verified_save_request = None
+        self._result_images = None
+        self._identity = None
+        self._save_pending = False
+        if not self._closed:
+            self.status.set('Retouche enregistrée. Réexaminez le projet (F5).')
+            self._draw()
+            self._controls()
+            if self._on_saved is not None:
+                try:
+                    self._on_saved(result)
+                except Exception:
+                    # The archive is already committed; never imply rollback.
+                    self.status.set(
+                        'Retouche enregistrée ; actualisation indisponible. '
+                        'Réexaminez le projet (F5).')
+        return True
+
     def show(self, variant):
         if (not self._closed and self._result_images is not None
                 and variant in ('before', 'after')):
@@ -376,7 +480,7 @@ class NativeBrushDraftPanel:
             self._draw()
 
     def discard(self):
-        if self._closed:
+        if self._closed or self._save_pending:
             return
         self._token += 1
         self._busy = False
