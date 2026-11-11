@@ -101,8 +101,7 @@ def save_native_subject_stroke(
             saved.get("command_id") != command_id or
             type(saved.get("sha256")) is not str or
             not _SHA.fullmatch(saved["sha256"])):
-        raise NativeSubjectPreviewError("BRUSH_SAVE_UNAVAILABLE")
-    return {
+        # The historical writer may already have committed the archive. A bad\n        # receipt is not proof of rollback; force a fresh project inspection.\n        raise NativeSubjectPreviewError("BRUSH_SAVE_OUTCOME_UNKNOWN")\n    return {
         "status": saved["status"], "project_sha256": saved["sha256"],
         "subject_id": subject_id, "command_id": command_id,
         "persisted": True, "cricut_certified": False,
