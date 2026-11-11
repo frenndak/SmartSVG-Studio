@@ -259,6 +259,71 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.assertFalse(self.panel._overflow)
         self.assertEqual(self.project.read_bytes(), self.before)
 
+    def test_cpu_job_freezes_mouse_gesture_and_pins_exact_preview_request(self):
+        started, release = Event(), Event()
+        def slow(**request):
+            started.set()
+            if not release.wait(5):
+                raise RuntimeError('timeout')
+            return self._preview(**request)
+        self.panel.shutdown()
+        self.panel = NativeBrushDraftPanel(
+            self.root, self.root, self.tk, self.ttk, preview_fn=slow)
+        self.load()
+        self.stroke()
+        original = [point[:] for point in self.panel._points]
+        self.assertTrue(self.panel.preview())
+        token = self.panel._token
+        try:
+            self.assertTrue(started.wait(timeout=5))
+            left, top, width, height = self.panel._box
+            event = SimpleNamespace(x=left + width // 3, y=top + height // 3)
+            # Queued drag and new press cannot mutate an in-flight gesture.
+            self.panel._drag(event)
+            self.panel._press(event)
+            self.panel._drag(event)
+            self.assertEqual(self.panel._points, original)
+            self.assertEqual(self.panel._token, token)
+            self.assertTrue(self.panel._busy)
+            release.set()
+            self.receive()
+            digest, accepted_token, frozen = self.panel._verified_save_request
+            self.assertEqual(digest, 'c' * 64)
+            self.assertEqual(accepted_token, token)
+            self.assertEqual(frozen[0], (str(self.project), self.sha, self.subject))
+            self.assertEqual(frozen[1:3], ('add', 0.05))
+            self.assertEqual(frozen[3], tuple(tuple(p) for p in original))
+            self.assertEqual(self.preview_calls[0]['points'], original)
+            self.assertEqual(self.project.read_bytes(), self.before)
+        finally:
+            release.set()
+
+    def test_stroke_change_during_cpu_work_refuses_stale_reply(self):
+        started, release = Event(), Event()
+        def slow(**request):
+            started.set()
+            if not release.wait(5):
+                raise RuntimeError('timeout')
+            return self._preview(**request)
+        self.panel.shutdown()
+        self.panel = NativeBrushDraftPanel(
+            self.root, self.root, self.tk, self.ttk, preview_fn=slow)
+        self.load()
+        self.stroke()
+        self.assertTrue(self.panel.preview())
+        try:
+            self.assertTrue(started.wait(timeout=5))
+            # Simulate an unexpected external mutation bypassing Tk gestures.
+            self.panel._points.append([0.1, 0.2])
+            release.set()
+            self.receive()
+            self.assertIsNone(self.panel._verified_save_request)
+            self.assertIsNone(self.panel._result_images)
+            self.assertIn('refusé', self.panel.status.get())
+            self.assertEqual(self.project.read_bytes(), self.before)
+        finally:
+            release.set()
+
     def test_previous_result_is_ignored_on_project_change(self):
         started, release = Event(), Event()
         def slow(**request):
