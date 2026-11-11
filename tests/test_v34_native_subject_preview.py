@@ -112,6 +112,29 @@ class NativeSubjectPreviewTests(unittest.TestCase):
                     self.assertEqual(context.exception.code, "INVALID_PREVIEW_RESULT")
         self.assertEqual(self.bytes_before(), before)
 
+    def test_backend_cannot_claim_persistence_or_swap_mask_identity(self):
+        """A read-only preview must reject a backend that reports a write or retargets a mask."""
+        before = self.bytes_before()
+        valid = dict(project_sha256=self.sha, subject_id=self.subject_id,
+                     mask_id=self.binding["mask_id"],
+                     before_png_l8=_png(grayscale=True),
+                     after_png_l8=_png(grayscale=True),
+                     dimensions_px=[16, 12], changed_pixels=1,
+                     preview_mask_sha256_float32="e" * 64, persisted=False)
+        for change in (
+            {"persisted": True},
+            {"persisted": None},
+            {"mask_id": "mask-unexpected"},
+            {"project_sha256": "0" * 64},
+        ):
+            with self.subTest(change=change):
+                with patch.object(ManagedWorkspace, "preview_subject_brush_readonly",
+                                  return_value={**valid, **change}):
+                    with self.assertRaises(NativeSubjectPreviewError) as error:
+                        preview_native_subject_stroke(**self.command())
+                    self.assertEqual(error.exception.code, "PREVIEW_IDENTITY_CHANGED")
+                self.assertEqual(self.bytes_before(), before)
+
     def test_malformed_backend_preview_is_rejected_without_writes(self):
         before = self.bytes_before()
         valid = dict(project_sha256=self.sha, subject_id=self.subject_id,
