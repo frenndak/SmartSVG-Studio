@@ -44,6 +44,19 @@ def bounded_tk_png(raw):
     return 0 < width <= 2048 and 0 < height <= 2048
 
 
+def matching_preview_dimensions(source, before, after):
+    """Reject a mismatched CPU comparison before publishing or saving it.
+
+    A before/after image with different geometry can visually misrepresent
+    the mask being committed, even when each PNG is individually bounded.
+    """
+    if not all(bounded_tk_png(png) for png in (source, before, after)):
+        return False
+    def dimensions(png):
+        return struct.unpack_from('>II', png, 16)
+    return dimensions(source) == dimensions(before) == dimensions(after)
+
+
 def normalized_mask_point(x, y, image_box):
     """Map a point from a letterboxed Tk image to a normalized source point.
 
@@ -73,6 +86,7 @@ class NativeBrushDraftPanel:
         self._token = 0
         self._job = LatestOnlyJob(lambda request: preview_fn(**request))
         self._identity = None
+        self._identity_png = None
         self._image = self._display = None
         self._result_images = None
         self._verified_save_request = None
@@ -154,6 +168,7 @@ class NativeBrushDraftPanel:
         """Reset selection and invalidate every outstanding CPU result."""
         self._token += 1
         self._identity, self._image, self._result_images = None, None, None
+        self._identity_png = None
         self._verified_save_request = None
         self._inflight_request = None
         self._save_pending = False
@@ -186,6 +201,7 @@ class NativeBrushDraftPanel:
             self._controls()
             return
         self._image = photo
+        self._identity_png = preview_png
         self._identity = (project_path, expected_sha256, subject_id)
         self.status.set('Dessinez sur le masque, puis calculez l’aperçu. Aucune sauvegarde.')
         self._draw()
@@ -341,7 +357,7 @@ class NativeBrushDraftPanel:
             digest = result.get('preview_mask_sha256_float32')
             if type(digest) is not str or not _SHA.fullmatch(digest):
                 raise ValueError('INVALID_CPU_PREVIEW_DIGEST')
-            photos = {}
+            if not matching_preview_dimensions(\n                    self._identity_png, result['before_png_l8'],\n                    result['after_png_l8']):\n                raise ValueError('PREVIEW_GEOMETRY_MISMATCH')\n            photos = {}
             for variant in ('before', 'after'):
                 raw = result[variant + '_png_l8']
                 if not bounded_tk_png(raw):
