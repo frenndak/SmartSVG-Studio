@@ -97,6 +97,33 @@ class NativeSubjectSaveTests(unittest.TestCase):
         self.assertEqual(self.bytes_before(), after)
 
     @unittest.skipUnless(_HAS_CPU, "Real V1 CPU needs NumPy/Pillow")
+    def test_writer_committed_but_malformed_receipt_requires_reinspection(self):
+        preview = preview_native_subject_stroke(**self.command())
+        before = self.path.read_bytes()
+        actual_writer = ManagedWorkspace.save_subject_brush
+
+        def committed_with_bad_receipt(workspace, *args, **kwargs):
+            actual_writer(workspace, *args, **kwargs)
+            return {"status": "unexpected", "persisted": False}
+
+        with patch.object(ManagedWorkspace, "save_subject_brush",
+                          autospec=True, side_effect=committed_with_bad_receipt):
+            with self.assertRaises(NativeSubjectPreviewError) as error:
+                self.save(preview["preview_mask_sha256_float32"])
+        self.assertEqual(error.exception.code, "BRUSH_SAVE_OUTCOME_UNKNOWN")
+        self.assertNotEqual(self.path.read_bytes(), before)
+        self.assertEqual(
+            self.path.with_name(self.name + ".previous.smartsvg").read_bytes(),
+            before,
+        )
+        # A stale retry cannot overwrite the committed project.
+        after = self.bytes_before()
+        with self.assertRaises(NativeSubjectPreviewError) as error:
+            self.save(preview["preview_mask_sha256_float32"])
+        self.assertEqual(error.exception.code, "PROJECT_CHANGED")
+        self.assertEqual(self.bytes_before(), after)
+
+    @unittest.skipUnless(_HAS_CPU, "Real V1 CPU needs NumPy/Pillow")
     def test_wrong_preview_fingerprint_fails_closed_without_writes(self):
         preview = preview_native_subject_stroke(**self.command())
         bad = ("0" if preview["preview_mask_sha256_float32"][0] != "0"
