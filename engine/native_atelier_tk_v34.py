@@ -153,9 +153,17 @@ class NativeAtelierPanel:
         return self._step_subject(1)
 
     def _project_label(self):
-        self.project.set(
-            f'Projet {self.snapshot.project_id} · SHA {self.snapshot.sha256[:12]}'
-            if self.snapshot else 'Ouvrez un projet V1 sain depuis l’espace Projet.')
+        # A partial inspector snapshot must not crash the Tk refresh callback.
+        snapshot = self.snapshot
+        project_id = getattr(snapshot, 'project_id', None)
+        revision = getattr(snapshot, 'sha256', None)
+        if (type(project_id) is not str or not project_id
+                or type(revision) is not str or not _REVISION.fullmatch(revision)):
+            self.project.set('Projet indisponible : réexaminez le projet (F5).'
+                             if snapshot is not None else
+                             'Ouvrez un projet V1 sain depuis l’espace Projet.')
+            return
+        self.project.set(f'Projet {project_id} · SHA {revision[:12]}')
 
     def _on_map(self, _event):
         if self.viewport.original is None:
