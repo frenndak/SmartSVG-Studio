@@ -70,6 +70,7 @@ class NativeBrushDraftPanel:
         self._image = self._display = None
         self._result_images = None
         self._verified_save_request = None
+        self._inflight_request = None
         self._box = None
         self._points = []
         self._overflow = False
@@ -140,6 +141,7 @@ class NativeBrushDraftPanel:
         self._token += 1
         self._identity, self._image, self._result_images = None, None, None
         self._verified_save_request = None
+        self._inflight_request = None
         self._points = []
         self._box = None
         self._overflow = self._busy = False
@@ -207,7 +209,8 @@ class NativeBrushDraftPanel:
                     width=2)
 
     def _append(self, x, y):
-        if self._closed or self._identity is None or self._result_images is not None:
+        if (self._closed or self._identity is None or self._busy or
+                self._result_images is not None):
             return
         point = normalized_mask_point(x, y, self._box)
         if point is None or (self._points and point == self._points[-1]):
@@ -223,7 +226,7 @@ class NativeBrushDraftPanel:
         self._draw()
 
     def _press(self, event):
-        if (self._closed or self._identity is None or
+        if (self._closed or self._identity is None or self._busy or
                 normalized_mask_point(event.x, event.y, self._box) is None):
             # A click in the letterbox is not a new stroke; keep the last
             # comparison and in-flight request intact.
@@ -245,6 +248,7 @@ class NativeBrushDraftPanel:
         if self._closed or self._identity is None:
             return
         self._verified_save_request = None
+        self._inflight_request = None
         self._token += 1  # ignore an in-flight result from the old settings
         self._busy = False
         self._result_images = None
@@ -271,6 +275,11 @@ class NativeBrushDraftPanel:
             'points': [point[:] for point in self._points],
         }
         self._verified_save_request = None
+        # Pin exactly the gesture submitted to the CPU worker. No later UI
+        # event may promote a different gesture to a saveable preview.
+        self._inflight_request = (
+            self._identity, payload['mode'], payload['radius'],
+            tuple(tuple(point) for point in payload['points']))
         self._token += 1
         token = self._token
         self._busy = True
@@ -280,6 +289,7 @@ class NativeBrushDraftPanel:
             version, future = self._job.submit(payload)
         except RuntimeError:
             self._busy = False
+            self._inflight_request = None
             self.status.set('Aperçu indisponible : le panneau est fermé.')
             self._controls()
             return False
@@ -295,6 +305,13 @@ class NativeBrushDraftPanel:
             return
         self._busy = False
         try:
+            bound = self._inflight_request
+            if (bound is None or bound[0] != self._identity or
+                    bound[1] != _MODES.get(self.mode.get()) or
+                    self.radius.get() not in _RADII or
+                    bound[2] != float(self.radius.get()) or
+                    bound[3] != tuple(tuple(point) for point in self._points)):
+                raise ValueError('STALE_STROKE')
             result = future.result()
             if (result['subject_id'] != self._identity[2] or
                     result['project_sha256'] != self._identity[1] or
@@ -322,6 +339,8 @@ class NativeBrushDraftPanel:
                     raise ValueError('INVALID_PREVIEW_DIMENSIONS')
                 photos[variant] = photo
         except (Exception,) as exc:
+            self._inflight_request = None
+            self._verified_save_request = None
             # Only a stable code is displayed. A backend exception may contain
             # filesystem paths or private project data; never show str(exc).
             code = getattr(exc, 'code', '')
@@ -336,7 +355,12 @@ class NativeBrushDraftPanel:
                 self.status.set('Aperçu refusé. Corrigez le geste ou réexaminez le projet.')
             self._controls()
             return
-        self._verified_save_request = (result['preview_mask_sha256_float32'], token)
+        # Preserve the immutable CPU command with its verified preview digest.
+        # A later save button must reuse this command, not rebuild points from
+        # potentially changed controls or a new subject selection.
+        self._verified_save_request = (
+            result['preview_mask_sha256_float32'], token, bound)
+        self._inflight_request = None
         self._result_images = photos
         self._variant = 'after'
         self._draw()
@@ -360,6 +384,7 @@ class NativeBrushDraftPanel:
         self._overflow = False
         self._result_images = None
         self._verified_save_request = None
+        self._inflight_request = None
         self._variant = 'after'
         self.status.set('Brouillon abandonné. Le projet n’a pas été modifié.')
         self._draw()
@@ -369,4 +394,6 @@ class NativeBrushDraftPanel:
         if not self._closed:
             self._closed = True
             self._token += 1
+            self._inflight_request = None
+            self._verified_save_request = None
             self._job.close()
