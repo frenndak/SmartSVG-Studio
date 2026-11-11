@@ -240,6 +240,51 @@ class BrushHandoffTests(unittest.TestCase):
             self.assertIsNone(atelier._brush_panel)
             self.assertEqual(path.read_bytes(), original)
 
+    def test_malformed_or_duplicate_subject_catalog_never_enables_brush(self):
+        """Missing/duplicate V1 Subject IDs must not crash Tk or retarget masks."""
+        import tempfile
+        import tkinter as tk
+        from dataclasses import replace
+        from tkinter import ttk
+
+        try:
+            root = tk.Tk()
+        except tk.TclError:
+            self.skipTest('No graphical Tk session available')
+        self.addCleanup(root.destroy)
+        root.withdraw()
+        panel = NativeAtelierPanel(root, tk, ttk)
+        self.addCleanup(panel.shutdown)
+
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / 'untouched.smartsvg'
+            initial = b'UNCHANGED SYNTHETIC PROJECT'
+            project.write_bytes(initial)
+            duplicate = replace(self.subject, mask_id='other-mask-same-subject-id')
+            cases = (
+                SimpleNamespace(project_id='synthetic', sha256=self.sha),
+                replace(self.snapshot, subjects=None),
+                replace(self.snapshot, subjects=[self.subject]),
+                replace(self.snapshot, subjects=(SimpleNamespace(),)),
+                replace(self.snapshot, subjects=(self.subject, duplicate)),
+                replace(self.snapshot, sha256='invalid'),
+            )
+            for candidate in cases:
+                with self.subTest(candidate=repr(candidate)[:160]):
+                    panel.load(candidate, project_path=str(project))
+                    self.assertEqual(panel.subjects, {})
+                    self.assertEqual(panel.selection.get(), '')
+                    self.assertIn('Réexaminez le projet (F5)', panel.details.get())
+                    self.assertEqual(str(panel.brush_button.cget('state')), 'disabled')
+                    self.assertFalse(panel.open_brush())
+                    self.assertEqual(project.read_bytes(), initial)
+
+            # A normal inspector tuple must remain eligible for inspection.
+            panel.load(self.snapshot, project_path=str(project))
+            self.assertEqual(tuple(panel.subjects), (self.subject_id,))
+            self.assertEqual(panel.selection.get(), self.subject_id)
+            self.assertEqual(project.read_bytes(), initial)
+
     def test_native_subject_navigation_is_bounded_and_invalidates_stale_brush(self):
         import tkinter as tk
         from tkinter import ttk
