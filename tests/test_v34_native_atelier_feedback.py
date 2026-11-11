@@ -313,7 +313,7 @@ class BrushHandoffTests(unittest.TestCase):
         closed = []
 
         class FakeBrush:
-            def __init__(self, *_args):
+            def __init__(self, *_args, **_kwargs):
                 self._identity = None
                 self.shut = False
 
