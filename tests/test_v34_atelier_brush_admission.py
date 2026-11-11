@@ -153,5 +153,35 @@ class RenderMalformedMetadataTests(unittest.TestCase):
         self.assertEqual(len(panel.viewport.loads), 2)
 
 
+class AtelierProjectHeaderAdmissionTests(unittest.TestCase):
+    def test_incomplete_snapshot_header_is_recoverable(self):
+        class Cell:
+            def __init__(self): self.value = None
+            def set(self, value): self.value = value
+        panel = object.__new__(NativeAtelierPanel)
+        panel.project = Cell()
+        for snapshot in (SimpleNamespace(),
+                         SimpleNamespace(project_id='demo'),
+                         SimpleNamespace(project_id='demo', sha256=None),
+                         SimpleNamespace(project_id='demo', sha256='bad'),
+                         SimpleNamespace(project_id='', sha256='a' * 64)):
+            with self.subTest(snapshot=vars(snapshot)):
+                panel.snapshot = snapshot
+                panel._project_label()
+                self.assertIn('Réexaminez', panel.project.value)
+        panel.snapshot = None
+        panel._project_label()
+        self.assertIn('Ouvrez', panel.project.value)
+
+    def test_verified_header_keeps_short_revision(self):
+        class Cell:
+            def set(self, value): self.value = value
+        panel = object.__new__(NativeAtelierPanel)
+        panel.project = Cell()
+        panel.snapshot = SimpleNamespace(project_id='demo', sha256='a' * 64)
+        panel._project_label()
+        self.assertEqual(panel.project.value, 'Projet demo · SHA ' + 'a' * 12)
+
+
 if __name__ == "__main__":
     unittest.main()
