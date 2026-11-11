@@ -268,6 +268,73 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.assertFalse(self.panel._overflow)
         self.assertEqual(self.project.read_bytes(), self.before)
 
+    def test_save_requires_preview_and_explicit_confirmation(self):
+        from unittest.mock import Mock
+        writer = Mock()
+        self.panel.shutdown()
+        self.panel = NativeBrushDraftPanel(
+            self.root, self.root, self.tk, self.ttk, preview_fn=self._fn,
+            save_fn=writer, confirm_fn=lambda: False)
+        self.load()
+        self.assertFalse(self.panel.save())
+        self.stroke()
+        self.assertFalse(self.panel.save())
+        self.assertTrue(self.panel.preview())
+        self.receive()
+        self.assertFalse(self.panel.save())
+        writer.assert_not_called()
+        self.assertEqual(self.project.read_bytes(), self.before)
+
+    def test_confirmed_save_reuses_exact_cpu_gesture_and_invalidates_panel(self):
+        from unittest.mock import Mock
+        writer = Mock(return_value={
+            'status': 'subject_brush_saved', 'persisted': True,
+            'subject_id': self.subject, 'project_sha256': 'd' * 64})
+        refreshed = Mock()
+        self.panel.shutdown()
+        self.panel = NativeBrushDraftPanel(
+            self.root, self.root, self.tk, self.ttk, preview_fn=self._fn,
+            save_fn=writer, confirm_fn=lambda: True, on_saved=refreshed)
+        self.load()
+        self.stroke()
+        self.assertTrue(self.panel.preview())
+        self.receive()
+        expected = [p[:] for p in self.panel._points]
+        self.assertTrue(self.panel.save())
+        kwargs = writer.call_args.kwargs
+        self.assertEqual(kwargs['points'], expected)
+        self.assertEqual(kwargs['expected_preview_mask_sha256_float32'], 'c'*64)
+        self.assertEqual(kwargs['expected_sha256'], self.sha)
+        self.assertEqual(kwargs['subject_id'], self.subject)
+        self.assertIs(kwargs['confirmed'], True)
+        self.assertTrue(kwargs['command_id'].startswith('native-'))
+        refreshed.assert_called_once()
+        self.assertIsNone(self.panel._identity)
+        self.assertIsNone(self.panel._verified_save_request)
+        self.assertFalse(self.panel.save())
+        writer.assert_called_once()
+        # Mock writer intentionally does not touch the archive.
+        self.assertEqual(self.project.read_bytes(), self.before)
+
+    def test_uncertain_writer_receipt_forces_reinspection_not_retry(self):
+        from unittest.mock import Mock
+        writer = Mock(return_value={'persisted': False})
+        self.panel.shutdown()
+        self.panel = NativeBrushDraftPanel(
+            self.root, self.root, self.tk, self.ttk, preview_fn=self._fn,
+            save_fn=writer, confirm_fn=lambda: True)
+        self.load()
+        self.stroke()
+        self.assertTrue(self.panel.preview())
+        self.receive()
+        self.assertFalse(self.panel.save())
+        self.assertIn('réexaminez', self.panel.status.get())
+        self.assertIsNone(self.panel._identity)
+        self.assertIsNone(self.panel._verified_save_request)
+        self.assertFalse(self.panel.save())
+        writer.assert_called_once()
+        self.assertEqual(self.project.read_bytes(), self.before)
+
     def test_cpu_job_freezes_mouse_gesture_and_pins_exact_preview_request(self):
         started, release = Event(), Event()
         def slow(**request):
