@@ -79,8 +79,10 @@ def _admit_subject_catalog(snapshot):
     catalog = {}
     for subject in entries:
         sid = getattr(subject, 'subject_id', None)
-        if (type(sid) is not str or not _PROVEN_SUBJECT.fullmatch(sid)
-                or sid in catalog):
+        # Historical V1 IDs are valid for read-only inspection even when
+        # they do not match today's proven float32 Subject ID syntax. The
+        # stricter _PROVEN_SUBJECT guard applies only to brush admission.
+        if (type(sid) is not str or not sid or sid in catalog):
             return {}, True
         catalog[sid] = subject
     return catalog, False
