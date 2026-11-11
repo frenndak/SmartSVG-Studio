@@ -190,8 +190,8 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 super().__init__(*args, **kwargs)
                 captured.notes = self
         class Atelier(desktop.NativeAtelierPanel):
-            def __init__(self, *args):
-                super().__init__(*args)
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
                 captured.atelier = self
         class Photo:
             def __init__(self, **kwargs): self.data = kwargs.get('data')
@@ -632,6 +632,88 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 self.assertEqual(tuple(state.atelier.subjects), (kept_id,))
                 self.assertEqual(state.atelier.subjects[kept_id].proof_status, 'unverified')
                 self.assertEqual(state.notes.editor.get(), 'Notes enregistrées')
+
+            self.run_desktop(scenario, first_project=str(target))
+
+    def test_native_brush_receipt_refresh_preserves_and_rebases_dirty_notes(self):
+        """Real archive CAS change; UI save completion is simulated, not CPU."""
+        from smartsvg_core.project_archive import load_project
+        from smartsvg_core.project_workspace_g22 import save_project_notes
+
+        with tempfile.TemporaryDirectory() as directory:
+            target, ids = create_atelier_project(directory)
+            subject_id = next(iter(ids))
+
+            def scenario(root, state):
+                state.jobs.futures[-1].result(timeout=15)
+                root.pending.pop(0)()
+                before = load_project(target)
+                original_sha = state.atelier.snapshot.sha256
+                state.atelier.selection.set(subject_id)
+                state.atelier.render()
+                notes = state.notes
+                notes.editor.insert('1.0', 'Brouillon maintenu après retouche')
+                original_notes = notes.revision.notes
+                receipt = save_project_notes(
+                    target, target.stem, notes=original_notes,
+                    expected_sha256=original_sha)
+                self.assertNotEqual(receipt['sha256'], original_sha)
+                # Simulate the verified bridge callback after a committed edit.
+                state.atelier._on_saved({
+                    'subject_id': subject_id, 'persisted': True,
+                    'project_sha256': receipt['sha256']})
+                self.assertIsNone(state.atelier.snapshot)
+                state.jobs.futures[-1].result(timeout=15)
+                root.pending.pop(0)()
+                self.assertEqual(state.atelier.snapshot.sha256, receipt['sha256'])
+                self.assertEqual(state.atelier.selection.get(), subject_id)
+                self.assertEqual(notes.editor.get(), 'Brouillon maintenu après retouche')
+                self.assertEqual(notes.revision.sha256, receipt['sha256'])
+                self.assertIn('conservé', notes.status.get())
+                self.assertEqual(load_project(target).resources, before.resources)
+                # The draft can now be saved with the new CAS revision.
+                notes.save()
+                notes.future.result(timeout=15)
+                root.pending.pop(0)()
+                state.jobs.futures[-1].result(timeout=15)
+                root.pending.pop(0)()
+                self.assertEqual(load_project(target).document['notes'],
+                                 'Brouillon maintenu après retouche')
+
+            self.run_desktop(scenario, first_project=str(target))
+
+    def test_native_brush_refresh_does_not_rebase_external_notes_conflict(self):
+        from smartsvg_core.project_archive import load_project
+        from smartsvg_core.project_workspace_g22 import (
+            save_project_notes, WorkspaceError)
+
+        with tempfile.TemporaryDirectory() as directory:
+            target, ids = create_atelier_project(directory)
+            subject_id = next(iter(ids))
+
+            def scenario(root, state):
+                state.jobs.futures[-1].result(timeout=15)
+                root.pending.pop(0)()
+                notes = state.notes
+                notes.editor.insert('1.0', 'Ne pas effacer ce brouillon')
+                previous_sha = notes.revision.sha256
+                receipt = save_project_notes(
+                    target, target.stem, notes='Changement externe',
+                    expected_sha256=previous_sha)
+                state.atelier._on_saved({
+                    'subject_id': subject_id, 'persisted': True,
+                    'project_sha256': receipt['sha256']})
+                state.jobs.futures[-1].result(timeout=15)
+                root.pending.pop(0)()
+                self.assertEqual(notes.editor.get(), 'Ne pas effacer ce brouillon')
+                self.assertEqual(notes.revision.sha256, previous_sha)
+                self.assertIn('non synchronisée', notes.status.get())
+                notes.save()
+                with self.assertRaisesRegex(WorkspaceError, 'PROJECT_CHANGED'):
+                    notes.future.result(timeout=15)
+                root.pending.pop(0)()
+                self.assertEqual(load_project(target).document['notes'],
+                                 'Changement externe')
 
             self.run_desktop(scenario, first_project=str(target))
 
