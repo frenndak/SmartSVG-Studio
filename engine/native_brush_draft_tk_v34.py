@@ -357,7 +357,11 @@ class NativeBrushDraftPanel:
             digest = result.get('preview_mask_sha256_float32')
             if type(digest) is not str or not _SHA.fullmatch(digest):
                 raise ValueError('INVALID_CPU_PREVIEW_DIGEST')
-            if not matching_preview_dimensions(\n                    self._identity_png, result['before_png_l8'],\n                    result['after_png_l8']):\n                raise ValueError('PREVIEW_GEOMETRY_MISMATCH')\n            photos = {}
+            if not matching_preview_dimensions(
+                    self._identity_png, result['before_png_l8'],
+                    result['after_png_l8']):
+                raise ValueError('PREVIEW_GEOMETRY_MISMATCH')
+            photos = {}
             for variant in ('before', 'after'):
                 raw = result[variant + '_png_l8']
                 if not bounded_tk_png(raw):
