@@ -221,15 +221,24 @@ class NativeBrushDraftTkTests(unittest.TestCase):
                             subject_id=self.subject, preview_png=bytes(huge))
         self.assertIsNone(self.panel._identity)
         self.assertEqual(self.project.read_bytes(), self.before)
+        # Exercise a real async reply with a pinned request: missing CPU proof
+        # or stale generation must not short-circuit this PNG decoder guard.
+        self.panel.shutdown()
+        def malformed(**request):
+            return dict(
+                subject_id=request['subject_id'],
+                project_sha256=request['expected_sha256'],
+                persisted=False,
+                before_png_l8=bytes(huge), after_png_l8=self.source,
+                changed_pixels=1, preview_mask_sha256_float32='c' * 64)
+        self.panel = NativeBrushDraftPanel(
+            self.root, self.root, self.tk, self.ttk, preview_fn=malformed)
         self.load()
-        result = dict(subject_id=self.subject, project_sha256=self.sha,
-                      persisted=False, before_png_l8=self.source,
-                      after_png_l8=bytes(huge), changed_pixels=1)
-        completed = Future()
-        completed.set_result(result)
+        self.stroke()
+        self.assertTrue(self.panel.preview())
         with patch.object(self.tk, 'PhotoImage',
                           side_effect=AssertionError('unbounded decode')):
-            self.panel._receive(self.panel._token, 0, completed)
+            self.receive()
         self.assertIsNone(self.panel._result_images)
         self.assertIn('refusé', self.panel.status.get())
         self.assertEqual(self.project.read_bytes(), self.before)
