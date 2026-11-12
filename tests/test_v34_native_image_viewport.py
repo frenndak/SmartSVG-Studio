@@ -213,3 +213,37 @@ class ImageViewportTests(unittest.TestCase):
         self.assertEqual(viewport.canvas.yview()[0], 0)
         viewport.load(None)
         self.assertEqual(viewport.canvas.find_all(), ())
+
+    def test_real_tk_configure_zero_size_then_restore_preserves_manual_zoom(self):
+        import tkinter as tk
+        from tkinter import ttk
+        from native_image_viewport_v34 import NativeImageViewport
+
+        try:
+            root = tk.Tk()
+        except tk.TclError:
+            self.skipTest('No graphical Tk session available')
+        self.addCleanup(root.destroy)
+        viewport = NativeImageViewport(root, tk, ttk)
+        viewport.load(tk.PhotoImage(master=root, width=960, height=470))
+        root.update()
+        viewport.actual_size()
+        root.update()
+        self.assertFalse(viewport.auto_fit)
+        self.assertIsNone(viewport.fit_scale)
+
+        # Dispatch a real Tk Configure event with zero reported dimensions.
+        # The callback reads winfo_* rather than event.width/height; this
+        # proves event dispatch and state safety, not a zero-sized WM canvas.
+        viewport.canvas.event_generate('<Configure>', width=0, height=0)
+        root.update()
+        self.assertFalse(viewport.auto_fit)
+        self.assertIsNone(viewport.fit_scale)
+        viewport.canvas.event_generate('<Configure>', width=480, height=235)
+        root.update()
+        self.assertFalse(viewport.auto_fit)
+        self.assertIsNone(viewport.fit_scale)
+        viewport.fit()
+        root.update()
+        self.assertTrue(viewport.auto_fit)
+        self.assertGreaterEqual(viewport.fit_scale, 1)
