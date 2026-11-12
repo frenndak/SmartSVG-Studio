@@ -123,5 +123,40 @@ class NativeRecoveryUITests(unittest.TestCase):
                 self.assertFalse(self.panel.busy)
 
 
+    def test_explicit_boolean_confirmation_required_for_writer(self):
+        # Tk normally returns bool; a faulty adapter must not turn "yes",
+        # 1, or an object into permission to alter a V1 project.
+        for answer in (None, False, 1, "yes", [], object()):
+            with self.subTest(answer=repr(answer)):
+                submissions = []
+                self.panel.worker = SimpleNamespace(
+                    submit=lambda *args, **kwargs: submissions.append((args, kwargs)))
+                self.panel.messagebox = SimpleNamespace(
+                    askyesno=lambda *args, **kwargs: answer)
+                self.panel.load(plan())
+                self.panel.start()
+                self.assertEqual(submissions, [])
+                self.assertFalse(self.panel.busy)
+                self.assertIsNone(self.panel._running_plan)
+                self.assertIsNone(self.panel.future)
+
+    def test_dialog_exception_never_submits_and_unblocks_confirming(self):
+        submissions = []
+        def unavailable(*args, **kwargs):
+            raise RuntimeError("Tk dialog destroyed")
+        self.panel.worker = SimpleNamespace(
+            submit=lambda *args, **kwargs: submissions.append((args, kwargs)))
+        self.panel.messagebox = SimpleNamespace(askyesno=unavailable)
+        self.panel.load(plan())
+        self.panel.start()
+        self.assertEqual(submissions, [])
+        self.assertFalse(self.panel.busy)
+        self.assertIsNone(self.panel.future)
+        self.assertIn("indisponible", self.panel.status.get())
+        self.assertEqual(self.scheduled, [])
+        self.assertEqual(self.refreshed, [])
+
+
+
 if __name__ == '__main__':
     unittest.main()
