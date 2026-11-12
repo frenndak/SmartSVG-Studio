@@ -99,6 +99,26 @@ class AtelierHistoryStatusTests(unittest.TestCase):
         self.assertIn("indisponible", self.panel.history.get())
         self.assertNotIn("/home", self.panel.history.get())
 
+    def test_forged_cricut_certification_fails_closed(self):
+        valid = {
+            "schema": "smartsvg-native-brush-history-status/1",
+            "project_sha256": "a" * 64,
+            "undo_available": True,
+            "redo_available": False,
+            "persisted": False,
+        }
+        for certification in (True, None, "false", 0):
+            with self.subTest(certification=certification):
+                self.panel._history_fn = lambda **kwargs: {
+                    **valid, "cricut_certified": certification,
+                }
+                self.panel._refresh_history()
+                self.assertIn("indisponible", self.panel.history.get())
+                self.assertNotIn("Annulation possible : oui", self.panel.history.get())
+        self.panel._history_fn = lambda **kwargs: valid
+        self.panel._refresh_history()
+        self.assertIn("indisponible", self.panel.history.get())
+
     def test_real_tk_healthy_v1_journal_read_is_non_destructive(self):
         import tkinter as tk
         from tkinter import ttk
