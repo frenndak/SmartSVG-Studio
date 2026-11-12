@@ -243,6 +243,34 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.assertIn('refusé', self.panel.status.get())
         self.assertEqual(self.project.read_bytes(), self.before)
 
+    def test_real_png_geometry_mismatch_rejected_by_tk_callback_without_v1_write(self):
+        """An asynchronous CPU reply cannot publish mismatched PNG dimensions."""
+        for mismatched_field, dimensions in (
+                ('before_png_l8', (16, 32)),
+                ('after_png_l8', (32, 17))):
+            with self.subTest(field=mismatched_field):
+                self.panel.shutdown()
+                def mismatched(**request):
+                    result = dict(
+                        subject_id=request['subject_id'],
+                        project_sha256=request['expected_sha256'],
+                        persisted=False, before_png_l8=self.source,
+                        after_png_l8=self.source, changed_pixels=1,
+                        preview_mask_sha256_float32='c' * 64)
+                    result[mismatched_field] = _png(*dimensions)
+                    return result
+                self.panel = NativeBrushDraftPanel(
+                    self.root, self.root, self.tk, self.ttk,
+                    preview_fn=mismatched)
+                self.load()
+                self.stroke()
+                self.assertTrue(self.panel.preview())
+                self.receive()
+                self.assertIsNone(self.panel._result_images)
+                self.assertIsNone(self.panel._verified_save_request)
+                self.assertFalse(self.panel.save())
+                self.assertEqual(self.project.read_bytes(), self.before)
+
     def test_missing_proof_invalid_source_and_outside_click_refused(self):
         self.panel.load(project_path=str(self.project), expected_sha256='invalid',
                         subject_id=self.subject, preview_png=self.source)
