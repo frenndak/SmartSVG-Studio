@@ -65,9 +65,14 @@ class NativeRecoveryPanel:
             agreed = self.messagebox.askyesno(
                 action, f'{question}\n\nProjet : {plan.project_id}\nCopie vérifiée : SHA {source[:12]}',
                 parent=self.root, default='no')
+        except Exception:
+            # An unavailable or destroyed dialog never authorizes disk writes.
+            self.status.set('Confirmation indisponible. Réexaminez le projet avant un nouvel essai.')
+            return
         finally:
             self.confirming = False
-        if not agreed:
+        # Only an explicit boolean True can authorize the recovery writer.
+        if agreed is not True:
             return
         self.button.configure(state='disabled')
         self.status.set('Récupération du projet en cours…')
