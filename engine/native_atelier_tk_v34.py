@@ -185,7 +185,8 @@ class NativeAtelierPanel:
                 status.get('schema') != 'smartsvg-native-brush-history-status/1' or
                 type(status.get('undo_available')) is not bool or
                 type(status.get('redo_available')) is not bool or
-                status.get('persisted') is not False):
+                status.get('persisted') is not False or
+                status.get('cricut_certified') is not False):
             self.history.set(unavailable)
             return
         undo = 'oui' if status['undo_available'] else 'non'
