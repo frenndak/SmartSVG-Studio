@@ -74,6 +74,11 @@ class NativeRecoveryPanel:
         # Only an explicit boolean True can authorize the recovery writer.
         if agreed is not True:
             return
+        # A modal Tk dialog may dispatch nested project-switch/F5 events.
+        # Never apply an earlier project's plan after the context changed.
+        if self.plan is not plan or not self.can_apply():
+            self.status.set('Sélection modifiée pendant la confirmation. Réexaminez le projet (F5).')
+            return
         self.button.configure(state='disabled')
         self.status.set('Récupération du projet en cours…')
         try:
@@ -103,6 +108,7 @@ class NativeRecoveryPanel:
             # A worker receipt is not proof of success unless its action and
             # project match the confirmed, revision-pinned recovery plan.
             if (type(result) is dict and running_plan is not None and
+                    self.plan is running_plan and
                     running_plan.outcome in ACTIONS and
                     result.get('status') == running_plan.outcome and
                     result.get('project_id') == running_plan.project_id):
