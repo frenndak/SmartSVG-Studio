@@ -51,6 +51,7 @@ Chaque cycle horaire d'architecture reprend le **dernier micro-lot effectivement
 ## 5. Documents et états
 
 - [INHERITANCE_REGISTER.md](INHERITANCE_REGISTER.md) — photographie exhaustive des identifiants V3.4 + UX à conserver, non-qualification explicite.
+- [SCENARIOS_V34_INDEX.md](SCENARIOS_V34_INDEX.md) — **437/437 scénarios historiques inventoriés individuellement**, avec sources, lignes, SHA et trois fichiers de copies ; **liens sémantiques aux exigences restant à qualifier**.
 - [PROGRESS.md](PROGRESS.md) — journal de préparation et prochaines étapes.
 - **Futurs livrables à créer progressivement :** `COVERAGE_V34_TO_V35.md`, `BACKLOG_AND_DEPENDENCIES.md`, `UX_ARCHITECTURE_AND_WORKFLOWS.md`, `QUALITY_TESTS_AND_EVIDENCE.md`, `ADR_RISKS_OPPORTUNITIES.md`, `PROMOTION_CHECKLIST.md`. Une mention FUTUR n'est pas un fichier déjà présent.
 
