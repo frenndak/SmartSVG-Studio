@@ -48,25 +48,29 @@ def select_source_png(project: LoadedProject) -> SourcePreview:
         if not path or PurePosixPath(path).suffix.lower() != ".png":
             continue
         raw = project.resources.get(path)
-        if raw is None:
-            return SourcePreview("SOURCE_MISSING")
-        if len(raw) > MAX_ENCODED_BYTES:
-            fallback = "SOURCE_TOO_LARGE"
-            continue
-        if (len(raw) < 33 or raw[:8] != PNG_SIGNATURE or
-                raw[8:16] != b"\x00\x00\x00\rIHDR"):
-            return SourcePreview("SOURCE_INVALID_PNG")
-        width, height = struct.unpack(">II", raw[16:24])
-        if (not width or not height or width > MAX_AXIS or height > MAX_AXIS or
-                width * height > MAX_DECODED_PIXELS):
-            fallback = "SOURCE_TOO_LARGE"
-            continue
-        if (width, height) != (source.width_px, source.height_px) or sha256(raw).hexdigest() != source.sha256:
-            return SourcePreview("SOURCE_CHANGED")
-        factor = max(1, math.ceil(width / MAX_SCREEN_WIDTH),
-                     math.ceil(height / MAX_SCREEN_HEIGHT))
-        return SourcePreview(
-            status="READY_PNG", png=raw, source_id=source.source_id,
-            width_px=width, height_px=height, subsample=factor
-        )
+        result = verified_png_preview(raw, source.source_id, source.sha256,
+                                      source.width_px, source.height_px)
+        if result.status != "SOURCE_TOO_LARGE":
+            return result
+        fallback = result.status
     return SourcePreview(fallback)
+
+
+def verified_png_preview(raw, asset_id, expected_sha256, width_px, height_px):
+    """Bound display of a PNG resource from an already validated V1 archive."""
+    if raw is None:
+        return SourcePreview("SOURCE_MISSING")
+    if len(raw) > MAX_ENCODED_BYTES:
+        return SourcePreview("SOURCE_TOO_LARGE")
+    if (len(raw) < 33 or raw[:8] != PNG_SIGNATURE or
+            raw[8:16] != b"\x00\x00\x00\rIHDR"):
+        return SourcePreview("SOURCE_INVALID_PNG")
+    width, height = struct.unpack(">II", raw[16:24])
+    if (not width or not height or width > MAX_AXIS or height > MAX_AXIS or
+            width * height > MAX_DECODED_PIXELS):
+        return SourcePreview("SOURCE_TOO_LARGE")
+    if (width, height) != (width_px, height_px) or sha256(raw).hexdigest() != expected_sha256:
+        return SourcePreview("SOURCE_CHANGED")
+    factor = max(1, math.ceil(width / MAX_SCREEN_WIDTH),
+                 math.ceil(height / MAX_SCREEN_HEIGHT))
+    return SourcePreview("READY_PNG", raw, asset_id, width, height, factor)

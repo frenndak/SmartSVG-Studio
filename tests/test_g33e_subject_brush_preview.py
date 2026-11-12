@@ -121,6 +121,56 @@ class SubjectBrushPreviewTests(unittest.TestCase):
                          struct.pack("<f", self.first[0]))
         self.assertEqual(struct.pack("<f", preview[-1]),
                          struct.pack("<f", self.first[-1]))
+        # Qualify the new native UI boundary in the actual CPU runner too.
+        # This existing named test is part of the strict G3.3e CPU suite;
+        # the standalone Windows stdlib suite cannot execute Pillow/NumPy.
+        from smartsvg_core.native_subject_preview_v34 import preview_native_subject_stroke
+        native = preview_native_subject_stroke(
+            project_path=str(self.path), expected_sha256=sha256(archive).hexdigest(),
+            subject_id=self.subject_ids[0], mode="add", radius=0.05,
+            points=[[0.5, 0.5]],
+        )
+        self.assertEqual(native["before_png_l8"], first["before_png_l8"])
+        self.assertEqual(native["after_png_l8"], first["after_png_l8"])
+        self.assertEqual(native["changed_pixels"], first["changed_pixels"])
+        self.assertNotIn("preview_float32", native)
+        self.assertNotIn("editor_document", native)
+        self.assertEqual(self.path.read_bytes(), archive)
+        self.assertEqual(previous.read_bytes() if previous.exists() else None, backup)
+
+    @unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
+                         'Native CPU bridge requires NumPy and Pillow')
+    def test_native_second_subject_preview_is_readonly_and_revision_pinned(self):
+        # V34-132: execute the real native bridge inside the existing CPU suite.
+        from smartsvg_core.native_subject_preview_v34 import (
+            NativeSubjectPreviewError, preview_native_subject_stroke,
+        )
+        before = self.path.read_bytes()
+        revision = sha256(before).hexdigest()
+        backup_path = self.path.with_name("brush-preview.previous.smartsvg")
+        backup_before = backup_path.read_bytes() if backup_path.exists() else None
+        result = preview_native_subject_stroke(
+            project_path=str(self.path), expected_sha256=revision,
+            subject_id=self.subject_ids[1], mode="erase",
+            radius=0.05, points=[[0.125, 0.18]],
+        )
+        self.assertEqual(result["subject_id"], self.subject_ids[1])
+        self.assertEqual(result["project_sha256"], revision)
+        self.assertGreater(result["changed_pixels"], 0)
+        self.assertNotEqual(result["before_png_l8"], result["after_png_l8"])
+        self.assertNotIn("preview_float32", result)
+        self.assertNotIn("editor_document", result)
+        with self.assertRaises(NativeSubjectPreviewError) as caught:
+            preview_native_subject_stroke(
+                project_path=str(self.path), expected_sha256="0" * 64,
+                subject_id=self.subject_ids[1], mode="erase",
+                radius=0.05, points=[[0.125, 0.18]],
+            )
+        self.assertEqual(caught.exception.code, "PROJECT_CHANGED")
+        self.assertEqual(self.path.read_bytes(), before)
+        self.assertEqual(backup_path.read_bytes() if backup_path.exists() else None,
+                         backup_before)
+        self.assertEqual(len(load_project(self.path).subjects), 2)
 
     @unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
                          'CPU brush dependencies not installed in stdlib-only G0')

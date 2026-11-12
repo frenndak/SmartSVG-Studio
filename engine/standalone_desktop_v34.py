@@ -32,9 +32,12 @@ from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
 from native_theme_tk_v34 import ArtisanThemePicker
 from native_templates_tk_v34 import TemplatePreviewContent
 from native_app_shell_v34 import NativeAppShell
+from native_atelier_tk_v34 import NativeAtelierPanel
+from smartsvg_core.native_atelier_v34 import inspect_atelier_snapshot
 from native_create_tk_v34 import NativeCreateDialog
 from native_notes_tk_v34 import NativeNotesPanel, NotesRevision
 from native_recovery_tk_v34 import NativeRecoveryPanel
+from native_image_viewport_v34 import NativeImageViewport
 from smartsvg_core.project_workspace_g22 import MAX_NOTE_LENGTH, NAME
 
 
@@ -138,6 +141,7 @@ def load_native_preview(path: str | Path):
         return state, None
     try:
         preview = select_source_png(project)
+        state['atelier_snapshot'] = inspect_atelier_snapshot(project, before)
         # One final boundary check before returning any image to the UI.
         if _archive_sha256(path) != before:
             raise ProjectArchiveError("PROJECT_SNAPSHOT_CHANGED")
@@ -171,6 +175,7 @@ def _probe() -> int:
         "comfyui_required": False, "read_only": False,
         "project_notes_available": True, "project_creation_available": True,
         "project_recovery_available": True,
+        "atelier_inspection_available": True,
         "tkinter_lazy": "tkinter" not in imported,
         "desktop_ui_tested": False, "windows_qualified": False,
         "template_previews_available": True,
@@ -198,6 +203,9 @@ def _start_gui(first_project: str | None) -> int:
     frame = shell.add_page('project', 'Projet')
     factory = shell.add_page('factory', 'Fabrique')
     appearance = shell.add_page('appearance', 'Apparence')
+    atelier = NativeAtelierPanel(
+        shell.add_page('atelier', 'Atelier'), tk, ttk,
+        on_saved=lambda receipt: refresh(saved_brush=receipt))
     # Build each tool once. Navigation changes visibility, never the project.
     # Load preferences immediately so the first screen uses the saved theme.
     theme_picker = ArtisanThemePicker(root=root, parent=appearance, tk=tk, ttk=ttk)
@@ -211,7 +219,6 @@ def _start_gui(first_project: str | None) -> int:
     message = tk.StringVar(value="Ouvrez un fichier .smartsvg pour examiner son état.")
     summary = tk.StringVar(value="Aucune ressource chargée.")
     preview_info = tk.StringVar(value="Aucun aperçu chargé.")
-    photo_holder: list[object | None] = [None]
     current: list[str | None] = [None]
     creator = [None]
     creation_info = tk.StringVar(value='')
@@ -223,21 +230,30 @@ def _start_gui(first_project: str | None) -> int:
     ttk.Label(frame, textvariable=summary, wraplength=640).pack(anchor="w")
     recovery_slot = ttk.Frame(frame)
     recovery_slot.pack(fill='x')
-    notes = NativeNotesPanel(root, frame, tk, ttk, messagebox)
+    notes = NativeNotesPanel(root, frame, tk, ttk, messagebox,
+                             on_saved=lambda revision: refresh(saved_notes=revision))
     ttk.Label(frame, textvariable=preview_info, wraplength=640).pack(anchor="w", pady=(16, 5))
-    preview_panel = ttk.Label(frame)
-    preview_panel.pack(anchor="w")
+    preview_panel = NativeImageViewport(frame, tk, ttk)
 
     jobs = LatestOnlyJob(load_native_preview)
+    selected_subject = None
 
-    def refresh():
+    def refresh(*, saved_notes=None, saved_brush=None):
+        nonlocal selected_subject
         if not current[0]:
             return
-        notes.load(None)
+        if saved_notes is None and saved_brush is None:
+            selected_subject = None
+            notes.load(None)
+        else:
+            # Preserve an unsaved notes draft after an unrelated brush commit.
+            # The new CAS revision is adopted only after verified reinspection.
+            selected_subject = atelier.selection.get() or selected_subject
+        atelier.load(None)
+        atelier.project.set("Vérification de la révision du projet…")
         recovery.load(None)
         # Only the Tk main thread manipulates PhotoImage and widgets.
-        preview_panel.configure(image="")
-        photo_holder[0] = None
+        preview_panel.load(None)
         message.set("Analyse du projet en cours…")
         summary.set("Lecture et vérification sans modification.")
         preview_info.set("Préparation de l'aperçu…")
@@ -256,11 +272,35 @@ def _start_gui(first_project: str | None) -> int:
                 message.set("Impossible de lire ce projet.")
                 summary.set("Aucune modification effectuée.")
                 preview_info.set("Aperçu indisponible.")
+                atelier.project.set("Impossible de lire ce projet.")
                 return
 
+            snapshot = state.get('atelier_snapshot')
+            if saved_brush is not None and (
+                    type(saved_brush) is not dict
+                    or saved_brush.get('persisted') is not True
+                    or snapshot is None
+                    or snapshot.sha256 != saved_brush.get('project_sha256')
+                    or saved_brush.get('subject_id') != selected_subject):
+                message.set(
+                    'Révision de retouche non vérifiable. Les notes locales sont conservées ; '
+                    'réexaminez le projet (F5).')
+                summary.set('Aucune ressource chargée pour cette révision.')
+                preview_info.set('Aperçu indisponible.')
+                atelier.project.set('Retouche non synchronisée : réexaminez le projet (F5).')
+                return
+            if saved_notes is not None and (
+                    snapshot is None or snapshot.sha256 != saved_notes.sha256
+                    or snapshot.project_id != saved_notes.project_id):
+                message.set("La révision enregistrée ne peut plus être vérifiée. Réexaminez le projet (F5).")
+                summary.set("Aucune ressource chargée pour cette révision.")
+                preview_info.set("Aperçu indisponible.")
+                atelier.project.set("La révision a changé. Réexaminez le projet (F5).")
+                return
             message.set(state.get("message_fr") or state.get("error_code") or state["status"])
             if not state.get("ok"):
                 recovery.load(state.get('recovery_plan'))
+                atelier.project.set("Ouvrez ou récupérez un projet V1 sain depuis l’espace Projet.")
                 summary.set("Aucune modification effectuée. " +
                             (state.get("action_fr") or "Contrôlez le projet avant de réessayer."))
                 preview_info.set("Aperçu non disponible.")
@@ -272,7 +312,19 @@ def _start_gui(first_project: str | None) -> int:
                     state["project_id"], state["app_version"], state["sources"],
                     state["masks"], state["subjects"], state["artifacts"]))
 
-            notes.load(state.get('notes_revision'))
+            if saved_brush is not None:
+                notes_synced = notes.rebase_after_external_save(
+                    state.get('notes_revision'))
+                message.set(
+                    'Retouche sauvegardée et projet réexaminé.'
+                    if notes_synced else
+                    'Retouche sauvegardée, mais les notes locales ne peuvent '
+                    'pas être resynchronisées automatiquement.')
+            elif saved_notes is None:
+                notes.load(state.get('notes_revision'))
+            atelier.load(
+                snapshot, selected_subject=selected_subject,
+                project_path=str(Path(current[0]).absolute()))
             if preview is None:
                 preview_info.set("Aperçu non disponible : réexaminer le projet.")
                 return
@@ -292,17 +344,13 @@ def _start_gui(first_project: str | None) -> int:
                 # dimensions and SHA before any PhotoImage allocation.
                 original = tk.PhotoImage(
                     data=base64.b64encode(preview.png).decode("ascii"), format="png")
-                display = (original.subsample(preview.subsample)
-                           if preview.subsample > 1 else original)
-                preview_panel.configure(image=display)
-                photo_holder[0] = display
+                preview_panel.load(original)
                 preview_info.set(
                     f"Source {preview.source_id} — "
                     f"{preview.width_px} × {preview.height_px} px "
-                    f"(affichage réduit ×{preview.subsample}; originaux intacts)")
+                    f"(aperçu ajustable ; original intact)")
             except tk.TclError:
-                preview_panel.configure(image="")
-                photo_holder[0] = None
+                preview_panel.load(None)
                 preview_info.set("Décodage PNG impossible : aperçu refusé.")
 
         root.after(50, receive)
@@ -412,6 +460,9 @@ def _start_gui(first_project: str | None) -> int:
             return
         if creator[0] is not None:
             creator[0].close()
+        # Tcl callbacks must be cancelled while their commands still exist.
+        theme_picker.shutdown()
+        atelier.shutdown()
         # A pending or obsolete generation is never allowed to update Tk.
         jobs.close()
         root.destroy()
@@ -420,6 +471,8 @@ def _start_gui(first_project: str | None) -> int:
     try:
         root.mainloop()
     finally:
+        atelier.shutdown()
+        theme_picker.shutdown()
         if creator[0] is not None:
             creator[0].shutdown()
         jobs.close()

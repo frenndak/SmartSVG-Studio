@@ -54,9 +54,17 @@ class FakeRoot(FakeWidget):
     def __init__(self):
         super().__init__()
         self.callbacks = []
+        self.cancelled = []
 
     def after(self, ms, callback):
-        self.callbacks.append((ms, callback))
+        callback_id = f"after-{len(self.callbacks) + 1}"
+        self.callbacks.append((callback_id, ms, callback))
+        return callback_id
+
+    def after_cancel(self, callback_id):
+        self.cancelled.append(callback_id)
+        self.callbacks = [
+            item for item in self.callbacks if item[0] != callback_id]
 
     def winfo_exists(self):
         return True
@@ -233,6 +241,24 @@ class NativeThemePickerTests(unittest.TestCase):
                     self.assertGreaterEqual(
                         contrast_ratio(hover_foreground, hover_background), 4.5
                     )
+
+    def test_shutdown_cancels_timer_and_stale_callback_cannot_reschedule(self):
+        tk, ttk = self.widgets()
+        root = FakeRoot()
+        picker = ArtisanThemePicker(
+            root=root, parent=FakeWidget(), tk=tk, ttk=ttk)
+        self.assertEqual(len(root.callbacks), 1)
+        callback_id, delay, callback = root.callbacks[0]
+        self.assertEqual(delay, 3500)
+
+        picker.shutdown()
+        self.assertEqual(root.cancelled, [callback_id])
+        self.assertEqual(root.callbacks, [])
+
+        picker.shutdown()
+        callback()
+        self.assertEqual(root.cancelled, [callback_id])
+        self.assertEqual(root.callbacks, [])
 
     def test_mode_mapping_is_explicit_and_complete(self):
         self.assertEqual(set(MODE_LABELS), {"light", "night", "automatic"})

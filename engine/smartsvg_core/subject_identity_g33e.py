@@ -43,7 +43,8 @@ def validated_subject_identity_bindings(project):
     if raw is None:
         return []
     if (not isinstance(raw, dict) or set(raw) != {"version", "items"}
-            or raw.get("version") != 1 or not isinstance(raw.get("items"), list)
+            or type(raw.get("version")) is not int or raw["version"] != 1
+            or not isinstance(raw.get("items"), list)
             or len(raw["items"]) > 5000):
         raise SubjectIdentityError("INVALID_SUBJECT_IDENTITY_PROOF")
     subjects = {subject.subject_id: subject for subject in project.subjects}

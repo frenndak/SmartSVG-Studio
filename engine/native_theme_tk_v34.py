@@ -81,6 +81,8 @@ class ArtisanThemePicker:
             self.style.theme_use("clam")
         self._swatches = {}
         self._last_effective = None
+        self._closed = False
+        self._system_theme_after_id = None
 
         self.section = ttk.LabelFrame(parent, text="Personnaliser mon espace")
         self.section.pack(fill="x", pady=(0, 14))
@@ -120,7 +122,7 @@ class ArtisanThemePicker:
         ).pack(anchor="w", padx=12, pady=(0, 8))
 
         self.apply()
-        self.root.after(3500, self._check_system_theme)
+        self._schedule_system_theme_check()
 
     def _save(self):
         try:
@@ -201,15 +203,41 @@ class ArtisanThemePicker:
         self._last_effective = (theme.appearance, theme.accent)
         return theme
 
+    def _schedule_system_theme_check(self):
+        if self._closed or self._system_theme_after_id is not None:
+            return
+        try:
+            self._system_theme_after_id = self.root.after(
+                3500, self._check_system_theme)
+        except self.tk.TclError:
+            self._closed = True
+
+    def shutdown(self):
+        """Cancel the recurring Tcl callback before the Tk command is destroyed."""
+        if self._closed:
+            return
+        self._closed = True
+        after_id = self._system_theme_after_id
+        self._system_theme_after_id = None
+        if after_id is not None:
+            try:
+                self.root.after_cancel(after_id)
+            except self.tk.TclError:
+                pass
+
     def _check_system_theme(self):
+        self._system_theme_after_id = None
+        if self._closed:
+            return
         try:
             if not self.root.winfo_exists():
+                self._closed = True
                 return
             if self.prefs.appearance == "automatic":
                 current = resolve_theme(
                     self.prefs, system_dark=windows_system_dark()).appearance
                 if self._last_effective is None or current != self._last_effective[0]:
                     self.apply()
-            self.root.after(3500, self._check_system_theme)
+            self._schedule_system_theme_check()
         except self.tk.TclError:
-            return
+            self._closed = True

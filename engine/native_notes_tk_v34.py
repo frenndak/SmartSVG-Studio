@@ -17,9 +17,10 @@ class NotesRevision:
 
 
 class NativeNotesPanel:
-    def __init__(self, root, parent, tk, ttk, messagebox):
+    def __init__(self, root, parent, tk, ttk, messagebox, *, on_saved=None):
         self.root = root
         self.messagebox = messagebox
+        self.on_saved = on_saved
         self.revision = None
         self.future = None
         self.confirming_discard = False
@@ -49,6 +50,29 @@ class NativeNotesPanel:
         self.editor.edit_reset()
         self._enable(revision is not None)
         self.status.set('' if revision is not None else 'Notes en lecture seule ou projet indisponible.')
+
+    def rebase_after_external_save(self, fresh):
+        """Keep a local notes draft when an unrelated verified V1 edit lands.
+
+        Only advance the CAS revision if the persisted notes are byte-for-byte
+        unchanged. An active notes writer or an external notes edit cannot be
+        silently rebased or overwritten.
+        """
+        old = self.revision
+        if (self.busy or self.confirming_discard or old is None or
+                not isinstance(fresh, NotesRevision) or
+                fresh.path != old.path or fresh.project_id != old.project_id or
+                fresh.notes != old.notes):
+            self.status.set(
+                'Notes conservées, mais révision non synchronisée. '
+                'Vérifiez le projet avant de les enregistrer.')
+            return False
+        changed = self._draft() != old.notes
+        self.revision = fresh
+        self.status.set(
+            'Brouillon de notes conservé sur la nouvelle révision.'
+            if changed else 'Notes synchronisées avec le projet.')
+        return True
 
     def _enable(self, editable):
         state = 'normal' if editable else 'disabled'
@@ -114,6 +138,8 @@ class NativeNotesPanel:
             return
         self.revision = NotesRevision(revision.path, revision.project_id, receipt['sha256'], draft)
         self.status.set('Notes enregistrées et relues · SHA ' + receipt['sha256'][:12])
+        if self.on_saved is not None:
+            self.on_saved(self.revision)
 
     def shutdown(self):
         self.worker.shutdown(wait=True)

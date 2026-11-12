@@ -1,0 +1,213 @@
+"""V34-132: read-only native bridge from a proven V1 Subject to the existing brush.
+
+The UI supplies a managed project path, its exact observed SHA-256 and a
+persistent subject_id. It never chooses a tensor index, a mask file or a
+float32 digest. Reuse the G2.2 workspace admission/revision checks and
+G3.3e brush; do not create a writer, save a gesture or publish an export.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+import re
+import stat
+
+from .project_workspace_g22 import ManagedWorkspace, WorkspaceError, NAME
+
+
+_SHA = re.compile(r"^[0-9a-f]{64}$")
+_SUBJECT = re.compile(r"^subject-[0-9a-f]{32}$")
+_MANAGED_DIRECTORY = "SmartSVG_Managed_Projects"
+
+
+class NativeSubjectPreviewError(ValueError):
+    def __init__(self, code: str):
+        self.code = code
+        super().__init__(code)
+
+
+def _workspace_from_path(project_path):
+    """Admit existing managed V1 files only, without creating directories."""
+    if not isinstance(project_path, (str, Path)) or not str(project_path):
+        raise NativeSubjectPreviewError("INVALID_PROJECT_PATH")
+    try:
+        path = Path(project_path)
+        if (not path.is_absolute() or ".." in path.parts
+                or path.suffix != ".smartsvg" or
+                path.parent.name != _MANAGED_DIRECTORY or
+                not NAME.fullmatch(path.stem) or
+                path.is_symlink() or path.parent.is_symlink() or
+                path.parent.parent.is_symlink() or
+                not path.parent.is_dir() or not path.parent.parent.is_dir() or
+                not path.is_file()):
+            raise NativeSubjectPreviewError("UNMANAGED_PROJECT")
+        # Check every path component for an actual redirect, not whether
+        # the canonical spelling matches the supplied Windows path. Windows
+        # may canonicalize drives, casing or short names even for ordinary
+        # directories; resolve() != absolute() wrongly rejects valid projects.
+        for component in (path, *path.parents):
+            attributes = getattr(component.lstat(), "st_file_attributes", 0)
+            if (component.is_symlink() or
+                    attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)):
+                raise NativeSubjectPreviewError("UNMANAGED_PROJECT")
+        workspace = ManagedWorkspace(path.parent.parent)
+        if workspace.root != path.parent or workspace._path(path.stem) != path:
+            raise NativeSubjectPreviewError("UNMANAGED_PROJECT")
+        return workspace, path.stem
+    except NativeSubjectPreviewError:
+        raise
+    except (OSError, ValueError, TypeError, RuntimeError, WorkspaceError) as exc:
+        raise NativeSubjectPreviewError("INVALID_PROJECT_PATH") from exc
+
+
+
+def _validated_preview(result):
+    """Fail closed at the backend/UI boundary; never trust preview metadata."""
+    import struct
+    import zlib
+
+    dims = result.get("dimensions_px")
+    if (not isinstance(dims, (list, tuple)) or len(dims) != 2 or
+            any(type(value) is not int for value in dims)):
+        raise NativeSubjectPreviewError("INVALID_PREVIEW_RESULT")
+    width, height = dims
+    if width < 1 or height < 1 or width * height > 5_000_000:
+        raise NativeSubjectPreviewError("INVALID_PREVIEW_RESULT")
+    changed = result.get("changed_pixels")
+    if type(changed) is not int or not 0 <= changed <= width * height:
+        raise NativeSubjectPreviewError("INVALID_PREVIEW_RESULT")
+    digest = result.get("preview_mask_sha256_float32")
+    if type(digest) is not str or not _SHA.fullmatch(digest):
+        raise NativeSubjectPreviewError("INVALID_PREVIEW_RESULT")
+    for key in ("before_png_l8", "after_png_l8"):
+        data = result.get(key)
+        if type(data) is not bytes or len(data) > 8 * 1024 * 1024 or len(data) < 33:
+            raise NativeSubjectPreviewError("INVALID_PREVIEW_RESULT")
+        # Standard-library validation: CI admission intentionally lacks Pillow.
+        # Bound compressed and decompressed streams; reject malformed chunks.
+        try:
+            if data[:8] != b"\x89PNG\r\n\x1a\n":
+                raise ValueError("signature")
+            pos, compressed, seen_header, seen_end = 8, [], False, False
+            while pos + 12 <= len(data):
+                size = struct.unpack_from(">I", data, pos)[0]
+                if size > 8 * 1024 * 1024 or pos + 12 + size > len(data):
+                    raise ValueError("chunk size")
+                kind = data[pos + 4:pos + 8]
+                payload = data[pos + 8:pos + 8 + size]
+                crc = struct.unpack_from(">I", data, pos + 8 + size)[0]
+                if zlib.crc32(kind + payload) != crc:
+                    raise ValueError("crc")
+                pos += 12 + size
+                if not seen_header:
+                    if kind != b"IHDR" or size != 13:
+                        raise ValueError("header")
+                    w, h, depth, color, comp, filt, interlace = struct.unpack(">IIBBBBB", payload)
+                    if ((w, h) != (width, height) or
+                            (depth, color, comp, filt, interlace) != (8, 0, 0, 0, 0)):
+                        raise ValueError("format")
+                    seen_header = True
+                elif kind == b"IDAT":
+                    compressed.append(payload)
+                elif kind == b"IEND":
+                    if size != 0 or not compressed or pos != len(data):
+                        raise ValueError("end")
+                    seen_end = True
+                    break
+                elif kind in (b"IHDR", b"PLTE") or (kind[0] & 0x20) == 0:
+                    raise ValueError("unexpected chunk")
+            if not seen_end:
+                raise ValueError("missing end")
+            decoder = zlib.decompressobj()
+            expected = height * (width + 1)
+            raw = bytearray()
+            for chunk in compressed:
+                raw.extend(decoder.decompress(chunk, expected + 1 - len(raw)))
+                if len(raw) > expected or decoder.unconsumed_tail:
+                    raise ValueError("inflated size")
+            raw.extend(decoder.flush(expected + 1 - len(raw)))
+            if len(raw) != expected or not decoder.eof or decoder.unused_data:
+                raise ValueError("inflated size")
+            if any(raw[row * (width + 1)] > 4 for row in range(height)):
+                raise ValueError("filter")
+        except (ValueError, IndexError, struct.error, zlib.error) as exc:
+            raise NativeSubjectPreviewError("INVALID_PREVIEW_RESULT") from exc
+
+
+def preview_native_subject_stroke(
+    *, project_path, expected_sha256, subject_id, mode, radius, points,
+):
+    """Preview one Add/Erase stroke on the actual proven Subject.
+
+    Result is UI-safe: only two PNG L8 previews, bounded metadata and
+    revision/identity. In particular neither replay float32 nor editor
+    document escapes. The managed backend checks the revision before and
+    after CPU processing; old UI generations must still be discarded by
+    the caller if the user switches projects during asynchronous work.
+    """
+    if type(expected_sha256) is not str or not _SHA.fullmatch(expected_sha256):
+        raise NativeSubjectPreviewError("EXPECTED_REVISION_REQUIRED")
+    if type(subject_id) is not str or not _SUBJECT.fullmatch(subject_id):
+        raise NativeSubjectPreviewError("INVALID_SUBJECT_ID")
+
+    workspace, name = _workspace_from_path(project_path)
+    try:
+        snapshot = workspace.inspect(name)
+        if snapshot.get("status") != "PROJECT_HEALTHY":
+            raise NativeSubjectPreviewError("PROJECT_NOT_HEALTHY")
+        if snapshot.get("sha256") != expected_sha256:
+            raise NativeSubjectPreviewError("PROJECT_CHANGED")
+        masks = snapshot.get("base_masks")
+        if not isinstance(masks, dict):
+            raise NativeSubjectPreviewError("NO_VERIFIED_MASKS")
+        catalog = masks.get("mask_identity")
+        if (not isinstance(catalog, dict) or
+                catalog.get("subject_proof_schema_valid") is not True):
+            raise NativeSubjectPreviewError("SUBJECT_NOT_VERIFIED")
+        matches = [
+            row for row in catalog.get("bindings", ())
+            if row.get("subject_id") == subject_id
+        ]
+        if (len(matches) != 1 or
+                matches[0].get("subject_proof_status") != "verified" or
+                matches[0].get("subject_ambiguous") is not False or
+                matches[0].get("has_foreground") is not True):
+            raise NativeSubjectPreviewError("SUBJECT_NOT_VERIFIED")
+        match = matches[0]
+        result = workspace.preview_subject_brush_readonly(
+            name, expected_sha256=expected_sha256,
+            subject_id=subject_id, mask_id=match["mask_id"],
+            mask_sha256_float32=match["mask_sha256_float32"],
+            source_id=catalog["source_id"],
+            source_sha256=masks["editor_fingerprint"],
+            mode=mode, radius=radius, points=points,
+        )
+        # Treat an unexpected backend return type as a stable, fail-closed
+        # preview error, not an AttributeError escaping the Tk worker.
+        if not isinstance(result, dict):
+            raise NativeSubjectPreviewError("INVALID_PREVIEW_RESULT")
+        # Whitelist UI output even if the underlying backend gains internal
+        # fields later. Never leak exact float32 pixels or the editor session.
+        if (result.get("project_sha256") != expected_sha256 or
+                result.get("subject_id") != subject_id or
+                result.get("mask_id") != match["mask_id"] or
+                result.get("persisted") is not False):
+            raise NativeSubjectPreviewError("PREVIEW_IDENTITY_CHANGED")
+        _validated_preview(result)
+        return {
+            "project_sha256": expected_sha256,
+            "subject_id": subject_id,
+            "mask_id": match["mask_id"],
+            "before_png_l8": result["before_png_l8"],
+            "after_png_l8": result["after_png_l8"],
+            "changed_pixels": result["changed_pixels"],
+            "dimensions_px": result["dimensions_px"],
+            "preview_mask_sha256_float32": result["preview_mask_sha256_float32"],
+            "persisted": False,
+            "cricut_certified": False,
+        }
+    except NativeSubjectPreviewError:
+        raise
+    except WorkspaceError as exc:
+        raise NativeSubjectPreviewError(exc.code) from exc
+    except (OSError, KeyError, TypeError, ValueError) as exc:
+        raise NativeSubjectPreviewError("PREVIEW_UNAVAILABLE") from exc
