@@ -116,7 +116,7 @@ class AtelierHistoryStatusTests(unittest.TestCase):
             workspace = ManagedWorkspace(directory)
             created = workspace.create(
                 "history-ui", _png(), profile="Sticker - contour du sujet")
-            project = Path(directory) / "history-ui.smartsvg"
+            project = workspace.root / "history-ui.smartsvg"
             before = project.read_bytes()
             panel = NativeAtelierPanel(root, tk, ttk)
             self.addCleanup(panel.shutdown)
