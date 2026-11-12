@@ -109,7 +109,12 @@ class ImageViewportTests(unittest.TestCase):
         root.update()
         self.assertEqual(viewport.display.get(900, 440), (18, 52, 86))
         # Real Tk key bindings, not only direct handler calls.
-        viewport.canvas.focus_set()
+        # Windows CI has no foreground WM focus: focus_set() is ignored.
+        # Force focus only in this isolated Tk test so actual key-event
+        # dispatch is exercised, rather than just calling the handlers.
+        viewport.canvas.focus_force()
+        root.update()
+        self.assertEqual(root.focus_get(), viewport.canvas)
         viewport.canvas.event_generate('<Home>')
         root.update()
         self.assertTrue(viewport.auto_fit)
