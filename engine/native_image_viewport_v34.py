@@ -82,6 +82,11 @@ class NativeImageViewport:
         self.auto_fit = True
         width = self.canvas.winfo_width() - 2
         height = self.canvas.winfo_height() - 2
+        # Preserve a previously computed fit while Tk is temporarily
+        # unmapped/minimized. Refit on the next valid Configure event.
+        # Initial loading still uses the bounded fallback below.
+        if (width <= 0 or height <= 0) and self.fit_scale is not None:
+            return
         factor = fit_factor(self.original.width(), self.original.height(),
                             width if width > 0 else MAX_SCREEN_WIDTH,
                             height if height > 0 else MAX_SCREEN_HEIGHT)
