@@ -313,6 +313,28 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         writer.assert_not_called()
         self.assertEqual(self.project.read_bytes(), self.before)
 
+    def test_confirmation_dialog_project_change_never_calls_writer(self):
+        """Nested Tk events may invalidate the project while confirmation is open."""
+        from unittest.mock import Mock
+        writer = Mock()
+        self.panel.shutdown()
+        def confirm():
+            # Simulate F5/project switch dispatched by a nested Tk dialog.
+            self.panel.load()
+            return True
+        self.panel = NativeBrushDraftPanel(
+            self.root, self.root, self.tk, self.ttk, preview_fn=self._fn,
+            save_fn=writer, confirm_fn=confirm)
+        self.load()
+        self.stroke()
+        self.assertTrue(self.panel.preview())
+        self.receive()
+        self.assertFalse(self.panel.save())
+        writer.assert_not_called()
+        self.assertIsNone(self.panel._identity)
+        self.assertIsNone(self.panel._verified_save_request)
+        self.assertEqual(self.project.read_bytes(), self.before)
+
     def test_confirmed_save_reuses_exact_cpu_gesture_and_invalidates_panel(self):
         from unittest.mock import Mock
         writer = Mock(return_value={
