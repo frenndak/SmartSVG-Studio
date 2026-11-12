@@ -10,7 +10,7 @@
 
 Produire une nouvelle roadmap complète, directement exécutable par micro-lots et plus approfondie que V3.4, **sans réécrire ni effacer les exigences héritées**. Objectif final : un véritable studio Windows autonome, local-first, express-first mais puissant, ComfyUI facultatif, traitement raster et vectoriel, fabrication Explore 5 avec prévols réalistes, quatre exports distincts, gestion de projets et automatisations IA facultatives.
 
-La V3.5 hérite **intégralement et sans perte** des **24 documents de conception V3.4**, **141 exigences V3.3**, **140 tickets V34**, **437 scénarios proposés à inventorier en détail**, ainsi que des **80 fonctions candidates UX**. Voir [photographie indexée](INHERITANCE_REGISTER.md) : **24/141/140/80 identifiants inventoriés**, ce qui ne constitue **ni spécification V3.5 terminée, ni qualification fonctionnelle**.
+La V3.5 hérite **intégralement et sans perte** des **24 documents de conception V3.4**, **141 exigences V3.3**, **140 tickets V34**, **437 scénarios proposés désormais inventoriés ligne par ligne, mais NON encore rapprochés sémantiquement des critères et tickets**, ainsi que des **80 fonctions candidates UX**. Voir [photographie indexée](INHERITANCE_REGISTER.md) : **24/141/140/80 identifiants inventoriés**, ce qui ne constitue **ni spécification V3.5 terminée, ni qualification fonctionnelle**.
 
 Les archives V3.2/V3.3, la V21.14.1 figée et les spécifications V3.4 restent intactes. La V3.5 ne devient jamais l'autorité au seul motif de l'existence de cette branche.
 
@@ -21,8 +21,8 @@ Les archives V3.2/V3.3, la V21.14.1 figée et les spécifications V3.4 restent i
 | 01. Contrats, sécurité, preuve | projet V1/CAS/identités/float32, reprise, révisions, traçabilité, format V2 uniquement explicitement migré ; tests et preuves | 01, 03–06, 22–24 |
 | 02. Parcours débutant, expert et design system | accueil, Express, canevas, Undo/Redo, calques/objets/texte, inspection, accessibilité ; arbitrage mesuré Tk/Qt/Tauri | 02, 07, 18, annexe UX |
 | 03. Import, détection et masques | PNG/JPEG/WebP/SVG, sécurité et quotas, miniatures, sujets multiples, masques et affinage CPU/IA | 04, 10, 12 |
-| 04. Raster, vectorisation et édition | transparence, nettoyage/anti-halo, upscale conditionnel, courbes/topologie, centre de trait, vrai SVG éditable | 12, 13, 18 |
-| 05. Fabrication physique | CUT/SCORE/DRAW/PRINT/FOIL distincts, Explore 5, patrons, Smart Cut Advisor, Smart Weeding contrôlé, suivi de compatibilité Design Space | 14–16, 22 |
+| 04. Raster, vectorisation et édition | transparence, nettoyage/anti-halo, upscale conditionnel, courbes/topologie, centre de trait, vrai SVG éditable ; **texte éditable, polices, glyphes, licences, OCR contrôlé (G6/G9)** | 12, 13, 18 ; V3.3 G6/G9 |
+| 05. Fabrication physique | CUT/SCORE/DRAW/PRINT/FOIL distincts, Explore 5, patrons, Smart Cut Advisor, Smart Weeding contrôlé, compatibilité Design Space ; **gabarits métiers étiquette/topper/carte et dioramas papier 4 plans, montage contrôlé** | 14–16, 22 ; V3.3 G6/G9 |
 | 06. Export et **Smart Delivery** | 4 rôles de sortie réels, premier ZIP dès un format sain, manifeste et hash, guide hors ligne, provenance, confidentialité, régénération | 05, 17, 20, 22 |
 | 07. Planche, bibliothèque et personnalisation | nesting 12/24/50, reprise, CSV, collections, prénoms/numéros/QR, recettes, Smart Cost indicatif | 19, 20 |
 | 08. Automatisation et IA locale | fournisseurs optionnels, conseil contextuel, consentement, modèles/licences/hash, CPU/GPU, génération/réparation locale, OOM/récupération | 08–11, 12 |
@@ -52,8 +52,9 @@ Chaque cycle horaire d'architecture reprend le **dernier micro-lot effectivement
 
 - [INHERITANCE_REGISTER.md](INHERITANCE_REGISTER.md) — photographie exhaustive des identifiants V3.4 + UX à conserver, non-qualification explicite.
 - [SCENARIOS_V34_INDEX.md](SCENARIOS_V34_INDEX.md) — **437/437 scénarios historiques inventoriés individuellement**, avec sources, lignes, SHA et trois fichiers de copies ; **liens sémantiques aux exigences restant à qualifier**.
+- [COVERAGE_V34_TO_V35.md](COVERAGE_V34_TO_V35.md) — **314 arêtes de planification réciproques**, mais **10 exigences V3.3 G6/G9 sans ticket V34** explicitement à raccorder ; aucune preuve produit déduite.
 - [PROGRESS.md](PROGRESS.md) — journal de préparation et prochaines étapes.
-- **Futurs livrables à créer progressivement :** `COVERAGE_V34_TO_V35.md`, `BACKLOG_AND_DEPENDENCIES.md`, `UX_ARCHITECTURE_AND_WORKFLOWS.md`, `QUALITY_TESTS_AND_EVIDENCE.md`, `ADR_RISKS_OPPORTUNITIES.md`, `PROMOTION_CHECKLIST.md`. Une mention FUTUR n'est pas un fichier déjà présent.
+- **Futurs livrables à créer progressivement :** `BACKLOG_AND_DEPENDENCIES.md`, `UX_ARCHITECTURE_AND_WORKFLOWS.md`, `QUALITY_TESTS_AND_EVIDENCE.md`, `ADR_RISKS_OPPORTUNITIES.md`, `PROMOTION_CHECKLIST.md`. Une mention FUTUR n'est pas un fichier déjà présent.
 
 ## 6. Condition stricte de promotion
 
