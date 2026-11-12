@@ -14,6 +14,20 @@ class ImageViewportTests(unittest.TestCase):
         self.assertEqual(fit_factor(300, 471, 480, 235), 3)
         self.assertEqual(fit_factor(8, 12, 480, 235), 1)
 
+    def test_fit_factor_handles_transient_zero_canvas_without_division(self):
+        from native_image_viewport_v34 import fit_factor
+
+        # Tk can report a zero-sized canvas while constructing/minimizing.
+        self.assertEqual(fit_factor(12, 8, 0, 0), 12)
+        self.assertEqual(fit_factor(12, 8, 0, 4), 12)
+        self.assertEqual(fit_factor(12, 8, 6, 0), 8)
+        # Never upscale a tiny source.
+        self.assertEqual(fit_factor(1, 1, 400, 300), 1)
+        for dimensions in ((0, 8), (12, 0), (-1, 8), (12, -1)):
+            with self.subTest(dimensions=dimensions):
+                with self.assertRaises(ValueError):
+                    fit_factor(*dimensions, 400, 300)
+
     def test_incremental_zoom_keeps_manual_scale_across_resizes_and_clamps(self):
         from native_image_viewport_v34 import NativeImageViewport
 
