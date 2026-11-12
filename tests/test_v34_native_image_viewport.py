@@ -65,6 +65,14 @@ class ImageViewportTests(unittest.TestCase):
         self.assertEqual(viewport.fit_scale, 2)
         self.assertEqual(viewport._zoom_in_key(None), 'break')
         self.assertEqual(viewport.fit_scale, 1)
+        # Keyboard fit restores auto-fit; 0 restores native pixels.
+        self.assertEqual(viewport._fit_key(None), 'break')
+        self.assertTrue(viewport.auto_fit)
+        self.assertEqual(viewport.fit_scale, 5)
+        self.assertEqual(viewport._actual_size_key(None), 'break')
+        self.assertFalse(viewport.auto_fit)
+        self.assertIsNone(viewport.fit_scale)
+        self.assertEqual(shown[-1], (960, 470))
         for _ in range(40):
             viewport.zoom_out()
         self.assertEqual(viewport.fit_scale, 32)
@@ -100,6 +108,21 @@ class ImageViewportTests(unittest.TestCase):
         viewport.actual_size()
         root.update()
         self.assertEqual(viewport.display.get(900, 440), (18, 52, 86))
+        # Real Tk key bindings, not only direct handler calls.
+        # Windows CI has no foreground WM focus: focus_set() is ignored.
+        # Force focus only in this isolated Tk test so actual key-event
+        # dispatch is exercised, rather than just calling the handlers.
+        viewport.canvas.focus_force()
+        root.update()
+        self.assertEqual(root.focus_get(), viewport.canvas)
+        viewport.canvas.event_generate('<Home>')
+        root.update()
+        self.assertTrue(viewport.auto_fit)
+        self.assertEqual(viewport.fit_scale, 2)
+        viewport.canvas.event_generate('<Key-0>')
+        root.update()
+        self.assertFalse(viewport.auto_fit)
+        self.assertIsNone(viewport.fit_scale)
         viewport.canvas.xview_moveto(1)
         viewport.canvas.yview_moveto(1)
         self.assertGreater(viewport.canvas.xview()[0], 0)
