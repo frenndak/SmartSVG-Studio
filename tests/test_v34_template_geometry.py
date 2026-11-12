@@ -139,5 +139,39 @@ class TestV34TemplateGeometry(unittest.TestCase):
         self.assertEqual(second['geometry']['cut_outer'][0], [20, 0])
 
 
+    def test_cut_score_paths_stay_inside_nominal_bounds(self):
+        # V34-126/127: a nominal preview must never advertise out-of-bounds
+        # CUT/SCORE paths to a later fabrication preflight consumer.
+        for maker, args in (
+            (templates.folded_card, (105, 148)),
+            (templates.open_tray, (80, 50, 30, 10)),
+            (templates.open_tray, (80, 50, 30, 1e-6)),
+        ):
+            with self.subTest(template=maker.__name__, dimensions=args):
+                proposal = maker(*args)
+                x0, y0, x1, y1 = proposal['geometry']['bbox_mm']
+                self.assertEqual((x0, y0), (0, 0))
+                for path in proposal['geometry']['paths']:
+                    self.assertIn(path['operation'], ('CUT', 'SCORE'))
+                    self.assertGreaterEqual(len(path['points_mm']), 2)
+                    for x, y in path['points_mm']:
+                        self.assertTrue(x0 <= x <= x1)
+                        self.assertTrue(y0 <= y <= y1)
+
+    def test_template_operation_ids_are_unique_and_not_persisted(self):
+        # A distinct path identity is required before assigning operations
+        # manually; previews must not mutate the user's V1 project.
+        for maker, args in (
+            (templates.folded_card, (105, 148)),
+            (templates.open_tray, (80, 50, 30, 10)),
+        ):
+            with self.subTest(template=maker.__name__):
+                proposal = maker(*args)
+                paths = proposal['geometry']['paths']
+                self.assertEqual(len({p['id'] for p in paths}), len(paths))
+                self.assertFalse(proposal['persisted'])
+                self.assertEqual(proposal['handoff']['design_space_import'], 'NON_EXECUTE')
+                self.assertTrue(proposal['handoff']['requires_manual_score_assignment'])
+
 if __name__ == '__main__':
     unittest.main()
