@@ -29,6 +29,7 @@ class NativeRecoveryPanel:
         self.root, self.messagebox = root, messagebox
         self.refresh, self.can_apply = refresh, can_apply
         self.plan, self.future, self.confirming = None, None, False
+        self._running_plan = None
         self.worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix='smartsvg-recovery')
         self.button = ttk.Button(parent, text='Récupérer le projet', command=self.start)
         self.status = tk.StringVar()
@@ -40,6 +41,11 @@ class NativeRecoveryPanel:
         return self.confirming or self.future is not None
 
     def load(self, plan):
+        if plan is not None and getattr(plan, 'outcome', None) not in ACTIONS:
+            self.plan = None
+            self.button.pack_forget()
+            self.status.set('Plan de récupération inconnu. Réexaminez le projet (F5).')
+            return
         self.plan = plan
         if plan is None:
             self.button.pack_forget()
@@ -65,7 +71,14 @@ class NativeRecoveryPanel:
             return
         self.button.configure(state='disabled')
         self.status.set('Récupération du projet en cours…')
-        self.future = self.worker.submit(plan.apply, confirmed=True)
+        try:
+            future = self.worker.submit(plan.apply, confirmed=True)
+        except RuntimeError:
+            self.button.configure(state='normal')
+            self.status.set('Récupération indisponible. Réexaminez le projet avant un nouvel essai.')
+            return
+        self.future = future
+        self._running_plan = plan
         self.root.after(50, self.receive)
 
     def receive(self):
@@ -73,6 +86,7 @@ class NativeRecoveryPanel:
             self.root.after(50, self.receive)
             return
         future, self.future = self.future, None
+        running_plan, self._running_plan = self._running_plan, None
         try:
             result = future.result()
         except RecoveryError as error:
@@ -81,7 +95,15 @@ class NativeRecoveryPanel:
         except Exception:
             self.status.set('Récupération non confirmée. Réexaminez le projet et ses copies de secours.')
         else:
-            self.status.set(ACTIONS[result['status']][2])
+            # A worker receipt is not proof of success unless its action and
+            # project match the confirmed, revision-pinned recovery plan.
+            if (type(result) is dict and running_plan is not None and
+                    running_plan.outcome in ACTIONS and
+                    result.get('status') == running_plan.outcome and
+                    result.get('project_id') == running_plan.project_id):
+                self.status.set(ACTIONS[running_plan.outcome][2])
+            else:
+                self.status.set('Récupération non confirmée. Réexaminez le projet et ses secours.')
         self.refresh()
 
     def shutdown(self):
