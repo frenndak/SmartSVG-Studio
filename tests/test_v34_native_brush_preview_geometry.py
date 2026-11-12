@@ -1,6 +1,7 @@
 """Regression: native brush comparisons must preserve the archived mask geometry."""
 import pathlib
 import struct
+import zlib
 import sys
 import unittest
 
@@ -14,6 +15,18 @@ def header(width, height):
     return (b"\x89PNG\r\n\x1a\n" + struct.pack(">I", 13) + b"IHDR"
             + struct.pack(">II", width, height) + b"\x08\x00\x00\x00\x00"
             + b"\x00" * 8)
+
+
+def real_png(width, height):
+    """Build a decodable grayscale PNG with valid CRCs, not just an IHDR stub."""
+    def chunk(kind, data):
+        return (struct.pack(">I", len(data)) + kind + data +
+                struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff))
+    scanline = b"\\x00" + b"\\x7f" * width
+    return (b"\\x89PNG\\r\\n\\x1a\\n" +
+            chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0)) +
+            chunk(b"IDAT", zlib.compress(scanline * height)) +
+            chunk(b"IEND", b""))
 
 
 class NativeBrushPreviewGeometryTests(unittest.TestCase):
@@ -35,6 +48,17 @@ class NativeBrushPreviewGeometryTests(unittest.TestCase):
                                                      header(32, 24)))
         self.assertFalse(matching_preview_dimensions(original, header(2049, 24),
                                                      header(32, 24)))
+
+    def test_real_png_comparisons_require_exact_source_geometry(self):
+        """Use complete, CRC-valid PNGs rather than synthetic IHDR-only bytes."""
+        original = real_png(16, 12)
+        before = real_png(16, 12)
+        self.assertTrue(matching_preview_dimensions(original, before, real_png(16, 12)))
+        self.assertFalse(matching_preview_dimensions(original, real_png(12, 16),
+                                                     real_png(16, 12)))
+        self.assertFalse(matching_preview_dimensions(original, before, real_png(16, 13)))
+        # The geometry gate must remain a pure read-only predicate.
+        self.assertEqual(original, real_png(16, 12))
 
 
 if __name__ == "__main__":
