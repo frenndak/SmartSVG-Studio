@@ -28,6 +28,43 @@ class ImageViewportTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     fit_factor(*dimensions, 400, 300)
 
+    def test_configure_during_zero_size_layout_preserves_viewport_and_manual_zoom(self):
+        from native_image_viewport_v34 import NativeImageViewport
+
+        class FakeImage:
+            def width(self): return 960
+            def height(self): return 470
+            def subsample(self, factor): return self
+
+        class FakeCanvas:
+            w, h = 0, 0
+            def winfo_width(self): return self.w
+            def winfo_height(self): return self.h
+
+        viewport = NativeImageViewport.__new__(NativeImageViewport)
+        viewport.original = FakeImage()
+        viewport.canvas = FakeCanvas()
+        viewport.fit_scale = None
+        viewport.auto_fit = True
+        shown = []
+        viewport._show = lambda image: shown.append(image)
+        # Exercise the actual Configure callback and fit consumer, not only
+        # the pure fit_factor helper. No Tk window or V1 write is needed.
+        viewport._resize(None)
+        self.assertEqual(len(shown), 1)
+        self.assertGreaterEqual(viewport.fit_scale, 1)
+        viewport.canvas.w, viewport.canvas.h = 482, 237
+        viewport._resize(None)
+        self.assertEqual(viewport.fit_scale, 2)
+        viewport.actual_size()
+        self.assertFalse(viewport.auto_fit)
+        self.assertIsNone(viewport.fit_scale)
+        before = len(shown)
+        viewport.canvas.w, viewport.canvas.h = 0, 0
+        viewport._resize(None)
+        self.assertEqual(len(shown), before)
+        self.assertIsNone(viewport.fit_scale)
+
     def test_incremental_zoom_keeps_manual_scale_across_resizes_and_clamps(self):
         from native_image_viewport_v34 import NativeImageViewport
 
