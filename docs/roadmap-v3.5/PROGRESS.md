@@ -27,3 +27,21 @@
 - **État de couverture HONNÊTE** : `INVENTAIRE_ID_ET_TEXTE = 437/437` ; `RATTACHEMENT_SÉMANTIQUE_AUX_EXIGENCES_ET_TICKETS = OUVERT` ; `TESTS PRODUITS EXÉCUTÉS PAR CE PASSAGE = 0`. Les 141 exigences, 140 tickets, 24 lots et 80 UX restent conservés par le registre initial, mais leurs critères détaillés ne sont pas tous requalifiés dans V3.5.
 - **Gouvernance** : branche candidate uniquement ; aucune PR documentaire, aucun merge, aucune modification de code, roadmap active V3.4, tâche de développement ou règle AGENTS. Les 25 contrôles anti-perte restent applicables.
 - **Prochaine micro-action PRÉCISE** : commencer `COVERAGE_V34_TO_V35.md` en reliant les 437 scénarios à leurs exigences et tickets, **sur preuves sources explicites**, en traitant d'abord les lots 02–04 et les références du lot 23 ; marquer `À RAPPROCHER` chaque relation qui serait inférée du seul numéro de lot. Ne pas recommencer l'inventaire ni annoncer prématurément une conformité V3.5 intégrale.
+
+## 2026-11-12 — Contre-expertise COV-03 / COV-04 : défauts de couverture et première qualification explicite des scénarios
+
+**Motivation :** demande propriétaire de vérification, contre-expertise, corrections, recherche d'erreurs et optimisation des travaux V3.5. Périmètre documentaire seulement ; V3.4 ACTIVE. Sources historiques inspectées sous `main@aa0ff9e7d0c53dba3fdc429c02c6198736cfe935`, V3.3 norme intégrale et lots V3.4 02/03/04/23.
+
+### Constats et corrections concrètes
+- [COVERAGE_V34_TO_V35.md](COVERAGE_V34_TO_V35.md) : **141 exigences**, **140 tickets**, **314 liens réciproques**, **0 arête unilatérale**, mais **10 exigences V3.3 sans ticket V34 explicite**, héritées G6/G9 (polices/licences/glyphes, OCR, gabarits métiers, dioramas multi-plans). Commit `5a7d53eb5acc216332cfd85c4cb8ebf3ce7dce62`.
+- [COVERAGE_SCENARIOS_02_04.md](COVERAGE_SCENARIOS_02_04.md) : extraction des **19 micro-fiches** et des **52 scénarios des lots 02–04** ; **51/52** ont au moins un ticket source explicite, **1 scénario sans propriétaire direct : T-V34-03-16** (certification de coupe physique). Propriété à arbitrer sans falsifier le lot historique (V34-012/V34-003 candidats). Commit `56587e252a42aa53dc758c97d71d54f78368c47b`.
+- [README.md](README.md) : correction de la mention historique des **437 scénarios déjà inventoriés**, lien vers la nouvelle matrice et visibilité explicite des fonctions héritées **texte/typographie/OCR** et **dioramas quatre plans**, sans les déguiser en nouveautés optionnelles. Commit `8d21201af942e50d7282f8f99374fcd1f583bf65`.
+- Recettes testées : **aucune**. La vérification réalisée est un contrôle de documents/IDs et de références textuelles ; les tests Windows/RTX/Design Space/physiques restent axes distincts. Le fait de lier 51 scénarios à des tickets ne qualifie pas leurs 51 critères techniques.
+
+### Prochain passage horaire à privilégier
+1. Lire COV-03 et COV-04 avant de commencer ; **ne pas refaire** les 437 inventaires ni les 314 liens réciproques.
+2. Confronter les exigences G6/G9 complètes aux critères et aux tickets V3.5 ; produire un vrai dossier de rattrapage de 10 obligations sans renuméroter arbitrairement les 140 tickets V34.
+3. Continuer **COV-05** sur les lots 05–08 pour la relation explicite `scénario→ticket`, puis les autres lots en conservant le statut `NON_ATTRIBUÉ` lorsqu'il manque une ligne source.
+4. Maintenir le développement Windows V3.4 inchangé, la confidentialité des sources et la promotion de gouvernance séparée.
+
+**Conclusion de contre-expertise :** inventaire 24/141/140/80/437 conservé ; liens internes ticket↔exigence **314/314 réciproques**, **10 exigences héritées à raccorder**, scénario→ticket **51/52** sur le sous-ensemble 02–04. Aucun KPI « spécifié / implémenté / testé » gonflé.
