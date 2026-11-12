@@ -158,5 +158,38 @@ class NativeRecoveryUITests(unittest.TestCase):
 
 
 
+    def test_context_switched_inside_dialog_never_starts_old_recovery(self):
+        submissions = []
+        old = plan(project_id='old-project')
+        new = plan(project_id='new-project')
+        def confirm_and_switch(*_args, **_kwargs):
+            # askyesno runs a nested Tk event loop; F5 or project navigation
+            # may invalidate the originally displayed recovery plan.
+            self.panel.load(new)
+            return True
+        self.panel.worker = SimpleNamespace(
+            submit=lambda *args, **kwargs: submissions.append((args, kwargs)))
+        self.panel.messagebox = SimpleNamespace(askyesno=confirm_and_switch)
+        self.panel.load(old)
+        self.panel.start()
+        self.assertIs(self.panel.plan, new)
+        self.assertEqual(submissions, [])
+        self.assertFalse(self.panel.busy)
+        self.assertIn('Sélection modifiée', self.panel.status.get())
+
+    def test_completed_old_recovery_never_claims_current_project_was_restored(self):
+        old = plan(project_id='old-project')
+        new = plan(project_id='new-project')
+        self.panel.load(old)
+        self.panel.start()
+        self.assertEqual(len(self.scheduled), 1)
+        self.panel.load(new)
+        self.scheduled.pop()()
+        self.assertIs(self.panel.plan, new)
+        self.assertIn('non confirmée', self.panel.status.get())
+        self.assertEqual(self.refreshed, [True])
+        self.assertFalse(self.panel.busy)
+
+
 if __name__ == '__main__':
     unittest.main()
