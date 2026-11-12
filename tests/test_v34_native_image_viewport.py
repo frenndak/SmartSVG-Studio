@@ -65,6 +65,41 @@ class ImageViewportTests(unittest.TestCase):
         self.assertEqual(len(shown), before)
         self.assertIsNone(viewport.fit_scale)
 
+    def test_autofit_does_not_resample_on_transient_zero_after_valid_layout(self):
+        from native_image_viewport_v34 import NativeImageViewport
+
+        class FakeImage:
+            def width(self): return 960
+            def height(self): return 470
+            def subsample(self, _factor): return self
+
+        class FakeCanvas:
+            w, h = 0, 0
+            def winfo_width(self): return self.w
+            def winfo_height(self): return self.h
+
+        viewport = NativeImageViewport.__new__(NativeImageViewport)
+        viewport.original = FakeImage()
+        viewport.canvas = FakeCanvas()
+        viewport.fit_scale = 3
+        viewport.auto_fit = True
+        rendered = []
+        viewport._show = lambda image: rendered.append(image)
+
+        # A transient zero-sized canvas is not a request to replace an
+        # already-fitted image with the fallback screen-size preview.
+        viewport._resize(None)
+        self.assertEqual(viewport.fit_scale, 3)
+        self.assertEqual(rendered, [])
+        viewport.canvas.w, viewport.canvas.h = 500, 250
+        viewport._resize(None)
+        self.assertEqual(viewport.fit_scale, 2)
+        self.assertEqual(len(rendered), 1)
+        viewport.canvas.w, viewport.canvas.h = 0, 0
+        viewport._resize(None)
+        self.assertEqual(viewport.fit_scale, 2)
+        self.assertEqual(len(rendered), 1)
+
     def test_incremental_zoom_keeps_manual_scale_across_resizes_and_clamps(self):
         from native_image_viewport_v34 import NativeImageViewport
 
