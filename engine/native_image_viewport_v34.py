@@ -39,6 +39,8 @@ class NativeImageViewport:
             self.canvas.bind(shortcut, self._zoom_in_key)
         for shortcut in ('<minus>', '<KP_Subtract>'):
             self.canvas.bind(shortcut, self._zoom_out_key)
+        self.canvas.bind('<Home>', self._fit_key)
+        self.canvas.bind('<Key-0>', self._actual_size_key)
         for key, axis, direction in (('Left', 'x', -1), ('Right', 'x', 1),
                                      ('Up', 'y', -1), ('Down', 'y', 1)):
             scroll = self.canvas.xview_scroll if axis == 'x' else self.canvas.yview_scroll
@@ -107,6 +109,14 @@ class NativeImageViewport:
 
     def _zoom_out_key(self, _event):
         self.zoom_out()
+        return 'break'
+
+    def _fit_key(self, _event):
+        self.fit()
+        return 'break'
+
+    def _actual_size_key(self, _event):
+        self.actual_size()
         return 'break'
 
     def _show(self, image, reset_view=False):
