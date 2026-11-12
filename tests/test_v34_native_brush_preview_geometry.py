@@ -22,8 +22,8 @@ def real_png(width, height):
     def chunk(kind, data):
         return (struct.pack(">I", len(data)) + kind + data +
                 struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff))
-    scanline = b"\\x00" + b"\\x7f" * width
-    return (b"\\x89PNG\\r\\n\\x1a\\n" +
+    scanline = bytes([0]) + bytes([127]) * width
+    return (bytes([137, 80, 78, 71, 13, 10, 26, 10]) +
             chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0)) +
             chunk(b"IDAT", zlib.compress(scanline * height)) +
             chunk(b"IEND", b""))
