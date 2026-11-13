@@ -91,3 +91,11 @@
 - Décisions : conserver quatre exports distincts et V1 strict, Undo de brouillon distinct du commit, jobs 12/24/50 sans deuxième queue, bibliothèque reconstructible et CSV littéral. Contre-expertise des risques, alternatives rejetées et 25 contrôles documentée.
 - Couverture historique 24/141/140/80/437 inchangée ; 10 exigences G6/G9, T-V34-03-16 et cinq arbitrages 05–08 ouverts. Tests produit/Windows/GPU/Design Space/physique NOT_RUN ; main HEAD exact NON_VÉRIFIÉ. Aucun code, PR, merge, AGENTS ou tâche modifiés.
 - **Prochaine action unique : COV-09**, rapprochement des 24 scénarios lots 21–22, puis revue sémantique.
+
+## 2026-11-13 — COV-09 : lots 21–22, clôture du rapprochement textuel
+
+- **Livrable :** [COVERAGE_SCENARIOS_21_22.md](COVERAGE_SCENARIOS_21_22.md), commit `3d16b5568c2434ea9318efaf97a7c1e738119283`. Sources V3.4 lots 21/22 lues sur main ; blobs `8700846208315f405b7f60266fabf8181e160ff4` et `6fa98816ae2a8048471f6625d3c099df171fb0fb`, identiques à l'index historique.
+- **24/24** scénarios (10+14) ont un ticket V34 explicitement cité ; aucune exception textuelle. Windows/recovery/packaging séparés des tests transversaux et de la certification Design Space/physique. Les 25 critères sont ventilés dans le livrable ; aucune preuve produit n'est créée.
+- **Bilan provisoire des rapprochements explicites 02–22 :** 51/52 + 103/108 + 120/120 + 88/88 (après correction COV-07B) + 45/45 + 24/24 = **431/437**, avec **6 sans ticket source direct** (03-16 et cinq 06/07). Les cinq cas COV-05B ont des propositions sémantiques non validées. Les 10 exigences G6/G9 sans ticket explicite restent ouvertes. Ce total ne certifie ni 431 DoD ni 431 tests.
+- **Preuves :** documentation seulement ; auto/Windows/GPU/Design Space/physique NOT_RUN. `main@HEAD` NON_VÉRIFIÉ : la recherche de commits n'est pas un endpoint autoritatif de branche. Aucun code, AGENTS, PR, merge ou tâche de développement modifiés.
+- **Prochaine action unique :** COV-10, traiter les 10 exigences G6/G9 une à une avec texte et critères source exacts, options de rattachement V3.5 et contre-expertise sans nouveaux tickets V34 fictifs.
