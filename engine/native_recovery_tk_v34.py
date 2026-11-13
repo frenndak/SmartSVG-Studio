@@ -29,6 +29,8 @@ class NativeRecoveryPanel:
         self.root, self.messagebox = root, messagebox
         self.refresh, self.can_apply = refresh, can_apply
         self.plan, self.future, self.confirming = None, None, False
+        self._running_plan = None
+        self._closed = False
         self.worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix='smartsvg-recovery')
         self.button = ttk.Button(parent, text='Récupérer le projet', command=self.start)
         self.status = tk.StringVar()
@@ -40,6 +42,13 @@ class NativeRecoveryPanel:
         return self.confirming or self.future is not None
 
     def load(self, plan):
+        if self._closed:
+            return
+        if plan is not None and getattr(plan, 'outcome', None) not in ACTIONS:
+            self.plan = None
+            self.button.pack_forget()
+            self.status.set('Plan de récupération inconnu. Réexaminez le projet (F5).')
+            return
         self.plan = plan
         if plan is None:
             self.button.pack_forget()
@@ -49,7 +58,7 @@ class NativeRecoveryPanel:
 
     def start(self):
         plan = self.plan
-        if plan is None or self.busy or not self.can_apply():
+        if self._closed or plan is None or self.busy or not self.can_apply():
             return
         action, question, _ = ACTIONS[plan.outcome]
         source = (plan.previous_sha256 if plan.pending_sha256 == 'missing'
@@ -59,20 +68,48 @@ class NativeRecoveryPanel:
             agreed = self.messagebox.askyesno(
                 action, f'{question}\n\nProjet : {plan.project_id}\nCopie vérifiée : SHA {source[:12]}',
                 parent=self.root, default='no')
+        except Exception:
+            # The modal dialog may have dispatched a shutdown event.
+            # Never access a destroyed Tk variable after that shutdown.
+            if not self._closed:
+                self.status.set('Confirmation indisponible. Réexaminez le projet avant un nouvel essai.')
+            return
         finally:
             self.confirming = False
-        if not agreed:
+        # Nested Tk events can destroy the panel while askyesno is open.
+        # This guard precedes all widget access and any writer submission.
+        if self._closed:
+            return
+        # Only an explicit boolean True can authorize the recovery writer.
+        if agreed is not True:
+            return
+        # A modal Tk dialog may dispatch nested project-switch/F5 events.
+        # Never apply an earlier project's plan after the context changed.
+        if self.plan is not plan or not self.can_apply():
+            self.status.set('Sélection modifiée pendant la confirmation. Réexaminez le projet (F5).')
             return
         self.button.configure(state='disabled')
         self.status.set('Récupération du projet en cours…')
-        self.future = self.worker.submit(plan.apply, confirmed=True)
+        try:
+            future = self.worker.submit(plan.apply, confirmed=True)
+        except RuntimeError:
+            self.button.configure(state='normal')
+            self.status.set('Récupération indisponible. Réexaminez le projet avant un nouvel essai.')
+            return
+        self.future = future
+        self._running_plan = plan
         self.root.after(50, self.receive)
 
     def receive(self):
+        # Tk may still dispatch an already queued callback during teardown.
+        # The worker is joined by shutdown; never touch destroyed widgets.
+        if self._closed or self.future is None:
+            return
         if not self.future.done():
             self.root.after(50, self.receive)
             return
         future, self.future = self.future, None
+        running_plan, self._running_plan = self._running_plan, None
         try:
             result = future.result()
         except RecoveryError as error:
@@ -81,8 +118,18 @@ class NativeRecoveryPanel:
         except Exception:
             self.status.set('Récupération non confirmée. Réexaminez le projet et ses copies de secours.')
         else:
-            self.status.set(ACTIONS[result['status']][2])
+            # A worker receipt is not proof of success unless its action and
+            # project match the confirmed, revision-pinned recovery plan.
+            if (type(result) is dict and running_plan is not None and
+                    self.plan is running_plan and
+                    running_plan.outcome in ACTIONS and
+                    result.get('status') == running_plan.outcome and
+                    result.get('project_id') == running_plan.project_id):
+                self.status.set(ACTIONS[running_plan.outcome][2])
+            else:
+                self.status.set('Récupération non confirmée. Réexaminez le projet et ses secours.')
         self.refresh()
 
     def shutdown(self):
+        self._closed = True
         self.worker.shutdown(wait=True)
