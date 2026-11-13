@@ -1,5 +1,7 @@
 # COV-18A-1b — Complément de traçabilité A/B (20 IDs restants) — 13/11/2026
 
+> **RECTIFICATIF DOCUMENTAIRE DU 13/11/2026 — SUPERSEDED FOR B12/B13 ONLY :** Les hypothèses de rattachement B12→S-021/S-047 et B13→S-064/R33-028 dans ce tableau sont **inversées par rapport aux critères métier**. Utiliser désormais [COV18A3C_B_REMAINING_CORRECTED.md](COV18A3C_B_REMAINING_CORRECTED.md) : **B12 texte→chemins = S-036/S-064/R33-028 ; B13 OCR = S-021/S-047**, et ne pas confondre les dépendances de police après OCR avec un moteur OCR. La présente fiche demeure un historique des hypothèses, non une autorité adoptée.
+
 **Statut : CANDIDAT / NON CERTIFIÉ.** Suite de COV18A1_AB_EXACT_TRACE_FIRST_PASS.md (10 IDs). Cette fiche complète l'inventaire des **20 autres IDs** sans transformer des proximités fonctionnelles en arêtes normatives. Source de contrôle : lot 23 V3.4 sur main, COV17A/B, COV18A et #134. La V3.4 reste ACTIVE.
 
 ## 1. Correspondances sémantiques candidates, non adoptées
