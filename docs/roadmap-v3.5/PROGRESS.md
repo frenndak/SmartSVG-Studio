@@ -165,3 +165,22 @@
 - Limite explicite : rapprochement exact par S/R33/ticket/scénario/DoD et audit approfondi du code A01–A16 non terminés ; 0/16 certifiée prête à coder. Aucun test produit exécuté ; Windows/GPU/Design Space/physique NOT_RUN. Main HEAD NON_VÉRIFIÉ dans ce cycle.
 - Inventaire historique 24/141/140/80/437 conservé ; 431/437 liens explicites, six exceptions, dix G6/G9 sans ticket V34 direct toujours ouverts. Aucune modification main, AGENTS, code, PR, merge ou automatisation.
 - **Prochaine action unique : COV-17B** — examiner B01–B14 individuellement (objets/calques/texte/OCR), ports V1 et critères exacts, contre-expertise et DoD.
+
+## 2026-11-13 — V35-COV-17A/B/C/D/E : 80 décisions UX candidates contrôlées
+
+**Demande de poursuite propriétaire :** audits A01–E20 réalisés dans la même session après la consolidation COV10C–16, sans réécrire les critères V3.3/V3.4. Les cinq documents reprennent les libellés historiques #134 et documentent pour chaque ID une décision candidate, état du port existant ou limite, critère/DoD et négatifs.
+
+| Dossier candidate UX | IDs contrôlés | Commit GitHub publié |
+|---|---:|---|
+| [COV17A — image/sélection/vectoriel](COV17A_UX_A01_A16_SEMANTIC_AUDIT.md) | **16/16 A01–A16** | `0bc92965636cc4db269259fcece682ca142dcc4b` |
+| [COV17B — objets/calques/texte](COV17B_UX_B01_B14_SEMANTIC_AUDIT.md) | **14/14 B01–B14** | `f41a1c9f6c86a71b6b95bbba432cba38065369c9` |
+| [COV17C — Cricut/fabrication](COV17C_UX_C01_C18_SEMANTIC_AUDIT.md) | **18/18 C01–C18** | `1f64a6f399d83ab1d3e1de7e0956aef00d2bc8b1` |
+| [COV17D — IA/automatisation](COV17D_UX_D01_D12_SEMANTIC_AUDIT.md) | **12/12 D01–D12** | `2a4c731651338d18c08c1117d303ce32950708ff` |
+| [COV17E — application/qualité](COV17E_UX_E01_E20_SEMANTIC_AUDIT.md) | **20/20 E01–E20** | `ecb9d59d9d2816fa49f99db3f829058d6a809351` |
+
+- **Contrôle réellement exécuté** : relecture par GitHub des cinq fichiers, extraction des IDs des tableaux, comparaison à l'univers A01–A16, B01–B14, C01–C18, D01–D12, E01–E20 : **80 lignes, 80 IDs distincts, zéro oublié/dupliqué**, blobs présents. [README](README.md) actualisé commit `8f5196b779222c092af3d2ffc2f5215b53e81ae7`.
+- **Réalité technique vérifiée** : `vectorize_flat_art` pour groupes couleurs éditables, `auto_hd` dérivé CPU, `auto_masks` propositions conservatrices, `NativeAtelierPanel` et `NativeImageViewport` Tk, `project_recovery` CAS et `artifact_qa` statique. **Le fait qu'un port existe n'implique pas que le parcours complet est disponible**. Risque explicitement inscrit : `provider_v2112` peut télécharger des poids au premier appel, donc consentement/hashes/licences avant invocation.
+- **État honnête** : `UX_DECISIONS_CANDIDATES=80/80` ; `UX_DECISIONS_INDEPENDENTLY_REVIEWED=0/80` dans cette session ; `UX_DOC_ADOPTED=0/80`. Les critères historiques complets/relations exactes tickets et DoD doivent encore être confrontés un par un. **Tests produits de cette session = 0**, Windows UI/RTX/Design Space/physique NOT_RUN.
+- **Autres obligations** : 24/141/140/437 inventaires conservés, 431/437 citations scenario→ticket historiques et six arbitrages COV16 **candidats** ; dix exigences G6/G9 ont des responsables **proposés**, pas adop­tés.
+- **Gouvernance** : main et code produit inchangés, aucune PR documentaire ni merge, V3.4 normative, automatisations horaires inchangées.
+- **Prochaine action UNIQUE : V35-COV-18A** : contre-expertise croisée indépendante des **80 décisions UX candidates** avec 141 critères historiques / 140 tickets / 33 opportunités. Commencer par **A01–A16 et B01–B14**, lier explicitement chaque critère et DoD au contrat existant ou à un delta V3.5, noter `UNASSIGNED` et refuser les doublons. Ensuite C/D/E et revue de promotion de la documentation. **Ne pas recommencer les 5 fiches individuelles**, ajouter leur revue critique et la traçabilité sémantique.
