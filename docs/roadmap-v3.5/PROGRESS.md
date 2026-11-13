@@ -60,3 +60,11 @@
 - **Preuves :** documentation uniquement ; 0 test produit, Windows, GPU, Design Space ou coupe physique exécuté. 24 lots / 141 exigences / 140 tickets / 80 UX / 437 scénarios inventoriés restent des comptes d'héritage, pas des certifications ; 10 exigences G6/G9 sans ticket explicite et `T-V34-03-16` ouverts. Les 25 contrôles restent applicables, pas tous certifiés par ce micro-lot.
 - **HEAD main :** NON_VÉRIFIÉ de façon autoritative ; la recherche de commits renvoie `aa0ff9e7...` en premier, mais ne garantit pas la tête de branche. Sources 06/07 lues sur main avec blob SHA précis.
 - **Prochaine action unique :** COV-06, rapprochement explicite des scénarios 09–12, avec liste des exceptions et contrôle des critères, sans recompiler les 437 scénarios.
+
+## 2026-11-13 — COV-06 : scénarios 09–12, matrice des plages explicites
+
+- **Livrable :** [COVERAGE_SCENARIOS_09_12.md](COVERAGE_SCENARIOS_09_12.md), commit `3ee735d13aab51dc757e5ed3882f5d6ca4ee974b` sur branche candidate ; quatre sources V3.4 lues sur `main` avec blobs identiques au snapshot d'inventaire.
+- **Résultat :** 120/120 scénarios (30 par lot) possèdent au moins une référence explicite dans les plages de tests des tickets V34 ; 0 exception textuelle. Les tickets transversaux de corpus couvrant T01..30 ne suffisent **pas** à démontrer un propriétaire fonctionnel ou une spécification testée. Les liens détaillés sont listés un par un ; aucune réécriture des 437 textes sources.
+- **Couverture :** 24/141/140/80/437 identifiants historiques conservés, non qualifiés intégralement ; 10 exigences G6/G9 sans ticket explicite, scénario 03-16 et cinq arbitrages 05–08 restent ouverts. COV-06 est une qualification de liens, pas une preuve de tests.
+- **Exécution :** 0 test produit, Windows, GPU, Design Space ou coupe physique. Main HEAD exact NON_VÉRIFIÉ ; les blobs source sont vérifiés mais la recherche de commits ne garantit pas la tête de branche. Aucune PR, merge, modification de code/AGENTS ni tâche de développement.
+- **Prochaine action unique :** COV-07, scénarios 13–16, établir les liens source explicites et exceptions ; ensuite revenir aux dossiers G6/G9 et à la revue sémantique.
