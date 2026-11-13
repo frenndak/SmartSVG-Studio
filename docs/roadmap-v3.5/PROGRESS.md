@@ -77,3 +77,9 @@
 - Contre-expertise : le dossier reste **INACHEVÉ** et nécessite relecture humaine des plages abrégées, en particulier tickets V34-096..128. Ne pas passer à COV-08 avant correction des faux NON_ATTRIBUÉ et audit sémantique. Les 25 contrôles sont conservés comme contrat ; aucune validation exhaustive n'est revendiquée.
 - 0 test produit exécuté ; aucune preuve Windows/GPU/Design Space/physique ; aucun code, merge, AGENTS ou tâche modifiés. Main HEAD NON_VÉRIFIÉ (recherche de commits non autoritative). Trois PR code ouvertes #138–140.
 - **Prochaine action unique :** COV-07B, parser et contrôler manuellement les plages composées dans les micro-tickets 13–16, rectifier les 88 lignes et publier un arbitrage des exceptions réelles.
+
+## 2026-11-13 — COV-07B : correction des 39 faux NON_ATTRIBUÉ
+
+- Livrable [COVERAGE_SCENARIOS_13_16_CORRECTION.md](COVERAGE_SCENARIOS_13_16_CORRECTION.md), commit `57d1ed427777c2b2242b422691eff3f4fba4b762`. Relecture des plages sources lots 13–16 aux quatre blob SHA inchangés : **88/88 scénarios cités textuellement par au moins un ticket** contre borne inférieure 49/88 dans COV-07. Les plages composées expliquent les 39 faux négatifs ; COV-07 est conservé comme trace historique, non supprimé.
+- Ce résultat ne certifie ni adéquation sémantique, ni DoD, ni test exécuté. 10 exigences G6/G9 sans ticket direct et `T-V34-03-16` toujours ouverts ; inventaire 24/141/140/80/437 conservé. 25 contrôles ventilés dans le livrable, aucun changement de code, PR, merge, AGENTS ou tâche. Tests produit et terrain NOT_RUN. Main HEAD NON_VÉRIFIÉ.
+- **Prochaine action unique : COV-08, liens explicites scénarios 17–20.**
