@@ -48,13 +48,23 @@ Chaque cycle horaire d'architecture reprend le **dernier micro-lot effectivement
 5. Publie un changement concret sur cette branche si les outils le permettent, sinon une fiche substantielle #142, et inscrit les preuves dans PROGRESS. Ne pas multiplier les PR documentaires ni perturber la tâche de développement.
 6. Conserve **la profondeur de contre-expertise** : la réduction de longueur du prompt n'est jamais un résultat ; seules des lectures évitées à SHA inchangé, des fiches plus solides et une couverture explicitement contrôlée constituent une optimisation.
 
-## 5. Documents et états
+## 5. Documents et états — campagne de consolidation au 13 novembre 2026
 
-- [INHERITANCE_REGISTER.md](INHERITANCE_REGISTER.md) — photographie exhaustive des identifiants V3.4 + UX à conserver, non-qualification explicite.
-- [SCENARIOS_V34_INDEX.md](SCENARIOS_V34_INDEX.md) — **437/437 scénarios historiques inventoriés individuellement**, avec sources, lignes, SHA et trois fichiers de copies ; **liens sémantiques aux exigences restant à qualifier**.
-- [COVERAGE_V34_TO_V35.md](COVERAGE_V34_TO_V35.md) — **314 arêtes de planification réciproques**, mais **10 exigences V3.3 G6/G9 sans ticket V34** explicitement à raccorder ; aucune preuve produit déduite.
-- [PROGRESS.md](PROGRESS.md) — journal de préparation et prochaines étapes.
-- **Futurs livrables à créer progressivement :** `BACKLOG_AND_DEPENDENCIES.md`, `UX_ARCHITECTURE_AND_WORKFLOWS.md`, `QUALITY_TESTS_AND_EVIDENCE.md`, `ADR_RISKS_OPPORTUNITIES.md`, `PROMOTION_CHECKLIST.md`. Une mention FUTUR n'est pas un fichier déjà présent.
+**Les grandes rubriques de la roadmap V3.5 disposent maintenant d'un premier dossier de conception, mais leurs critères ne sont pas tous contre-expertisés individuellement.** En particulier, un inventaire 100 % ne signifie pas une adoption normative ni un produit Windows terminé.
+
+- [INHERITANCE_REGISTER.md](INHERITANCE_REGISTER.md) — conservation des 24 lots, 141 exigences, 140 tickets et 80 capacités UX historiques.
+- [SCENARIOS_V34_INDEX.md](SCENARIOS_V34_INDEX.md) — les 437/437 assertions originales, sources/SHAs, 3 inventaires ; **6 scénarios sans lien TEST→TICKET source direct**.
+- [COVERAGE_V34_TO_V35.md](COVERAGE_V34_TO_V35.md) — 314 relations source réciproques, **10 exigences G6/G9 sans V34 direct**, lacunes explicitement maintenues.
+- [COV10C_V1_TEXT_EXPORT_PORTS.md](COV10C_V1_TEXT_EXPORT_PORTS.md) — inspection du code réel, des API V1/CAS, édition/texte, des 4 rôles export et du packaging historique; correction d'une inversion S-037/S-064 dans COV-10B.
+- [BACKLOG_AND_DEPENDENCIES.md](BACKLOG_AND_DEPENDENCIES.md) — 17 unités candidates W00–W16, priorités, graphe de dépendances et jalons A/B/C sans création de 17 tickets artificiels.
+- [UX_ARCHITECTURE_AND_WORKFLOWS.md](UX_ARCHITECTURE_AND_WORKFLOWS.md) — 8 parcours E2E, **80/80 capacités A01–E20** placées dans un domaine UX et une priorité de conception provisoire.
+- [QUALITY_TESTS_AND_EVIDENCE.md](QUALITY_TESTS_AND_EVIDENCE.md) — tests positifs/négatifs, corruption/reprise, QA, Windows/CPU/GPU/Design Space/physique strictement séparés.
+- [ADR_RISKS_OPPORTUNITIES.md](ADR_RISKS_OPPORTUNITIES.md) — ADR candidates, registres de risques, **33/33 opportunités historiques** préservées avec leurs rejets, arbitrage détaillé encore ouvert.
+- [PROMOTION_CHECKLIST.md](PROMOTION_CHECKLIST.md) — **15 gates de NO-GO/GO** documentaires, revue contradictoire, PR docs puis promotion de gouvernance séparée.
+- [AUTOMATION_QUALITY_CONTRACT.md](AUTOMATION_QUALITY_CONTRACT.md) — 25 contrôles obligatoires pour éviter la dégradation du prompt horaire.
+- [PROGRESS.md](PROGRESS.md) — journal des opérations réellement écrites, des écarts et de la prochaine étape unique.
+
+**État de la suite :** les **80 décisions UX individuelles**, les **437 rappro­chements sémantiques détaillés** (au-delà des 431 citations), l'arbitrage des **6+10 exceptions**, la validation complète des **33 opportunités**, les benchmarks UI, la contre-expertise croisée et la PR documentaire sont **encore ouverts**. Les tests produit restent distincts et ne sont PAS déduits de ces fichiers. Préserver la V3.4 active et la tâche de développement inchangée.
 
 ## 6. Condition stricte de promotion
 
