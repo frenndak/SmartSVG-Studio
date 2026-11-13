@@ -116,3 +116,36 @@
 - **Arbitrage :** dix exigences conservées et regroupées en propriétaires **candidats**, sans nouveau ticket V34, moteur concurrent ou modification de la whitelist du prévol. Les API texte/objet/writer/export n'ont pas encore été inspectées exhaustivement ; l'absence de résultat de recherche n'est pas une preuve d'absence de fonctionnalité.
 - **Preuves :** audit documentaire uniquement, tests unitaires, UI Windows, GPU, Design Space et coupe physique **NOT_RUN**. main@HEAD **NON_VÉRIFIÉ**. Inventaire 24/141/140/80/437 inchangé, 431/437 liens explicites, six exceptions, dix G6/G9 sans ticket direct encore ouverts. Les 25 contrôles ventilés sans certification fictive.
 - **Prochaine action unique : COV-10C**, examiner API V1, texte/objets et exporteurs, puis confirmer ou rejeter les propriétaires candidats avec références exactes.
+
+## 2026-11-13 — COV-10C à COV-15 : consolidation transversale et vérification des inventaires
+
+**Contexte :** continuation demandée par le propriétaire. La tâche horaire V3.5 est active et la roadmap V3.4 reste normative pour le développement. `main@aa0ff9e7d0c53dba3fdc429c02c6198736cfe935` a été vérifié par le véritable endpoint GitHub `GET /repos/frenndak/SmartSVG-Studio/branches/main`, et non par un tri de commits. Trois PR code DRAFT #138/#139/#140 restent ouvertes à la lecture, aucune PR documentaire supplémentaire créée.
+
+### Fiches, corrections et commits réellement publiés sur la branche candidate
+
+- **Erratum COV-10B** : inversion historique corrigée (**S-037 = gabarits métiers**, **S-064 = licences/typographie**, **R33-028 = glyphes/licences G6–G8**, pas diorama). Commit `f79ca9f3eaa9e46bc0a15ba9edab8fc8b1744ba4`.
+- [COV10C_V1_TEXT_EXPORT_PORTS.md](COV10C_V1_TEXT_EXPORT_PORTS.md), commit `5b14ee8d0c51e42d4845b755e9502743f7c23c30` : lecture des API `LoadedProject`, `Artifact`, `ManagedWorkspace`, `editor_v216`, recovery CAS, production historique PNG, prévol/export, QA, `delivery_manifest` et `write_delivery` JSON ; contrats réels vs interfaces *proposées* explicitement distingués. `Artifact.use` V1 = 3 types, mais 4 sorties métier distinctes, SVG multicouche externe.
+- [BACKLOG_AND_DEPENDENCIES.md](BACKLOG_AND_DEPENDENCIES.md), commit `4a1cf15a619a4d9d2592abd69246bcb69b0734b1` : **17 unités candidates W00–W16** P0/P1/P2, vrai graphe de dépendances, gates A/B/C, G6/G9 conservés. Ce ne sont pas 17 nouveaux tickets normatifs.
+- [UX_ARCHITECTURE_AND_WORKFLOWS.md](UX_ARCHITECTURE_AND_WORKFLOWS.md), commit `06a9a744518879b1edef210a41ec4adec402416e` : **8 parcours UX**, 80 IDs A01–E20 avec intitulés originaux #134, domaines et priorités provisoires ; 30 P0/41 P1/9 P2 candidats, non adoptés et non certifiés.
+- [QUALITY_TESTS_AND_EVIDENCE.md](QUALITY_TESTS_AND_EVIDENCE.md), commit `8c275394c919a415924ce19dfccc462968595050` : séparation stricte des preuves DOC/UNIT/Windows UI/GPU/Design Space/physique, cinq parcours E2E, cas adversariaux et récupération ; aucun test produit exécuté par cette opération.
+- [ADR_RISKS_OPPORTUNITIES.md](ADR_RISKS_OPPORTUNITIES.md), commit `92b44e3da2452bbeaa5520b88db27850f0efbb46` : neuf ADR candidates, risques, **33/33 opportunités historiques avec décisions/rejets conservés**, premières décisions sur les nouvelles idées #141. Les 33 arbitrages individuels *complets* restent ouverts.
+- [PROMOTION_CHECKLIST.md](PROMOTION_CHECKLIST.md), commit `9a4d311d7dfda727b99b39831c5fac7bd0922f63` : **15 gates NO-GO/GO**, revue et PR docs puis modification de gouvernance séparée, aucune promotion automatique.
+- [README.md](README.md), commit `a7d1a6883ec167a16ea3d6769bb51e7bcf879d99` : liens vers tous les nouveaux livrables, état honnête des gates encore ouverts.
+
+### Vérifications réellement effectuées
+
+- Relecture des fichiers documentaires publiés : **24/24 lots**, **141/141 exigences**, **140/140 tickets**, **80/80 IDs UX**, **437/437 scénarios historiques distincts**, **33/33 opportunités**, **17/17 unités W00–W16** et **15/15 gates G35** inventoriés. Aucune disparition d'identifiant dans ces inventaires.
+- Contrôle des liens relatifs des six documents principaux et du README : **0 cible locale manquante** parmi les liens testés sur la branche.
+- La matrice antérieure demeure : **314/314** arêtes réciproques exigence–ticket dans V34, **431/437** références scénarios→tickets explicites; **6** scénarios non reliés explicitement et **10** obligations historiques G6/G9 sans ticket V34 direct restent ouverts.
+- Aucune preuve de fonctions 80/80 prêtes à coder, ni de 437 tests PASS. **Tests produit exécutés par cette opération : 0** ; Windows/GPU/Design Space/Cricut PHYSICAL = **NOT_RUN**. Audit de code source et des documents uniquement.
+- Aucune modification de `main`, `AGENTS.md`, des archives, des sources produit ni de la tâche horaire de développement. Aucune PR docs ni merge.
+
+### Revue contradictoire et prochaine action précise
+
+**La campagne V3.5 a une PREMIÈRE STRUCTURE DOCUMENTAIRE pour tous les grands domaines, mais pas encore la contre-expertise sémantique complète exigence par exigence. NE PAS PROMOUVOIR.**
+
+1. **Prochaine action unique COV-16** : auditer sans raccourci les **six scénarios sans propriétaire source** et les **dix obligations G6/G9**, confronter leurs critères V3.3 à COV10C/W10/W11/W16, proposer puis faire revoir les propriétaires V35 sans inventer de liens V34.
+2. Ensuite **COV-17** : revoir individuellement les **80 IDs UX** et les **33 opportunités O-001..O-033**, rendre une décision argumentée en regard de V34 et de #141, et ne pas masquer les fonctions rejetées.
+3. Ensuite **COV-18** : rapprocher sémantiquement les **437** recettes et leur DoD, produire audit indépendant, vérifier l'ensemble des **15 gates** et préparer une PR documentaire **seulement quand WIP et revue le permettent**.
+
+**Règle de relance** : ne pas recompiler une nouvelle fois les 437 identifiants ni recréer COV10C–15. La tâche horaire doit reprendre au premier écart sémantique réel, documenter les preuves exact-head et poursuivre la roadmap entière.
