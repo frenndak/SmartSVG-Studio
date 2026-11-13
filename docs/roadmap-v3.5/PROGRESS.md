@@ -298,3 +298,10 @@ Trois nouveaux documents **effectivement publiés puis relus** sur la branche ca
 - [COV18D3_QA_RELEASE_PRIVACY_E13_E20_HOSTILE.md](COV18D3_QA_RELEASE_PRIVACY_E13_E20_HOSTILE.md), commit `b99d785e1f54dd342dc682985e5912ee786951c3` : huit IDs E13–E20 traités séparément, contrats candidats de previews stales, diagnostics tri-state, QA raster/SVG/fabrication, release offline/rollback, confidentialité et tutoriels ; six négatifs, crash/concurrence, 25 axes. **80/80 fonctions UX ont désormais une revue contradictoire de deuxième niveau ; 0/80 certifiées prêtes à coder.**
 - Inventaires historiques 24/141/140/80/437 conservés ; 431/437 liens historiques explicites et six exceptions, dix G6/G9 sans ticket direct restent ouverts. **DoD V34 locaux, ports HEAD et couverture sémantique non certifiés** ; tests produit, Windows, GPU, Design Space et coupe physique NOT_RUN. Main HEAD NON_VÉRIFIÉ ; aa0ff9e7 est seulement snapshot historique. V3.4 ACTIVE ; aucun code, AGENTS, PR, merge ni automatisation modifiés.
 - **Prochaine action UNIQUE V35-COV-19** : ouvrir OPPORTUNITIES.md et #141, décider individuellement O-001..O-033 avec valeur, coût, dépendances, alternatives et non-doublons ; confronter les décisions au registre V3.5.
+
+
+## 2026-11-13 — V35-COV-19 : arbitrage des 33 opportunités historiques
+
+- [COV19_OPPORTUNITIES_001_033_DECISIONS.md](COV19_OPPORTUNITIES_001_033_DECISIONS.md), commit `944f9219a174e0447efb10d5c576efd933067724` : O-001..O-033 repris individuellement, 25 conservés/reportés, huit rejetés avec motifs, rapprochements et risques. Fusion UX ≠ suppression de critère.
+- Source OPPORTUNITIES.md main et issues #141/#142 consultées. Tests code/Windows/GPU/Design Space/physique NOT_RUN ; DoD exacts et 25 contrôles de certification restent ouverts. main@HEAD NON_VÉRIFIÉ. Inventaires 24/141/140/80/437, 431/437 liens historiques et dix G6/G9 sans ticket direct inchangés.
+- **Prochaine action UNIQUE V35-COV-20** : approfondir O-001/O-002/O-004/O-028/O-032 avec Smart Delivery V1/V2 et DoD fabrication exacts, sans changer V3.4 ACTIVE.
