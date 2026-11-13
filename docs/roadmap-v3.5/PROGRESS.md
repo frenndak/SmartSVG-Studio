@@ -203,3 +203,11 @@ La tâche horaire a publié indépendamment [COV17A_UX_A01_A16_SEMANTIC_REVIEW.m
 - Contre-expertise : A04 sélection ≠ segmentation, A08 interpolation ≠ détail restauré, A12/A15 SVG d'édition ≠ CUT, B04/B09 brouillon ≠ persistance V1 autorisée. Cinq négatifs et reprise prévus, non exécutés.
 - Inventaires historiques 24/141/140/80/437 inchangés ; 431/437 liens scénarios↔tickets source et six exceptions inchangés ; **10/30 liens UX candidats de première tranche, 0/30 certifiés**. Tests produits 0 ; Windows/GPU/Design Space/physique NOT_RUN. Main HEAD NON_VÉRIFIÉ par lecture de branche dans cette passe.
 - Aucune modification main, AGENTS, code produit, PR, merge ni tâche de développement. **Prochaine action unique COV-18A-1b : compléter les 20 IDs A/B restants avec exigences, tickets, scénarios spécifiques et DoD intégraux, puis revue contradictoire des 30.**
+
+
+## 2026-11-13 — COV-18A-1b : complément 20/20 associations A/B
+
+- [COV18A1B_AB_TRACE_REMAINING_20.md](COV18A1B_AB_TRACE_REMAINING_20.md), commit `ac6ca2d9547b77d8a3b138a8a3d73f3e3f273039` : 20 IDs A/B supplémentaires rapprochés des points d'entrée S, tickets V34 lorsqu'ils existent et tests transversaux. **10 + 20 = 30/30 IDs A/B candidats, 0/30 certifiés** ; UX→S inféré, critères intégraux, DoD et scénarios locaux encore à confronter.
+- Inventaires 24/141/140/80/437, 431/437 liens historiques, six exceptions, dix exigences G6/G9 sans ticket V34 direct inchangés. Contrat 25 axes ventilé dans la fiche ; quatre exports, V1/CAS/float32, tri-state et IA opt-in préservés.
+- Aucun test produit/Windows/GPU/Design Space/coupe physique exécuté (NOT_RUN). main@HEAD NON_VÉRIFIÉ ; aucune modification code, AGENTS, PR, merge ou tâche de développement.
+- **Prochaine action unique COV-18A-2** : confronter les 30 associations A/B aux critères V3.3 intégraux, DoD V34 et scénarios locaux, avec revue contradictoire avant certification.
