@@ -219,3 +219,11 @@ La tâche horaire a publié indépendamment [COV17A_UX_A01_A16_SEMANTIC_REVIEW.m
 - Main : dernier SHA retourné par recherche de commits `aa0ff9e7d0c53dba3fdc429c02c6198736cfe935`, **HEAD DE BRANCHE NON VÉRIFIÉ** ; PR ouvertes observées #138/#139/#140. Aucun test produit exécuté ; Windows/GPU/Design Space/physique NOT_RUN.
 - Inventaires 24/141/140/80/437 conservés ; 431/437 liens historiques explicites, six exceptions et dix exigences G6/G9 sans ticket direct inchangés. Aucun code, AGENTS, PR, merge ou automatisation modifiés.
 - **Prochaine action unique COV-18A-2b :** lire critères V3.3 intégraux et DoD locaux exacts des six IDs, associer les scénarios locaux avec lignes et résoudre les écarts avant d'étendre la revue aux 24 autres.
+
+
+## 2026-11-13 — COV-18A-2b : six critères historiques confrontés
+
+- Livrable [COV18A2B_V33_CRITERIA_SIX.md](COV18A2B_V33_CRITERIA_SIX.md), commit `e1a8bafa1163569625102a370a2c6308944ce7db`. Lecture des sources V3.3 MASTER/TRACEABILITY/HERITAGE et du lot 23 V3.4 : six critères textuels et dépendances pour A02/A03/A04/A08/A12/B09, correction des surinterprétations (12 sujets même ID, rejet des faux sujets, avant/après objectif, quatre profils séparés, pas de substitution de police). Trois protocoles TDD et négatifs ajoutés, non exécutés.
+- **Reste ouvert** : DoD complets des tickets locaux et scénarios locaux exacts, puis confrontation des 24 autres A/B. 6/30 critères examinés, **0/30 certifiés**. Univers historiques 24/141/140/80/437 inchangés ; 431/437 liens historiques explicites, six exceptions et dix G6/G9 sans ticket direct.
+- Main HEAD de branche NON_VÉRIFIÉ ; recherche de commits renvoie `aa0ff9e7d0c53dba3fdc429c02c6198736cfe935` comme dernier commit indexé, non preuve du HEAD actuel. Tests produits, Windows, GPU, Design Space, physique NOT_RUN. Aucun code, AGENTS, merge, PR ni automatisation modifiés.
+- **Prochaine action unique COV-18A-2c** : retrouver DoD et tests locaux des tickets A02/A03/A04/A08/A12/B09 dans les lots V3.4 concernés et consigner les écarts assertion par assertion.
