@@ -249,6 +249,49 @@ class ImageViewportTests(unittest.TestCase):
         viewport.load(None)
         self.assertEqual(viewport.canvas.find_all(), ())
 
+    def test_real_tk_container_resize_refits_only_in_auto_mode(self):
+        """Resize the actual Tk container, not a synthetic Configure payload."""
+        import tkinter as tk
+        from tkinter import ttk
+        from native_image_viewport_v34 import NativeImageViewport
+
+        try:
+            root = tk.Tk()
+        except tk.TclError:
+            self.skipTest('No graphical Tk session available')
+        self.addCleanup(root.destroy)
+        root.geometry('640x480')
+        root.minsize(1, 1)
+        viewport = NativeImageViewport(root, tk, ttk)
+        viewport.load(tk.PhotoImage(master=root, width=960, height=470))
+        root.update()
+        wide = viewport.canvas.winfo_width()
+        self.assertGreater(wide, 100)
+        self.assertTrue(viewport.auto_fit)
+        initial_factor = viewport.fit_scale
+
+        # The window manager must actually allocate a different canvas width.
+        root.geometry('320x240')
+        root.update()
+        narrow = viewport.canvas.winfo_width()
+        self.assertLess(narrow, wide)
+        self.assertTrue(viewport.auto_fit)
+        self.assertGreaterEqual(viewport.fit_scale, initial_factor)
+
+        viewport.actual_size()
+        root.update()
+        self.assertIsNone(viewport.fit_scale)
+        self.assertFalse(viewport.auto_fit)
+        root.geometry('640x480')
+        root.update()
+        self.assertGreater(viewport.canvas.winfo_width(), narrow)
+        self.assertIsNone(viewport.fit_scale)
+        self.assertFalse(viewport.auto_fit)
+        viewport.fit()
+        root.update()
+        self.assertTrue(viewport.auto_fit)
+        self.assertGreaterEqual(viewport.fit_scale, 1)
+
     def test_real_tk_configure_zero_size_then_restore_preserves_manual_zoom(self):
         import tkinter as tk
         from tkinter import ttk
