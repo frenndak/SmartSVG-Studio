@@ -68,3 +68,12 @@
 - **Couverture :** 24/141/140/80/437 identifiants historiques conservés, non qualifiés intégralement ; 10 exigences G6/G9 sans ticket explicite, scénario 03-16 et cinq arbitrages 05–08 restent ouverts. COV-06 est une qualification de liens, pas une preuve de tests.
 - **Exécution :** 0 test produit, Windows, GPU, Design Space ou coupe physique. Main HEAD exact NON_VÉRIFIÉ ; les blobs source sont vérifiés mais la recherche de commits ne garantit pas la tête de branche. Aucune PR, merge, modification de code/AGENTS ni tâche de développement.
 - **Prochaine action unique :** COV-07, scénarios 13–16, établir les liens source explicites et exceptions ; ensuite revenir aux dossiers G6/G9 et à la revue sémantique.
+
+
+## 2026-11-13 — COV-07 : premier index conservateur lots 13–16
+
+- Livrable : [COVERAGE_SCENARIOS_13_16.md](COVERAGE_SCENARIOS_13_16.md), commit `1414473099a5c0f84f48cfc7e7e934455a3630ba` sur branche candidate seulement.
+- Sources lues : lots V3.4 13–16 ; 88 scénarios au total (30+30+18+10). Première extraction **49/88** avec lien textuel reconnu ; **39 NON_ATTRIBUÉ** au sens strict de l'extracteur, et NON 39 absences prouvées de propriétaire. L'extracteur ne reconnaît pas toutes les variantes de plages (`T04..08/09`, `T01..03/15/22`) : ce chiffre est une borne inférieure, pas une couverture validée.
+- Contre-expertise : le dossier reste **INACHEVÉ** et nécessite relecture humaine des plages abrégées, en particulier tickets V34-096..128. Ne pas passer à COV-08 avant correction des faux NON_ATTRIBUÉ et audit sémantique. Les 25 contrôles sont conservés comme contrat ; aucune validation exhaustive n'est revendiquée.
+- 0 test produit exécuté ; aucune preuve Windows/GPU/Design Space/physique ; aucun code, merge, AGENTS ou tâche modifiés. Main HEAD NON_VÉRIFIÉ (recherche de commits non autoritative). Trois PR code ouvertes #138–140.
+- **Prochaine action unique :** COV-07B, parser et contrôler manuellement les plages composées dans les micro-tickets 13–16, rectifier les 88 lignes et publier un arbitrage des exceptions réelles.
