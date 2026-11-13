@@ -126,6 +126,24 @@ class NativeRecoveryUITests(unittest.TestCase):
         self.assertEqual(self.scheduled, [])
         self.assertEqual(self.refreshed, [])
 
+    def test_worker_exception_does_not_report_success_and_refreshes(self):
+        # A writer may fail after explicit confirmation. Never claim that
+        # the project was restored, and always re-inspect the V1 copies.
+        failed = Future()
+        failed.set_exception(OSError('synthetic inaccessible backup'))
+        self.panel.worker = SimpleNamespace(
+            submit=lambda *_args, **_kwargs: failed)
+        self.panel.load(plan())
+        self.panel.start()
+        self.assertEqual(len(self.scheduled), 1)
+        self.scheduled.pop()()
+        self.assertIn('non confirmée', self.panel.status.get())
+        self.assertNotIn('restauré depuis', self.panel.status.get())
+        self.assertEqual(self.refreshed, [True])
+        self.assertIsNone(self.panel.future)
+        self.assertIsNone(self.panel._running_plan)
+        self.assertFalse(self.panel.busy)
+
     def test_valid_receipt_reports_success_and_reexamines_project(self):
         self.panel.load(plan())
         self.panel.start()
