@@ -190,3 +190,9 @@
 La tâche horaire a publié indépendamment [COV17A_UX_A01_A16_SEMANTIC_REVIEW.md](COV17A_UX_A01_A16_SEMANTIC_REVIEW.md), commit `2f71f82641577d2bf1d1635c754a0ab91993471e`, pendant cette campagne de conception. Le fichier est présent et relu. Il s'agit de **la même famille A01–A16** que [COV17A_UX_A01_A16_SEMANTIC_AUDIT.md](COV17A_UX_A01_A16_SEMANTIC_AUDIT.md), mais sous un autre angle. Il ne faut **ni additionner les deux en 32 fonctions**, ni supprimer un audit sans revue contradictoire. Le README pointe désormais vers les deux.
 
 **Règle pour COV-18** : confronter les deux décisions A01–A16, résoudre leurs différences documentées si nécessaire, puis qualifier les 80 IDs contre les 141 exigences, 140 tickets et 33 opportunités. La prochaine tâche horaire doit **reprendre COV-18**, pas recréer COV17B/C/D/E déjà présents. La V3.4 reste ACTIVE, aucun test produit nouveau, PR docs, merge ni promotion.
+
+## 2026-11-13 — COV-18A première contre-expertise croisée A/B
+
+- [COV18A_UX_AB_CROSS_REVIEW.md](COV18A_UX_AB_CROSS_REVIEW.md), commit `df690ac86a43ddedc6498defecbe2df4f10e59dd` : rapprochement contradictoire des deux fiches A01–A16 et du dossier B01–B14. Trois écarts de priorité/scope A04/A08/A16 identifiés et arbitrages candidats documentés; blocage schéma persistant B01/B02/B09 explicité. 30 décisions candidates examinées, 0 certifiée avec liens S/R33/V34/DoD complets.
+- 24/141/140/80/437 inventoriés, 431/437 liens historiques, six exceptions et dix exigences G6/G9 conservées. Contrat 25 axes ventilé; tests produit/Windows/GPU/Design Space/coupe physique NOT_RUN. Main HEAD NON_VÉRIFIÉ lors de cette passe; aucun code, AGENTS, PR, merge ni automatisation modifiés.
+- **Prochaine action unique COV-18A-1** : établir les liens exacts exigences↔tickets↔scénarios↔DoD pour A01–A16/B01–B14 et confronter A04/A08/A16 aux critères historiques avant certification.
