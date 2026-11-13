@@ -15,20 +15,22 @@
 
 **Réserve :** absence de résultat dans la recherche n'est pas preuve d'absence exhaustive. Les ports d'édition texte, de writer V1, d'export et de géométrie générale doivent être vérifiés avant toute spécification d'intégration définitive. PR #138 : récupération UI ; #139 : statut Undo/Redo lecture seule ; #140 : viewport Tk taille nulle. Aucun n'est une implémentation OCR, polices ou diorama. Les textes de PR ne remplacent pas une lecture de diff ni des logs.
 
+> **Rectificatif COV-10C (13 novembre 2026) :** une inversion de libellés était présente dans la première matrice : **S-037 = gabarits métiers** et **S-064 = typographie/licences**. Le champ **R33-028** vise les licences et glyphes en **G6–G8**, pas la coordination des dioramas G9. Les lignes ci-dessous ont été rectifiées à partir des sources V3.3. Les hypothèses de ports restent NON ADOPTÉES. L'historique Git conserve la version précédente.
+
 ## 2. Matrice des dix exigences : décision candidate, pas adoption
 
 | Exigence | Domaine / propriétaire candidat | Décision et garde-fou |
 |---|---|---|
 | S-021 | OCR guidé / nouveau port d'analyse optionnelle derrière commande explicite | **AMÉLIORER** : résultat texte proposé, jamais substitution automatique ; fournisseur OCR, licence et modèles à vérifier |
 | S-036 | Typographie / modèle objet texte à identifier | **RACCORDER** : taille, alignement et typographie dans objet éditable, sans stockage parallèle |
-| S-037 | Polices / service d'inspection locale candidat | **AMÉLIORER** : absence de police, glyphes, licences et fallback signalés, aucun remplacement silencieux |
+| S-037 | **Gabarits métiers (G6.4)** / producteur paramétrique sous Fabrique | **RACCORDER** : étiquette, topper et carte, trois prototypes/save-reopen ; ne pas confondre avec le prévol des deux patrons existants |
 | S-044 | Diorama / famille de patrons à concevoir au-dessus du prévol existant | **AJOUTER sous condition** : quatre plans avec identité, ordre, alignement et tolérances ; ne pas forcer `folded-card` ou `open-tray` à accepter des ID non reconnus |
 | S-047 | OCR / même port que S-021 | **FUSIONNER au niveau technique**, conserver deux exigences et leurs critères indépendants |
-| S-064 | Gabarits métiers / extension future de catalogue | **RACCORDER** : ne pas confondre gabarits étiquette/topper/carte avec les deux patrons existants |
+| S-064 | **Typographie/licences (G6)** / vérificateur de polices et glyphes | **AMÉLIORER** : rendu reproductible ou avertissement, couverture des glyphes/licences, aucune substitution ni redistribution silencieuse |
 | S-066 | Diorama quatre plans / même moteur candidat S-044 | **FUSIONNER au niveau moteur**, garder les deux preuves de couverture |
 | S-092 | Typographie et texte / même modèle éditable S-036 | **RACCORDER** : historique/Undo, sérialisation et exports séparés à valider |
 | S-099 | Fabrication / guide de montage candidat | **AMÉLIORER** : ordre d'assemblage et instructions dérivés de géométrie qualifiée, pas certificat machine |
-| R33-028 | G6/G9 transversal / coordination texte–gabarits–diorama | **GARDER** : conserver les critères source intégraux ; le découpage ci-dessus est un regroupement d'architecture, pas un remplacement du libellé historique |
+| R33-028 | **F09 G6–G8 / police, licences et glyphes manquants** | **GARDER** : contrôle transversal sur les exports texte ; la traçabilité des dioramas G9 reste distincte |
 
 Ces regroupements sont **hypothèses de propriétaires**, non attribution de tickets V34. Relire les libellés et critères source complets avant la revue finale, en particulier R33-028. Aucun nouveau ticket n'est créé pour combler artificiellement les dix écarts.
 
