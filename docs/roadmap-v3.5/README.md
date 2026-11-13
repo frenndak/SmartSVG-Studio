@@ -73,6 +73,11 @@ Chaque cycle horaire d'architecture reprend le **dernier micro-lot effectivement
   - [COV18A3A — six fonctions import, détourage, nettoyage et couleur](COV18A3A_UX_NEXT_SIX.md)
   - [COV18A3B — six fonctions vectorielles, qualité et objets](COV18A3B_VECTOR_OBJECTS_SIX.md)
   - [COV18A3C — douze fonctions B restantes et **rectification B12/B13**](COV18A3C_B_REMAINING_CORRECTED.md) : OCR S-021/S-047 pour B13 ; conversion texte→chemins S-036/S-064/R33-028 pour B12. L'ancien [COV18A1B](COV18A1B_AB_TRACE_REMAINING_20.md) porte un avertissement explicite. **Contrats et tests encore non certifiés.**
+- **COV18B — Contre-expertise croisée fabrication C01–C18 : 18/18 candidats examinés, zéro certification produit** :
+  - [COV18B1 — stickers PTC, Basic Cut, multicouche, pochoirs, Pen et opérations](COV18B1_CRICUT_C01_C06.md)
+  - [COV18B2 — Smart Cut Advisor, profils, 4 exports, Design Space et planches](COV18B2_CUT_LAYOUT_C07_C12.md)
+  - [COV18B3 — nesting, placements, Smart Cost, Fabrique et simulation](COV18B3_FABRIQUE_LAYOUT_C13_C18.md)
+  - **Vérification de portée :** C01–C18 chacun présent une fois dans ces trois fiches ; chaque rôle d'export, chaque opération et chaque type de preuve est distinct. Les états Windows, Design Space et coupe physique demeurent NON TESTÉS par ces fiches.
 - [QUALITY_TESTS_AND_EVIDENCE.md](QUALITY_TESTS_AND_EVIDENCE.md) — tests positifs/négatifs, corruption/reprise, QA, Windows/CPU/GPU/Design Space/physique strictement séparés.
 - [ADR_RISKS_OPPORTUNITIES.md](ADR_RISKS_OPPORTUNITIES.md) — ADR candidates, registres de risques, **33/33 opportunités historiques** préservées avec leurs rejets, arbitrage détaillé encore ouvert.
 - [PROMOTION_CHECKLIST.md](PROMOTION_CHECKLIST.md) — **15 gates de NO-GO/GO** documentaires, revue contradictoire, PR docs puis promotion de gouvernance séparée.
