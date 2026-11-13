@@ -188,6 +188,43 @@ class NativeRecoveryUITests(unittest.TestCase):
 
 
 
+    def test_shutdown_inside_confirmation_never_writes_or_touches_widgets(self):
+        submissions = []
+        self.panel.worker = SimpleNamespace(
+            submit=lambda *args, **kwargs: submissions.append((args, kwargs)),
+            shutdown=lambda **kwargs: None)
+        def confirm_after_shutdown(*_args, **_kwargs):
+            self.panel.shutdown()
+            self.panel.status.set = lambda _value: self.fail('destroyed status accessed')
+            self.panel.button.configure = lambda **_kwargs: self.fail('destroyed button accessed')
+            return True
+        self.panel.messagebox = SimpleNamespace(askyesno=confirm_after_shutdown)
+        self.panel.load(plan())
+        self.panel.start()
+        self.assertTrue(self.panel._closed)
+        self.assertFalse(self.panel.confirming)
+        self.assertEqual(submissions, [])
+        self.assertEqual(self.scheduled, [])
+        self.assertIsNone(self.panel.future)
+
+    def test_dialog_exception_after_shutdown_never_accesses_destroyed_status(self):
+        submissions = []
+        self.panel.worker = SimpleNamespace(
+            submit=lambda *args, **kwargs: submissions.append((args, kwargs)),
+            shutdown=lambda **kwargs: None)
+        def shutdown_and_raise(*_args, **_kwargs):
+            self.panel.shutdown()
+            self.panel.status.set = lambda _value: self.fail('destroyed status accessed')
+            raise RuntimeError('dialog destroyed during shutdown')
+        self.panel.messagebox = SimpleNamespace(askyesno=shutdown_and_raise)
+        self.panel.load(plan())
+        self.panel.start()
+        self.assertTrue(self.panel._closed)
+        self.assertFalse(self.panel.confirming)
+        self.assertEqual(submissions, [])
+        self.assertEqual(self.scheduled, [])
+        self.assertIsNone(self.panel.future)
+
     def test_context_switched_inside_dialog_never_starts_old_recovery(self):
         submissions = []
         old = plan(project_id='old-project')
