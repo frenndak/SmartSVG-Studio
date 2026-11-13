@@ -69,11 +69,17 @@ class NativeRecoveryPanel:
                 action, f'{question}\n\nProjet : {plan.project_id}\nCopie vérifiée : SHA {source[:12]}',
                 parent=self.root, default='no')
         except Exception:
-            # An unavailable or destroyed dialog never authorizes disk writes.
-            self.status.set('Confirmation indisponible. Réexaminez le projet avant un nouvel essai.')
+            # The modal dialog may have dispatched a shutdown event.
+            # Never access a destroyed Tk variable after that shutdown.
+            if not self._closed:
+                self.status.set('Confirmation indisponible. Réexaminez le projet avant un nouvel essai.')
             return
         finally:
             self.confirming = False
+        # Nested Tk events can destroy the panel while askyesno is open.
+        # This guard precedes all widget access and any writer submission.
+        if self._closed:
+            return
         # Only an explicit boolean True can authorize the recovery writer.
         if agreed is not True:
             return
