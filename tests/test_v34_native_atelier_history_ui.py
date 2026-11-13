@@ -37,6 +37,7 @@ class AtelierHistoryStatusTests(unittest.TestCase):
                 "schema": "smartsvg-native-brush-history-status/1",
                 "project_sha256": "a" * 64,
                 "undo_available": True,
+                "undo_subject_id": "subject-" + "a" * 32,
                 "redo_available": False,
                 "persisted": False,
                 "cricut_certified": False,
@@ -56,6 +57,27 @@ class AtelierHistoryStatusTests(unittest.TestCase):
             "project_path": self.panel._project_path,
             "expected_sha256": "a" * 64,
         }])
+
+    def test_forged_available_history_without_proven_subject_is_rejected(self):
+        valid = {
+            "schema": "smartsvg-native-brush-history-status/1",
+            "project_sha256": "a" * 64,
+            "undo_available": True,
+            "redo_available": False,
+            "persisted": False,
+            "cricut_certified": False,
+        }
+        for subject_id in (None, "", "legacy-" + "a" * 64, 42,
+                           "subject-" + "A" * 32):
+            with self.subTest(subject_id=subject_id):
+                status = dict(valid)
+                if subject_id is not None:
+                    status["undo_subject_id"] = subject_id
+                self.panel._history_fn = lambda **kwargs: status
+                self.panel._refresh_history()
+                self.assertIn("indisponible", self.panel.history.get())
+                self.assertNotIn("Annulation possible : oui",
+                                 self.panel.history.get())
 
     def test_invalid_catalog_path_and_revision_never_call_history(self):
         for path, revision, invalid in (
