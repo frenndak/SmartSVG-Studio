@@ -83,3 +83,11 @@
 - Livrable [COVERAGE_SCENARIOS_13_16_CORRECTION.md](COVERAGE_SCENARIOS_13_16_CORRECTION.md), commit `57d1ed427777c2b2242b422691eff3f4fba4b762`. Relecture des plages sources lots 13–16 aux quatre blob SHA inchangés : **88/88 scénarios cités textuellement par au moins un ticket** contre borne inférieure 49/88 dans COV-07. Les plages composées expliquent les 39 faux négatifs ; COV-07 est conservé comme trace historique, non supprimé.
 - Ce résultat ne certifie ni adéquation sémantique, ni DoD, ni test exécuté. 10 exigences G6/G9 sans ticket direct et `T-V34-03-16` toujours ouverts ; inventaire 24/141/140/80/437 conservé. 25 contrôles ventilés dans le livrable, aucun changement de code, PR, merge, AGENTS ou tâche. Tests produit et terrain NOT_RUN. Main HEAD NON_VÉRIFIÉ.
 - **Prochaine action unique : COV-08, liens explicites scénarios 17–20.**
+
+## 2026-11-13 — COV-08 : rapprochement des lots 17–20
+
+- Livrable : [COVERAGE_SCENARIOS_17_20.md](COVERAGE_SCENARIOS_17_20.md), commit `b8ca24f2c62ad72eb579645be455baa71ccb6011` sur branche candidate.
+- Quatre blobs sources V3.4 contrôlés et inchangés par rapport à l'inventaire : **45/45 scénarios** possèdent une référence explicite dans les mappings locaux (13+10+12+10), **0 exception textuelle**. Liens de planification, **pas** qualification sémantique ni tests PASS.
+- Décisions : conserver quatre exports distincts et V1 strict, Undo de brouillon distinct du commit, jobs 12/24/50 sans deuxième queue, bibliothèque reconstructible et CSV littéral. Contre-expertise des risques, alternatives rejetées et 25 contrôles documentée.
+- Couverture historique 24/141/140/80/437 inchangée ; 10 exigences G6/G9, T-V34-03-16 et cinq arbitrages 05–08 ouverts. Tests produit/Windows/GPU/Design Space/physique NOT_RUN ; main HEAD exact NON_VÉRIFIÉ. Aucun code, PR, merge, AGENTS ou tâche modifiés.
+- **Prochaine action unique : COV-09**, rapprochement des 24 scénarios lots 21–22, puis revue sémantique.
