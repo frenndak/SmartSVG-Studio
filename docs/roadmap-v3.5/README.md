@@ -59,13 +59,20 @@ Chaque cycle horaire d'architecture reprend le **dernier micro-lot effectivement
 - [COV16_EXCEPTIONS_AND_G6_G9_OWNERS.md](COV16_EXCEPTIONS_AND_G6_G9_OWNERS.md) — **6 scénarios sans ticket explicite et 10 exigences G6/G9** étudiés individuellement avec propriétaire V3.5 **candidat**, non encore adopté.
 - [BACKLOG_AND_DEPENDENCIES.md](BACKLOG_AND_DEPENDENCIES.md) — 17 unités candidates W00–W16, priorités, graphe de dépendances et jalons A/B/C sans création de 17 tickets artificiels.
 - [UX_ARCHITECTURE_AND_WORKFLOWS.md](UX_ARCHITECTURE_AND_WORKFLOWS.md) — 8 parcours E2E, **80/80 capacités A01–E20** placées dans un domaine UX et une priorité de conception provisoire.
+- **Contre-expertise UX individuelle V35-COV-17 (80/80 CANDIDATES, sans adoption ni exécution)** :
+  - [A01–A16 — import, sélection, nettoyage, couleur, vectorisation](COV17A_UX_A01_A16_SEMANTIC_AUDIT.md)
+  - [B01–B14 — objets, calques, transformation, texte](COV17B_UX_B01_B14_SEMANTIC_AUDIT.md)
+  - [C01–C18 — Cricut, fabrication, quatre exports, planches](COV17C_UX_C01_C18_SEMANTIC_AUDIT.md)
+  - [D01–D12 — IA locale, modèles et consentement](COV17D_UX_D01_D12_SEMANTIC_AUDIT.md)
+  - [E01–E20 — bibliothèque, Windows, UX, QA, récupération](COV17E_UX_E01_E20_SEMANTIC_AUDIT.md)
+  - **Contrôle mécanique au SHA de branche** : 16+14+18+12+20 = **80 identifiants uniques**, zéro trou ou doublon ; **les 80 décisions restent proposées et leurs liens fins aux DoD historiques doivent encore être qualifiés**.
 - [QUALITY_TESTS_AND_EVIDENCE.md](QUALITY_TESTS_AND_EVIDENCE.md) — tests positifs/négatifs, corruption/reprise, QA, Windows/CPU/GPU/Design Space/physique strictement séparés.
 - [ADR_RISKS_OPPORTUNITIES.md](ADR_RISKS_OPPORTUNITIES.md) — ADR candidates, registres de risques, **33/33 opportunités historiques** préservées avec leurs rejets, arbitrage détaillé encore ouvert.
 - [PROMOTION_CHECKLIST.md](PROMOTION_CHECKLIST.md) — **15 gates de NO-GO/GO** documentaires, revue contradictoire, PR docs puis promotion de gouvernance séparée.
 - [AUTOMATION_QUALITY_CONTRACT.md](AUTOMATION_QUALITY_CONTRACT.md) — 25 contrôles obligatoires pour éviter la dégradation du prompt horaire.
 - [PROGRESS.md](PROGRESS.md) — journal des opérations réellement écrites, des écarts et de la prochaine étape unique.
 
-**État de la suite :** les **80 décisions UX individuelles**, les **437 rappro­chements sémantiques détaillés** (au-delà des 431 citations), l'arbitrage des **6+10 exceptions**, la validation complète des **33 opportunités**, les benchmarks UI, la contre-expertise croisée et la PR documentaire sont **encore ouverts**. Les tests produit restent distincts et ne sont PAS déduits de ces fichiers. Préserver la V3.4 active et la tâche de développement inchangée.
+**État de la suite :** la **contre-expertise indépendante et la validation des 80 décisions UX candidates**, les **437 rapprochements sémantiques détaillés** (au-delà des 431 citations), l'arbitrage des **6+10 exceptions**, la validation complète des **33 opportunités**, les benchmarks UI, la contre-expertise croisée et la PR documentaire sont **encore ouverts**. Les tests produit restent distincts et ne sont PAS déduits de ces fichiers. Préserver la V3.4 active et la tâche de développement inchangée.
 
 ## 6. Condition stricte de promotion
 
