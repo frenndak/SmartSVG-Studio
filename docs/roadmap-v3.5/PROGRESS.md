@@ -45,3 +45,10 @@
 4. Maintenir le développement Windows V3.4 inchangé, la confidentialité des sources et la promotion de gouvernance séparée.
 
 **Conclusion de contre-expertise :** inventaire 24/141/140/80/437 conservé ; liens internes ticket↔exigence **314/314 réciproques**, **10 exigences héritées à raccorder**, scénario→ticket **51/52** sur le sous-ensemble 02–04. Aucun KPI « spécifié / implémenté / testé » gonflé.
+
+## 2026-11-13 — COV-05, lots 05–08 : matrice explicite de planification
+
+- **Livrable :** [COVERAGE_SCENARIOS_05_08.md](COVERAGE_SCENARIOS_05_08.md), commit `f4e005f9703e89e27368db967a3a0884686e223f` sur la branche documentaire uniquement.
+- **Source :** quatre blobs historiques V3.4 inchangés (SHA dans le livrable). **108 scénarios** : 20/20 lot 05, 27/30 lot 06, 26/28 lot 07, 30/30 lot 08 avec référence ticket explicite, soit **103/108** ; cinq sans référence explicite : `T-V34-06-22`, `06-24`, `06-25`, `07-16`, `07-25` (préfixe `T-V34-`). Le rapprochement reste une extraction textuelle, à vérifier sémantiquement.
+- **Statut :** documentation publiée, aucune PR/merge/code, aucun test exécuté ; couverture historique 24/141/140/80/437 inchangée. Les 10 exigences G6/G9 non rattachées restent ouvertes.
+- **Prochaine action unique :** arbitrer les cinq cas sans propriétaire explicite, lire leurs critères source complets et corriger la matrice sans attribution fictive.
