@@ -5076,7 +5076,25 @@
         "design_space": false,
         "physical_cricut": false
       },
-      "next": "03B : contrôles Tk et resynchronisation de session ; réconcilier #139/#144"
+      "next": "03B : contrôles Tk et resynchronisation de session ; réconcilier #139/#144",
+      "ci_verified": {
+        "commit": "955cfbdb6858c14d73ec3f4d2d2d5e474e64f6a5",
+        "workflow_runs": [
+          43527574722,
+          43527574638,
+          43527574643,
+          43527574662
+        ],
+        "conclusion": "SUCCESS",
+        "windows_job": 132237044759,
+        "windows_suite": {
+          "run": 758,
+          "skipped": 2,
+          "failures": 0,
+          "new_command_tests_executed": 15,
+          "skip_reason": "POSIX-specific tests"
+        }
+      }
     }
   ]
 }
