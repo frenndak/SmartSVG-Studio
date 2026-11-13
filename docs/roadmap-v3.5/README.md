@@ -56,6 +56,7 @@ Chaque cycle horaire d'architecture reprend le **dernier micro-lot effectivement
 - [SCENARIOS_V34_INDEX.md](SCENARIOS_V34_INDEX.md) — les 437/437 assertions originales, sources/SHAs, 3 inventaires ; **6 scénarios sans lien TEST→TICKET source direct**.
 - [COVERAGE_V34_TO_V35.md](COVERAGE_V34_TO_V35.md) — 314 relations source réciproques, **10 exigences G6/G9 sans V34 direct**, lacunes explicitement maintenues.
 - [COV10C_V1_TEXT_EXPORT_PORTS.md](COV10C_V1_TEXT_EXPORT_PORTS.md) — inspection du code réel, des API V1/CAS, édition/texte, des 4 rôles export et du packaging historique; correction d'une inversion S-037/S-064 dans COV-10B.
+- [COV16_EXCEPTIONS_AND_G6_G9_OWNERS.md](COV16_EXCEPTIONS_AND_G6_G9_OWNERS.md) — **6 scénarios sans ticket explicite et 10 exigences G6/G9** étudiés individuellement avec propriétaire V3.5 **candidat**, non encore adopté.
 - [BACKLOG_AND_DEPENDENCIES.md](BACKLOG_AND_DEPENDENCIES.md) — 17 unités candidates W00–W16, priorités, graphe de dépendances et jalons A/B/C sans création de 17 tickets artificiels.
 - [UX_ARCHITECTURE_AND_WORKFLOWS.md](UX_ARCHITECTURE_AND_WORKFLOWS.md) — 8 parcours E2E, **80/80 capacités A01–E20** placées dans un domaine UX et une priorité de conception provisoire.
 - [QUALITY_TESTS_AND_EVIDENCE.md](QUALITY_TESTS_AND_EVIDENCE.md) — tests positifs/négatifs, corruption/reprise, QA, Windows/CPU/GPU/Design Space/physique strictement séparés.
