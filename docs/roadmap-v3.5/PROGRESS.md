@@ -52,3 +52,11 @@
 - **Source :** quatre blobs historiques V3.4 inchangés (SHA dans le livrable). **108 scénarios** : 20/20 lot 05, 27/30 lot 06, 26/28 lot 07, 30/30 lot 08 avec référence ticket explicite, soit **103/108** ; cinq sans référence explicite : `T-V34-06-22`, `06-24`, `06-25`, `07-16`, `07-25` (préfixe `T-V34-`). Le rapprochement reste une extraction textuelle, à vérifier sémantiquement.
 - **Statut :** documentation publiée, aucune PR/merge/code, aucun test exécuté ; couverture historique 24/141/140/80/437 inchangée. Les 10 exigences G6/G9 non rattachées restent ouvertes.
 - **Prochaine action unique :** arbitrer les cinq cas sans propriétaire explicite, lire leurs critères source complets et corriger la matrice sans attribution fictive.
+
+## 2026-11-13 — COV-05B : cinq exceptions qualifiées sans faux liens
+
+- **Livrable réel :** [COVERAGE_SCENARIOS_05_08_ARBITRAGE.md](COVERAGE_SCENARIOS_05_08_ARBITRAGE.md), commit `d21e64d74fb2aff2573f6a706cd59a51230a125a` ; branche candidate uniquement.
+- **Lecture :** blobs V3.4 lots 06/07 et COV-05 ; cinq scénarios `06-22`, `06-24`, `06-25`, `07-16`, `07-25` rapprochés **sémantiquement en propositions**, non comme liens source explicites. COV-05 reste **103/108 explicites** ; les cinq propositions nécessitent revue. Aucune nouvelle fonction/ticket inventé.
+- **Preuves :** documentation uniquement ; 0 test produit, Windows, GPU, Design Space ou coupe physique exécuté. 24 lots / 141 exigences / 140 tickets / 80 UX / 437 scénarios inventoriés restent des comptes d'héritage, pas des certifications ; 10 exigences G6/G9 sans ticket explicite et `T-V34-03-16` ouverts. Les 25 contrôles restent applicables, pas tous certifiés par ce micro-lot.
+- **HEAD main :** NON_VÉRIFIÉ de façon autoritative ; la recherche de commits renvoie `aa0ff9e7...` en premier, mais ne garantit pas la tête de branche. Sources 06/07 lues sur main avec blob SHA précis.
+- **Prochaine action unique :** COV-06, rapprochement explicite des scénarios 09–12, avec liste des exceptions et contrôle des critères, sans recompiler les 437 scénarios.
