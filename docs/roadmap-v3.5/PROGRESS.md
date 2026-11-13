@@ -149,3 +149,11 @@
 3. Ensuite **COV-18** : rapprocher sémantiquement les **437** recettes et leur DoD, produire audit indépendant, vérifier l'ensemble des **15 gates** et préparer une PR documentaire **seulement quand WIP et revue le permettent**.
 
 **Règle de relance** : ne pas recompiler une nouvelle fois les 437 identifiants ni recréer COV10C–15. La tâche horaire doit reprendre au premier écart sémantique réel, documenter les preuves exact-head et poursuivre la roadmap entière.
+
+## 2026-11-13 — COV-16 : six scénarios orphelins et dix exigences G6/G9
+
+- **Fiche** : [COV16_EXCEPTIONS_AND_G6_G9_OWNERS.md](COV16_EXCEPTIONS_AND_G6_G9_OWNERS.md), commit `c9ba790dbe327d9c504cdd1f938c1ac64633b0b9`, indexée dans README commit `2f67d6721989d5f7f16470b61ed7f808080d252b`.
+- **Arbitrage conservateur** : les six scénarios `03-16,06-22,06-24,06-25,07-16,07-25` ont chacun un propriétaire **candidat** Wxx et un test/DoD proposés ; les **10 obligations G6/G9** sont identifiées une par une et réparties entre W10/W11/W16. Ce ne sont **pas** des tickets V34 rétrospectifs ni des modifications du backlog normatif.
+- **État des preuves INCHANGÉ** : **431/437** relations TEST→TICKET explicitement présentes à l'origine, **6/6** rapprochements sémantiques **CANDIDATS** supplémentaires, **10/10** obligations G6/G9 avec route proposée, **0** adoption normative dans cette passe. Aucun test produit, Windows, RTX, Design Space, coupe physique exécuté.
+- **Écart prioritaire** : revue contradictoire de l'adéquation propriétaire et du critère complet pour chaque relation, puis décision individuelle des 80 capacités UX et des 33 opportunités. Un mapping initial ne constitue pas une revue qualitative 80/80.
+- **Prochaine action unique V35-COV-17** : commencer la revue sémantique **A01–A16 (16 capacités Smart Import/Select/Clean/Color/Vector)** en comparant spécifications V3.3/V3.4, code actuel et parcours UX V3.5 ; décider pour chacune GARDER/RACCORDER/FUSIONNER/REPORTER/REJETER avec raison, API existante, négatifs et DoD. Continuer ensuite B/C/D/E, puis 33 opportunités, sans prétendre que la promotion est prête.
