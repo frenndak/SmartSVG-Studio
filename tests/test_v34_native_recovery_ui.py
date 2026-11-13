@@ -68,12 +68,42 @@ class NativeRecoveryUITests(unittest.TestCase):
         self.panel.future = None
         self.panel.confirming = False
         self.panel._running_plan = None
+        self.panel._closed = False
 
     @staticmethod
     def completed(value):
         future = Future()
         future.set_result(value)
         return future
+
+    def test_queued_receive_after_shutdown_never_touches_destroyed_ui(self):
+        old = plan()
+        self.panel.load(old)
+        self.panel.start()
+        self.assertEqual(len(self.scheduled), 1)
+        self.panel.worker = SimpleNamespace(shutdown=lambda **kwargs: None)
+        self.panel.shutdown()
+        self.assertTrue(self.panel._closed)
+        before = self.panel.status.get()
+        self.panel.status.set = lambda _value: self.fail('destroyed status accessed')
+        self.panel.refresh = lambda: self.fail('destroyed project refreshed')
+        self.scheduled.pop()()
+        self.panel.receive()
+        self.panel.load(plan(project_id='another'))
+        self.panel.start()
+        self.assertEqual(self.refreshed, [])
+        self.assertEqual(self.panel._running_plan, old)
+
+    def test_shutdown_before_start_never_submits_recovery(self):
+        submissions = []
+        self.panel.worker = SimpleNamespace(
+            submit=lambda *args, **kwargs: submissions.append((args, kwargs)),
+            shutdown=lambda **kwargs: None)
+        self.panel.load(plan())
+        self.panel.shutdown()
+        self.panel.start()
+        self.assertEqual(submissions, [])
+        self.assertEqual(self.scheduled, [])
 
     def test_unknown_plan_cannot_show_recovery_action(self):
         self.panel.load(plan(outcome='unexpected_action'))
