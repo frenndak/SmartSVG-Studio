@@ -265,3 +265,10 @@ Trois nouveaux documents **effectivement publiés puis relus** sur la branche ca
 **État global de la contre-expertise UX de deuxième niveau :** **48/80** IDs A/B/C examinés (30 A/B et 18 C), **0/80 certifiés**. Familles D01–D12 et E01–E20 disposent de leur fiche COV17 candidate mais la revue indépendante approfondie reste ouverte. Les 24/141/140/80/437 inventaires, 431/437 liens source et six exceptions, dix exigences G6/G9 et 33 opportunités d'origine restent traçables ; cela n'est pas une preuve de DoD pass.
 
 **Prochaine action UNIQUE — V35-COV-18C :** examiner en profondeur les **12 IA D01–D12**, en deux tranches, contre licences/poids/hashes/consentement, VRAM RTX 8 Go/CPU, sauvegarde/CAS, ports réels et tests négatifs ; ensuite E01–E20, revue des 33 opportunités et gate de promotion. Aucun code produit, PR, AGENTS ou tâche horaire de développement modifié dans cette passe.
+
+## 2026-11-13 — V35-COV-18C1 : D01–D06, revue hostile IA
+
+- [COV18C1_IA_D01_D06_HOSTILE.md](COV18C1_IA_D01_D06_HOSTILE.md), commit `a9f1131dad2f41e64ad315a63c20d761d698b778` : six IDs D01–D06 traités individuellement, avec sources V3.4 lots 08/10/11/12, contrats de proposition non mutante, états de consentement, CPU/GPU, tests négatifs, DoD candidats et arbitrage D06 P2. Aucun port futur présenté comme code existant.
+- Couverture de **revue contradictoire UX : 54/80** (30 A/B + 18 C + 6 D), **0/80 certifiés**. Inventaires 24/141/140/80/437 inchangés ; 431/437 liens source historiques et six exceptions, dix G6/G9 sans ticket direct non résolus. Les associations D restent candidates, pas preuve d'héritage sémantique intégral.
+- Main HEAD **NON_VÉRIFIÉ** (dernier commit indexé aa0ff9e7, pas preuve du HEAD). Tests auto/Windows/RTX/Design Space/physique **NOT_RUN**. Aucune modification de code, main, AGENTS, PR, merge ou tâche planifiée.
+- **Prochaine action UNIQUE V35-COV-18C2** : revoir D07–D12 avec DoD exacts et contrats de consentement, reprise, batch, assistant.
