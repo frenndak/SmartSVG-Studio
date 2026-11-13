@@ -1,0 +1,5047 @@
+{
+  "schema": "smartsvg-roadmap-plan/1",
+  "version": "3.5",
+  "status": "PROPOSITION",
+  "date": "2026-11-13",
+  "timezone": "Europe/Paris",
+  "active_roadmap": "3.4",
+  "baseline": {
+    "commit": "aa0ff9e7d0c53dba3fdc429c02c6198736cfe935",
+    "tree": "e84c7d7dbcbcd9a78a4da28f1e127ec6591d1f54",
+    "trace_path": "docs/roadmap-v3.4/23_TRACEABILITE_BACKLOG.md",
+    "trace_blob_sha": "177a0ecff5edd816e1bf879fc93c2a49efd83690"
+  },
+  "proof_policy": "Planification et inventaire seulement ; aucun PASS produit inféré.",
+  "open_prs": [
+    {
+      "number": 140,
+      "title": "fix(native): handle transient zero-size Tk viewport safely",
+      "observed_head": "e3a072f6f0e5735bf7d9a567e89a536048810ae0",
+      "draft": true
+    },
+    {
+      "number": 139,
+      "title": "feat(native): expose pinned read-only brush Undo/Redo availability",
+      "observed_head": "409dd41b676cd5be8a92e60a4ff7ebb365c15cca",
+      "draft": true
+    },
+    {
+      "number": 138,
+      "title": "fix(native): fail closed on unexpected project recovery receipts",
+      "observed_head": "dd76533696deeefcaea65328b4cda6326d5df9b9",
+      "draft": true
+    }
+  ],
+  "sources": [
+    {
+      "path": "docs/roadmap-v3.4/01_BASELINE_AUDIT.md",
+      "blob_sha": "2d00944b1f72dd7fb62c436905248c4411ed287d"
+    },
+    {
+      "path": "docs/roadmap-v3.4/02_VISION_PARCOURS.md",
+      "blob_sha": "9a4297168d95c5f09b8529236865e8f83184fb38"
+    },
+    {
+      "path": "docs/roadmap-v3.4/03_ARCHITECTURE_ADR.md",
+      "blob_sha": "7a0b0c00f21c02895174d8bd99517ba5a3769482"
+    },
+    {
+      "path": "docs/roadmap-v3.4/04_DEPENDENCY_INVENTORY.md",
+      "blob_sha": "391f9bb5df32340e4ed2507c26338c462cae4518"
+    },
+    {
+      "path": "docs/roadmap-v3.4/04_MIGRATION_AUTONOME.md",
+      "blob_sha": "272fb820b12a56285152cb3d2bd80c2d6dec9278"
+    },
+    {
+      "path": "docs/roadmap-v3.4/05_PROJECT_SCHEMA.md",
+      "blob_sha": "598a0ba0ec17d2e6035ff8875d3a5ba49a2f702c"
+    },
+    {
+      "path": "docs/roadmap-v3.4/06_COMMAND_BUS.md",
+      "blob_sha": "074879c0729042a77e8addc60b8c9446c176c183"
+    },
+    {
+      "path": "docs/roadmap-v3.4/07_UX_EXPRESS_NAVIGATION.md",
+      "blob_sha": "0846d31a7bd3b0c719423ee585e2ab8721dcbb76"
+    },
+    {
+      "path": "docs/roadmap-v3.4/08_ASSISTANT_CONTEXTUEL.md",
+      "blob_sha": "e638a1b008aa1206b01eb4f3ef5d7ad2957c351a"
+    },
+    {
+      "path": "docs/roadmap-v3.4/09_PLANIFICATEUR_SECURISÉ.md",
+      "blob_sha": "52e61d658d47570edffb662fc4f8983cf1208512"
+    },
+    {
+      "path": "docs/roadmap-v3.4/10_ANALYSE_VISUELLE.md",
+      "blob_sha": "9c0b0648a6b3c2790813ff59136fdb0a88df89c0"
+    },
+    {
+      "path": "docs/roadmap-v3.4/11_MODELES_IA_LOCAUX.md",
+      "blob_sha": "9a169e3c7db786d6dca1123397b13fcadde6a80e"
+    },
+    {
+      "path": "docs/roadmap-v3.4/12_RASTER_PIPELINE.md",
+      "blob_sha": "30424177571a1e5c627cbdb0630c07c63ba344e0"
+    },
+    {
+      "path": "docs/roadmap-v3.4/13_VECTORISATION_SVG.md",
+      "blob_sha": "f694c0016e896917084f1d70a642f67316d1cf70"
+    },
+    {
+      "path": "docs/roadmap-v3.4/14_LANGAGE_FABRICATION.md",
+      "blob_sha": "3b7dd601c6f844f3a3d12b44bc971fc101133367"
+    },
+    {
+      "path": "docs/roadmap-v3.4/15_PROFILS_EXPLORE5.md",
+      "blob_sha": "19cf7835044936e5cf2a2f894b5a42456c8fa8b4"
+    },
+    {
+      "path": "docs/roadmap-v3.4/16_PATRONS_PARAMETRIQUES.md",
+      "blob_sha": "562af8bc7ceca562381e08251352dfd5bd6c2b69"
+    },
+    {
+      "path": "docs/roadmap-v3.4/17_EXPORTS_DESIGNSPACE.md",
+      "blob_sha": "4c13bfe529f672d68a0c66a77c07fcd0068d5170"
+    },
+    {
+      "path": "docs/roadmap-v3.4/18_ATELIER_GRAPHIQUE.md",
+      "blob_sha": "466fd3652524fe71ca9893e2c2e109376b4c6f48"
+    },
+    {
+      "path": "docs/roadmap-v3.4/19_PLANCHES_NESTING.md",
+      "blob_sha": "e6ac52be45c79999a2ed043c44ed0c972fa8f007"
+    },
+    {
+      "path": "docs/roadmap-v3.4/20_BIBLIOTHEQUE_VARIANTES_CSV.md",
+      "blob_sha": "b58e891ce65edcfa5ccabe46c24968036781e92a"
+    },
+    {
+      "path": "docs/roadmap-v3.4/21_WINDOWS_OFFLINE_RECOVERY.md",
+      "blob_sha": "8700846208315f405b7f60266fabf8181e160ff4"
+    },
+    {
+      "path": "docs/roadmap-v3.4/22_VALIDATION_CORPUS_PREUVES.md",
+      "blob_sha": "6fa98816ae2a8048471f6625d3c099df171fb0fb"
+    },
+    {
+      "path": "docs/roadmap-v3.4/23_TRACEABILITE_BACKLOG.md",
+      "blob_sha": "177a0ecff5edd816e1bf879fc93c2a49efd83690"
+    },
+    {
+      "path": "docs/roadmap-v3.4/24_CONTRE_EXPERTISE_PASSATION.md",
+      "blob_sha": "8c7040ca1c319a03f8290f7cc74f2e499b89ecbd"
+    }
+  ],
+  "slices": [
+    {
+      "id": "V35-01",
+      "title": "Référentiel vivant et preuve d’intégration",
+      "depends_on": [],
+      "criteria": [
+        "V35-01-A1",
+        "V35-01-A2",
+        "V35-01-A3",
+        "V35-01-A4"
+      ],
+      "criteria_path": "docs/roadmap-v3.5/02_EXECUTION.md",
+      "v34_tickets": [
+        "V34-001",
+        "V34-002",
+        "V34-003",
+        "V34-004",
+        "V34-005"
+      ],
+      "requirement_ids": [
+        "S-001",
+        "S-002",
+        "S-019",
+        "S-022",
+        "S-043",
+        "S-049",
+        "S-051",
+        "S-054",
+        "S-065",
+        "S-101",
+        "R33-001",
+        "R33-002",
+        "R33-008",
+        "R33-016",
+        "R33-024",
+        "R33-034",
+        "R33-037",
+        "R33-040"
+      ],
+      "delivery_status": "NON_VERIFIE"
+    },
+    {
+      "id": "V35-02",
+      "title": "Projet unique, sauvegarde et récupération",
+      "depends_on": [],
+      "criteria": [
+        "V35-02-A1",
+        "V35-02-A2",
+        "V35-02-A3",
+        "V35-02-A4",
+        "V35-02-A5"
+      ],
+      "criteria_path": "docs/roadmap-v3.5/02_EXECUTION.md",
+      "v34_tickets": [
+        "V34-011",
+        "V34-012",
+        "V34-013",
+        "V34-014",
+        "V34-015",
+        "V34-016",
+        "V34-025",
+        "V34-026",
+        "V34-027",
+        "V34-028",
+        "V34-029",
+        "V34-030",
+        "V34-031"
+      ],
+      "requirement_ids": [
+        "S-012",
+        "S-017",
+        "S-022",
+        "S-023",
+        "S-024",
+        "S-026",
+        "S-027",
+        "S-042",
+        "S-052",
+        "S-053",
+        "S-061",
+        "S-067",
+        "S-069",
+        "R33-001",
+        "R33-003",
+        "R33-004",
+        "R33-006",
+        "R33-009",
+        "R33-036"
+      ],
+      "delivery_status": "NON_VERIFIE"
+    },
+    {
+      "id": "V35-03",
+      "title": "Atelier et historique natifs",
+      "depends_on": [
+        "V35-02"
+      ],
+      "criteria": [
+        "V35-03-A1",
+        "V35-03-A2",
+        "V35-03-A3",
+        "V35-03-A4",
+        "V35-03-A5",
+        "V35-03-A6"
+      ],
+      "criteria_path": "docs/roadmap-v3.5/02_EXECUTION.md",
+      "v34_tickets": [
+        "V34-032",
+        "V34-033",
+        "V34-034",
+        "V34-035",
+        "V34-036",
+        "V34-037",
+        "V34-038",
+        "V34-039",
+        "V34-040",
+        "V34-132",
+        "V34-133"
+      ],
+      "requirement_ids": [
+        "S-003",
+        "S-008",
+        "S-023",
+        "S-026",
+        "S-027",
+        "S-035",
+        "S-053",
+        "S-067",
+        "S-070",
+        "S-080",
+        "S-086",
+        "S-087",
+        "R33-003",
+        "R33-004",
+        "R33-005",
+        "R33-006",
+        "R33-014"
+      ],
+      "delivery_status": "NON_VERIFIE"
+    },
+    {
+      "id": "V35-04",
+      "title": "Express et ergonomie cohérente",
+      "depends_on": [
+        "V35-02"
+      ],
+      "criteria": [
+        "V35-04-A1",
+        "V35-04-A2",
+        "V35-04-A3",
+        "V35-04-A4",
+        "V35-04-A5"
+      ],
+      "criteria_path": "docs/roadmap-v3.5/02_EXECUTION.md",
+      "v34_tickets": [
+        "V34-006",
+        "V34-007",
+        "V34-008",
+        "V34-009",
+        "V34-010",
+        "V34-041",
+        "V34-042",
+        "V34-043",
+        "V34-044",
+        "V34-045",
+        "V34-046",
+        "V34-047",
+        "V34-048",
+        "V34-049"
+      ],
+      "requirement_ids": [
+        "S-003",
+        "S-004",
+        "S-007",
+        "S-012",
+        "S-013",
+        "S-023",
+        "S-025",
+        "S-027",
+        "S-059",
+        "S-067",
+        "S-068",
+        "S-069",
+        "S-072",
+        "S-074",
+        "S-075",
+        "S-077",
+        "S-078",
+        "S-082",
+        "S-094",
+        "S-100",
+        "R33-018",
+        "R33-019",
+        "R33-033"
+      ],
+      "delivery_status": "NON_VERIFIE"
+    },
+    {
+      "id": "V35-05",
+      "title": "Exports natifs, provenance et transfert",
+      "depends_on": [
+        "V35-02"
+      ],
+      "criteria": [
+        "V35-05-A1",
+        "V35-05-A2",
+        "V35-05-A3",
+        "V35-05-A4",
+        "V35-05-A5",
+        "V35-05-A6"
+      ],
+      "criteria_path": "docs/roadmap-v3.5/02_EXECUTION.md",
+      "v34_tickets": [
+        "V34-129",
+        "V34-130",
+        "V34-131"
+      ],
+      "requirement_ids": [
+        "S-002",
+        "S-009",
+        "S-017",
+        "S-029",
+        "S-030",
+        "S-032",
+        "S-054",
+        "S-055",
+        "S-076",
+        "S-084",
+        "R33-008",
+        "R33-022",
+        "R33-027"
+      ],
+      "delivery_status": "NON_VERIFIE"
+    },
+    {
+      "id": "V35-06",
+      "title": "Fidélité vectorielle et géométrie exploitable",
+      "depends_on": [
+        "V35-02"
+      ],
+      "criteria": [
+        "V35-06-A1",
+        "V35-06-A2",
+        "V35-06-A3",
+        "V35-06-A4",
+        "V35-06-A5"
+      ],
+      "criteria_path": "docs/roadmap-v3.5/02_EXECUTION.md",
+      "v34_tickets": [
+        "V34-096",
+        "V34-097",
+        "V34-098",
+        "V34-099",
+        "V34-100",
+        "V34-101",
+        "V34-102",
+        "V34-103",
+        "V34-104",
+        "V34-105"
+      ],
+      "requirement_ids": [
+        "S-008",
+        "S-009",
+        "S-011",
+        "S-018",
+        "S-023",
+        "S-030",
+        "S-032",
+        "S-033",
+        "S-034",
+        "S-045",
+        "S-060",
+        "S-067",
+        "R33-029"
+      ],
+      "delivery_status": "NON_VERIFIE"
+    },
+    {
+      "id": "V35-07",
+      "title": "Fabrication, profils et gabarits",
+      "depends_on": [
+        "V35-06"
+      ],
+      "criteria": [
+        "V35-07-A1",
+        "V35-07-A2",
+        "V35-07-A3",
+        "V35-07-A4",
+        "V35-07-A5"
+      ],
+      "criteria_path": "docs/roadmap-v3.5/02_EXECUTION.md",
+      "v34_tickets": [
+        "V34-106",
+        "V34-107",
+        "V34-108",
+        "V34-109",
+        "V34-110",
+        "V34-111",
+        "V34-112",
+        "V34-113",
+        "V34-114",
+        "V34-115",
+        "V34-116",
+        "V34-117",
+        "V34-118",
+        "V34-119",
+        "V34-120",
+        "V34-121",
+        "V34-122",
+        "V34-123",
+        "V34-124",
+        "V34-125",
+        "V34-126",
+        "V34-127",
+        "V34-128"
+      ],
+      "requirement_ids": [
+        "S-007",
+        "S-010",
+        "S-012",
+        "S-020",
+        "S-023",
+        "S-029",
+        "S-030",
+        "S-031",
+        "S-032",
+        "S-045",
+        "S-055",
+        "S-056",
+        "S-057",
+        "S-060",
+        "S-067",
+        "S-071",
+        "S-085",
+        "S-088",
+        "R33-005",
+        "R33-014",
+        "R33-022",
+        "R33-023",
+        "R33-025",
+        "R33-029",
+        "R33-034",
+        "R33-035",
+        "R33-037"
+      ],
+      "delivery_status": "NON_VERIFIE"
+    },
+    {
+      "id": "V35-08",
+      "title": "Segmentation et IA locale facultatives",
+      "depends_on": [
+        "V35-02"
+      ],
+      "criteria": [
+        "V35-08-A1",
+        "V35-08-A2",
+        "V35-08-A3",
+        "V35-08-A4",
+        "V35-08-A5"
+      ],
+      "criteria_path": "docs/roadmap-v3.5/02_EXECUTION.md",
+      "v34_tickets": [
+        "V34-068",
+        "V34-069",
+        "V34-070",
+        "V34-071",
+        "V34-072",
+        "V34-073",
+        "V34-074",
+        "V34-075",
+        "V34-076",
+        "V34-077",
+        "V34-078",
+        "V34-079",
+        "V34-080",
+        "V34-081",
+        "V34-082",
+        "V34-083",
+        "V34-084",
+        "V34-085",
+        "V34-086"
+      ],
+      "requirement_ids": [
+        "S-003",
+        "S-005",
+        "S-006",
+        "S-007",
+        "S-014",
+        "S-015",
+        "S-018",
+        "S-023",
+        "S-025",
+        "S-027",
+        "S-028",
+        "S-038",
+        "S-042",
+        "S-050",
+        "S-058",
+        "S-062",
+        "S-070",
+        "R33-007",
+        "R33-011",
+        "R33-012",
+        "R33-016",
+        "R33-017",
+        "R33-026",
+        "R33-030"
+      ],
+      "delivery_status": "NON_VERIFIE"
+    },
+    {
+      "id": "V35-09",
+      "title": "Import raster, alpha et qualité HD",
+      "depends_on": [
+        "V35-02"
+      ],
+      "criteria": [
+        "V35-09-A1",
+        "V35-09-A2",
+        "V35-09-A3",
+        "V35-09-A4"
+      ],
+      "criteria_path": "docs/roadmap-v3.5/02_EXECUTION.md",
+      "v34_tickets": [
+        "V34-087",
+        "V34-088",
+        "V34-089",
+        "V34-090",
+        "V34-091",
+        "V34-092",
+        "V34-093",
+        "V34-094",
+        "V34-095"
+      ],
+      "requirement_ids": [
+        "S-003",
+        "S-005",
+        "S-006",
+        "S-009",
+        "S-013",
+        "S-015",
+        "S-016",
+        "S-018",
+        "S-029",
+        "S-048",
+        "S-073",
+        "S-079"
+      ],
+      "delivery_status": "NON_VERIFIE"
+    },
+    {
+      "id": "V35-10",
+      "title": "Planches 12/24/50 et reprise de lots",
+      "depends_on": [
+        "V35-05"
+      ],
+      "criteria": [
+        "V35-10-A1",
+        "V35-10-A2",
+        "V35-10-A3",
+        "V35-10-A4",
+        "V35-10-A5"
+      ],
+      "criteria_path": "docs/roadmap-v3.5/02_EXECUTION.md",
+      "v34_tickets": [
+        "V34-134",
+        "V34-135"
+      ],
+      "requirement_ids": [
+        "S-018",
+        "S-038",
+        "S-040",
+        "S-062",
+        "S-089",
+        "S-090",
+        "S-101",
+        "R33-011",
+        "R33-012",
+        "R33-026",
+        "R33-031"
+      ],
+      "delivery_status": "NON_VERIFIE"
+    },
+    {
+      "id": "V35-11",
+      "title": "Bibliothèque, variantes et CSV",
+      "depends_on": [
+        "V35-02"
+      ],
+      "criteria": [
+        "V35-11-A1",
+        "V35-11-A2",
+        "V35-11-A3",
+        "V35-11-A4",
+        "V35-11-A5"
+      ],
+      "criteria_path": "docs/roadmap-v3.5/02_EXECUTION.md",
+      "v34_tickets": [
+        "V34-136",
+        "V34-137",
+        "V34-138"
+      ],
+      "requirement_ids": [
+        "S-017",
+        "S-024",
+        "S-038",
+        "S-039",
+        "S-041",
+        "S-074",
+        "S-091",
+        "S-097",
+        "S-098",
+        "R33-010",
+        "R33-027"
+      ],
+      "delivery_status": "NON_VERIFIE"
+    },
+    {
+      "id": "V35-12",
+      "title": "Texte, polices et dioramas hérités",
+      "depends_on": [
+        "V35-02"
+      ],
+      "criteria": [
+        "V35-12-A1",
+        "V35-12-A2",
+        "V35-12-A3",
+        "V35-12-A4",
+        "V35-12-A5"
+      ],
+      "criteria_path": "docs/roadmap-v3.5/02_EXECUTION.md",
+      "v34_tickets": [],
+      "requirement_ids": [
+        "S-021",
+        "S-036",
+        "S-037",
+        "S-044",
+        "S-047",
+        "S-064",
+        "S-066",
+        "S-092",
+        "S-099",
+        "R33-028"
+      ],
+      "delivery_status": "NON_VERIFIE"
+    },
+    {
+      "id": "V35-13",
+      "title": "Aide contextuelle et planification explicite",
+      "depends_on": [
+        "V35-04"
+      ],
+      "criteria": [
+        "V35-13-A1",
+        "V35-13-A2",
+        "V35-13-A3",
+        "V35-13-A4",
+        "V35-13-A5"
+      ],
+      "criteria_path": "docs/roadmap-v3.5/02_EXECUTION.md",
+      "v34_tickets": [
+        "V34-050",
+        "V34-051",
+        "V34-052",
+        "V34-053",
+        "V34-054",
+        "V34-055",
+        "V34-056",
+        "V34-057",
+        "V34-058",
+        "V34-059",
+        "V34-060",
+        "V34-061",
+        "V34-062",
+        "V34-063",
+        "V34-064",
+        "V34-065",
+        "V34-066",
+        "V34-067"
+      ],
+      "requirement_ids": [
+        "S-003",
+        "S-008",
+        "S-013",
+        "S-022",
+        "S-023",
+        "S-067",
+        "S-071",
+        "S-072",
+        "S-074",
+        "S-075",
+        "S-081",
+        "S-082",
+        "S-083",
+        "S-093",
+        "R33-007",
+        "R33-020",
+        "R33-032",
+        "R33-033",
+        "R33-039"
+      ],
+      "delivery_status": "NON_VERIFIE"
+    },
+    {
+      "id": "V35-14",
+      "title": "Installation Windows, hors ligne et maintenance",
+      "depends_on": [],
+      "criteria": [
+        "V35-14-A1",
+        "V35-14-A2",
+        "V35-14-A3",
+        "V35-14-A4",
+        "V35-14-A5"
+      ],
+      "criteria_path": "docs/roadmap-v3.5/02_EXECUTION.md",
+      "v34_tickets": [
+        "V34-017",
+        "V34-018",
+        "V34-019",
+        "V34-020",
+        "V34-021",
+        "V34-022",
+        "V34-023",
+        "V34-024",
+        "V34-139",
+        "V34-140"
+      ],
+      "requirement_ids": [
+        "S-022",
+        "S-042",
+        "S-046",
+        "S-052",
+        "S-053",
+        "S-061",
+        "S-063",
+        "S-084",
+        "S-094",
+        "S-095",
+        "S-096",
+        "R33-013",
+        "R33-015",
+        "R33-021",
+        "R33-024",
+        "R33-025",
+        "R33-030",
+        "R33-036",
+        "R33-038"
+      ],
+      "delivery_status": "NON_VERIFIE"
+    },
+    {
+      "id": "V35-15",
+      "title": "Recette transversale et preuve d’usage",
+      "depends_on": [
+        "V35-03",
+        "V35-04",
+        "V35-05",
+        "V35-06",
+        "V35-07",
+        "V35-08",
+        "V35-09",
+        "V35-10",
+        "V35-11",
+        "V35-12",
+        "V35-13",
+        "V35-14"
+      ],
+      "criteria": [
+        "V35-15-A1",
+        "V35-15-A2",
+        "V35-15-A3",
+        "V35-15-A4",
+        "V35-15-A5"
+      ],
+      "criteria_path": "docs/roadmap-v3.5/02_EXECUTION.md",
+      "v34_tickets": [],
+      "requirement_ids": [],
+      "delivery_status": "NON_VERIFIE"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "S-001",
+      "title": "G0-G9 (cf. V3.2) · Geler archive V21.14.1 et corpus",
+      "v34_tickets": [
+        "V34-001",
+        "V34-003",
+        "V34-002"
+      ],
+      "historical_route": "V34-001, V34-003, V34-002",
+      "reference_tests": "T-V34-22-02",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-01"
+      ]
+    },
+    {
+      "id": "S-002",
+      "title": "G0-G9 (cf. V3.2) · Spécifier les trois contrats de sortie",
+      "v34_tickets": [
+        "V34-005",
+        "V34-129"
+      ],
+      "historical_route": "V34-005, V34-129",
+      "reference_tests": "T-V34-22-01",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-01",
+        "V35-05"
+      ]
+    },
+    {
+      "id": "S-003",
+      "title": "G0-G9 (cf. V3.2) · Définir modèle de projet/retouches sérialisables",
+      "v34_tickets": [
+        "V34-032",
+        "V34-132",
+        "V34-010",
+        "V34-041",
+        "V34-048",
+        "V34-053",
+        "V34-059",
+        "V34-060",
+        "V34-063",
+        "V34-079",
+        "V34-087"
+      ],
+      "historical_route": "V34-032, V34-132, V34-010, V34-041, V34-048, V34-053, V34-059, V34-060, V34-063, V34-079, V34-087",
+      "reference_tests": "T-V34-22-02",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-03",
+        "V35-04",
+        "V35-08",
+        "V35-09",
+        "V35-13"
+      ]
+    },
+    {
+      "id": "S-004",
+      "title": "G0-G9 (cf. V3.2) · Réduire la complexité visible, conserver anciens IDs",
+      "v34_tickets": [
+        "V34-041",
+        "V34-043",
+        "V34-006"
+      ],
+      "historical_route": "V34-041, V34-043, V34-006",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-04"
+      ]
+    },
+    {
+      "id": "S-005",
+      "title": "G0-G9 (cf. V3.2) · Test réel RMBG/SAM2/BiRefNet RTX 3070",
+      "v34_tickets": [
+        "V34-078",
+        "V34-080",
+        "V34-077",
+        "V34-084",
+        "V34-092"
+      ],
+      "historical_route": "V34-078, V34-080, V34-077, V34-084, V34-092",
+      "reference_tests": "T-V34-22-12",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-08",
+        "V35-09"
+      ]
+    },
+    {
+      "id": "S-006",
+      "title": "G0-G9 (cf. V3.2) · Créer masques de référence des neuf images",
+      "v34_tickets": [
+        "V34-068",
+        "V34-085",
+        "V34-094"
+      ],
+      "historical_route": "V34-068, V34-085, V34-094",
+      "reference_tests": "T-V34-22-12",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-08",
+        "V35-09"
+      ]
+    },
+    {
+      "id": "S-007",
+      "title": "G0-G9 (cf. V3.2) · Validation sémantique du sujet désiré",
+      "v34_tickets": [
+        "V34-069",
+        "V34-110",
+        "V34-007",
+        "V34-071",
+        "V34-082"
+      ],
+      "historical_route": "V34-069, V34-110, V34-007, V34-071, V34-082",
+      "reference_tests": "T-V34-22-05",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-04",
+        "V35-07",
+        "V35-08"
+      ]
+    },
+    {
+      "id": "S-008",
+      "title": "G0-G9 (cf. V3.2) · Éditeur pinceaux/undo/reload vérifié sur frontend",
+      "v34_tickets": [
+        "V34-132",
+        "V34-133",
+        "V34-035",
+        "V34-038",
+        "V34-062",
+        "V34-102"
+      ],
+      "historical_route": "V34-132, V34-133, V34-035, V34-038, V34-062, V34-102",
+      "reference_tests": "T-V34-22-04",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-03",
+        "V35-06",
+        "V35-13"
+      ]
+    },
+    {
+      "id": "S-009",
+      "title": "G0-G9 (cf. V3.2) · Assurance qualité Cricut par format",
+      "v34_tickets": [
+        "V34-101",
+        "V34-129",
+        "V34-090"
+      ],
+      "historical_route": "V34-101, V34-129, V34-090",
+      "reference_tests": "T-V34-22-01",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-05",
+        "V35-06",
+        "V35-09"
+      ]
+    },
+    {
+      "id": "S-010",
+      "title": "G0-G9 (cf. V3.2) · Couper physiquement des exemplaires Explore 5",
+      "v34_tickets": [
+        "V34-124"
+      ],
+      "historical_route": "V34-124",
+      "reference_tests": "T-V34-22-07",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-07"
+      ]
+    },
+    {
+      "id": "S-011",
+      "title": "G0-G9 (cf. V3.2) · Fidélité SVG multicouche et analyse des formes",
+      "v34_tickets": [
+        "V34-098",
+        "V34-099",
+        "V34-103"
+      ],
+      "historical_route": "V34-098, V34-099, V34-103",
+      "reference_tests": "T-V34-22-01",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-06"
+      ]
+    },
+    {
+      "id": "S-012",
+      "title": "G0-G9 (cf. V3.2) · Chemins SVG utilisables avec matériau choisi",
+      "v34_tickets": [
+        "V34-106",
+        "V34-109",
+        "V34-008",
+        "V34-012",
+        "V34-107",
+        "V34-111",
+        "V34-113",
+        "V34-120",
+        "V34-127"
+      ],
+      "historical_route": "V34-106, V34-109, V34-008, V34-012, V34-107, V34-111, V34-113, V34-120, V34-127",
+      "reference_tests": "T-V34-22-08",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-02",
+        "V35-04",
+        "V35-07"
+      ]
+    },
+    {
+      "id": "S-013",
+      "title": "G0-G9 (cf. V3.2) · Écran Express unifié",
+      "v34_tickets": [
+        "V34-043",
+        "V34-051",
+        "V34-091"
+      ],
+      "historical_route": "V34-043, V34-051, V34-091",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-04",
+        "V35-09",
+        "V35-13"
+      ]
+    },
+    {
+      "id": "S-014",
+      "title": "G0-G9 (cf. V3.2) · Segmentation objets et fragments associés",
+      "v34_tickets": [
+        "V34-073"
+      ],
+      "historical_route": "V34-073",
+      "reference_tests": "T-V34-22-12",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-08"
+      ]
+    },
+    {
+      "id": "S-015",
+      "title": "G0-G9 (cf. V3.2) · Nettoyage des halos / découpe et offset",
+      "v34_tickets": [
+        "V34-088",
+        "V34-095",
+        "V34-076"
+      ],
+      "historical_route": "V34-088, V34-095, V34-076",
+      "reference_tests": "T-V34-22-05",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-08",
+        "V35-09"
+      ]
+    },
+    {
+      "id": "S-016",
+      "title": "G0-G9 (cf. V3.2) · HD conditionnelle + diagnostic d'artefacts",
+      "v34_tickets": [
+        "V34-089"
+      ],
+      "historical_route": "V34-089",
+      "reference_tests": "T-V34-22-05",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-09"
+      ]
+    },
+    {
+      "id": "S-017",
+      "title": "G0-G9 (cf. V3.2) · Packaging « projet SmartSVG »",
+      "v34_tickets": [
+        "V34-025",
+        "V34-137",
+        "V34-031",
+        "V34-131"
+      ],
+      "historical_route": "V34-025, V34-137, V34-031, V34-131",
+      "reference_tests": "T-V34-22-02",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-02",
+        "V35-05",
+        "V35-11"
+      ]
+    },
+    {
+      "id": "S-018",
+      "title": "G0-G9 (cf. V3.2) · Queue/batch/cache avec reprise",
+      "v34_tickets": [
+        "V34-074",
+        "V34-135",
+        "V34-070",
+        "V34-081",
+        "V34-093",
+        "V34-104"
+      ],
+      "historical_route": "V34-074, V34-135, V34-070, V34-081, V34-093, V34-104",
+      "reference_tests": "T-V34-22-11",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-06",
+        "V35-08",
+        "V35-09",
+        "V35-10"
+      ]
+    },
+    {
+      "id": "S-019",
+      "title": "G0-G9 (cf. V3.2) · Benchmark Canva/Design Space sur corpus identique",
+      "v34_tickets": [
+        "V34-003"
+      ],
+      "historical_route": "V34-003",
+      "reference_tests": "T-V34-22-07",
+      "planning_note": "Lien partiel : benchmark/score V3.3 reste à tester",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-01"
+      ]
+    },
+    {
+      "id": "S-020",
+      "title": "G0-G9 (cf. V3.2) · Papier découpé multicouche / dioramas",
+      "v34_tickets": [
+        "V34-126"
+      ],
+      "historical_route": "V34-126",
+      "reference_tests": "T-V34-22-08",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-07"
+      ]
+    },
+    {
+      "id": "S-021",
+      "title": "G0-G9 (cf. V3.2) · OCR et gestion du texte sur affiches",
+      "v34_tickets": [],
+      "historical_route": "V3.3 G6/G9 (sans ticket V34)",
+      "reference_tests": "Test V3.3 à relier",
+      "planning_note": "V3.3 conservée ; aucune nouvelle obligation V34",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-12"
+      ]
+    },
+    {
+      "id": "S-022",
+      "title": "G0-G9 (cf. V3.2) · App autonome hors ComfyUI, si justifiée",
+      "v34_tickets": [
+        "V34-019",
+        "V34-139",
+        "V34-004",
+        "V34-011",
+        "V34-014",
+        "V34-017",
+        "V34-020",
+        "V34-024",
+        "V34-054",
+        "V34-064"
+      ],
+      "historical_route": "V34-019, V34-139, V34-004, V34-011, V34-014, V34-017, V34-020, V34-024, V34-054, V34-064",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-01",
+        "V35-02",
+        "V35-13",
+        "V35-14"
+      ]
+    },
+    {
+      "id": "S-023",
+      "title": "Identité de sujet stable",
+      "v34_tickets": [
+        "V34-028",
+        "V34-132",
+        "V34-025",
+        "V34-044",
+        "V34-061",
+        "V34-072",
+        "V34-096",
+        "V34-115"
+      ],
+      "historical_route": "V34-028, V34-132, V34-025, V34-044, V34-061, V34-072, V34-096, V34-115",
+      "reference_tests": "T-V34-22-02",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-02",
+        "V35-03",
+        "V35-04",
+        "V35-06",
+        "V35-07",
+        "V35-08",
+        "V35-13"
+      ]
+    },
+    {
+      "id": "S-024",
+      "title": "Projet `.smartsvg` v1",
+      "v34_tickets": [
+        "V34-025",
+        "V34-136"
+      ],
+      "historical_route": "V34-025, V34-136",
+      "reference_tests": "T-V34-22-02",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-02",
+        "V35-11"
+      ]
+    },
+    {
+      "id": "S-025",
+      "title": "Écran Express métier",
+      "v34_tickets": [
+        "V34-043",
+        "V34-083"
+      ],
+      "historical_route": "V34-043, V34-083",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-04",
+        "V35-08"
+      ]
+    },
+    {
+      "id": "S-026",
+      "title": "Historique non destructif UI",
+      "v34_tickets": [
+        "V34-033",
+        "V34-133",
+        "V34-029"
+      ],
+      "historical_route": "V34-033, V34-133, V34-029",
+      "reference_tests": "T-V34-22-04",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-02",
+        "V35-03"
+      ]
+    },
+    {
+      "id": "S-027",
+      "title": "Contrôle GPU réel",
+      "v34_tickets": [
+        "V34-074",
+        "V34-080",
+        "V34-016",
+        "V34-036",
+        "V34-039",
+        "V34-047"
+      ],
+      "historical_route": "V34-074, V34-080, V34-016, V34-036, V34-039, V34-047",
+      "reference_tests": "T-V34-22-12",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-02",
+        "V35-03",
+        "V35-04",
+        "V35-08"
+      ]
+    },
+    {
+      "id": "S-028",
+      "title": "Groupes sujet + accessoires",
+      "v34_tickets": [
+        "V34-073"
+      ],
+      "historical_route": "V34-073",
+      "reference_tests": "T-V34-22-04",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-08"
+      ]
+    },
+    {
+      "id": "S-029",
+      "title": "Contrat PNG/alpha Cricut",
+      "v34_tickets": [
+        "V34-087",
+        "V34-129",
+        "V34-122"
+      ],
+      "historical_route": "V34-087, V34-129, V34-122",
+      "reference_tests": "T-V34-22-01",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-05",
+        "V35-07",
+        "V35-09"
+      ]
+    },
+    {
+      "id": "S-030",
+      "title": "Contrat SVG Basic Cut",
+      "v34_tickets": [
+        "V34-097",
+        "V34-129",
+        "V34-100",
+        "V34-108",
+        "V34-128"
+      ],
+      "historical_route": "V34-097, V34-129, V34-100, V34-108, V34-128",
+      "reference_tests": "T-V34-22-01",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-05",
+        "V35-06",
+        "V35-07"
+      ]
+    },
+    {
+      "id": "S-031",
+      "title": "Matrice d'essais Explore 5",
+      "v34_tickets": [
+        "V34-124"
+      ],
+      "historical_route": "V34-124",
+      "reference_tests": "T-V34-22-07",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-07"
+      ]
+    },
+    {
+      "id": "S-032",
+      "title": "Export SVG édition vs fabrication",
+      "v34_tickets": [
+        "V34-098",
+        "V34-129",
+        "V34-112"
+      ],
+      "historical_route": "V34-098, V34-129, V34-112",
+      "reference_tests": "T-V34-22-01",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-05",
+        "V35-06",
+        "V35-07"
+      ]
+    },
+    {
+      "id": "S-033",
+      "title": "Préservation traits et petites régions",
+      "v34_tickets": [
+        "V34-099"
+      ],
+      "historical_route": "V34-099",
+      "reference_tests": "T-V34-22-01",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-06"
+      ]
+    },
+    {
+      "id": "S-034",
+      "title": "Simplification de Bézier",
+      "v34_tickets": [
+        "V34-099"
+      ],
+      "historical_route": "V34-099",
+      "reference_tests": "T-V34-22-01",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-06"
+      ]
+    },
+    {
+      "id": "S-035",
+      "title": "Canevas objets/textes",
+      "v34_tickets": [
+        "V34-133"
+      ],
+      "historical_route": "V34-133",
+      "reference_tests": "T-V34-22-04",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-03"
+      ]
+    },
+    {
+      "id": "S-036",
+      "title": "Fonts et conversion textes → tracés",
+      "v34_tickets": [],
+      "historical_route": "V3.3 G6/G9 (sans ticket V34)",
+      "reference_tests": "Test V3.3 à relier",
+      "planning_note": "V3.3 conservée ; aucune nouvelle obligation V34",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-12"
+      ]
+    },
+    {
+      "id": "S-037",
+      "title": "Gabarits métiers",
+      "v34_tickets": [],
+      "historical_route": "V3.3 G6/G9 (sans ticket V34)",
+      "reference_tests": "Test V3.3 à relier",
+      "planning_note": "V3.3 conservée ; aucune nouvelle obligation V34",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-12"
+      ]
+    },
+    {
+      "id": "S-038",
+      "title": "Job manager et checkpoints",
+      "v34_tickets": [
+        "V34-074",
+        "V34-135",
+        "V34-138"
+      ],
+      "historical_route": "V34-074, V34-135, V34-138",
+      "reference_tests": "T-V34-22-11",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-08",
+        "V35-10",
+        "V35-11"
+      ]
+    },
+    {
+      "id": "S-039",
+      "title": "Variables CSV",
+      "v34_tickets": [
+        "V34-138"
+      ],
+      "historical_route": "V34-138",
+      "reference_tests": "T-V34-22-13",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-11"
+      ]
+    },
+    {
+      "id": "S-040",
+      "title": "Imposition mesurable",
+      "v34_tickets": [
+        "V34-134"
+      ],
+      "historical_route": "V34-134",
+      "reference_tests": "T-V34-22-05",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-10"
+      ]
+    },
+    {
+      "id": "S-041",
+      "title": "Bibliothèque locale",
+      "v34_tickets": [
+        "V34-136"
+      ],
+      "historical_route": "V34-136",
+      "reference_tests": "T-V34-22-13",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-11"
+      ]
+    },
+    {
+      "id": "S-042",
+      "title": "Audit de sécurité des projets",
+      "v34_tickets": [
+        "V34-031",
+        "V34-139",
+        "V34-086"
+      ],
+      "historical_route": "V34-031, V34-139, V34-086",
+      "reference_tests": "T-V34-22-03",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-02",
+        "V35-08",
+        "V35-14"
+      ]
+    },
+    {
+      "id": "S-043",
+      "title": "Benchmark Canva/Design Space",
+      "v34_tickets": [
+        "V34-003"
+      ],
+      "historical_route": "V34-003",
+      "reference_tests": "T-V34-22-07",
+      "planning_note": "Lien partiel : benchmark/score V3.3 reste à tester",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-01"
+      ]
+    },
+    {
+      "id": "S-044",
+      "title": "Dioramas multi-plans",
+      "v34_tickets": [],
+      "historical_route": "V3.3 G6/G9 (sans ticket V34)",
+      "reference_tests": "Test V3.3 à relier",
+      "planning_note": "V3.3 conservée ; aucune nouvelle obligation V34",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-12"
+      ]
+    },
+    {
+      "id": "S-045",
+      "title": "Vinyle multi-couleur",
+      "v34_tickets": [
+        "V34-100",
+        "V34-112"
+      ],
+      "historical_route": "V34-100, V34-112",
+      "reference_tests": "T-V34-22-01",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-06",
+        "V35-07"
+      ]
+    },
+    {
+      "id": "S-046",
+      "title": "Application autonome",
+      "v34_tickets": [
+        "V34-019",
+        "V34-139"
+      ],
+      "historical_route": "V34-019, V34-139",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-14"
+      ]
+    },
+    {
+      "id": "S-047",
+      "title": "OCR texte de couverture",
+      "v34_tickets": [],
+      "historical_route": "V3.3 G6/G9 (sans ticket V34)",
+      "reference_tests": "Test V3.3 à relier",
+      "planning_note": "V3.3 conservée ; aucune nouvelle obligation V34",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-12"
+      ]
+    },
+    {
+      "id": "S-048",
+      "title": "Upscale IA artistique",
+      "v34_tickets": [
+        "V34-089",
+        "V34-092"
+      ],
+      "historical_route": "V34-089, V34-092",
+      "reference_tests": "T-V34-22-12",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-09"
+      ]
+    },
+    {
+      "id": "S-049",
+      "title": "`corpus_manifest` et droits d'usage des fixtures",
+      "v34_tickets": [
+        "V34-001",
+        "V34-003"
+      ],
+      "historical_route": "V34-001, V34-003",
+      "reference_tests": "T-V34-22-02",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-01"
+      ]
+    },
+    {
+      "id": "S-050",
+      "title": "Vérité terrain versionnée + protocole annotations",
+      "v34_tickets": [
+        "V34-068",
+        "V34-085"
+      ],
+      "historical_route": "V34-068, V34-085",
+      "reference_tests": "T-V34-22-12",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-08"
+      ]
+    },
+    {
+      "id": "S-051",
+      "title": "Rapprochement historique S-001–S-022 et inventaire réel workflows",
+      "v34_tickets": [
+        "V34-001"
+      ],
+      "historical_route": "V34-001",
+      "reference_tests": "T-V34-22-02",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-01"
+      ]
+    },
+    {
+      "id": "S-052",
+      "title": "Schéma `Subject/Source/Artifact` avec identité et coordonnées",
+      "v34_tickets": [
+        "V34-025",
+        "V34-028",
+        "V34-018",
+        "V34-026"
+      ],
+      "historical_route": "V34-025, V34-028, V34-018, V34-026",
+      "reference_tests": "T-V34-22-02",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-02",
+        "V35-14"
+      ]
+    },
+    {
+      "id": "S-053",
+      "title": "Format `.smartsvg` v1, migration et recovery",
+      "v34_tickets": [
+        "V34-025",
+        "V34-027",
+        "V34-013",
+        "V34-022",
+        "V34-034",
+        "V34-040",
+        "V34-140"
+      ],
+      "historical_route": "V34-025, V34-027, V34-013, V34-022, V34-034, V34-040, V34-140",
+      "reference_tests": "T-V34-22-03",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-02",
+        "V35-03",
+        "V35-14"
+      ]
+    },
+    {
+      "id": "S-054",
+      "title": "Preuves orthogonales et sidecar `manifest.json`",
+      "v34_tickets": [
+        "V34-003",
+        "V34-131"
+      ],
+      "historical_route": "V34-003, V34-131",
+      "reference_tests": "T-V34-22-01",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-01",
+        "V35-05"
+      ]
+    },
+    {
+      "id": "S-055",
+      "title": "Profil Explore 5 A4/Letter, imprimer portrait/poser A4 paysage",
+      "v34_tickets": [
+        "V34-122",
+        "V34-130"
+      ],
+      "historical_route": "V34-122, V34-130",
+      "reference_tests": "T-V34-22-06",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-05",
+        "V35-07"
+      ]
+    },
+    {
+      "id": "S-056",
+      "title": "QA geometry Cut en mm : holes, islands, segments, offset",
+      "v34_tickets": [
+        "V34-108",
+        "V34-109"
+      ],
+      "historical_route": "V34-108, V34-109",
+      "reference_tests": "T-V34-22-08",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-07"
+      ]
+    },
+    {
+      "id": "S-057",
+      "title": "Registre matériel : machine, lame, tapis, matière, tests",
+      "v34_tickets": [
+        "V34-107",
+        "V34-124"
+      ],
+      "historical_route": "V34-107, V34-124",
+      "reference_tests": "T-V34-22-10",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-07"
+      ]
+    },
+    {
+      "id": "S-058",
+      "title": "Matrice environnement local et fournisseur IA",
+      "v34_tickets": [
+        "V34-078",
+        "V34-080"
+      ],
+      "historical_route": "V34-078, V34-080",
+      "reference_tests": "T-V34-22-12",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-08"
+      ]
+    },
+    {
+      "id": "S-059",
+      "title": "Audit accessibilité clavier/contraste/labels",
+      "v34_tickets": [
+        "V34-045",
+        "V34-049"
+      ],
+      "historical_route": "V34-045, V34-049",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-04"
+      ]
+    },
+    {
+      "id": "S-060",
+      "title": "Score qualité séparé silhouette/couleur/géométrie",
+      "v34_tickets": [
+        "V34-101",
+        "V34-109"
+      ],
+      "historical_route": "V34-101, V34-109",
+      "reference_tests": "T-V34-22-01",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-06",
+        "V35-07"
+      ]
+    },
+    {
+      "id": "S-061",
+      "title": "Tests fichiers hostiles et bombes XML/ZIP",
+      "v34_tickets": [
+        "V34-025",
+        "V34-139"
+      ],
+      "historical_route": "V34-025, V34-139",
+      "reference_tests": "T-V34-22-03",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-02",
+        "V35-14"
+      ]
+    },
+    {
+      "id": "S-062",
+      "title": "File de jobs avec identité, cache et pause/reprise",
+      "v34_tickets": [
+        "V34-074",
+        "V34-135"
+      ],
+      "historical_route": "V34-074, V34-135",
+      "reference_tests": "T-V34-22-11",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-08",
+        "V35-10"
+      ]
+    },
+    {
+      "id": "S-063",
+      "title": "Matrice de compatibilité ComfyUI/frontend/node API",
+      "v34_tickets": [
+        "V34-020",
+        "V34-139",
+        "V34-021",
+        "V34-023"
+      ],
+      "historical_route": "V34-020, V34-139, V34-021, V34-023",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-14"
+      ]
+    },
+    {
+      "id": "S-064",
+      "title": "Contrat typographie et licence des polices",
+      "v34_tickets": [],
+      "historical_route": "V3.3 G6/G9 (sans ticket V34)",
+      "reference_tests": "Test V3.3 à relier",
+      "planning_note": "V3.3 conservée ; aucune nouvelle obligation V34",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-12"
+      ]
+    },
+    {
+      "id": "S-065",
+      "title": "Comparaison contrôlée Design Space/Canva/SmartSVG",
+      "v34_tickets": [
+        "V34-003"
+      ],
+      "historical_route": "V34-003",
+      "reference_tests": "T-V34-22-07",
+      "planning_note": "Lien partiel : benchmark/score V3.3 reste à tester",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-01"
+      ]
+    },
+    {
+      "id": "S-066",
+      "title": "Prototype diorama à quatre plans alignables",
+      "v34_tickets": [],
+      "historical_route": "V3.3 G6/G9 (sans ticket V34)",
+      "reference_tests": "Test V3.3 à relier",
+      "planning_note": "V3.3 conservée ; aucune nouvelle obligation V34",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-12"
+      ]
+    },
+    {
+      "id": "S-067",
+      "title": "Accueil 4 objectifs + Reprendre",
+      "v34_tickets": [
+        "V34-042",
+        "V34-043",
+        "V34-009",
+        "V34-015",
+        "V34-037",
+        "V34-050",
+        "V34-052",
+        "V34-105",
+        "V34-114"
+      ],
+      "historical_route": "V34-042, V34-043, V34-009, V34-015, V34-037, V34-050, V34-052, V34-105, V34-114",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-02",
+        "V35-03",
+        "V35-04",
+        "V35-06",
+        "V35-07",
+        "V35-13"
+      ]
+    },
+    {
+      "id": "S-068",
+      "title": "Schéma unique d’écran responsive desktop",
+      "v34_tickets": [
+        "V34-045"
+      ],
+      "historical_route": "V34-045",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-04"
+      ]
+    },
+    {
+      "id": "S-069",
+      "title": "États vide/chargement/erreur/export",
+      "v34_tickets": [
+        "V34-009",
+        "V34-046",
+        "V34-030"
+      ],
+      "historical_route": "V34-009, V34-046, V34-030",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-02",
+        "V35-04"
+      ]
+    },
+    {
+      "id": "S-070",
+      "title": "Sélection directe et croisée sujets↔vignettes",
+      "v34_tickets": [
+        "V34-075",
+        "V34-132"
+      ],
+      "historical_route": "V34-075, V34-132",
+      "reference_tests": "T-V34-22-04",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-03",
+        "V35-08"
+      ]
+    },
+    {
+      "id": "S-071",
+      "title": "Erreurs cliquables avec région et correction réversible",
+      "v34_tickets": [
+        "V34-065",
+        "V34-114",
+        "V34-056"
+      ],
+      "historical_route": "V34-065, V34-114, V34-056",
+      "reference_tests": "T-V34-22-08",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-07",
+        "V35-13"
+      ]
+    },
+    {
+      "id": "S-072",
+      "title": "Flux Express souris + clavier",
+      "v34_tickets": [
+        "V34-049",
+        "V34-066"
+      ],
+      "historical_route": "V34-049, V34-066",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-04",
+        "V35-13"
+      ]
+    },
+    {
+      "id": "S-073",
+      "title": "Aperçus original/masque/coupe séparés",
+      "v34_tickets": [
+        "V34-091",
+        "V34-095"
+      ],
+      "historical_route": "V34-091, V34-095",
+      "reference_tests": "T-V34-22-05",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-09"
+      ]
+    },
+    {
+      "id": "S-074",
+      "title": "Reprise dernier projet et contexte",
+      "v34_tickets": [
+        "V34-044",
+        "V34-136",
+        "V34-055"
+      ],
+      "historical_route": "V34-044, V34-136, V34-055",
+      "reference_tests": "T-V34-22-13",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-04",
+        "V35-11",
+        "V35-13"
+      ]
+    },
+    {
+      "id": "S-075",
+      "title": "Panneau de validation du format par usage",
+      "v34_tickets": [
+        "V34-043",
+        "V34-051"
+      ],
+      "historical_route": "V34-043, V34-051",
+      "reference_tests": "T-V34-22-01",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-04",
+        "V35-13"
+      ]
+    },
+    {
+      "id": "S-076",
+      "title": "Checklist d’export et transfert Design Space",
+      "v34_tickets": [
+        "V34-130"
+      ],
+      "historical_route": "V34-130",
+      "reference_tests": "T-V34-22-09",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-05"
+      ]
+    },
+    {
+      "id": "S-077",
+      "title": "Alternative clavier aux gestes souris complexes",
+      "v34_tickets": [
+        "V34-049"
+      ],
+      "historical_route": "V34-049",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-04"
+      ]
+    },
+    {
+      "id": "S-078",
+      "title": "Contrastes/focus/texte ajustable",
+      "v34_tickets": [
+        "V34-045"
+      ],
+      "historical_route": "V34-045",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-04"
+      ]
+    },
+    {
+      "id": "S-079",
+      "title": "Loupe locale et comparaison glissante",
+      "v34_tickets": [
+        "V34-095"
+      ],
+      "historical_route": "V34-095",
+      "reference_tests": "T-V34-22-05",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-09"
+      ]
+    },
+    {
+      "id": "S-080",
+      "title": "Pinceau correction tactile souris + aperçu effet",
+      "v34_tickets": [
+        "V34-133"
+      ],
+      "historical_route": "V34-133",
+      "reference_tests": "T-V34-22-04",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-03"
+      ]
+    },
+    {
+      "id": "S-081",
+      "title": "Réglages récents et préréglages utilisateur",
+      "v34_tickets": [
+        "V34-055",
+        "V34-057"
+      ],
+      "historical_route": "V34-055, V34-057",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-13"
+      ]
+    },
+    {
+      "id": "S-082",
+      "title": "Disposition de panneaux persistante",
+      "v34_tickets": [
+        "V34-046",
+        "V34-055"
+      ],
+      "historical_route": "V34-046, V34-055",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-04",
+        "V35-13"
+      ]
+    },
+    {
+      "id": "S-083",
+      "title": "Recherche d’action et aide contextuelle",
+      "v34_tickets": [
+        "V34-050",
+        "V34-051"
+      ],
+      "historical_route": "V34-050, V34-051",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-13"
+      ]
+    },
+    {
+      "id": "S-084",
+      "title": "Ouvrir dossier/export/rapport depuis la réussite",
+      "v34_tickets": [
+        "V34-130",
+        "V34-140"
+      ],
+      "historical_route": "V34-130, V34-140",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-05",
+        "V35-14"
+      ]
+    },
+    {
+      "id": "S-085",
+      "title": "Aperçu cutter-only et repères micro-détails",
+      "v34_tickets": [
+        "V34-108",
+        "V34-109",
+        "V34-118"
+      ],
+      "historical_route": "V34-108, V34-109, V34-118",
+      "reference_tests": "T-V34-22-08",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-07"
+      ]
+    },
+    {
+      "id": "S-086",
+      "title": "Toiles avec poignées et dimensions mm",
+      "v34_tickets": [
+        "V34-133"
+      ],
+      "historical_route": "V34-133",
+      "reference_tests": "T-V34-22-04",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-03"
+      ]
+    },
+    {
+      "id": "S-087",
+      "title": "Multi-sélection, groupement et menu contextuel",
+      "v34_tickets": [
+        "V34-133"
+      ],
+      "historical_route": "V34-133",
+      "reference_tests": "T-V34-22-04",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-03"
+      ]
+    },
+    {
+      "id": "S-088",
+      "title": "Trois gabarits de départ guidés",
+      "v34_tickets": [
+        "V34-126"
+      ],
+      "historical_route": "V34-126",
+      "reference_tests": "T-V34-22-08",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-07"
+      ]
+    },
+    {
+      "id": "S-089",
+      "title": "Tableau de lot et reprise d’un échec isolé",
+      "v34_tickets": [
+        "V34-135",
+        "V34-134"
+      ],
+      "historical_route": "V34-135, V34-134",
+      "reference_tests": "T-V34-22-11",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-10"
+      ]
+    },
+    {
+      "id": "S-090",
+      "title": "Comparer deux dispositions de planche",
+      "v34_tickets": [
+        "V34-134"
+      ],
+      "historical_route": "V34-134",
+      "reference_tests": "T-V34-22-05",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-10"
+      ]
+    },
+    {
+      "id": "S-091",
+      "title": "Bibliothèque avec miniatures et filtre métier",
+      "v34_tickets": [
+        "V34-136"
+      ],
+      "historical_route": "V34-136",
+      "reference_tests": "T-V34-22-13",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-11"
+      ]
+    },
+    {
+      "id": "S-092",
+      "title": "Choix de police avec aperçu et alertes glyphes",
+      "v34_tickets": [],
+      "historical_route": "V3.3 G6/G9 (sans ticket V34)",
+      "reference_tests": "Test V3.3 à relier",
+      "planning_note": "V3.3 conservée ; aucune nouvelle obligation V34",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-12"
+      ]
+    },
+    {
+      "id": "S-093",
+      "title": "Protocole de test utilisateur novice/régulier",
+      "v34_tickets": [
+        "V34-058",
+        "V34-067"
+      ],
+      "historical_route": "V34-058, V34-067",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-13"
+      ]
+    },
+    {
+      "id": "S-094",
+      "title": "Tests d’accessibilité + vérification Windows zoom",
+      "v34_tickets": [
+        "V34-045",
+        "V34-139"
+      ],
+      "historical_route": "V34-045, V34-139",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-04",
+        "V35-14"
+      ]
+    },
+    {
+      "id": "S-095",
+      "title": "Tests de récupération pendant export/IA",
+      "v34_tickets": [
+        "V34-022",
+        "V34-140"
+      ],
+      "historical_route": "V34-022, V34-140",
+      "reference_tests": "T-V34-22-03",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-14"
+      ]
+    },
+    {
+      "id": "S-096",
+      "title": "Instrumentation locale UX et latence (opt-in export rapport)",
+      "v34_tickets": [
+        "V34-024",
+        "V34-140"
+      ],
+      "historical_route": "V34-024, V34-140",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-14"
+      ]
+    },
+    {
+      "id": "S-097",
+      "title": "Commandes « refaire sur sélection »",
+      "v34_tickets": [
+        "V34-137",
+        "V34-138"
+      ],
+      "historical_route": "V34-137, V34-138",
+      "reference_tests": "T-V34-22-13",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-11"
+      ]
+    },
+    {
+      "id": "S-098",
+      "title": "Liste de recettes/gabarits personnels",
+      "v34_tickets": [
+        "V34-137"
+      ],
+      "historical_route": "V34-137",
+      "reference_tests": "T-V34-22-13",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-11"
+      ]
+    },
+    {
+      "id": "S-099",
+      "title": "Guide d’assemblage de diorama dans l’UI",
+      "v34_tickets": [],
+      "historical_route": "V3.3 G6/G9 (sans ticket V34)",
+      "reference_tests": "Test V3.3 à relier",
+      "planning_note": "V3.3 conservée ; aucune nouvelle obligation V34",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-12"
+      ]
+    },
+    {
+      "id": "S-100",
+      "title": "Raccourcis personnalisables / commandes favorites",
+      "v34_tickets": [
+        "V34-046"
+      ],
+      "historical_route": "V34-046",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-04"
+      ]
+    },
+    {
+      "id": "S-101",
+      "title": "Comparaison de variantes avec scores séparés",
+      "v34_tickets": [
+        "V34-002",
+        "V34-134"
+      ],
+      "historical_route": "V34-002, V34-134",
+      "reference_tests": "T-V34-22-05",
+      "planning_note": "Lien partiel : benchmark/score V3.3 reste à tester",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-01",
+        "V35-10"
+      ]
+    },
+    {
+      "id": "R33-001",
+      "title": "Héritage intégral et vérifiable de V3.2",
+      "v34_tickets": [
+        "V34-001",
+        "V34-025"
+      ],
+      "historical_route": "V34-001, V34-025",
+      "reference_tests": "T-V34-22-02",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-01",
+        "V35-02"
+      ]
+    },
+    {
+      "id": "R33-002",
+      "title": "Échelle de maturité commune sans promotion implicite",
+      "v34_tickets": [
+        "V34-003"
+      ],
+      "historical_route": "V34-003",
+      "reference_tests": "T-V34-22-01",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-01"
+      ]
+    },
+    {
+      "id": "R33-003",
+      "title": "Projet unique partagé par les six espaces",
+      "v34_tickets": [
+        "V34-011",
+        "V34-132"
+      ],
+      "historical_route": "V34-011, V34-132",
+      "reference_tests": "T-V34-22-02",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-02",
+        "V35-03"
+      ]
+    },
+    {
+      "id": "R33-004",
+      "title": "Identités et révisions sur chaque commande asynchrone",
+      "v34_tickets": [
+        "V34-028",
+        "V34-032"
+      ],
+      "historical_route": "V34-028, V34-032",
+      "reference_tests": "T-V34-22-02",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-02",
+        "V35-03"
+      ]
+    },
+    {
+      "id": "R33-005",
+      "title": "Résultat obsolète refusé ou isolé",
+      "v34_tickets": [
+        "V34-036",
+        "V34-115"
+      ],
+      "historical_route": "V34-036, V34-115",
+      "reference_tests": "T-V34-22-04",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-03",
+        "V35-07"
+      ]
+    },
+    {
+      "id": "R33-006",
+      "title": "Masques float32 comme autorité de retouche",
+      "v34_tickets": [
+        "V34-028",
+        "V34-133"
+      ],
+      "historical_route": "V34-028, V34-133",
+      "reference_tests": "T-V34-22-04",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-02",
+        "V35-03"
+      ]
+    },
+    {
+      "id": "R33-007",
+      "title": "Fallback manuel ou CPU pour le parcours essentiel",
+      "v34_tickets": [
+        "V34-051",
+        "V34-086"
+      ],
+      "historical_route": "V34-051, V34-086",
+      "reference_tests": "T-V34-22-12",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-08",
+        "V35-13"
+      ]
+    },
+    {
+      "id": "R33-008",
+      "title": "Séparation permanente PNG Print Then Cut, SVG Basic Cut, SVG Cut multicouche et SVG d'édition",
+      "v34_tickets": [
+        "V34-005",
+        "V34-129"
+      ],
+      "historical_route": "V34-005, V34-129",
+      "reference_tests": "T-V34-22-01",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-01",
+        "V35-05"
+      ]
+    },
+    {
+      "id": "R33-009",
+      "title": "Migration transactionnelle des projets",
+      "v34_tickets": [
+        "V34-027"
+      ],
+      "historical_route": "V34-027",
+      "reference_tests": "T-V34-22-03",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-02"
+      ]
+    },
+    {
+      "id": "R33-010",
+      "title": "Index de bibliothèque reconstructible",
+      "v34_tickets": [
+        "V34-136"
+      ],
+      "historical_route": "V34-136",
+      "reference_tests": "T-V34-22-13",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-11"
+      ]
+    },
+    {
+      "id": "R33-011",
+      "title": "Jobs idempotents avec succès partiel",
+      "v34_tickets": [
+        "V34-074",
+        "V34-135"
+      ],
+      "historical_route": "V34-074, V34-135",
+      "reference_tests": "T-V34-22-11",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-08",
+        "V35-10"
+      ]
+    },
+    {
+      "id": "R33-012",
+      "title": "Annulation et reprise sans doublon",
+      "v34_tickets": [
+        "V34-074",
+        "V34-135"
+      ],
+      "historical_route": "V34-074, V34-135",
+      "reference_tests": "T-V34-22-11",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-08",
+        "V35-10"
+      ]
+    },
+    {
+      "id": "R33-013",
+      "title": "Gestion explicite disque plein et lecture seule",
+      "v34_tickets": [
+        "V34-022",
+        "V34-140"
+      ],
+      "historical_route": "V34-022, V34-140",
+      "reference_tests": "T-V34-22-03",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-14"
+      ]
+    },
+    {
+      "id": "R33-014",
+      "title": "Gestion de sessions concurrentes et double activation",
+      "v34_tickets": [
+        "V34-036",
+        "V34-125",
+        "V34-119"
+      ],
+      "historical_route": "V34-036, V34-125, V34-119",
+      "reference_tests": "T-V34-22-04",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-03",
+        "V35-07"
+      ]
+    },
+    {
+      "id": "R33-015",
+      "title": "Rapport de diagnostic local expurgé",
+      "v34_tickets": [
+        "V34-024",
+        "V34-140"
+      ],
+      "historical_route": "V34-024, V34-140",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-14"
+      ]
+    },
+    {
+      "id": "R33-016",
+      "title": "Inventaire des licences et provenances",
+      "v34_tickets": [
+        "V34-001",
+        "V34-078"
+      ],
+      "historical_route": "V34-001, V34-078",
+      "reference_tests": "T-V34-22-12",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-01",
+        "V35-08"
+      ]
+    },
+    {
+      "id": "R33-017",
+      "title": "Mesure CPU RAM VRAM et temps par fournisseur",
+      "v34_tickets": [
+        "V34-080",
+        "V34-085"
+      ],
+      "historical_route": "V34-080, V34-085",
+      "reference_tests": "T-V34-22-12",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-08"
+      ]
+    },
+    {
+      "id": "R33-018",
+      "title": "Validation responsive et zoom Windows",
+      "v34_tickets": [
+        "V34-045"
+      ],
+      "historical_route": "V34-045",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-04"
+      ]
+    },
+    {
+      "id": "R33-019",
+      "title": "Alternative clavier à chaque geste complexe",
+      "v34_tickets": [
+        "V34-049"
+      ],
+      "historical_route": "V34-049",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-04"
+      ]
+    },
+    {
+      "id": "R33-020",
+      "title": "Localisation française cohérente et messages actionnables",
+      "v34_tickets": [
+        "V34-050",
+        "V34-056"
+      ],
+      "historical_route": "V34-050, V34-056",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-13"
+      ]
+    },
+    {
+      "id": "R33-021",
+      "title": "Tests d'installation mise à jour et rollback",
+      "v34_tickets": [
+        "V34-139"
+      ],
+      "historical_route": "V34-139",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-14"
+      ]
+    },
+    {
+      "id": "R33-022",
+      "title": "Versions Design Space associées aux preuves",
+      "v34_tickets": [
+        "V34-107",
+        "V34-130",
+        "V34-116",
+        "V34-117",
+        "V34-121"
+      ],
+      "historical_route": "V34-107, V34-130, V34-116, V34-117, V34-121",
+      "reference_tests": "T-V34-22-09",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-05",
+        "V35-07"
+      ]
+    },
+    {
+      "id": "R33-023",
+      "title": "Contexte machine matière outil associé aux preuves physiques",
+      "v34_tickets": [
+        "V34-107",
+        "V34-124"
+      ],
+      "historical_route": "V34-107, V34-124",
+      "reference_tests": "T-V34-22-10",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-07"
+      ]
+    },
+    {
+      "id": "R33-024",
+      "title": "Données de preuve privées hors dépôt public",
+      "v34_tickets": [
+        "V34-003",
+        "V34-140"
+      ],
+      "historical_route": "V34-003, V34-140",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-01",
+        "V35-14"
+      ]
+    },
+    {
+      "id": "R33-025",
+      "title": "Tests de panne pendant sauvegarde export et IA",
+      "v34_tickets": [
+        "V34-022",
+        "V34-140",
+        "V34-123"
+      ],
+      "historical_route": "V34-022, V34-140, V34-123",
+      "reference_tests": "T-V34-22-03",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-07",
+        "V35-14"
+      ]
+    },
+    {
+      "id": "R33-026",
+      "title": "Budgets pour projets et lots volumineux",
+      "v34_tickets": [
+        "V34-074",
+        "V34-135"
+      ],
+      "historical_route": "V34-074, V34-135",
+      "reference_tests": "T-V34-22-11",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-08",
+        "V35-10"
+      ]
+    },
+    {
+      "id": "R33-027",
+      "title": "Noms de fichiers sûrs et collisions contrôlées",
+      "v34_tickets": [
+        "V34-131",
+        "V34-138"
+      ],
+      "historical_route": "V34-131, V34-138",
+      "reference_tests": "T-V34-22-13",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-05",
+        "V35-11"
+      ]
+    },
+    {
+      "id": "R33-028",
+      "title": "Polices licences et glyphes manquants visibles",
+      "v34_tickets": [],
+      "historical_route": "V3.3 G6/G9 (sans ticket V34)",
+      "reference_tests": "Test V3.3 à relier",
+      "planning_note": "V3.3 conservée ; aucune nouvelle obligation V34",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-12"
+      ]
+    },
+    {
+      "id": "R33-029",
+      "title": "Comparaison de rendu indépendante de la fabricabilité",
+      "v34_tickets": [
+        "V34-098",
+        "V34-109"
+      ],
+      "historical_route": "V34-098, V34-109",
+      "reference_tests": "T-V34-22-01",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-06",
+        "V35-07"
+      ]
+    },
+    {
+      "id": "R33-030",
+      "title": "Aucune requête réseau implicite",
+      "v34_tickets": [
+        "V34-079",
+        "V34-140"
+      ],
+      "historical_route": "V34-079, V34-140",
+      "reference_tests": "T-V34-22-12",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-08",
+        "V35-14"
+      ]
+    },
+    {
+      "id": "R33-031",
+      "title": "Rapport par objet pour planches et lots",
+      "v34_tickets": [
+        "V34-135"
+      ],
+      "historical_route": "V34-135",
+      "reference_tests": "T-V34-22-11",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-10"
+      ]
+    },
+    {
+      "id": "R33-032",
+      "title": "Préférences UI séparées de l'état projet",
+      "v34_tickets": [
+        "V34-055"
+      ],
+      "historical_route": "V34-055",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-13"
+      ]
+    },
+    {
+      "id": "R33-033",
+      "title": "États vide chargement erreur annulation et reprise",
+      "v34_tickets": [
+        "V34-046",
+        "V34-050"
+      ],
+      "historical_route": "V34-046, V34-050",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-04",
+        "V35-13"
+      ]
+    },
+    {
+      "id": "R33-034",
+      "title": "Preuve liée au SHA exact et à l'environnement",
+      "v34_tickets": [
+        "V34-003",
+        "V34-124"
+      ],
+      "historical_route": "V34-003, V34-124",
+      "reference_tests": "T-V34-22-10",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-01",
+        "V35-07"
+      ]
+    },
+    {
+      "id": "R33-035",
+      "title": "Gate humain pour toute certification matérielle",
+      "v34_tickets": [
+        "V34-124"
+      ],
+      "historical_route": "V34-124",
+      "reference_tests": "T-V34-22-10",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-07"
+      ]
+    },
+    {
+      "id": "R33-036",
+      "title": "Rollback documenté pour chaque micro-lot",
+      "v34_tickets": [
+        "V34-027",
+        "V34-140"
+      ],
+      "historical_route": "V34-027, V34-140",
+      "reference_tests": "T-V34-22-03",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-02",
+        "V35-14"
+      ]
+    },
+    {
+      "id": "R33-037",
+      "title": "Registre de risques relié aux tests",
+      "v34_tickets": [
+        "V34-003",
+        "V34-109"
+      ],
+      "historical_route": "V34-003, V34-109",
+      "reference_tests": "T-V34-22-08",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-01",
+        "V35-07"
+      ]
+    },
+    {
+      "id": "R33-038",
+      "title": "Matrice de compatibilité versionnée",
+      "v34_tickets": [
+        "V34-021",
+        "V34-139"
+      ],
+      "historical_route": "V34-021, V34-139",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-14"
+      ]
+    },
+    {
+      "id": "R33-039",
+      "title": "Observation utilisateur sans collecte excessive",
+      "v34_tickets": [
+        "V34-055",
+        "V34-058"
+      ],
+      "historical_route": "V34-055, V34-058",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-13"
+      ]
+    },
+    {
+      "id": "R33-040",
+      "title": "Gel fonctionnel avant déclaration stable",
+      "v34_tickets": [
+        "V34-002",
+        "V34-003"
+      ],
+      "historical_route": "V34-002, V34-003",
+      "reference_tests": "T-V34-22-14",
+      "planning_note": "Lien de planification, preuve non exécutée",
+      "delivery_status": "NON_VERIFIE",
+      "execution_slices": [
+        "V35-01"
+      ]
+    }
+  ],
+  "tickets": [
+    {
+      "id": "V34-001",
+      "source_lot": 1,
+      "source_path": "docs/roadmap-v3.4/01_BASELINE_AUDIT.md",
+      "source_blob_sha": "2d00944b1f72dd7fb62c436905248c4411ed287d",
+      "requirement_ids": [
+        "R33-001",
+        "R33-016",
+        "S-001",
+        "S-049",
+        "S-051"
+      ],
+      "reference_tests": "T-V34-22-02, T-V34-22-12",
+      "execution_slice": "V35-01",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-002",
+      "source_lot": 1,
+      "source_path": "docs/roadmap-v3.4/01_BASELINE_AUDIT.md",
+      "source_blob_sha": "2d00944b1f72dd7fb62c436905248c4411ed287d",
+      "requirement_ids": [
+        "R33-040",
+        "S-001",
+        "S-101"
+      ],
+      "reference_tests": "T-V34-22-02, T-V34-22-05, T-V34-22-14",
+      "execution_slice": "V35-01",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-003",
+      "source_lot": 1,
+      "source_path": "docs/roadmap-v3.4/01_BASELINE_AUDIT.md",
+      "source_blob_sha": "2d00944b1f72dd7fb62c436905248c4411ed287d",
+      "requirement_ids": [
+        "R33-002",
+        "R33-024",
+        "R33-034",
+        "R33-037",
+        "R33-040",
+        "S-001",
+        "S-019",
+        "S-043",
+        "S-049",
+        "S-054",
+        "S-065"
+      ],
+      "reference_tests": "T-V34-22-01, T-V34-22-02, T-V34-22-07, T-V34-22-14",
+      "execution_slice": "V35-01",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-004",
+      "source_lot": 1,
+      "source_path": "docs/roadmap-v3.4/01_BASELINE_AUDIT.md",
+      "source_blob_sha": "2d00944b1f72dd7fb62c436905248c4411ed287d",
+      "requirement_ids": [
+        "S-022"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-01",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-005",
+      "source_lot": 1,
+      "source_path": "docs/roadmap-v3.4/01_BASELINE_AUDIT.md",
+      "source_blob_sha": "2d00944b1f72dd7fb62c436905248c4411ed287d",
+      "requirement_ids": [
+        "R33-008",
+        "S-002"
+      ],
+      "reference_tests": "T-V34-22-01",
+      "execution_slice": "V35-01",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-006",
+      "source_lot": 2,
+      "source_path": "docs/roadmap-v3.4/02_VISION_PARCOURS.md",
+      "source_blob_sha": "9a4297168d95c5f09b8529236865e8f83184fb38",
+      "requirement_ids": [
+        "S-004"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-04",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-007",
+      "source_lot": 2,
+      "source_path": "docs/roadmap-v3.4/02_VISION_PARCOURS.md",
+      "source_blob_sha": "9a4297168d95c5f09b8529236865e8f83184fb38",
+      "requirement_ids": [
+        "S-007"
+      ],
+      "reference_tests": "T-V34-22-05",
+      "execution_slice": "V35-04",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-008",
+      "source_lot": 2,
+      "source_path": "docs/roadmap-v3.4/02_VISION_PARCOURS.md",
+      "source_blob_sha": "9a4297168d95c5f09b8529236865e8f83184fb38",
+      "requirement_ids": [
+        "S-012"
+      ],
+      "reference_tests": "T-V34-22-08",
+      "execution_slice": "V35-04",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-009",
+      "source_lot": 2,
+      "source_path": "docs/roadmap-v3.4/02_VISION_PARCOURS.md",
+      "source_blob_sha": "9a4297168d95c5f09b8529236865e8f83184fb38",
+      "requirement_ids": [
+        "S-067",
+        "S-069"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-04",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-010",
+      "source_lot": 2,
+      "source_path": "docs/roadmap-v3.4/02_VISION_PARCOURS.md",
+      "source_blob_sha": "9a4297168d95c5f09b8529236865e8f83184fb38",
+      "requirement_ids": [
+        "S-003"
+      ],
+      "reference_tests": "T-V34-22-02",
+      "execution_slice": "V35-04",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-011",
+      "source_lot": 3,
+      "source_path": "docs/roadmap-v3.4/03_ARCHITECTURE_ADR.md",
+      "source_blob_sha": "7a0b0c00f21c02895174d8bd99517ba5a3769482",
+      "requirement_ids": [
+        "R33-003",
+        "S-022"
+      ],
+      "reference_tests": "T-V34-22-14, T-V34-22-02",
+      "execution_slice": "V35-02",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-012",
+      "source_lot": 3,
+      "source_path": "docs/roadmap-v3.4/03_ARCHITECTURE_ADR.md",
+      "source_blob_sha": "7a0b0c00f21c02895174d8bd99517ba5a3769482",
+      "requirement_ids": [
+        "S-012"
+      ],
+      "reference_tests": "T-V34-22-08",
+      "execution_slice": "V35-02",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-013",
+      "source_lot": 3,
+      "source_path": "docs/roadmap-v3.4/03_ARCHITECTURE_ADR.md",
+      "source_blob_sha": "7a0b0c00f21c02895174d8bd99517ba5a3769482",
+      "requirement_ids": [
+        "S-053"
+      ],
+      "reference_tests": "T-V34-22-03",
+      "execution_slice": "V35-02",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-014",
+      "source_lot": 3,
+      "source_path": "docs/roadmap-v3.4/03_ARCHITECTURE_ADR.md",
+      "source_blob_sha": "7a0b0c00f21c02895174d8bd99517ba5a3769482",
+      "requirement_ids": [
+        "S-022"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-02",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-015",
+      "source_lot": 3,
+      "source_path": "docs/roadmap-v3.4/03_ARCHITECTURE_ADR.md",
+      "source_blob_sha": "7a0b0c00f21c02895174d8bd99517ba5a3769482",
+      "requirement_ids": [
+        "S-067"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-02",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-016",
+      "source_lot": 3,
+      "source_path": "docs/roadmap-v3.4/03_ARCHITECTURE_ADR.md",
+      "source_blob_sha": "7a0b0c00f21c02895174d8bd99517ba5a3769482",
+      "requirement_ids": [
+        "S-027"
+      ],
+      "reference_tests": "T-V34-22-12",
+      "execution_slice": "V35-02",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-017",
+      "source_lot": 4,
+      "source_path": "docs/roadmap-v3.4/04_MIGRATION_AUTONOME.md",
+      "source_blob_sha": "272fb820b12a56285152cb3d2bd80c2d6dec9278",
+      "requirement_ids": [
+        "S-022"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-14",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-018",
+      "source_lot": 4,
+      "source_path": "docs/roadmap-v3.4/04_MIGRATION_AUTONOME.md",
+      "source_blob_sha": "272fb820b12a56285152cb3d2bd80c2d6dec9278",
+      "requirement_ids": [
+        "S-052"
+      ],
+      "reference_tests": "T-V34-22-02",
+      "execution_slice": "V35-14",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-019",
+      "source_lot": 4,
+      "source_path": "docs/roadmap-v3.4/04_MIGRATION_AUTONOME.md",
+      "source_blob_sha": "272fb820b12a56285152cb3d2bd80c2d6dec9278",
+      "requirement_ids": [
+        "S-022",
+        "S-046"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-14",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-020",
+      "source_lot": 4,
+      "source_path": "docs/roadmap-v3.4/04_MIGRATION_AUTONOME.md",
+      "source_blob_sha": "272fb820b12a56285152cb3d2bd80c2d6dec9278",
+      "requirement_ids": [
+        "S-022",
+        "S-063"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-14",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-021",
+      "source_lot": 4,
+      "source_path": "docs/roadmap-v3.4/04_MIGRATION_AUTONOME.md",
+      "source_blob_sha": "272fb820b12a56285152cb3d2bd80c2d6dec9278",
+      "requirement_ids": [
+        "R33-038",
+        "S-063"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-14",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-022",
+      "source_lot": 4,
+      "source_path": "docs/roadmap-v3.4/04_MIGRATION_AUTONOME.md",
+      "source_blob_sha": "272fb820b12a56285152cb3d2bd80c2d6dec9278",
+      "requirement_ids": [
+        "R33-013",
+        "R33-025",
+        "S-053",
+        "S-095"
+      ],
+      "reference_tests": "T-V34-22-03",
+      "execution_slice": "V35-14",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-023",
+      "source_lot": 4,
+      "source_path": "docs/roadmap-v3.4/04_MIGRATION_AUTONOME.md",
+      "source_blob_sha": "272fb820b12a56285152cb3d2bd80c2d6dec9278",
+      "requirement_ids": [
+        "S-063"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-14",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-024",
+      "source_lot": 4,
+      "source_path": "docs/roadmap-v3.4/04_MIGRATION_AUTONOME.md",
+      "source_blob_sha": "272fb820b12a56285152cb3d2bd80c2d6dec9278",
+      "requirement_ids": [
+        "R33-015",
+        "S-022",
+        "S-096"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-14",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-025",
+      "source_lot": 5,
+      "source_path": "docs/roadmap-v3.4/05_PROJECT_SCHEMA.md",
+      "source_blob_sha": "598a0ba0ec17d2e6035ff8875d3a5ba49a2f702c",
+      "requirement_ids": [
+        "R33-001",
+        "S-017",
+        "S-023",
+        "S-024",
+        "S-052",
+        "S-053",
+        "S-061"
+      ],
+      "reference_tests": "T-V34-22-02, T-V34-22-03",
+      "execution_slice": "V35-02",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-026",
+      "source_lot": 5,
+      "source_path": "docs/roadmap-v3.4/05_PROJECT_SCHEMA.md",
+      "source_blob_sha": "598a0ba0ec17d2e6035ff8875d3a5ba49a2f702c",
+      "requirement_ids": [
+        "S-052"
+      ],
+      "reference_tests": "T-V34-22-02",
+      "execution_slice": "V35-02",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-027",
+      "source_lot": 5,
+      "source_path": "docs/roadmap-v3.4/05_PROJECT_SCHEMA.md",
+      "source_blob_sha": "598a0ba0ec17d2e6035ff8875d3a5ba49a2f702c",
+      "requirement_ids": [
+        "R33-009",
+        "R33-036",
+        "S-053"
+      ],
+      "reference_tests": "T-V34-22-03",
+      "execution_slice": "V35-02",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-028",
+      "source_lot": 5,
+      "source_path": "docs/roadmap-v3.4/05_PROJECT_SCHEMA.md",
+      "source_blob_sha": "598a0ba0ec17d2e6035ff8875d3a5ba49a2f702c",
+      "requirement_ids": [
+        "R33-004",
+        "R33-006",
+        "S-023",
+        "S-052"
+      ],
+      "reference_tests": "T-V34-22-02, T-V34-22-04",
+      "execution_slice": "V35-02",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-029",
+      "source_lot": 5,
+      "source_path": "docs/roadmap-v3.4/05_PROJECT_SCHEMA.md",
+      "source_blob_sha": "598a0ba0ec17d2e6035ff8875d3a5ba49a2f702c",
+      "requirement_ids": [
+        "S-026"
+      ],
+      "reference_tests": "T-V34-22-04",
+      "execution_slice": "V35-02",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-030",
+      "source_lot": 5,
+      "source_path": "docs/roadmap-v3.4/05_PROJECT_SCHEMA.md",
+      "source_blob_sha": "598a0ba0ec17d2e6035ff8875d3a5ba49a2f702c",
+      "requirement_ids": [
+        "S-069"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-02",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-031",
+      "source_lot": 5,
+      "source_path": "docs/roadmap-v3.4/05_PROJECT_SCHEMA.md",
+      "source_blob_sha": "598a0ba0ec17d2e6035ff8875d3a5ba49a2f702c",
+      "requirement_ids": [
+        "S-017",
+        "S-042"
+      ],
+      "reference_tests": "T-V34-22-02, T-V34-22-03",
+      "execution_slice": "V35-02",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-032",
+      "source_lot": 6,
+      "source_path": "docs/roadmap-v3.4/06_COMMAND_BUS.md",
+      "source_blob_sha": "074879c0729042a77e8addc60b8c9446c176c183",
+      "requirement_ids": [
+        "R33-004",
+        "S-003"
+      ],
+      "reference_tests": "T-V34-22-02",
+      "execution_slice": "V35-03",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-033",
+      "source_lot": 6,
+      "source_path": "docs/roadmap-v3.4/06_COMMAND_BUS.md",
+      "source_blob_sha": "074879c0729042a77e8addc60b8c9446c176c183",
+      "requirement_ids": [
+        "S-026"
+      ],
+      "reference_tests": "T-V34-22-04",
+      "execution_slice": "V35-03",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-034",
+      "source_lot": 6,
+      "source_path": "docs/roadmap-v3.4/06_COMMAND_BUS.md",
+      "source_blob_sha": "074879c0729042a77e8addc60b8c9446c176c183",
+      "requirement_ids": [
+        "S-053"
+      ],
+      "reference_tests": "T-V34-22-03",
+      "execution_slice": "V35-03",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-035",
+      "source_lot": 6,
+      "source_path": "docs/roadmap-v3.4/06_COMMAND_BUS.md",
+      "source_blob_sha": "074879c0729042a77e8addc60b8c9446c176c183",
+      "requirement_ids": [
+        "S-008"
+      ],
+      "reference_tests": "T-V34-22-04",
+      "execution_slice": "V35-03",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-036",
+      "source_lot": 6,
+      "source_path": "docs/roadmap-v3.4/06_COMMAND_BUS.md",
+      "source_blob_sha": "074879c0729042a77e8addc60b8c9446c176c183",
+      "requirement_ids": [
+        "R33-005",
+        "R33-014",
+        "S-027"
+      ],
+      "reference_tests": "T-V34-22-12, T-V34-22-04",
+      "execution_slice": "V35-03",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-037",
+      "source_lot": 6,
+      "source_path": "docs/roadmap-v3.4/06_COMMAND_BUS.md",
+      "source_blob_sha": "074879c0729042a77e8addc60b8c9446c176c183",
+      "requirement_ids": [
+        "S-067"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-03",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-038",
+      "source_lot": 6,
+      "source_path": "docs/roadmap-v3.4/06_COMMAND_BUS.md",
+      "source_blob_sha": "074879c0729042a77e8addc60b8c9446c176c183",
+      "requirement_ids": [
+        "S-008"
+      ],
+      "reference_tests": "T-V34-22-04",
+      "execution_slice": "V35-03",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-039",
+      "source_lot": 6,
+      "source_path": "docs/roadmap-v3.4/06_COMMAND_BUS.md",
+      "source_blob_sha": "074879c0729042a77e8addc60b8c9446c176c183",
+      "requirement_ids": [
+        "S-027"
+      ],
+      "reference_tests": "T-V34-22-12",
+      "execution_slice": "V35-03",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-040",
+      "source_lot": 6,
+      "source_path": "docs/roadmap-v3.4/06_COMMAND_BUS.md",
+      "source_blob_sha": "074879c0729042a77e8addc60b8c9446c176c183",
+      "requirement_ids": [
+        "S-053"
+      ],
+      "reference_tests": "T-V34-22-03",
+      "execution_slice": "V35-03",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-041",
+      "source_lot": 7,
+      "source_path": "docs/roadmap-v3.4/07_UX_EXPRESS_NAVIGATION.md",
+      "source_blob_sha": "0846d31a7bd3b0c719423ee585e2ab8721dcbb76",
+      "requirement_ids": [
+        "S-003",
+        "S-004"
+      ],
+      "reference_tests": "T-V34-22-02, T-V34-22-14",
+      "execution_slice": "V35-04",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-042",
+      "source_lot": 7,
+      "source_path": "docs/roadmap-v3.4/07_UX_EXPRESS_NAVIGATION.md",
+      "source_blob_sha": "0846d31a7bd3b0c719423ee585e2ab8721dcbb76",
+      "requirement_ids": [
+        "S-067"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-04",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-043",
+      "source_lot": 7,
+      "source_path": "docs/roadmap-v3.4/07_UX_EXPRESS_NAVIGATION.md",
+      "source_blob_sha": "0846d31a7bd3b0c719423ee585e2ab8721dcbb76",
+      "requirement_ids": [
+        "S-004",
+        "S-013",
+        "S-025",
+        "S-067",
+        "S-075"
+      ],
+      "reference_tests": "T-V34-22-14, T-V34-22-01",
+      "execution_slice": "V35-04",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-044",
+      "source_lot": 7,
+      "source_path": "docs/roadmap-v3.4/07_UX_EXPRESS_NAVIGATION.md",
+      "source_blob_sha": "0846d31a7bd3b0c719423ee585e2ab8721dcbb76",
+      "requirement_ids": [
+        "S-023",
+        "S-074"
+      ],
+      "reference_tests": "T-V34-22-02, T-V34-22-13",
+      "execution_slice": "V35-04",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-045",
+      "source_lot": 7,
+      "source_path": "docs/roadmap-v3.4/07_UX_EXPRESS_NAVIGATION.md",
+      "source_blob_sha": "0846d31a7bd3b0c719423ee585e2ab8721dcbb76",
+      "requirement_ids": [
+        "R33-018",
+        "S-059",
+        "S-068",
+        "S-078",
+        "S-094"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-04",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-046",
+      "source_lot": 7,
+      "source_path": "docs/roadmap-v3.4/07_UX_EXPRESS_NAVIGATION.md",
+      "source_blob_sha": "0846d31a7bd3b0c719423ee585e2ab8721dcbb76",
+      "requirement_ids": [
+        "R33-033",
+        "S-069",
+        "S-082",
+        "S-100"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-04",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-047",
+      "source_lot": 7,
+      "source_path": "docs/roadmap-v3.4/07_UX_EXPRESS_NAVIGATION.md",
+      "source_blob_sha": "0846d31a7bd3b0c719423ee585e2ab8721dcbb76",
+      "requirement_ids": [
+        "S-027"
+      ],
+      "reference_tests": "T-V34-22-12",
+      "execution_slice": "V35-04",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-048",
+      "source_lot": 7,
+      "source_path": "docs/roadmap-v3.4/07_UX_EXPRESS_NAVIGATION.md",
+      "source_blob_sha": "0846d31a7bd3b0c719423ee585e2ab8721dcbb76",
+      "requirement_ids": [
+        "S-003"
+      ],
+      "reference_tests": "T-V34-22-02",
+      "execution_slice": "V35-04",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-049",
+      "source_lot": 7,
+      "source_path": "docs/roadmap-v3.4/07_UX_EXPRESS_NAVIGATION.md",
+      "source_blob_sha": "0846d31a7bd3b0c719423ee585e2ab8721dcbb76",
+      "requirement_ids": [
+        "R33-019",
+        "S-059",
+        "S-072",
+        "S-077"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-04",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-050",
+      "source_lot": 8,
+      "source_path": "docs/roadmap-v3.4/08_ASSISTANT_CONTEXTUEL.md",
+      "source_blob_sha": "e638a1b008aa1206b01eb4f3ef5d7ad2957c351a",
+      "requirement_ids": [
+        "R33-020",
+        "R33-033",
+        "S-067",
+        "S-083"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-13",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-051",
+      "source_lot": 8,
+      "source_path": "docs/roadmap-v3.4/08_ASSISTANT_CONTEXTUEL.md",
+      "source_blob_sha": "e638a1b008aa1206b01eb4f3ef5d7ad2957c351a",
+      "requirement_ids": [
+        "R33-007",
+        "S-013",
+        "S-075",
+        "S-083"
+      ],
+      "reference_tests": "T-V34-22-14, T-V34-22-01, T-V34-22-12",
+      "execution_slice": "V35-13",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-052",
+      "source_lot": 8,
+      "source_path": "docs/roadmap-v3.4/08_ASSISTANT_CONTEXTUEL.md",
+      "source_blob_sha": "e638a1b008aa1206b01eb4f3ef5d7ad2957c351a",
+      "requirement_ids": [
+        "S-067"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-13",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-053",
+      "source_lot": 8,
+      "source_path": "docs/roadmap-v3.4/08_ASSISTANT_CONTEXTUEL.md",
+      "source_blob_sha": "e638a1b008aa1206b01eb4f3ef5d7ad2957c351a",
+      "requirement_ids": [
+        "S-003"
+      ],
+      "reference_tests": "T-V34-22-02",
+      "execution_slice": "V35-13",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-054",
+      "source_lot": 8,
+      "source_path": "docs/roadmap-v3.4/08_ASSISTANT_CONTEXTUEL.md",
+      "source_blob_sha": "e638a1b008aa1206b01eb4f3ef5d7ad2957c351a",
+      "requirement_ids": [
+        "S-022"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-13",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-055",
+      "source_lot": 8,
+      "source_path": "docs/roadmap-v3.4/08_ASSISTANT_CONTEXTUEL.md",
+      "source_blob_sha": "e638a1b008aa1206b01eb4f3ef5d7ad2957c351a",
+      "requirement_ids": [
+        "R33-032",
+        "R33-039",
+        "S-074",
+        "S-081",
+        "S-082"
+      ],
+      "reference_tests": "T-V34-22-13, T-V34-22-14",
+      "execution_slice": "V35-13",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-056",
+      "source_lot": 8,
+      "source_path": "docs/roadmap-v3.4/08_ASSISTANT_CONTEXTUEL.md",
+      "source_blob_sha": "e638a1b008aa1206b01eb4f3ef5d7ad2957c351a",
+      "requirement_ids": [
+        "R33-020",
+        "S-071"
+      ],
+      "reference_tests": "T-V34-22-08, T-V34-22-14",
+      "execution_slice": "V35-13",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-057",
+      "source_lot": 8,
+      "source_path": "docs/roadmap-v3.4/08_ASSISTANT_CONTEXTUEL.md",
+      "source_blob_sha": "e638a1b008aa1206b01eb4f3ef5d7ad2957c351a",
+      "requirement_ids": [
+        "S-081"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-13",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-058",
+      "source_lot": 8,
+      "source_path": "docs/roadmap-v3.4/08_ASSISTANT_CONTEXTUEL.md",
+      "source_blob_sha": "e638a1b008aa1206b01eb4f3ef5d7ad2957c351a",
+      "requirement_ids": [
+        "R33-039",
+        "S-093"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-13",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-059",
+      "source_lot": 9,
+      "source_path": "docs/roadmap-v3.4/09_PLANIFICATEUR_SECURISÉ.md",
+      "source_blob_sha": "52e61d658d47570edffb662fc4f8983cf1208512",
+      "requirement_ids": [
+        "S-003"
+      ],
+      "reference_tests": "T-V34-22-02",
+      "execution_slice": "V35-13",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-060",
+      "source_lot": 9,
+      "source_path": "docs/roadmap-v3.4/09_PLANIFICATEUR_SECURISÉ.md",
+      "source_blob_sha": "52e61d658d47570edffb662fc4f8983cf1208512",
+      "requirement_ids": [
+        "S-003"
+      ],
+      "reference_tests": "T-V34-22-02",
+      "execution_slice": "V35-13",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-061",
+      "source_lot": 9,
+      "source_path": "docs/roadmap-v3.4/09_PLANIFICATEUR_SECURISÉ.md",
+      "source_blob_sha": "52e61d658d47570edffb662fc4f8983cf1208512",
+      "requirement_ids": [
+        "S-023"
+      ],
+      "reference_tests": "T-V34-22-02",
+      "execution_slice": "V35-13",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-062",
+      "source_lot": 9,
+      "source_path": "docs/roadmap-v3.4/09_PLANIFICATEUR_SECURISÉ.md",
+      "source_blob_sha": "52e61d658d47570edffb662fc4f8983cf1208512",
+      "requirement_ids": [
+        "S-008"
+      ],
+      "reference_tests": "T-V34-22-04",
+      "execution_slice": "V35-13",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-063",
+      "source_lot": 9,
+      "source_path": "docs/roadmap-v3.4/09_PLANIFICATEUR_SECURISÉ.md",
+      "source_blob_sha": "52e61d658d47570edffb662fc4f8983cf1208512",
+      "requirement_ids": [
+        "S-003"
+      ],
+      "reference_tests": "T-V34-22-02",
+      "execution_slice": "V35-13",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-064",
+      "source_lot": 9,
+      "source_path": "docs/roadmap-v3.4/09_PLANIFICATEUR_SECURISÉ.md",
+      "source_blob_sha": "52e61d658d47570edffb662fc4f8983cf1208512",
+      "requirement_ids": [
+        "S-022"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-13",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-065",
+      "source_lot": 9,
+      "source_path": "docs/roadmap-v3.4/09_PLANIFICATEUR_SECURISÉ.md",
+      "source_blob_sha": "52e61d658d47570edffb662fc4f8983cf1208512",
+      "requirement_ids": [
+        "S-071"
+      ],
+      "reference_tests": "T-V34-22-08",
+      "execution_slice": "V35-13",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-066",
+      "source_lot": 9,
+      "source_path": "docs/roadmap-v3.4/09_PLANIFICATEUR_SECURISÉ.md",
+      "source_blob_sha": "52e61d658d47570edffb662fc4f8983cf1208512",
+      "requirement_ids": [
+        "S-072"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-13",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-067",
+      "source_lot": 9,
+      "source_path": "docs/roadmap-v3.4/09_PLANIFICATEUR_SECURISÉ.md",
+      "source_blob_sha": "52e61d658d47570edffb662fc4f8983cf1208512",
+      "requirement_ids": [
+        "S-093"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-13",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-068",
+      "source_lot": 10,
+      "source_path": "docs/roadmap-v3.4/10_ANALYSE_VISUELLE.md",
+      "source_blob_sha": "9c0b0648a6b3c2790813ff59136fdb0a88df89c0",
+      "requirement_ids": [
+        "S-006",
+        "S-050"
+      ],
+      "reference_tests": "T-V34-22-12",
+      "execution_slice": "V35-08",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-069",
+      "source_lot": 10,
+      "source_path": "docs/roadmap-v3.4/10_ANALYSE_VISUELLE.md",
+      "source_blob_sha": "9c0b0648a6b3c2790813ff59136fdb0a88df89c0",
+      "requirement_ids": [
+        "S-007"
+      ],
+      "reference_tests": "T-V34-22-05",
+      "execution_slice": "V35-08",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-070",
+      "source_lot": 10,
+      "source_path": "docs/roadmap-v3.4/10_ANALYSE_VISUELLE.md",
+      "source_blob_sha": "9c0b0648a6b3c2790813ff59136fdb0a88df89c0",
+      "requirement_ids": [
+        "S-018"
+      ],
+      "reference_tests": "T-V34-22-11",
+      "execution_slice": "V35-08",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-071",
+      "source_lot": 10,
+      "source_path": "docs/roadmap-v3.4/10_ANALYSE_VISUELLE.md",
+      "source_blob_sha": "9c0b0648a6b3c2790813ff59136fdb0a88df89c0",
+      "requirement_ids": [
+        "S-007"
+      ],
+      "reference_tests": "T-V34-22-05",
+      "execution_slice": "V35-08",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-072",
+      "source_lot": 10,
+      "source_path": "docs/roadmap-v3.4/10_ANALYSE_VISUELLE.md",
+      "source_blob_sha": "9c0b0648a6b3c2790813ff59136fdb0a88df89c0",
+      "requirement_ids": [
+        "S-023"
+      ],
+      "reference_tests": "T-V34-22-02",
+      "execution_slice": "V35-08",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-073",
+      "source_lot": 10,
+      "source_path": "docs/roadmap-v3.4/10_ANALYSE_VISUELLE.md",
+      "source_blob_sha": "9c0b0648a6b3c2790813ff59136fdb0a88df89c0",
+      "requirement_ids": [
+        "S-014",
+        "S-028"
+      ],
+      "reference_tests": "T-V34-22-04, T-V34-22-12",
+      "execution_slice": "V35-08",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-074",
+      "source_lot": 10,
+      "source_path": "docs/roadmap-v3.4/10_ANALYSE_VISUELLE.md",
+      "source_blob_sha": "9c0b0648a6b3c2790813ff59136fdb0a88df89c0",
+      "requirement_ids": [
+        "R33-011",
+        "R33-012",
+        "R33-026",
+        "S-018",
+        "S-027",
+        "S-038",
+        "S-062"
+      ],
+      "reference_tests": "T-V34-22-12, T-V34-22-11",
+      "execution_slice": "V35-08",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-075",
+      "source_lot": 10,
+      "source_path": "docs/roadmap-v3.4/10_ANALYSE_VISUELLE.md",
+      "source_blob_sha": "9c0b0648a6b3c2790813ff59136fdb0a88df89c0",
+      "requirement_ids": [
+        "S-070"
+      ],
+      "reference_tests": "T-V34-22-04",
+      "execution_slice": "V35-08",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-076",
+      "source_lot": 10,
+      "source_path": "docs/roadmap-v3.4/10_ANALYSE_VISUELLE.md",
+      "source_blob_sha": "9c0b0648a6b3c2790813ff59136fdb0a88df89c0",
+      "requirement_ids": [
+        "S-015"
+      ],
+      "reference_tests": "T-V34-22-05",
+      "execution_slice": "V35-08",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-077",
+      "source_lot": 10,
+      "source_path": "docs/roadmap-v3.4/10_ANALYSE_VISUELLE.md",
+      "source_blob_sha": "9c0b0648a6b3c2790813ff59136fdb0a88df89c0",
+      "requirement_ids": [
+        "S-005"
+      ],
+      "reference_tests": "T-V34-22-12",
+      "execution_slice": "V35-08",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-078",
+      "source_lot": 11,
+      "source_path": "docs/roadmap-v3.4/11_MODELES_IA_LOCAUX.md",
+      "source_blob_sha": "9a169e3c7db786d6dca1123397b13fcadde6a80e",
+      "requirement_ids": [
+        "R33-016",
+        "S-005",
+        "S-058"
+      ],
+      "reference_tests": "T-V34-22-12",
+      "execution_slice": "V35-08",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-079",
+      "source_lot": 11,
+      "source_path": "docs/roadmap-v3.4/11_MODELES_IA_LOCAUX.md",
+      "source_blob_sha": "9a169e3c7db786d6dca1123397b13fcadde6a80e",
+      "requirement_ids": [
+        "R33-030",
+        "S-003"
+      ],
+      "reference_tests": "T-V34-22-02, T-V34-22-12",
+      "execution_slice": "V35-08",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-080",
+      "source_lot": 11,
+      "source_path": "docs/roadmap-v3.4/11_MODELES_IA_LOCAUX.md",
+      "source_blob_sha": "9a169e3c7db786d6dca1123397b13fcadde6a80e",
+      "requirement_ids": [
+        "R33-017",
+        "S-005",
+        "S-027",
+        "S-058"
+      ],
+      "reference_tests": "T-V34-22-12",
+      "execution_slice": "V35-08",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-081",
+      "source_lot": 11,
+      "source_path": "docs/roadmap-v3.4/11_MODELES_IA_LOCAUX.md",
+      "source_blob_sha": "9a169e3c7db786d6dca1123397b13fcadde6a80e",
+      "requirement_ids": [
+        "S-018"
+      ],
+      "reference_tests": "T-V34-22-11",
+      "execution_slice": "V35-08",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-082",
+      "source_lot": 11,
+      "source_path": "docs/roadmap-v3.4/11_MODELES_IA_LOCAUX.md",
+      "source_blob_sha": "9a169e3c7db786d6dca1123397b13fcadde6a80e",
+      "requirement_ids": [
+        "S-007"
+      ],
+      "reference_tests": "T-V34-22-05",
+      "execution_slice": "V35-08",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-083",
+      "source_lot": 11,
+      "source_path": "docs/roadmap-v3.4/11_MODELES_IA_LOCAUX.md",
+      "source_blob_sha": "9a169e3c7db786d6dca1123397b13fcadde6a80e",
+      "requirement_ids": [
+        "S-025"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-08",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-084",
+      "source_lot": 11,
+      "source_path": "docs/roadmap-v3.4/11_MODELES_IA_LOCAUX.md",
+      "source_blob_sha": "9a169e3c7db786d6dca1123397b13fcadde6a80e",
+      "requirement_ids": [
+        "S-005"
+      ],
+      "reference_tests": "T-V34-22-12",
+      "execution_slice": "V35-08",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-085",
+      "source_lot": 11,
+      "source_path": "docs/roadmap-v3.4/11_MODELES_IA_LOCAUX.md",
+      "source_blob_sha": "9a169e3c7db786d6dca1123397b13fcadde6a80e",
+      "requirement_ids": [
+        "R33-017",
+        "S-006",
+        "S-050"
+      ],
+      "reference_tests": "T-V34-22-12",
+      "execution_slice": "V35-08",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-086",
+      "source_lot": 11,
+      "source_path": "docs/roadmap-v3.4/11_MODELES_IA_LOCAUX.md",
+      "source_blob_sha": "9a169e3c7db786d6dca1123397b13fcadde6a80e",
+      "requirement_ids": [
+        "R33-007",
+        "S-042"
+      ],
+      "reference_tests": "T-V34-22-03, T-V34-22-12",
+      "execution_slice": "V35-08",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-087",
+      "source_lot": 12,
+      "source_path": "docs/roadmap-v3.4/12_RASTER_PIPELINE.md",
+      "source_blob_sha": "30424177571a1e5c627cbdb0630c07c63ba344e0",
+      "requirement_ids": [
+        "S-003",
+        "S-029"
+      ],
+      "reference_tests": "T-V34-22-02, T-V34-22-01",
+      "execution_slice": "V35-09",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-088",
+      "source_lot": 12,
+      "source_path": "docs/roadmap-v3.4/12_RASTER_PIPELINE.md",
+      "source_blob_sha": "30424177571a1e5c627cbdb0630c07c63ba344e0",
+      "requirement_ids": [
+        "S-015"
+      ],
+      "reference_tests": "T-V34-22-05",
+      "execution_slice": "V35-09",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-089",
+      "source_lot": 12,
+      "source_path": "docs/roadmap-v3.4/12_RASTER_PIPELINE.md",
+      "source_blob_sha": "30424177571a1e5c627cbdb0630c07c63ba344e0",
+      "requirement_ids": [
+        "S-016",
+        "S-048"
+      ],
+      "reference_tests": "T-V34-22-05, T-V34-22-12",
+      "execution_slice": "V35-09",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-090",
+      "source_lot": 12,
+      "source_path": "docs/roadmap-v3.4/12_RASTER_PIPELINE.md",
+      "source_blob_sha": "30424177571a1e5c627cbdb0630c07c63ba344e0",
+      "requirement_ids": [
+        "S-009"
+      ],
+      "reference_tests": "T-V34-22-01",
+      "execution_slice": "V35-09",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-091",
+      "source_lot": 12,
+      "source_path": "docs/roadmap-v3.4/12_RASTER_PIPELINE.md",
+      "source_blob_sha": "30424177571a1e5c627cbdb0630c07c63ba344e0",
+      "requirement_ids": [
+        "S-013",
+        "S-073"
+      ],
+      "reference_tests": "T-V34-22-14, T-V34-22-05",
+      "execution_slice": "V35-09",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-092",
+      "source_lot": 12,
+      "source_path": "docs/roadmap-v3.4/12_RASTER_PIPELINE.md",
+      "source_blob_sha": "30424177571a1e5c627cbdb0630c07c63ba344e0",
+      "requirement_ids": [
+        "S-005",
+        "S-048"
+      ],
+      "reference_tests": "T-V34-22-12",
+      "execution_slice": "V35-09",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-093",
+      "source_lot": 12,
+      "source_path": "docs/roadmap-v3.4/12_RASTER_PIPELINE.md",
+      "source_blob_sha": "30424177571a1e5c627cbdb0630c07c63ba344e0",
+      "requirement_ids": [
+        "S-018"
+      ],
+      "reference_tests": "T-V34-22-11",
+      "execution_slice": "V35-09",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-094",
+      "source_lot": 12,
+      "source_path": "docs/roadmap-v3.4/12_RASTER_PIPELINE.md",
+      "source_blob_sha": "30424177571a1e5c627cbdb0630c07c63ba344e0",
+      "requirement_ids": [
+        "S-006"
+      ],
+      "reference_tests": "T-V34-22-12",
+      "execution_slice": "V35-09",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-095",
+      "source_lot": 12,
+      "source_path": "docs/roadmap-v3.4/12_RASTER_PIPELINE.md",
+      "source_blob_sha": "30424177571a1e5c627cbdb0630c07c63ba344e0",
+      "requirement_ids": [
+        "S-015",
+        "S-073",
+        "S-079"
+      ],
+      "reference_tests": "T-V34-22-05",
+      "execution_slice": "V35-09",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-096",
+      "source_lot": 13,
+      "source_path": "docs/roadmap-v3.4/13_VECTORISATION_SVG.md",
+      "source_blob_sha": "f694c0016e896917084f1d70a642f67316d1cf70",
+      "requirement_ids": [
+        "S-023"
+      ],
+      "reference_tests": "T-V34-22-02",
+      "execution_slice": "V35-06",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-097",
+      "source_lot": 13,
+      "source_path": "docs/roadmap-v3.4/13_VECTORISATION_SVG.md",
+      "source_blob_sha": "f694c0016e896917084f1d70a642f67316d1cf70",
+      "requirement_ids": [
+        "S-030"
+      ],
+      "reference_tests": "T-V34-22-01",
+      "execution_slice": "V35-06",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-098",
+      "source_lot": 13,
+      "source_path": "docs/roadmap-v3.4/13_VECTORISATION_SVG.md",
+      "source_blob_sha": "f694c0016e896917084f1d70a642f67316d1cf70",
+      "requirement_ids": [
+        "R33-029",
+        "S-011",
+        "S-032"
+      ],
+      "reference_tests": "T-V34-22-01",
+      "execution_slice": "V35-06",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-099",
+      "source_lot": 13,
+      "source_path": "docs/roadmap-v3.4/13_VECTORISATION_SVG.md",
+      "source_blob_sha": "f694c0016e896917084f1d70a642f67316d1cf70",
+      "requirement_ids": [
+        "S-011",
+        "S-033",
+        "S-034"
+      ],
+      "reference_tests": "T-V34-22-01",
+      "execution_slice": "V35-06",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-100",
+      "source_lot": 13,
+      "source_path": "docs/roadmap-v3.4/13_VECTORISATION_SVG.md",
+      "source_blob_sha": "f694c0016e896917084f1d70a642f67316d1cf70",
+      "requirement_ids": [
+        "S-030",
+        "S-045"
+      ],
+      "reference_tests": "T-V34-22-01",
+      "execution_slice": "V35-06",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-101",
+      "source_lot": 13,
+      "source_path": "docs/roadmap-v3.4/13_VECTORISATION_SVG.md",
+      "source_blob_sha": "f694c0016e896917084f1d70a642f67316d1cf70",
+      "requirement_ids": [
+        "S-009",
+        "S-060"
+      ],
+      "reference_tests": "T-V34-22-01",
+      "execution_slice": "V35-06",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-102",
+      "source_lot": 13,
+      "source_path": "docs/roadmap-v3.4/13_VECTORISATION_SVG.md",
+      "source_blob_sha": "f694c0016e896917084f1d70a642f67316d1cf70",
+      "requirement_ids": [
+        "S-008"
+      ],
+      "reference_tests": "T-V34-22-04",
+      "execution_slice": "V35-06",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-103",
+      "source_lot": 13,
+      "source_path": "docs/roadmap-v3.4/13_VECTORISATION_SVG.md",
+      "source_blob_sha": "f694c0016e896917084f1d70a642f67316d1cf70",
+      "requirement_ids": [
+        "S-011"
+      ],
+      "reference_tests": "T-V34-22-01",
+      "execution_slice": "V35-06",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-104",
+      "source_lot": 13,
+      "source_path": "docs/roadmap-v3.4/13_VECTORISATION_SVG.md",
+      "source_blob_sha": "f694c0016e896917084f1d70a642f67316d1cf70",
+      "requirement_ids": [
+        "S-018"
+      ],
+      "reference_tests": "T-V34-22-11",
+      "execution_slice": "V35-06",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-105",
+      "source_lot": 13,
+      "source_path": "docs/roadmap-v3.4/13_VECTORISATION_SVG.md",
+      "source_blob_sha": "f694c0016e896917084f1d70a642f67316d1cf70",
+      "requirement_ids": [
+        "S-067"
+      ],
+      "reference_tests": "T-V34-22-14",
+      "execution_slice": "V35-06",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-106",
+      "source_lot": 14,
+      "source_path": "docs/roadmap-v3.4/14_LANGAGE_FABRICATION.md",
+      "source_blob_sha": "3b7dd601c6f844f3a3d12b44bc971fc101133367",
+      "requirement_ids": [
+        "S-012"
+      ],
+      "reference_tests": "T-V34-22-08",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-107",
+      "source_lot": 14,
+      "source_path": "docs/roadmap-v3.4/14_LANGAGE_FABRICATION.md",
+      "source_blob_sha": "3b7dd601c6f844f3a3d12b44bc971fc101133367",
+      "requirement_ids": [
+        "R33-022",
+        "R33-023",
+        "S-012",
+        "S-057"
+      ],
+      "reference_tests": "T-V34-22-08, T-V34-22-10, T-V34-22-09",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-108",
+      "source_lot": 14,
+      "source_path": "docs/roadmap-v3.4/14_LANGAGE_FABRICATION.md",
+      "source_blob_sha": "3b7dd601c6f844f3a3d12b44bc971fc101133367",
+      "requirement_ids": [
+        "S-030",
+        "S-056",
+        "S-085"
+      ],
+      "reference_tests": "T-V34-22-01, T-V34-22-08",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-109",
+      "source_lot": 14,
+      "source_path": "docs/roadmap-v3.4/14_LANGAGE_FABRICATION.md",
+      "source_blob_sha": "3b7dd601c6f844f3a3d12b44bc971fc101133367",
+      "requirement_ids": [
+        "R33-029",
+        "R33-037",
+        "S-012",
+        "S-056",
+        "S-060",
+        "S-085"
+      ],
+      "reference_tests": "T-V34-22-08, T-V34-22-01",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-110",
+      "source_lot": 14,
+      "source_path": "docs/roadmap-v3.4/14_LANGAGE_FABRICATION.md",
+      "source_blob_sha": "3b7dd601c6f844f3a3d12b44bc971fc101133367",
+      "requirement_ids": [
+        "S-007"
+      ],
+      "reference_tests": "T-V34-22-05",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-111",
+      "source_lot": 14,
+      "source_path": "docs/roadmap-v3.4/14_LANGAGE_FABRICATION.md",
+      "source_blob_sha": "3b7dd601c6f844f3a3d12b44bc971fc101133367",
+      "requirement_ids": [
+        "S-012"
+      ],
+      "reference_tests": "T-V34-22-08",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-112",
+      "source_lot": 14,
+      "source_path": "docs/roadmap-v3.4/14_LANGAGE_FABRICATION.md",
+      "source_blob_sha": "3b7dd601c6f844f3a3d12b44bc971fc101133367",
+      "requirement_ids": [
+        "S-032",
+        "S-045"
+      ],
+      "reference_tests": "T-V34-22-01",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-113",
+      "source_lot": 14,
+      "source_path": "docs/roadmap-v3.4/14_LANGAGE_FABRICATION.md",
+      "source_blob_sha": "3b7dd601c6f844f3a3d12b44bc971fc101133367",
+      "requirement_ids": [
+        "S-012"
+      ],
+      "reference_tests": "T-V34-22-08",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-114",
+      "source_lot": 14,
+      "source_path": "docs/roadmap-v3.4/14_LANGAGE_FABRICATION.md",
+      "source_blob_sha": "3b7dd601c6f844f3a3d12b44bc971fc101133367",
+      "requirement_ids": [
+        "S-067",
+        "S-071"
+      ],
+      "reference_tests": "T-V34-22-14, T-V34-22-08",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-115",
+      "source_lot": 14,
+      "source_path": "docs/roadmap-v3.4/14_LANGAGE_FABRICATION.md",
+      "source_blob_sha": "3b7dd601c6f844f3a3d12b44bc971fc101133367",
+      "requirement_ids": [
+        "R33-005",
+        "S-023"
+      ],
+      "reference_tests": "T-V34-22-02, T-V34-22-04",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-116",
+      "source_lot": 15,
+      "source_path": "docs/roadmap-v3.4/15_PROFILS_EXPLORE5.md",
+      "source_blob_sha": "19cf7835044936e5cf2a2f894b5a42456c8fa8b4",
+      "requirement_ids": [
+        "R33-022"
+      ],
+      "reference_tests": "T-V34-22-09",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-117",
+      "source_lot": 15,
+      "source_path": "docs/roadmap-v3.4/15_PROFILS_EXPLORE5.md",
+      "source_blob_sha": "19cf7835044936e5cf2a2f894b5a42456c8fa8b4",
+      "requirement_ids": [
+        "R33-022"
+      ],
+      "reference_tests": "T-V34-22-09",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-118",
+      "source_lot": 15,
+      "source_path": "docs/roadmap-v3.4/15_PROFILS_EXPLORE5.md",
+      "source_blob_sha": "19cf7835044936e5cf2a2f894b5a42456c8fa8b4",
+      "requirement_ids": [
+        "S-085"
+      ],
+      "reference_tests": "T-V34-22-08",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-119",
+      "source_lot": 15,
+      "source_path": "docs/roadmap-v3.4/15_PROFILS_EXPLORE5.md",
+      "source_blob_sha": "19cf7835044936e5cf2a2f894b5a42456c8fa8b4",
+      "requirement_ids": [
+        "R33-014"
+      ],
+      "reference_tests": "T-V34-22-04",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-120",
+      "source_lot": 15,
+      "source_path": "docs/roadmap-v3.4/15_PROFILS_EXPLORE5.md",
+      "source_blob_sha": "19cf7835044936e5cf2a2f894b5a42456c8fa8b4",
+      "requirement_ids": [
+        "S-012"
+      ],
+      "reference_tests": "T-V34-22-08",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-121",
+      "source_lot": 15,
+      "source_path": "docs/roadmap-v3.4/15_PROFILS_EXPLORE5.md",
+      "source_blob_sha": "19cf7835044936e5cf2a2f894b5a42456c8fa8b4",
+      "requirement_ids": [
+        "R33-022"
+      ],
+      "reference_tests": "T-V34-22-09",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-122",
+      "source_lot": 15,
+      "source_path": "docs/roadmap-v3.4/15_PROFILS_EXPLORE5.md",
+      "source_blob_sha": "19cf7835044936e5cf2a2f894b5a42456c8fa8b4",
+      "requirement_ids": [
+        "S-029",
+        "S-055"
+      ],
+      "reference_tests": "T-V34-22-01, T-V34-22-06",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-123",
+      "source_lot": 15,
+      "source_path": "docs/roadmap-v3.4/15_PROFILS_EXPLORE5.md",
+      "source_blob_sha": "19cf7835044936e5cf2a2f894b5a42456c8fa8b4",
+      "requirement_ids": [
+        "R33-025"
+      ],
+      "reference_tests": "T-V34-22-03",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-124",
+      "source_lot": 15,
+      "source_path": "docs/roadmap-v3.4/15_PROFILS_EXPLORE5.md",
+      "source_blob_sha": "19cf7835044936e5cf2a2f894b5a42456c8fa8b4",
+      "requirement_ids": [
+        "R33-023",
+        "R33-034",
+        "R33-035",
+        "S-010",
+        "S-031",
+        "S-057"
+      ],
+      "reference_tests": "T-V34-22-10, T-V34-22-07",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-125",
+      "source_lot": 15,
+      "source_path": "docs/roadmap-v3.4/15_PROFILS_EXPLORE5.md",
+      "source_blob_sha": "19cf7835044936e5cf2a2f894b5a42456c8fa8b4",
+      "requirement_ids": [
+        "R33-014"
+      ],
+      "reference_tests": "T-V34-22-04",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-126",
+      "source_lot": 16,
+      "source_path": "docs/roadmap-v3.4/16_PATRONS_PARAMETRIQUES.md",
+      "source_blob_sha": "562af8bc7ceca562381e08251352dfd5bd6c2b69",
+      "requirement_ids": [
+        "S-020",
+        "S-088"
+      ],
+      "reference_tests": "T-V34-22-08",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-127",
+      "source_lot": 16,
+      "source_path": "docs/roadmap-v3.4/16_PATRONS_PARAMETRIQUES.md",
+      "source_blob_sha": "562af8bc7ceca562381e08251352dfd5bd6c2b69",
+      "requirement_ids": [
+        "S-012"
+      ],
+      "reference_tests": "T-V34-22-08",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-128",
+      "source_lot": 16,
+      "source_path": "docs/roadmap-v3.4/16_PATRONS_PARAMETRIQUES.md",
+      "source_blob_sha": "562af8bc7ceca562381e08251352dfd5bd6c2b69",
+      "requirement_ids": [
+        "S-030"
+      ],
+      "reference_tests": "T-V34-22-01",
+      "execution_slice": "V35-07",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-129",
+      "source_lot": 17,
+      "source_path": "docs/roadmap-v3.4/17_EXPORTS_DESIGNSPACE.md",
+      "source_blob_sha": "4c13bfe529f672d68a0c66a77c07fcd0068d5170",
+      "requirement_ids": [
+        "R33-008",
+        "S-002",
+        "S-009",
+        "S-029",
+        "S-030",
+        "S-032"
+      ],
+      "reference_tests": "T-V34-22-01",
+      "execution_slice": "V35-05",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-130",
+      "source_lot": 17,
+      "source_path": "docs/roadmap-v3.4/17_EXPORTS_DESIGNSPACE.md",
+      "source_blob_sha": "4c13bfe529f672d68a0c66a77c07fcd0068d5170",
+      "requirement_ids": [
+        "R33-022",
+        "S-055",
+        "S-076",
+        "S-084"
+      ],
+      "reference_tests": "T-V34-22-09, T-V34-22-06, T-V34-22-14",
+      "execution_slice": "V35-05",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-131",
+      "source_lot": 17,
+      "source_path": "docs/roadmap-v3.4/17_EXPORTS_DESIGNSPACE.md",
+      "source_blob_sha": "4c13bfe529f672d68a0c66a77c07fcd0068d5170",
+      "requirement_ids": [
+        "R33-027",
+        "S-017",
+        "S-054"
+      ],
+      "reference_tests": "T-V34-22-02, T-V34-22-01, T-V34-22-13",
+      "execution_slice": "V35-05",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-132",
+      "source_lot": 18,
+      "source_path": "docs/roadmap-v3.4/18_ATELIER_GRAPHIQUE.md",
+      "source_blob_sha": "466fd3652524fe71ca9893e2c2e109376b4c6f48",
+      "requirement_ids": [
+        "R33-003",
+        "S-003",
+        "S-008",
+        "S-023",
+        "S-070"
+      ],
+      "reference_tests": "T-V34-22-04, T-V34-22-02",
+      "execution_slice": "V35-03",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-133",
+      "source_lot": 18,
+      "source_path": "docs/roadmap-v3.4/18_ATELIER_GRAPHIQUE.md",
+      "source_blob_sha": "466fd3652524fe71ca9893e2c2e109376b4c6f48",
+      "requirement_ids": [
+        "R33-006",
+        "S-008",
+        "S-026",
+        "S-035",
+        "S-080",
+        "S-086",
+        "S-087"
+      ],
+      "reference_tests": "T-V34-22-04",
+      "execution_slice": "V35-03",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-134",
+      "source_lot": 19,
+      "source_path": "docs/roadmap-v3.4/19_PLANCHES_NESTING.md",
+      "source_blob_sha": "e6ac52be45c79999a2ed043c44ed0c972fa8f007",
+      "requirement_ids": [
+        "S-040",
+        "S-089",
+        "S-090",
+        "S-101"
+      ],
+      "reference_tests": "T-V34-22-11, T-V34-22-05",
+      "execution_slice": "V35-10",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-135",
+      "source_lot": 19,
+      "source_path": "docs/roadmap-v3.4/19_PLANCHES_NESTING.md",
+      "source_blob_sha": "e6ac52be45c79999a2ed043c44ed0c972fa8f007",
+      "requirement_ids": [
+        "R33-011",
+        "R33-012",
+        "R33-026",
+        "R33-031",
+        "S-018",
+        "S-038",
+        "S-062",
+        "S-089"
+      ],
+      "reference_tests": "T-V34-22-11",
+      "execution_slice": "V35-10",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-136",
+      "source_lot": 20,
+      "source_path": "docs/roadmap-v3.4/20_BIBLIOTHEQUE_VARIANTES_CSV.md",
+      "source_blob_sha": "b58e891ce65edcfa5ccabe46c24968036781e92a",
+      "requirement_ids": [
+        "R33-010",
+        "S-024",
+        "S-041",
+        "S-074",
+        "S-091"
+      ],
+      "reference_tests": "T-V34-22-02, T-V34-22-13",
+      "execution_slice": "V35-11",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-137",
+      "source_lot": 20,
+      "source_path": "docs/roadmap-v3.4/20_BIBLIOTHEQUE_VARIANTES_CSV.md",
+      "source_blob_sha": "b58e891ce65edcfa5ccabe46c24968036781e92a",
+      "requirement_ids": [
+        "S-017",
+        "S-097",
+        "S-098"
+      ],
+      "reference_tests": "T-V34-22-02, T-V34-22-13",
+      "execution_slice": "V35-11",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-138",
+      "source_lot": 20,
+      "source_path": "docs/roadmap-v3.4/20_BIBLIOTHEQUE_VARIANTES_CSV.md",
+      "source_blob_sha": "b58e891ce65edcfa5ccabe46c24968036781e92a",
+      "requirement_ids": [
+        "R33-027",
+        "S-038",
+        "S-039",
+        "S-097"
+      ],
+      "reference_tests": "T-V34-22-11, T-V34-22-13",
+      "execution_slice": "V35-11",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-139",
+      "source_lot": 21,
+      "source_path": "docs/roadmap-v3.4/21_WINDOWS_OFFLINE_RECOVERY.md",
+      "source_blob_sha": "8700846208315f405b7f60266fabf8181e160ff4",
+      "requirement_ids": [
+        "R33-021",
+        "R33-038",
+        "S-022",
+        "S-042",
+        "S-046",
+        "S-061",
+        "S-063",
+        "S-094"
+      ],
+      "reference_tests": "T-V34-22-03, T-V34-22-14",
+      "execution_slice": "V35-14",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    },
+    {
+      "id": "V34-140",
+      "source_lot": 21,
+      "source_path": "docs/roadmap-v3.4/21_WINDOWS_OFFLINE_RECOVERY.md",
+      "source_blob_sha": "8700846208315f405b7f60266fabf8181e160ff4",
+      "requirement_ids": [
+        "R33-013",
+        "R33-015",
+        "R33-024",
+        "R33-025",
+        "R33-030",
+        "R33-036",
+        "S-053",
+        "S-084",
+        "S-095",
+        "S-096"
+      ],
+      "reference_tests": "T-V34-22-03, T-V34-22-14, T-V34-22-12",
+      "execution_slice": "V35-14",
+      "delivery_status": "NON_VERIFIE",
+      "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
+    }
+  ]
+}
