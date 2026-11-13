@@ -184,3 +184,9 @@
 - **Autres obligations** : 24/141/140/437 inventaires conservés, 431/437 citations scenario→ticket historiques et six arbitrages COV16 **candidats** ; dix exigences G6/G9 ont des responsables **proposés**, pas adop­tés.
 - **Gouvernance** : main et code produit inchangés, aucune PR documentaire ni merge, V3.4 normative, automatisations horaires inchangées.
 - **Prochaine action UNIQUE : V35-COV-18A** : contre-expertise croisée indépendante des **80 décisions UX candidates** avec 141 critères historiques / 140 tickets / 33 opportunités. Commencer par **A01–A16 et B01–B14**, lier explicitement chaque critère et DoD au contrat existant ou à un delta V3.5, noter `UNASSIGNED` et refuser les doublons. Ensuite C/D/E et revue de promotion de la documentation. **Ne pas recommencer les 5 fiches individuelles**, ajouter leur revue critique et la traçabilité sémantique.
+
+## 2026-11-13 — Coordination avec l'exécution horaire concurrente (COV17A)
+
+La tâche horaire a publié indépendamment [COV17A_UX_A01_A16_SEMANTIC_REVIEW.md](COV17A_UX_A01_A16_SEMANTIC_REVIEW.md), commit `2f71f82641577d2bf1d1635c754a0ab91993471e`, pendant cette campagne de conception. Le fichier est présent et relu. Il s'agit de **la même famille A01–A16** que [COV17A_UX_A01_A16_SEMANTIC_AUDIT.md](COV17A_UX_A01_A16_SEMANTIC_AUDIT.md), mais sous un autre angle. Il ne faut **ni additionner les deux en 32 fonctions**, ni supprimer un audit sans revue contradictoire. Le README pointe désormais vers les deux.
+
+**Règle pour COV-18** : confronter les deux décisions A01–A16, résoudre leurs différences documentées si nécessaire, puis qualifier les 80 IDs contre les 141 exigences, 140 tickets et 33 opportunités. La prochaine tâche horaire doit **reprendre COV-18**, pas recréer COV17B/C/D/E déjà présents. La V3.4 reste ACTIVE, aucun test produit nouveau, PR docs, merge ni promotion.
