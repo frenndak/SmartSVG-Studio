@@ -61,6 +61,7 @@ Chaque cycle horaire d'architecture reprend le **dernier micro-lot effectivement
 - [UX_ARCHITECTURE_AND_WORKFLOWS.md](UX_ARCHITECTURE_AND_WORKFLOWS.md) — 8 parcours E2E, **80/80 capacités A01–E20** placées dans un domaine UX et une priorité de conception provisoire.
 - **Contre-expertise UX individuelle V35-COV-17 (80/80 CANDIDATES, sans adoption ni exécution)** :
   - [A01–A16 — import, sélection, nettoyage, couleur, vectorisation](COV17A_UX_A01_A16_SEMANTIC_AUDIT.md)
+  - [A01–A16 — contre-expertise horaire complémentaire](COV17A_UX_A01_A16_SEMANTIC_REVIEW.md) — autre lecture de la même famille, **ne compte pas comme 16 capacités supplémentaires** ; comparer les décisions lors du gate COV-18
   - [B01–B14 — objets, calques, transformation, texte](COV17B_UX_B01_B14_SEMANTIC_AUDIT.md)
   - [C01–C18 — Cricut, fabrication, quatre exports, planches](COV17C_UX_C01_C18_SEMANTIC_AUDIT.md)
   - [D01–D12 — IA locale, modèles et consentement](COV17D_UX_D01_D12_SEMANTIC_AUDIT.md)
