@@ -7,7 +7,17 @@ from smartsvg_core.source_preview_v34 import MAX_SCREEN_HEIGHT, MAX_SCREEN_WIDTH
 
 
 def fit_factor(width, height, available_width, available_height):
-    return max(1, ceil(width / available_width), ceil(height / available_height))
+    """Fit valid image pixels even while Tk reports a zero-size canvas.
+
+    During initial layout/minimization Tk can transiently report 0 for a
+    viewport dimension. Treat that dimension as one pixel rather than
+    dividing by zero or enlarging the source. Invalid image sizes are not
+    displayable and must be rejected explicitly.
+    """
+    if width <= 0 or height <= 0:
+        raise ValueError('image dimensions must be positive')
+    return max(1, ceil(width / max(1, available_width)),
+               ceil(height / max(1, available_height)))
 
 
 class NativeImageViewport:
@@ -72,6 +82,11 @@ class NativeImageViewport:
         self.auto_fit = True
         width = self.canvas.winfo_width() - 2
         height = self.canvas.winfo_height() - 2
+        # Preserve a previously computed fit while Tk is temporarily
+        # unmapped/minimized. Refit on the next valid Configure event.
+        # Initial loading still uses the bounded fallback below.
+        if (width <= 0 or height <= 0) and self.fit_scale is not None:
+            return
         factor = fit_factor(self.original.width(), self.original.height(),
                             width if width > 0 else MAX_SCREEN_WIDTH,
                             height if height > 0 else MAX_SCREEN_HEIGHT)
