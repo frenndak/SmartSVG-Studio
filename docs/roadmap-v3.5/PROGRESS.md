@@ -305,3 +305,10 @@ Trois nouveaux documents **effectivement publiés puis relus** sur la branche ca
 - [COV19_OPPORTUNITIES_001_033_DECISIONS.md](COV19_OPPORTUNITIES_001_033_DECISIONS.md), commit `944f9219a174e0447efb10d5c576efd933067724` : O-001..O-033 repris individuellement, 25 conservés/reportés, huit rejetés avec motifs, rapprochements et risques. Fusion UX ≠ suppression de critère.
 - Source OPPORTUNITIES.md main et issues #141/#142 consultées. Tests code/Windows/GPU/Design Space/physique NOT_RUN ; DoD exacts et 25 contrôles de certification restent ouverts. main@HEAD NON_VÉRIFIÉ. Inventaires 24/141/140/80/437, 431/437 liens historiques et dix G6/G9 sans ticket direct inchangés.
 - **Prochaine action UNIQUE V35-COV-20** : approfondir O-001/O-002/O-004/O-028/O-032 avec Smart Delivery V1/V2 et DoD fabrication exacts, sans changer V3.4 ACTIVE.
+
+
+## 2026-11-13 — V35-COV-20 : transfert Design Space et prévol PTC/CUT
+
+- [COV20_TRANSFER_PREFLIGHT_OPPORTUNITIES.md](COV20_TRANSFER_PREFLIGHT_OPPORTUNITIES.md), commit `3bc51a8cec43fe9722b9e2d0afbf73ae9b09f824` : cinq opportunités O-001/O-002/O-004/O-028/O-032 approfondies en contrat candidat : contextes d'artefacts, opérations, journal local, guide manuel, ZIP externe à un export, états STALE, sécurité, négatifs, crash, accessibilité et micro-lots TDD. Le plafond historique de paths n'est pas présenté comme limite universelle certifiée.
+- Sources lues : OPPORTUNITIES.md main, COV18B2, COV19, contrat 25 axes, README et #142. DoD exhaustifs des lots 14–17, commentaires Smart Delivery V1/V2 et ports HEAD main **NON CERTIFIÉS** ; aucune preuve de compatibilité machine ajoutée. Tests unitaires/Windows/GPU/Design Space/physique **NOT_RUN**. Les 24/141/140/80/437 inventaires et 431/437 liens historiques, six exceptions et dix exigences G6/G9 sans ticket restent ouverts à la qualification sémantique. V3.4 ACTIVE ; aucune modification code/AGENTS/PR/automatisation.
+- **Prochaine action UNIQUE COV-21 :** relire les DoD exacts V3.4 lots 14–17 et commentaires SD-V1/SD-V2, puis vérifier les ports main@HEAD avant toute certification des cinq contrats.
