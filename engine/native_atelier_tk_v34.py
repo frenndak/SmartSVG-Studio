@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 
 from native_image_viewport_v34 import NativeImageViewport
+from smartsvg_core.native_brush_history_v34 import inspect_native_brush_history
 from smartsvg_core.source_preview_v34 import MAX_ENCODED_BYTES
 
 
@@ -89,9 +90,11 @@ def _admit_subject_catalog(snapshot):
 
 
 class NativeAtelierPanel:
-    def __init__(self, parent, tk, ttk, *, on_saved=None):
+    def __init__(self, parent, tk, ttk, *, on_saved=None,
+                 history_fn=inspect_native_brush_history):
         self.tk, self.ttk, self.parent = tk, ttk, parent
         self._on_saved = on_saved
+        self._history_fn = history_fn
         self.snapshot = None
         self.subjects = {}
         self._project_path = None
@@ -106,8 +109,10 @@ class NativeAtelierPanel:
         self.project = tk.StringVar()
         self.selection = tk.StringVar()
         self.details = tk.StringVar()
+        self.history = tk.StringVar()
         ttk.Label(parent, text='Atelier', font=('Segoe UI', 16, 'bold')).pack(anchor='w', pady=(0, 12))
         ttk.Label(parent, textvariable=self.project, wraplength=640).pack(anchor='w')
+        ttk.Label(parent, textvariable=self.history, wraplength=640).pack(anchor='w', pady=(4, 0))
         ttk.Label(parent, text='Sujet enregistré · inspection en lecture seule').pack(anchor='w', pady=(8, 0))
         # In the same row to preserve canvas height on smaller Windows panes.
         navigation = ttk.Frame(parent)
@@ -146,10 +151,54 @@ class NativeAtelierPanel:
         self.selection.set(selected_subject if selected_subject in self.subjects
                            else next(iter(self.subjects), ''))
         self._project_label()
+        self._refresh_history(invalid_catalog=invalid_catalog)
         self.render()
         if invalid_catalog:
             self.details.set('Liste des sujets invalide. Réexaminez le projet (F5). '
                              'Aucune retouche disponible ; archive inchangée.')
+
+    def _refresh_history(self, *, invalid_catalog=False):
+        """Present the existing V1 journal status without offering a fake action.
+
+        Called only on project load/F5, not on canvas events or subject
+        navigation. A stale project or malformed history stays unavailable.
+        """
+        snapshot = self.snapshot
+        revision = getattr(snapshot, 'sha256', None)
+        path = self._project_path
+        unavailable = ('Historique du pinceau indisponible. '
+                       'Réexaminez le projet (F5).')
+        if (invalid_catalog or type(path) is not str
+                or not Path(path).is_absolute() or type(revision) is not str
+                or not _REVISION.fullmatch(revision)):
+            self.history.set(unavailable)
+            return
+        try:
+            status = self._history_fn(project_path=path,
+                                      expected_sha256=revision)
+        except Exception:
+            # Never expose an OS path, exception, private stroke or mask data.
+            self.history.set(unavailable)
+            return
+        if (type(status) is not dict or
+                status.get('project_sha256') != revision or
+                status.get('schema') != 'smartsvg-native-brush-history-status/1' or
+                type(status.get('undo_available')) is not bool or
+                type(status.get('redo_available')) is not bool or
+                status.get('persisted') is not False or
+                status.get('cricut_certified') is not False or
+                any(type(status.get(action + '_subject_id')) is not str
+                    or not _PROVEN_SUBJECT.fullmatch(status[action + '_subject_id'])
+                    for action in ('undo', 'redo')
+                    if status[action + '_available'])):
+            self.history.set(unavailable)
+            return
+        undo = 'oui' if status['undo_available'] else 'non'
+        redo = 'oui' if status['redo_available'] else 'non'
+        self.history.set(
+            'Journal V1 (lecture seule) · Annulation possible : '
+            + undo + ' · Rétablissement possible : ' + redo
+            + ' · Commandes non encore raccordées.')
 
     def _update_navigation(self):
         # Choose the canonical order already returned by the V1 inspector.
