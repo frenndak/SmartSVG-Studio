@@ -107,3 +107,12 @@
 - Sources V3.3 et V3.4 lot 23 lues sur main, blobs cités dans la fiche. Dix exigences S-021/036/037/044/047/064/066/092/099 et R33-028 examinées individuellement : critères hérités, décisions candidates, architecture texte/OCR/gabarits/diorama, négatifs, rollback, preuves séparées, 25 contrôles ventilés. Aucun ticket V34 fictif ; API réelles et PR restent à examiner.
 - Couverture historique 24/141/140/80/437 conservée ; photographie de liens explicites **431/437**, six exceptions ; dix exigences sans ticket V34 direct **toujours ouvertes** en attente de revue et adoption. Tests produit/Windows/GPU/Design Space/physique NOT_RUN. main@HEAD NON_VÉRIFIÉ. Aucun code, merge, AGENTS ou tâche de développement modifiés.
 - Prochaine action unique : **COV-10B**, auditer ports code main et PR des dix exigences pour arbitrage technique sans doublons.
+
+
+## 2026-11-13 — COV-10B : ports réels et propriétaires candidats G6/G9
+
+- **Livrable :** [COV10B_PORTS_AND_G6_G9_OWNERS.md](COV10B_PORTS_AND_G6_G9_OWNERS.md), commit `23e3df23088d95b594c75db14e27b9edbe79feba`, branche documentaire uniquement.
+- **Sources vérifiées :** quatre fichiers de code sur main (SHA blobs individuels dans le livrable), recherches de ports typographie/OCR, trois PR code ouvertes #138–140. Les ports `folded_card`, `open_tray`, `preflight_template`, `TemplatePreviewContent` et `NativeAppShell` sont réels, mais ne livrent ni OCR, ni diorama quatre plans, ni exports gabarits. Les PR sont hors G6/G9.
+- **Arbitrage :** dix exigences conservées et regroupées en propriétaires **candidats**, sans nouveau ticket V34, moteur concurrent ou modification de la whitelist du prévol. Les API texte/objet/writer/export n'ont pas encore été inspectées exhaustivement ; l'absence de résultat de recherche n'est pas une preuve d'absence de fonctionnalité.
+- **Preuves :** audit documentaire uniquement, tests unitaires, UI Windows, GPU, Design Space et coupe physique **NOT_RUN**. main@HEAD **NON_VÉRIFIÉ**. Inventaire 24/141/140/80/437 inchangé, 431/437 liens explicites, six exceptions, dix G6/G9 sans ticket direct encore ouverts. Les 25 contrôles ventilés sans certification fictive.
+- **Prochaine action unique : COV-10C**, examiner API V1, texte/objets et exporteurs, puis confirmer ou rejeter les propriétaires candidats avec références exactes.
