@@ -99,3 +99,11 @@
 - **Bilan provisoire des rapprochements explicites 02–22 :** 51/52 + 103/108 + 120/120 + 88/88 (après correction COV-07B) + 45/45 + 24/24 = **431/437**, avec **6 sans ticket source direct** (03-16 et cinq 06/07). Les cinq cas COV-05B ont des propositions sémantiques non validées. Les 10 exigences G6/G9 sans ticket explicite restent ouvertes. Ce total ne certifie ni 431 DoD ni 431 tests.
 - **Preuves :** documentation seulement ; auto/Windows/GPU/Design Space/physique NOT_RUN. `main@HEAD` NON_VÉRIFIÉ : la recherche de commits n'est pas un endpoint autoritatif de branche. Aucun code, AGENTS, PR, merge ou tâche de développement modifiés.
 - **Prochaine action unique :** COV-10, traiter les 10 exigences G6/G9 une à une avec texte et critères source exacts, options de rattachement V3.5 et contre-expertise sans nouveaux tickets V34 fictifs.
+
+
+## 2026-11-13 — COV-10 : qualification candidate G6/G9
+
+- Livrable : [COV10_G6_G9_SEMANTIC_RECOVERY.md](COV10_G6_G9_SEMANTIC_RECOVERY.md), commit `9b08a7aa0218542304f82f7c311012106d2edd9e` ; branche documentaire seulement.
+- Sources V3.3 et V3.4 lot 23 lues sur main, blobs cités dans la fiche. Dix exigences S-021/036/037/044/047/064/066/092/099 et R33-028 examinées individuellement : critères hérités, décisions candidates, architecture texte/OCR/gabarits/diorama, négatifs, rollback, preuves séparées, 25 contrôles ventilés. Aucun ticket V34 fictif ; API réelles et PR restent à examiner.
+- Couverture historique 24/141/140/80/437 conservée ; photographie de liens explicites **431/437**, six exceptions ; dix exigences sans ticket V34 direct **toujours ouvertes** en attente de revue et adoption. Tests produit/Windows/GPU/Design Space/physique NOT_RUN. main@HEAD NON_VÉRIFIÉ. Aucun code, merge, AGENTS ou tâche de développement modifiés.
+- Prochaine action unique : **COV-10B**, auditer ports code main et PR des dix exigences pour arbitrage technique sans doublons.
