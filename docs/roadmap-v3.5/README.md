@@ -1,5 +1,9 @@
 # SmartSVG Studio V3.5 — Roadmap de conception candidate
 
+> **Point de reprise prioritaire — 14 novembre 2026 :** lire le [maître priorisé](MASTER_PRIORISE.md), l'[index des 80 capacités](PRIORITY_INDEX.md) et la [file de clôture](COMPLETION_QUEUE.md). Ils réunissent les améliorations déjà discutées dans l'ordre d'utilité/urgence, sans remplacer les critères sources ni créer une roadmap concurrente. [COV22](COV22_PORTS_SD_CONSOLIDATION.md) vérifie désormais les ports de main et les deux fiches Smart Delivery historiques ; la couverture sémantique complète reste ouverte. Le [registre structuré](PRIORITY_REGISTER.json) et son [contrôleur](verify_priority_register.py) permettent de vérifier les inventaires et l'ordre sans prétendre qualifier le produit.
+
+> [Revue de cette consolidation et vérifications exécutées](CONSOLIDATION_REVIEW.md) : verdict borné, deux défauts du contrôleur corrigés ; aucune certification globale de la V3.5.
+
 > **NON NORMATIVE / DRAFT**, ouverte le 12 novembre 2026. La roadmap **V3.4 reste ACTIVE pour le développement** jusqu'à une promotion documentaire et de gouvernance séparée, vérifiée, revue et autorisée. Aucun nouveau code ni test produit n'est réputé livré par ce document.
 >
 > **Point de départ historique vérifié :** [main@aa0ff9e7](https://github.com/frenndak/SmartSVG-Studio/commit/aa0ff9e7d0c53dba3fdc429c02c6198736cfe935) (12/11/2026). La branche main continuera à évoluer : ne pas confondre ce repère documentaire avec le HEAD réel.
