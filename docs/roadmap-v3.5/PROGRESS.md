@@ -211,3 +211,11 @@ La tâche horaire a publié indépendamment [COV17A_UX_A01_A16_SEMANTIC_REVIEW.m
 - Inventaires 24/141/140/80/437, 431/437 liens historiques, six exceptions, dix exigences G6/G9 sans ticket V34 direct inchangés. Contrat 25 axes ventilé dans la fiche ; quatre exports, V1/CAS/float32, tri-state et IA opt-in préservés.
 - Aucun test produit/Windows/GPU/Design Space/coupe physique exécuté (NOT_RUN). main@HEAD NON_VÉRIFIÉ ; aucune modification code, AGENTS, PR, merge ou tâche de développement.
 - **Prochaine action unique COV-18A-2** : confronter les 30 associations A/B aux critères V3.3 intégraux, DoD V34 et scénarios locaux, avec revue contradictoire avant certification.
+
+
+## 2026-11-13 — COV-18A-2a : revue hostile de six liens A/B
+
+- [COV18A2A_AB_HOSTILE_SIX.md](COV18A2A_AB_HOSTILE_SIX.md), commit `9021dcb0a86b34ae22b9d45446aa21079124f6ea` : examen indépendant ciblé A02/A03/A04/A08/A12/B09 contre les lignes explicites du lot 23, décisions de non-surinterprétation, contrats de brouillon/CAS, sept négatifs et plan TDD. **6/30 examinés dans cette passe, 0/30 certifiés** ; critères intégraux V3.3, DoD et scénarios locaux encore ouverts.
+- Main : dernier SHA retourné par recherche de commits `aa0ff9e7d0c53dba3fdc429c02c6198736cfe935`, **HEAD DE BRANCHE NON VÉRIFIÉ** ; PR ouvertes observées #138/#139/#140. Aucun test produit exécuté ; Windows/GPU/Design Space/physique NOT_RUN.
+- Inventaires 24/141/140/80/437 conservés ; 431/437 liens historiques explicites, six exceptions et dix exigences G6/G9 sans ticket direct inchangés. Aucun code, AGENTS, PR, merge ou automatisation modifiés.
+- **Prochaine action unique COV-18A-2b :** lire critères V3.3 intégraux et DoD locaux exacts des six IDs, associer les scénarios locaux avec lignes et résoudre les écarts avant d'étendre la revue aux 24 autres.
