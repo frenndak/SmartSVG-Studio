@@ -30,6 +30,7 @@ class NativeRecoveryPanel:
         self.refresh, self.can_apply = refresh, can_apply
         self.plan, self.future, self.confirming = None, None, False
         self._running_plan = None
+        self._closed = False
         self.worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix='smartsvg-recovery')
         self.button = ttk.Button(parent, text='Récupérer le projet', command=self.start)
         self.status = tk.StringVar()
@@ -41,6 +42,8 @@ class NativeRecoveryPanel:
         return self.confirming or self.future is not None
 
     def load(self, plan):
+        if self._closed:
+            return
         if plan is not None and getattr(plan, 'outcome', None) not in ACTIONS:
             self.plan = None
             self.button.pack_forget()
@@ -55,7 +58,7 @@ class NativeRecoveryPanel:
 
     def start(self):
         plan = self.plan
-        if plan is None or self.busy or not self.can_apply():
+        if self._closed or plan is None or self.busy or not self.can_apply():
             return
         action, question, _ = ACTIONS[plan.outcome]
         source = (plan.previous_sha256 if plan.pending_sha256 == 'missing'
@@ -92,6 +95,10 @@ class NativeRecoveryPanel:
         self.root.after(50, self.receive)
 
     def receive(self):
+        # Tk may still dispatch an already queued callback during teardown.
+        # The worker is joined by shutdown; never touch destroyed widgets.
+        if self._closed or self.future is None:
+            return
         if not self.future.done():
             self.root.after(50, self.receive)
             return
@@ -118,4 +125,5 @@ class NativeRecoveryPanel:
         self.refresh()
 
     def shutdown(self):
+        self._closed = True
         self.worker.shutdown(wait=True)
