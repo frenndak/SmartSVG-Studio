@@ -272,3 +272,9 @@ Trois nouveaux documents **effectivement publiés puis relus** sur la branche ca
 - Couverture de **revue contradictoire UX : 54/80** (30 A/B + 18 C + 6 D), **0/80 certifiés**. Inventaires 24/141/140/80/437 inchangés ; 431/437 liens source historiques et six exceptions, dix G6/G9 sans ticket direct non résolus. Les associations D restent candidates, pas preuve d'héritage sémantique intégral.
 - Main HEAD **NON_VÉRIFIÉ** (dernier commit indexé aa0ff9e7, pas preuve du HEAD). Tests auto/Windows/RTX/Design Space/physique **NOT_RUN**. Aucune modification de code, main, AGENTS, PR, merge ou tâche planifiée.
 - **Prochaine action UNIQUE V35-COV-18C2** : revoir D07–D12 avec DoD exacts et contrats de consentement, reprise, batch, assistant.
+
+## 2026-11-13 — V35-COV-18C2 : D07–D12, revue hostile IA et automatisation
+
+- [COV18C2_IA_D07_D12_HOSTILE.md](COV18C2_IA_D07_D12_HOSTILE.md) publié dans le dossier canonique et relu, commit `18cc92dbb5ed54d5753c4c7906c0442a8d94f448`. Six fonctions D07–D12 : inpainting P2, catalogue modèles/licences/hash, budgets GPU/CPU, recettes externes P2, batch/CSV/reprise et assistant contextuel fermé. Contrats candidats, états, tests négatifs, crash/CAS, UX et 25 axes explicités ; aucun code produit. Un premier chemin documentaire mal orthographié a été corrigé par suppression de la copie, commit `06d481a60d2ef8233cbfa6eff0d5693f7d414b2e`.
+- Revue contradictoire UX **60/80** (30 A/B + 18 C + 12 D), **0/80 certifiés**. Inventaires source 24/141/140/80/437 inchangés, 431/437 liens historiques, six exceptions et dix G6/G9 non résolus. Tests auto/Windows/GPU/Design Space/coupe physique **NOT_RUN** ; HEAD main **NON_VÉRIFIÉ** (aa0ff9e7 reste snapshot et non HEAD). Aucune promotion ni modification V3.4, AGENTS, PR ou automatisation.
+- **Prochaine action unique V35-COV-18D1** : revue contradictoire E01–E06, textes exacts du registre, critères V3.3 et DoD V34, bibliothèque/projets/canevas/reprise.
