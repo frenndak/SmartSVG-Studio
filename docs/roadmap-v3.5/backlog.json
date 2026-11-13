@@ -5043,5 +5043,40 @@
       "delivery_status": "NON_VERIFIE",
       "acceptance_policy": "Critères intégraux du document source ; cette affectation ne prouve aucune implémentation."
     }
+  ],
+  "implementation_candidates": [
+    {
+      "slice": "V35-03",
+      "micro_lot": "03A",
+      "status": "TESTE_SUR_BRANCHE_NON_INTEGRE",
+      "pull_request": 144,
+      "commit": "955cfbdb6858c14d73ec3f4d2d2d5e474e64f6a5",
+      "base_commit": "aa0ff9e7d0c53dba3fdc429c02c6198736cfe935",
+      "scope": "Port de mutation natif uniquement ; pas de contrôles Tk",
+      "targeted_tests": {
+        "run": 15,
+        "skipped": 0,
+        "failures": 0
+      },
+      "full_suite": {
+        "run": 758,
+        "skipped": 32,
+        "failures": 0,
+        "skip_reason": "Session graphique indisponible"
+      },
+      "historical_cpu_runner": {
+        "run": 53,
+        "skipped": 0,
+        "failures": 0
+      },
+      "ci_at_submission": "IN_PROGRESS",
+      "qualification": {
+        "windows": false,
+        "gpu": false,
+        "design_space": false,
+        "physical_cricut": false
+      },
+      "next": "03B : contrôles Tk et resynchronisation de session ; réconcilier #139/#144"
+    }
   ]
 }

@@ -29,3 +29,23 @@ Relire main, le statut et le diff de la proposition V3.5 ainsi que les PR #138�
 Le prochain incrément de code est décrit dans [03_PROCHAIN_MICROLOT.md](03_PROCHAIN_MICROLOT.md). Réutiliser l'historique G3.3e ; ne pas créer un moteur de journal concurrent. Reprendre le développement sous les règles de la roadmap active tant qu'une promotion explicite V3.5 n'est pas intégrée.
 
 Après ce premier parcours, raccorder l'export PNG natif (V35-05A) avec dossier choisi, prévol, écriture protégée, relecture et retour UI. La géométrie, les fixtures et les autres sorties peuvent progresser indépendamment de la qualification physique. Ni l'assistant ni le GPU ne bloquent cette livraison.
+
+## Développement 03A — 14 novembre 2026
+
+Candidat de code : [PR #144](https://github.com/frenndak/SmartSVG-Studio/pull/144), `955cfbdb6858c14d73ec3f4d2d2d5e474e64f6a5`, basé sur le même main. Les deux fichiers déposés ont été relus à ce commit distant et comparés aux fichiers testés : contenu identique. Tous les fichiers préexistants du snapshot complet ont été contrôlés contre les blobs de l'arbre main : **aucun modifié**. Le ZIP attaché a fourni uniquement les fichiers dont le blob correspondait au dépôt ; les autres ont été récupérés au SHA exact.
+
+| Vérification locale, Python 3.12.14/Linux | Résultat | Limite |
+|---|---|---|
+| Tests du nouveau port de commande | 15/15 PASS, 0 skip | Vrais projets V1 synthétiques ; pas de bouton UI |
+| Suite du dépôt `python -m unittest discover -s tests -p 'test_*.py' -v` | 758 tests, 0 échec, 32 skips | Skips graphiques faute de display ; baseline = 743 tests et mêmes 32 skips |
+| `python tools/qualify_subject_brush_cpu_g33e.py` | 53/53 PASS, 0 skip | Runner historique CPU, distinct des 15 nouveaux tests ; ne pas additionner les compteurs |
+| `python tools/verify_source_integrity.py --repo . --archive-only` | PASS, 651 empreintes manifestes | Archive d'origine ; ne qualifie pas tout le moteur actuel |
+| `python -m compileall -q engine/smartsvg_core tools tests` | Exit 0 | Syntaxe/imports compilables, pas une recette fonctionnelle |
+
+NumPy 2.3.5 et Pillow 13.0.0 présents. Les tests vérifient une sauvegarde réelle puis Undo/réouverture/Redo, ressources et notes conservées, exports intacts, confirmation stricte, sujet différent, révision périmée, nouvelle édition après Undo, métadonnées falsifiées, reçu invalide après vrai commit, erreur après publication et note concurrente entre disponibilité et écriture.
+
+**Contre-expertise indépendante bornée :** lecture des contrats réels d'admission, historique et recovery ; exécution séparée des 15 tests ciblés, tous PASS sans skip ; aucune anomalie restante. Les deux recommandations initiales de couverture sont intégrées : vraie panne de rotation du backup après publication et modification concurrente des notes avant le writer. Cette relecture ne constitue pas une review GitHub APPROVED.
+
+**CI distante :** quatre workflows ont démarré sur le SHA exact lors du dépôt ; leur état initial était `in_progress`. Ne pas les considérer PASS à partir des seuls résultats locaux. Pas de validation Windows, GPU, Design Space ou physique ajoutée par cette session à ce stade.
+
+**Statut : TESTE_SUR_BRANCHE / NON_INTEGRE.** Les critères des tickets historiques restent ouverts ; V3.4 toujours active. Prochain développement : 03B, interface explicite et rafraîchissement sans perte du brouillon de notes. Ne pas confondre la réussite du port avec la livraison de boutons Annuler/Rétablir au bureau.

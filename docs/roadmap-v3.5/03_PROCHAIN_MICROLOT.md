@@ -2,6 +2,8 @@
 
 **Proposition exécutable, non implémentée dans ce dossier.** Tranche V35-03 ; tickets historiques V34-035/V34-038/V34-132 et critères hérités associés, sans les redéfinir. Base auditée `aa0ff9e7d0c53dba3fdc429c02c6198736cfe935`.
 
+**Reprise du 14 novembre 2026 : 03A développé et testé sur branche**, dans la [PR #144](https://github.com/frenndak/SmartSVG-Studio/pull/144), commit `955cfbdb6858c14d73ec3f4d2d2d5e474e64f6a5`. Le nouveau `change_native_brush_history` réutilise le writer historique, lie la confirmation au sujet et à la révision, contrôle le reçu et relit le projet après écriture. **15 tests ciblés passent sans skip**, dont les cas réels CPU et les interruptions postpublication. Une relecture indépendante n'a pas trouvé de défaut restant après ajout de deux tests de récupération/concurrence. Ce candidat reste **DRAFT / NON_INTEGRE** ; aucun ticket entier ni contrôle Tk n'est déclaré livré. Voir [le relevé des vérifications](04_VERIFICATION_ET_REPRISE.md). **Prochaine tranche : 03B**, contrôles Tk et resynchronisation de la session, après réconciliation des candidats #139 et #144.
+
 ## Prérequis immédiat
 
 Relire la PR #139 et son HEAD courant : elle prépare la disponibilité Undo/Redo **en lecture seule**. Ne pas recopier son travail. Si elle n'est pas intégrée, deux actions séparées restent possibles : qualifier ce candidat selon les règles applicables, ou préparer le bridge de mutation sur main sans dépendre d'un champ privé de sa branche. La fusion éventuelle et la mutation UI restent des décisions vérifiées distinctes.
@@ -23,7 +25,7 @@ Depuis l'Atelier, voir si une retouche persistée peut être annulée ou rétabl
 
 ## Découpage borné
 
-**03A — bridge de mutation :** adaptateur minimal dans `engine/smartsvg_core/`, réutilisant le workspace sous verrou. Entrées : chemin géré absolu, SHA attendu, action `undo`/`redo`, ID de commande et confirmation booléenne stricte. Ne pas inventer de compteur de révision, receipt store ou writer. Examiner le contrat de reçu réel avant de définir la réponse publique de l'adaptateur.
+**03A — bridge de mutation (candidat #144) :** adaptateur minimal dans `engine/smartsvg_core/native_brush_history_command_v34.py`, réutilisant le workspace sous verrou. Entrées : chemin géré absolu, SHA attendu, ID du sujet confirmé, action `undo`/`redo`, ID de commande et confirmation booléenne stricte. Aucun compteur de révision, receipt store ou writer supplémentaire. Réponse bornée : statut, SHA relu, sujet, action, commande, persistance et absence de qualification Cricut. Toute exception après appel du writer demande une réinspection ; notamment `SAVE_FAILED` peut suivre une publication réussie avec backup encore en attente.
 
 **03B — raccordement UI :** boutons et raccourcis natifs avec disponibilité fraîche, exclusion pendant écriture et confirmation ; vérifier action/projet/révision du reçu, puis réexaminer et restaurer la sélection seulement si elle reste admissible. Une erreur de reçu après écriture donne « résultat à réexaminer », pas « aucune modification » ni retry automatique. Conserver le brouillon local en cas d'échec.
 
