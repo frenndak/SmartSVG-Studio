@@ -157,3 +157,11 @@
 - **État des preuves INCHANGÉ** : **431/437** relations TEST→TICKET explicitement présentes à l'origine, **6/6** rapprochements sémantiques **CANDIDATS** supplémentaires, **10/10** obligations G6/G9 avec route proposée, **0** adoption normative dans cette passe. Aucun test produit, Windows, RTX, Design Space, coupe physique exécuté.
 - **Écart prioritaire** : revue contradictoire de l'adéquation propriétaire et du critère complet pour chaque relation, puis décision individuelle des 80 capacités UX et des 33 opportunités. Un mapping initial ne constitue pas une revue qualitative 80/80.
 - **Prochaine action unique V35-COV-17** : commencer la revue sémantique **A01–A16 (16 capacités Smart Import/Select/Clean/Color/Vector)** en comparant spécifications V3.3/V3.4, code actuel et parcours UX V3.5 ; décider pour chacune GARDER/RACCORDER/FUSIONNER/REPORTER/REJETER avec raison, API existante, négatifs et DoD. Continuer ensuite B/C/D/E, puis 33 opportunités, sans prétendre que la promotion est prête.
+
+
+## 2026-11-13 — COV-17A : revue individuelle UX A01–A16
+
+- Livrable [COV17A_UX_A01_A16_SEMANTIC_REVIEW.md](COV17A_UX_A01_A16_SEMANTIC_REVIEW.md), commit `d49fda5a52f05ae60238c10f1357899af7e24dd8` sur branche documentaire. 16 décisions candidates individuelles, propriétaires Wxx, contrats transversaux et au moins trois négatifs par ID, cinq micro-lots TDD et ventilation des 25 critères.
+- Limite explicite : rapprochement exact par S/R33/ticket/scénario/DoD et audit approfondi du code A01–A16 non terminés ; 0/16 certifiée prête à coder. Aucun test produit exécuté ; Windows/GPU/Design Space/physique NOT_RUN. Main HEAD NON_VÉRIFIÉ dans ce cycle.
+- Inventaire historique 24/141/140/80/437 conservé ; 431/437 liens explicites, six exceptions, dix G6/G9 sans ticket V34 direct toujours ouverts. Aucune modification main, AGENTS, code, PR, merge ou automatisation.
+- **Prochaine action unique : COV-17B** — examiner B01–B14 individuellement (objets/calques/texte/OCR), ports V1 et critères exacts, contre-expertise et DoD.
