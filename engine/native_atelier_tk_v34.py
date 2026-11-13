@@ -186,7 +186,11 @@ class NativeAtelierPanel:
                 type(status.get('undo_available')) is not bool or
                 type(status.get('redo_available')) is not bool or
                 status.get('persisted') is not False or
-                status.get('cricut_certified') is not False):
+                status.get('cricut_certified') is not False or
+                any(type(status.get(action + '_subject_id')) is not str
+                    or not _PROVEN_SUBJECT.fullmatch(status[action + '_subject_id'])
+                    for action in ('undo', 'redo')
+                    if status[action + '_available'])):
             self.history.set(unavailable)
             return
         undo = 'oui' if status['undo_available'] else 'non'
