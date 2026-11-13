@@ -67,6 +67,12 @@ Chaque cycle horaire d'architecture reprend le **dernier micro-lot effectivement
   - [D01–D12 — IA locale, modèles et consentement](COV17D_UX_D01_D12_SEMANTIC_AUDIT.md)
   - [E01–E20 — bibliothèque, Windows, UX, QA, récupération](COV17E_UX_E01_E20_SEMANTIC_AUDIT.md)
   - **Contrôle mécanique au SHA de branche** : 16+14+18+12+20 = **80 identifiants uniques**, zéro trou ou doublon ; **les 80 décisions restent proposées et leurs liens fins aux DoD historiques doivent encore être qualifiés**.
+- **COV18A — Contre-expertise contradictoire A01–A16/B01–B14 (30/30 examinés, 0/30 certifiés)** :
+  - [COV18A2C — 13 micro-tickets et 52 tests locaux des six fonctions critiques](COV18A2C_LOCAL_DOD_SIX.md)
+  - [COV18A2D — arbitrage des rôles : float32, géométrie, QA export, typographie](COV18A2D_ARCHITECTURE_ARBITRATION.md)
+  - [COV18A3A — six fonctions import, détourage, nettoyage et couleur](COV18A3A_UX_NEXT_SIX.md)
+  - [COV18A3B — six fonctions vectorielles, qualité et objets](COV18A3B_VECTOR_OBJECTS_SIX.md)
+  - [COV18A3C — douze fonctions B restantes et **rectification B12/B13**](COV18A3C_B_REMAINING_CORRECTED.md) : OCR S-021/S-047 pour B13 ; conversion texte→chemins S-036/S-064/R33-028 pour B12. L'ancien [COV18A1B](COV18A1B_AB_TRACE_REMAINING_20.md) porte un avertissement explicite. **Contrats et tests encore non certifiés.**
 - [QUALITY_TESTS_AND_EVIDENCE.md](QUALITY_TESTS_AND_EVIDENCE.md) — tests positifs/négatifs, corruption/reprise, QA, Windows/CPU/GPU/Design Space/physique strictement séparés.
 - [ADR_RISKS_OPPORTUNITIES.md](ADR_RISKS_OPPORTUNITIES.md) — ADR candidates, registres de risques, **33/33 opportunités historiques** préservées avec leurs rejets, arbitrage détaillé encore ouvert.
 - [PROMOTION_CHECKLIST.md](PROMOTION_CHECKLIST.md) — **15 gates de NO-GO/GO** documentaires, revue contradictoire, PR docs puis promotion de gouvernance séparée.
