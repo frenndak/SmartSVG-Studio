@@ -209,12 +209,23 @@ class NativeHistoryCommandTests(unittest.TestCase):
         before = self.path.read_bytes()
         from smartsvg_core.project_workspace_g22 import WorkspaceError
 
-        def failed_readback(workspace, name):
-            raise WorkspaceError('PROJECT_NOT_HEALTHY')
+        writer = ManagedWorkspace.change_subject_brush_history
+        readback_patch = patch.object(
+            ManagedWorkspace, 'inspect',
+            side_effect=WorkspaceError('PROJECT_NOT_HEALTHY'))
 
-        with patch.object(ManagedWorkspace, 'inspect', failed_readback):
-            with self.assertRaises(NativeSubjectPreviewError) as error:
-                self.change()
+        def committed_then_readback_fails(workspace, *args, **kwargs):
+            receipt = writer(workspace, *args, **kwargs)
+            readback_patch.start()
+            return receipt
+
+        try:
+            with patch.object(ManagedWorkspace, 'change_subject_brush_history',
+                              committed_then_readback_fails):
+                with self.assertRaises(NativeSubjectPreviewError) as error:
+                    self.change()
+        finally:
+            readback_patch.stop()
         self.assertEqual(error.exception.code, 'BRUSH_HISTORY_OUTCOME_UNKNOWN')
         self.assertNotIn('PROJECT_NOT_HEALTHY', str(error.exception))
         self.assertNotEqual(self.path.read_bytes(), before)
