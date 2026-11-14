@@ -359,3 +359,10 @@ Trois nouveaux documents **effectivement publiés puis relus** sur la branche ca
 - Ports main consultés : `project_archive.py` blob `141d825a`, `project_workspace_g22.py` blob `13b8e40d`, `editor_session_g23.py` blob `dda85369`, `subject_identity_g33e.py` blob `2d799a34`, lot 06 blob `074879c0`. **HEAD main NON_VÉRIFIÉ** ; PR ouvertes #138/#139/#140/#144, aucun merge inféré. Critères G6/G9 intégraux et tous consommateurs non certifiés.
 - Inventaires historiques **24/141/140/80/437**, liens explicites **431/437**, six exceptions et dix G6/G9 ouverts ; **0/80 UX certifiées**. Aucun nouveau test Windows/GPU/Design Space/coupe physique ; V3.4 ACTIVE, aucune modification code, AGENTS, PR ou automatisation.
 - **Prochaine action UNIQUE : Q04** — rapprocher les 80 fiches UX déjà revues des critères originaux et tests exacts, en commençant par les divergences prioritaires sans répéter les audits existants.
+
+
+## 2026-11-14 — V35-Q04A : certification UX texte, arbitrage B12/B13
+
+- [Q04A_UX_SEMANTIC_CERTIFICATION_TEXT.md](Q04A_UX_SEMANTIC_CERTIFICATION_TEXT.md), commit `984e6a907c9f9ca61a16c4d1d9dc9228af7e7461` : protocole de certification par ID et premier approfondissement B09–B14. Correction maintenue B12 conversion texte→chemins (S-036/S-064/R33-028) vs B13 OCR (S-021/S-047), contrat de proposition non persistante dans V1, états CAS/stale, 10 négatifs et micro-lots TDD. Les libellés B11/B14 et les associations exactes DoD/scénarios restent à vérifier : **aucune UX certifiée**.
+- Source : Q03, COV17B, COV18A3C et contrat 25 contrôles ; HEAD main **NON_VÉRIFIÉ**, aucune preuve de tests produit ajoutée. Inventaires historiques 24/141/140/80/437 et 431/437 liens explicites restent des photographies, six exceptions et dix G6/G9 toujours ouverts. V3.4 ACTIVE, aucun code/AGENTS/PR/automatisation modifié.
+- **Prochaine action UNIQUE Q04B :** rapprocher B09–B14 des clauses exactes lot 06/V3.3, tickets et DoD, corriger les libellés provisoires B11/B14 avant certification.
