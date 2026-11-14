@@ -14,11 +14,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-if (-not [Environment]::Is64BitProcess -or -not $IsWindows) {
-    # Windows PowerShell 5.1 ne definit pas $IsWindows.
-    if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT -or -not [Environment]::Is64BitProcess) {
-        throw 'Ce packaging exige Windows x64.'
-    }
+if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT -or -not [Environment]::Is64BitProcess) {
+    throw 'Ce packaging exige Windows x64.'
 }
 
 $repo = (Resolve-Path -LiteralPath $RepositoryRoot).Path
@@ -76,7 +73,7 @@ $gui = Start-Process -FilePath $testExe -PassThru
 try {
     Start-Sleep -Seconds 5
     $gui.Refresh()
-    if ($gui.HasExited) { throw "Le GUI s'est termine prematur ement, code $($gui.ExitCode)." }
+    if ($gui.HasExited) { throw "Le GUI s'est termine prematurement, code $($gui.ExitCode)." }
 }
 finally {
     $gui.Refresh()
