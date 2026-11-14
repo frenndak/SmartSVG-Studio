@@ -77,6 +77,9 @@ def change_native_brush_history(
         raise NativeSubjectPreviewError('BRUSH_HISTORY_OUTCOME_UNKNOWN')
     try:
         snapshot = workspace.inspect(name)
+    except WorkspaceError as exc:
+        # Readback can fail after a committed write: require fresh inspection.
+        raise NativeSubjectPreviewError('BRUSH_HISTORY_OUTCOME_UNKNOWN') from exc
     except (OSError, KeyError, TypeError, ValueError, RuntimeError) as exc:
         raise NativeSubjectPreviewError('BRUSH_HISTORY_OUTCOME_UNKNOWN') from exc
     if (type(snapshot) is not dict or snapshot.get('status') != 'PROJECT_HEALTHY' or
