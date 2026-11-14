@@ -204,6 +204,23 @@ class NativeHistoryCommandTests(unittest.TestCase):
         self.assertNotEqual(self.path.read_bytes(), before)
 
     @unittest.skipUnless(HAS_CPU, 'Real brush round trip requires NumPy/Pillow')
+    def test_workspace_readback_error_after_commit_reports_unknown_outcome(self):
+        self.seed_stroke()
+        before = self.path.read_bytes()
+        from smartsvg_core.project_workspace_g22 import WorkspaceError
+
+        def failed_readback(workspace, name):
+            raise WorkspaceError('PROJECT_NOT_HEALTHY')
+
+        with patch.object(ManagedWorkspace, 'inspect', failed_readback):
+            with self.assertRaises(NativeSubjectPreviewError) as error:
+                self.change()
+        self.assertEqual(error.exception.code, 'BRUSH_HISTORY_OUTCOME_UNKNOWN')
+        self.assertNotIn('PROJECT_NOT_HEALTHY', str(error.exception))
+        self.assertNotEqual(self.path.read_bytes(), before)
+        self.assertNotIn('editor_v216', load_project(self.path).document)
+
+    @unittest.skipUnless(HAS_CPU, 'Real brush round trip requires NumPy/Pillow')
     def test_further_commit_before_readback_prevents_false_success(self):
         self.seed_stroke()
         writer = ManagedWorkspace.change_subject_brush_history
