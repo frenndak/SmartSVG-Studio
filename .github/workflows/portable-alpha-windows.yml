@@ -1,0 +1,64 @@
+name: SmartSVG - Windows portable Alpha (x64)
+
+# Owner authorization: live chat on 2026-11-14 ("ok vas-y pour la version portable").
+# Experimental bundle only. No release publication, signing or secret access.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/portable-alpha-windows.yml"
+      - "tools/build_portable_windows.ps1"
+      - "docs/PORTABLE_ALPHA_WINDOWS.md"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/portable-alpha-windows.yml"
+      - "tools/build_portable_windows.ps1"
+      - "docs/PORTABLE_ALPHA_WINDOWS.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  portable-windows-x64:
+    name: Build and smoke-test portable ZIP (Windows x64)
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          architecture: "x64"
+      - name: Verify preserved historical archive
+        shell: pwsh
+        run: |
+          python tools/verify_source_integrity.py --repo . --archive-only
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify isolated desktop bootstrap
+        shell: pwsh
+        run: |
+          python -I -S engine/standalone_desktop_v34.py --probe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install pinned packaging and native CPU dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: "PyInstaller==6.16.0" "numpy==2.4.6" "Pillow==13.0.0"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m PyInstaller --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build, test the isolated EXE and zip portable release
+        shell: pwsh
+        run: |
+          ./tools/build_portable_windows.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload portable ZIP and SHA-256
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartSVG-Studio-V3.4-Alpha-Windows-x64
+          path: build/portable-alpha/artifacts/*
+          if-no-files-found: error
+          retention-days: 30
