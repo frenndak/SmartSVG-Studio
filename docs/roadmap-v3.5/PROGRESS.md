@@ -547,3 +547,11 @@ Trois nouveaux documents **effectivement publiés puis relus** sur la branche ca
 - [Revue E01–E06](REVIEW_DE_E01_E06_2026_11_15.md), commit `e3512390f02d30aa626319383da3be2db1b9878c` : six décisions examinées ; corrections préférences locales ≠ index reconstructible, duplication V1 exige publication exclusive, composition durable V2 uniquement après migration autorisée ; comparaison rendus versionnés.
 - Sources relues : COV18D1, V3.4 lots 18/20, ADR_COMPOSITION_PERSISTENCE, décisions transversales et contrat 25 axes. Revue documentaire bornée, DoD historiques intégraux/ports HEAD non certifiés. Tests nouveaux NOT_RUN, aucun PASS Windows/GPU/Design Space/physique revendiqué.
 - `RUN_STATE.next_action=REVIEW_DE` reste correct ; **prochaine tranche E07–E12** puis E13–E20. V3.4 ACTIVE, aucune fusion, aucun changement de tâche productrice.
+
+
+## 2026-11-15 — REVIEW_DE E07–E12 : commandes et recovery
+
+- Livrable : [REVIEW_DE_E07_E12_2026_11_15.md](REVIEW_DE_E07_E12_2026_11_15.md), commit `1b241bc1ddd8c88e2cc8437338fdb30da3cd0ba7`, branche candidate uniquement.
+- Six décisions E07–E12 revues. Correction centrale : **CAS V1 ≠ receipt de commande durable** ; Undo durable et command_id/epoch nécessitent V2 autorisée. **SAVE_FAILED après publication primaire** peut signifier résultat de commit indéterminé, à inspecter avant retry. Mode novice/expert, raccourcis, préférences locales et focus ont des contrats de non-régression.
+- Sources V3.4 lots 06/07/21 lues aux blobs exacts ; ports HEAD et DoD intégraux encore à rapprocher. 24/141/140/80/437 conservés comme inventaire, pas certification. Nouveaux tests et essais Windows/GPU/Design Space/physique NOT_RUN ; aucun code ni gouvernance modifiés.
+- **Prochaine action unique : REVIEW_DE E13–E20**, puis revue globale D/E et clôtures sémantiques. 
