@@ -571,3 +571,10 @@ Trois nouveaux documents **effectivement publiés puis relus** sur la branche ca
 - RUN_STATE passe `REVIEW_DE=DONE`, `SOURCE_CLOSURE=READY`, `next_action=SOURCE_CLOSURE` (commit `598ce526e773a883cb7da8c640fdf04c03d25a80`). Ceci certifie une **revue de conception bornée**, pas les critères historiques intégraux ni l'exécution Windows/DS/physique.
 - Couverture de référence : 24/24 lots, 141/141 exigences, 140/140 tickets, 80/80 UX et 437/437 scénarios inventoriés ; certification sémantique toujours ouverte (six exceptions de liens historiques et dix G6/G9 sans ticket direct). Statuts produit ajoutés : NOT_RUN. Les 25 contrôles ont été passés au niveau applicable dans le rapport ; SOURCE_CLOSURE doit vérifier les assertions et DoD intégraux, pas recopier des comptes.
 - **Prochaine action unique : SOURCE_CLOSURE**, réconcilier les six exceptions de liens et dix exigences G6/G9 avec critères historiques, puis vérifier les 437 assertions contre les décisions candidates et signaler toute perte réelle.
+
+
+## 2026-11-15 — SOURCE_CLOSURE SC-01, exceptions et G6/G9
+
+- [Rapport SC-01](SOURCE_CLOSURE_SC01_EXCEPTIONS_2026_11_15.md) publié au commit `e017d30c8ff353be7577d6ef430fe879f7c2f119` : six exceptions historiques attribuées à des propriétaires candidats sans fabriquer de liens historiques ; dix exigences G6/G9 préservées. Correction explicite de l'ambiguïté Q02 : `T-V34-06-22` concerne les packs V2 internes au même projet, sous migration explicitement autorisée, et non une simple partition d'export.
+- Inventaires 24/141/140/80/437 inchangés ; aucune certification sémantique globale, aucun nouveau test exécuté, Windows/GPU/Design Space/physique NOT_RUN. Contrat 25 axes passé à portée bornée SC-01. V3.4 ACTIVE ; aucun code, merge ou gouvernance modifiés.
+- `RUN_STATE.next_action=SOURCE_CLOSURE` reste correct ; prochaine tranche **SC-02** : confrontation des critères intégraux et DoD, puis assertions 437 par lots, en corrigeant uniquement les pertes constatées.
