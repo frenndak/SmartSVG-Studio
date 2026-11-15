@@ -555,3 +555,10 @@ Trois nouveaux documents **effectivement publiés puis relus** sur la branche ca
 - Six décisions E07–E12 revues. Correction centrale : **CAS V1 ≠ receipt de commande durable** ; Undo durable et command_id/epoch nécessitent V2 autorisée. **SAVE_FAILED après publication primaire** peut signifier résultat de commit indéterminé, à inspecter avant retry. Mode novice/expert, raccourcis, préférences locales et focus ont des contrats de non-régression.
 - Sources V3.4 lots 06/07/21 lues aux blobs exacts ; ports HEAD et DoD intégraux encore à rapprocher. 24/141/140/80/437 conservés comme inventaire, pas certification. Nouveaux tests et essais Windows/GPU/Design Space/physique NOT_RUN ; aucun code ni gouvernance modifiés.
 - **Prochaine action unique : REVIEW_DE E13–E20**, puis revue globale D/E et clôtures sémantiques. 
+
+
+## 2026-11-15 — REVIEW_DE E13–E20 : QA, previews, release, privacy, aide
+
+- [Revue E13–E20](REVIEW_DE_E13_E20_2026_11_15.md), commit `a75e910633666254d31a8b3aebc56a9bbf4c2528` : huit décisions individualisées et corrections sur identité preview inter-session, preuves QA par artefact et niveau, packaging portable ≠ updater, consentements distincts et aide contextuelle.
+- Main observé `0692f804ad21bd775cd0269dd92dc6e2b1cea01f`, branche divergente ; couverture source DoD/ports HEAD non certifiée. Tests nouveaux, Windows, GPU, Design Space et physique NOT_RUN. 24/141/140/80/437 conservés comme inventaires, pas certification sémantique.
+- Prochaine action unique : **REVIEW_DE clôture transversale D01–D12 et E01–E20**, rapprocher les critères/DoD historiques et contradictions ; ensuite SOURCE_CLOSURE. V3.4 reste ACTIVE.
