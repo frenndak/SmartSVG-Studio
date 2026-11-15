@@ -53,3 +53,16 @@ python docs/roadmap-v3.5/verify_run_state.py
 ```
 
 Le premier vérifie l'intégrité des inventaires/provenance, le second le curseur, dépendances et preuves documentaires. **Aucun ne certifie le sens de toutes les exigences ni le fonctionnement produit.** Revoir les sources épinglées seulement quand leur contenu change ; si main diverge, requalifier les ports impactés sans reconduire un vieux SHA comme HEAD courant.
+
+## 7. Retrouver un critère complet avant le prochain micro-lot
+
+Le registre SOURCE_TRANSFER_REGISTER.json indexe les141critères et les140DoD avec sources littérales et précisions, sans remplacer les clauses parentes. Après validation de l'intégrité :
+
+```bash
+python docs/roadmap-v3.5/verify_source_transfer.py --main-root . --id S-036
+python docs/roadmap-v3.5/verify_source_transfer.py --main-root . --id V34-033
+```
+
+Lire l'entrée ciblée, les tickets liés, le contexte parent et la fiche candidate. Les liens historiques sont des renvois de planification, pas des propriétaires exclusifs. Les acteurs W10/W11/W16 sont distincts des gates CP4/CP6. Le SHA main du JSON est une observation datée ; vérifier HEAD réel avant d'en déduire la fraîcheur du code.
+
+Pour terminer SOURCE_CLOSURE, consommer SC-03B et REVIEW_SOURCE_TRANSFER_2026_11_15 : tableaux individuels transférés, erreurs d'oracles corrigées et limites de relecture déclarées. Il reste l'acceptation au contexte complet et les contradictions réellement restantes, pas une nouvelle série de dix intitulés ou de compteurs. Les tests de produit continuent à dépendre de leurs preuves propres après implémentation.

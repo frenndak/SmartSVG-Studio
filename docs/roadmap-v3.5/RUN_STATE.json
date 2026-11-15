@@ -5,7 +5,7 @@
   "active_roadmap": "3.4",
   "candidate_status": "DESIGN_REVIEW_PENDING",
   "main_observed_sha": "0692f804ad21bd775cd0269dd92dc6e2b1cea01f",
-  "candidate_base_sha": "3e602179a1bda334916f60ffc55933311438fe53",
+  "candidate_base_sha": "a14667dbeb398fe82d6d801f890d430b50b67ade",
   "next_action": "SOURCE_CLOSURE",
   "promotion_ready": false,
   "product_tests_added_in_this_campaign": "NOT_RUN",
@@ -134,11 +134,18 @@
         "SOURCE_CLOSURE_SC01_EXCEPTIONS_2026_11_15.md",
         "SOURCE_CLOSURE_SC02A_LOTS05_06_2026_11_15.md",
         "SOURCE_CLOSURE_SC02B_LOTS07_10_2026_11_15.md",
-        "SOURCE_CLOSURE_SC02C_LOTS11_12_2026_11_15.md"
+        "SOURCE_CLOSURE_SC02C_LOTS11_12_2026_11_15.md",
+        "SOURCE_CLOSURE_SC02D_LOTS13_17_2026_11_15.md",
+        "SOURCE_CLOSURE_SC02E_LOTS18_22_2026_11_15.md",
+        "SOURCE_CLOSURE_SC02F1_LOTS02_04_2026_11_15.md",
+        "SOURCE_CLOSURE_SC02F2_LOTS05_06_2026_11_15.md",
+        "SOURCE_CLOSURE_SC03B_CRITERIA_DOD_2026_11_15.md",
+        "SOURCE_TRANSFER_REGISTER.json",
+        "REVIEW_SOURCE_TRANSFER_2026_11_15.md"
       ],
       "done_when": "141 exigences, 140 DoD et 437 assertions sans perte, avec rapport sémantique et exceptions tracées, pas un simple comptage ; six liens historiques restent absents historiquement.",
       "evidence": [],
-      "continuation": "SC-02F2: 50 assertions lots05–06 rapprochées individuellement, fiche SOURCE_CLOSURE_SC02F2_LOTS05_06_2026_11_15.md commit 08edef643661eb71cda92c56d683cca908dd87d9. SC-03 NEXT: 141 critères intégraux V3.3 et 140 DoD V34 individuellement, corrections de pertes réelles. SOURCE_CLOSURE reste ouverte; aucun test produit."
+      "continuation": "SC-03 final : accepter le transfert au contexte parent complet à partir de SOURCE_TRANSFER_REGISTER.json, SC03B_CRITERIA_DOD et REVIEW_SOURCE_TRANSFER. Les141entrées/140DoD et437assertions ont leurs textes conservés et décisions ; oracles106corrigés. La seconde lecture exhaustive du contexte et les contradictions restantes sont encore ouvertes ; ne pas refaire des tranches de dix intitulés. Après acceptation motivée : SOURCE_CLOSURE DONE puis GLOBAL_REVIEW au SHA fixé."
     },
     {
       "id": "OPPORTUNITIES_CLOSURE",

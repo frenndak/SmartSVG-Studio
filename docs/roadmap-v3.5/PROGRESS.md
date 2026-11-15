@@ -641,3 +641,14 @@ Suivi : l'intégration Linear avait automatiquement recopié FRE-157 dans Titan#
 - [SC-03A](SOURCE_CLOSURE_SC03A_S001_S010_2026_11_15.md), commit `bc83ea397bf408c53c1383507ca358d85428b58c` : dix exigences historiques rapprochées des propriétaires V34, avec risques de perte, oracles et cinq cas négatifs ; ambiguïtés trois/quatre exports, CAS/receipt et qualification physique explicitées. **Ce n'est pas encore la lecture intégrale des critères V3.3 et DoD.**
 - Main observé `0692f804ad21bd775cd0269dd92dc6e2b1cea01f`. Inventaires 24/141/140/80/437 inchangés ; certification sémantique ouverte, tests nouveaux auto/Windows/GPU/Design Space/physique NOT_RUN. V3.4 ACTIVE ; aucun code, fusion ou gouvernance modifié.
 - **Prochaine tranche unique SC-03B :** lire les critères intégraux S-001–S-010 et DoD des tickets propriétaires, corriger les écarts, puis S-011–S-020. `RUN_STATE.next_action=SOURCE_CLOSURE` reste valide.
+
+
+## 2026-11-15 — SC-03B : critères/DoD indexés et oracles réparés
+
+Base candidate `a14667dbeb398fe82d6d801f890d430b50b67ade`, main `0692f804ad21bd775cd0269dd92dc6e2b1cea01f`. Les ajouts horaires SC-02D/E/F1/F2 et SC-03A sont conservés. [SC-03B](SOURCE_CLOSURE_SC03B_CRITERIA_DOD_2026_11_15.md) et [registre de transfert](SOURCE_TRANSFER_REGISTER.json) indexent les 141 critères, les 140 lignes complètes de tickets, 26 blobs et clauses parentes obligatoires. Liens historiques de planification qualifiés, acteurs W16/W11 et gates CP séparés. Critères 15 opérations/trois Undo-Redo, prototypes par usage, latences complètes et observation humaine explicités.
+
+[Contre-expertise du transfert](REVIEW_SOURCE_TRANSFER_2026_11_15.md) : 106 oracles SC-02E/F2 de mauvaise famille ou incomplets remplacés par conditions propres aux assertions ; publication batch PARTIAL, reprise D04, préférences D05, float32, expurgation et receipts/epoch corrigés. Relecture indépendante : 259 IDs/assertions/niveaux source exacts et 106 oracles cohérents, verdict borné favorable. IDs source D restaurés après normalisation accidentelle détectée avant publication. Registre/contrôleur/requêtes relus indépendamment, limites explicites ; aucune certification globale.
+
+Contrôleur de transfert PASS ; six mutations initiales + waiver de préservation refusés, neuf corruptions supplémentaires refusées par le reviewer. Les 26 blobs correspondent à l'arbre distant observé. Outil `--id S-036` ou `--id V34-033` pour retrouver les critères complets avant micro-lot ; ce n'est pas un test produit ni une authentification de HEAD.
+
+SOURCE_CLOSURE reste READY : acceptation finale du contexte complet et contradictions restantes, puis GLOBAL_REVIEW au SHA fixé. Ne pas recréer des séries de dix intitulés déjà indexés. V3.4 active ; aucun main, AGENTS, READY, workflow, produit ni preuve Windows/GPU/DS/physique modifié.

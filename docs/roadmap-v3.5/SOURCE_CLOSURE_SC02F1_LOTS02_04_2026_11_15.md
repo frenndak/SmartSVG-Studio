@@ -69,3 +69,8 @@ Statut : rapprochement documentaire, 52 assertions historiques, **aucune certifi
 - Axes 01–05 inventaires sans certification ; 06 NOT_RUN ; 07–09 intégrité/exports/DS ; 10–13 UI, accessibilité et récupération ; 14–17 IA/raster/vecteur/fabrique selon assertions ; 18–19 Smart Delivery/opportunités non modifiés (hors tranche) ; 20 objectifs historiques non mesurés ; 21 confidentialité ; 22 gouvernance inchangée ; 23 pas de doublon ; 24 promotion interdite ; 25 52 verdicts individuels, pas de raccourci global.
 
 **Suite unique : SC-02F2**, jugement individuel des 50 assertions lots 05–06, puis confrontation exhaustive des 141 critères intégraux et 140 DoD. V3.4 ACTIVE, Windows/GPU/DS/physique NOT_RUN.
+
+
+## Clarification après contre-expertise
+
+Les catégories UI_OR_DATA/PERSISTENCE_RECOVERY ne sont pas des propriétaires de tickets. Pour chaque assertion, le texte historique intégral et le DoD local constituent l’oracle obligatoire, toutes clauses et seuils conservés. T-V34-04-21 est un contrôle de graphe AST/ESM, avec 148 modules et 30 fichiers UI au SHA de référence, pas un test de récupération. Les propriétaires V34 et leurs critères intégraux sont repris dans SOURCE_TRANSFER_REGISTER.json ; les six exceptions historiques restent explicites.

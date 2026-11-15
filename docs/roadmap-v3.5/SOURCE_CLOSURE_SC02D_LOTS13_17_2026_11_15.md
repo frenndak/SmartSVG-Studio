@@ -4,19 +4,19 @@
 
 | Assertion historique | Propriétaire proposé | Oracle intégral conservé | Axe de preuve attendu |
 |---|---|---|---|
-| T-V34-13-01 | V34-96 (candidat; lien à confirmer contre DoD intégral) | Masque/source SHA identiques → proposition déterministe avec mêmes paramètres | auto |
-| T-V34-13-02 | V34-96 (candidat; lien à confirmer contre DoD intégral) | Seuil alpha 0/20/128 change rapport, jamais contour accepté sans confirmation | auto |
-| T-V34-13-03 | V34-96 (candidat; lien à confirmer contre DoD intégral) | Source EXIF orientée + transform mm → bounding box physique cohérente | auto |
-| T-V34-13-04 | V34-97 (candidat; lien à confirmer contre DoD intégral) | Anneau + trou + îlot V13-A : hiérarchie exacte conservée | auto |
-| T-V34-13-05 | V34-97 (candidat; lien à confirmer contre DoD intégral) | `evenodd`/`nonzero` rendus distincts et trous correctement signalés | auto |
-| T-V34-13-06 | V34-98 (candidat; lien à confirmer contre DoD intégral) | Courbe Bézier fermée : aucun PASS topologique sans vérification de courbe | auto |
-| T-V34-13-07 | V34-97 (candidat; lien à confirmer contre DoD intégral) | Auto-intersection V13-B → alerte localisée et export bloqué si CUT | auto |
-| T-V34-13-08 | V34-97 (candidat; lien à confirmer contre DoD intégral) | Chemin de lame doublé → `VECTOR_DUPLICATE_CUT`, aucun silence | auto |
-| T-V34-13-09 | V34-98 (candidat; lien à confirmer contre DoD intégral) | Simplification qui supprime un trou → refus, ancien digest conservé | auto |
-| T-V34-13-10 | V34-98 (candidat; lien à confirmer contre DoD intégral) | Simplification valide : métriques de contour/surface avant-après consignées | auto |
-| T-V34-13-11 | V34-99 (candidat; lien à confirmer contre DoD intégral) | Contour extérieur seul ≠ calques couleur, UX avertit | UI/auto |
-| T-V34-13-12 | V34-99 (candidat; lien à confirmer contre DoD intégral) | Quatre calques : IDs, palette, ordre et visibilité réversibles | auto/UI |
-| T-V34-13-13 | V34-99 (candidat; lien à confirmer contre DoD intégral) | Export d'édition garde les objets éditables, aucun raster déguisé | auto |
+| T-V34-13-01 | V34-096 (candidat; lien à confirmer contre DoD intégral) | Masque/source SHA identiques → proposition déterministe avec mêmes paramètres | auto |
+| T-V34-13-02 | V34-096 (candidat; lien à confirmer contre DoD intégral) | Seuil alpha 0/20/128 change rapport, jamais contour accepté sans confirmation | auto |
+| T-V34-13-03 | V34-096 (candidat; lien à confirmer contre DoD intégral) | Source EXIF orientée + transform mm → bounding box physique cohérente | auto |
+| T-V34-13-04 | V34-097 (candidat; lien à confirmer contre DoD intégral) | Anneau + trou + îlot V13-A : hiérarchie exacte conservée | auto |
+| T-V34-13-05 | V34-097 (candidat; lien à confirmer contre DoD intégral) | `evenodd`/`nonzero` rendus distincts et trous correctement signalés | auto |
+| T-V34-13-06 | V34-098 (candidat; lien à confirmer contre DoD intégral) | Courbe Bézier fermée : aucun PASS topologique sans vérification de courbe | auto |
+| T-V34-13-07 | V34-097 (candidat; lien à confirmer contre DoD intégral) | Auto-intersection V13-B → alerte localisée et export bloqué si CUT | auto |
+| T-V34-13-08 | V34-097 (candidat; lien à confirmer contre DoD intégral) | Chemin de lame doublé → `VECTOR_DUPLICATE_CUT`, aucun silence | auto |
+| T-V34-13-09 | V34-098 (candidat; lien à confirmer contre DoD intégral) | Simplification qui supprime un trou → refus, ancien digest conservé | auto |
+| T-V34-13-10 | V34-098 (candidat; lien à confirmer contre DoD intégral) | Simplification valide : métriques de contour/surface avant-après consignées | auto |
+| T-V34-13-11 | V34-099 (candidat; lien à confirmer contre DoD intégral) | Contour extérieur seul ≠ calques couleur, UX avertit | UI/auto |
+| T-V34-13-12 | V34-099 (candidat; lien à confirmer contre DoD intégral) | Quatre calques : IDs, palette, ordre et visibilité réversibles | auto/UI |
+| T-V34-13-13 | V34-099 (candidat; lien à confirmer contre DoD intégral) | Export d'édition garde les objets éditables, aucun raster déguisé | auto |
 | T-V34-13-14 | V34-100 (candidat; lien à confirmer contre DoD intégral) | Export Basic Cut ne contient ni clipping, gradients, scripts ni images | auto |
 | T-V34-13-15 | V34-100 (candidat; lien à confirmer contre DoD intégral) | SVG mm + viewBox : dimensions contrôlées et coordonnées finies | auto |
 | T-V34-13-16 | V34-104 (candidat; lien à confirmer contre DoD intégral) | 5 001 paths V13-F → `VECTOR_PATH_BUDGET` avant handoff | auto |
@@ -129,3 +129,4 @@
 01–05 : inventaires hérités 24/141/140/80/437 préservés, **non certifiés globalement** ; 101 assertions conservées ici sans suppression. 06 : statut conception uniquement. 07 : projet V1/CAS/float32 inchangé, V2 explicite. 08–09 : quatre exports et cinq opérations distincts. 10–12 : parcours, canevas, clavier/DPI conservés. 13 : stale/crash/Undo/concurrence explicités. 14 : IA facultative, pas d'admission de modèle dans ce lot. 15 : alpha/ICC hérités du lot12, non requalifiés ici. 16 : topologie/SVG sûr détaillés. 17 : patron traité ; bibliothèque/CSV hors périmètre de cette tranche, conservés lots19–20. 18 : Smart Delivery externe non modifié, contrat antérieur conservé. 19 : opportunités traitées dans leur clôture distincte, pas de nouveau doublon. 20 : mesures proposées, non réalisées. 21 : sécurité/licences/privacy précisées. 22 : branche documentaire seulement, pas de code ni merge. 23 : réutilisation des moteurs existants, ports HEAD à revalider. 24 : promotion interdite avant revue globale. 25 : aucune réduction du contrat de contrôle.
 
 **Limites :** les 101 textes ont été relus et rapprochés à un propriétaire candidat, mais l'équivalence sémantique des critères V3.3 et des 140 DoD complets reste à auditer. Pas de test nouveau, pas de PASS Windows/GPU/Design Space/physique. **Suite unique SC-02E :** assertions lots18–22 (56 lignes), puis jugement individuel des lots02–06 et revue exhaustive des 141 critères/140 DoD.
+

@@ -32,3 +32,7 @@ G6 : `S-036/S-064/S-092/R33-028` → typographie/polices/glyphes et conversion (
 Raccord de session du 15 novembre : OPPORTUNITIES_CLOSURE documenté dans OPPORTUNITIES_EXECUTION_RESOLUTION.md ; D/E complété par REVIEW_DE_RESOLUTION.md en conservant REVIEW_DE_CLOSURE_2026_11_15.md. SC-02B traite individuellement les 118 assertions des lots07–10. Prochaine tranche : SC-02C lots11–12 ; la clôture source et la revue globale restent ouvertes.
 
 Suite après SC-02C : lots11–12 examinés individuellement, suivre désormais SOURCE_CLOSURE.continuation pour SC-02D lots13–17 ; les anciennes prochaines tranches ci-dessus restent historiques.
+
+## Raccord SC-03B — 15 novembre
+
+Le registre SOURCE_TRANSFER_REGISTER.json et sa requête par ID remplacent la reconstruction répétée des intitulés. Les corrections de scénarios et le périmètre indépendant sont dans REVIEW_SOURCE_TRANSFER_2026_11_15.md. SOURCE_CLOSURE.continuation donne désormais l’acceptation finale du contexte complet ; ne pas recommencer SC-03A ni une série de dix exigences. SOURCE_CLOSURE/GLOBAL_REVIEW et la promotion restent ouvertes.
