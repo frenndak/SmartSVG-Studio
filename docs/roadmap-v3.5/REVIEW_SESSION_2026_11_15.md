@@ -29,3 +29,9 @@ Les mises à jour de journal/curseur et le raccord aux 17 commits horaires sont 
 - SOURCE_CLOSURE complète des 141 critères/140 DoD/437 assertions et revue globale : travaux encore ouverts, aucune déduction d'achèvement.
 
 La permission de finaliser/remplacer donnée par le propriétaire reste acquise. Les étapes de revue globale, PR documentaire et gouvernance conservent leurs conditions effectives, sans nouvelle confirmation de principe.
+
+## Deuxième tranche relue : SC-02C lots11–12
+
+Le même reviewer a ensuite comparé les 60 assertions et les 18 DoD des tickets078–095 dans SOURCE_CLOSURE_SC02C_LOTS11_12_2026_11_15.md. Un défaut mineur corrigé : l'assertion11-03 exige zéro recommandation de modèle pour une boîte Score+Cut, et pas seulement l'absence de modèle de segmentation obligatoire. Correction relue, verdict final : **publiable dans la candidate, aucun constat non résolu**.
+
+SHA256 final relu : `9add10d2de614348b654aadd682accf396346e220ec94b23d3deeb277b067296`. Les frontières licence historique/admission actuelle, receipts d'installation/export/projet et préservation des critères alpha/ICC sont confirmées. Licences actuelles, code, autres lots et qualifications externes écartés : hors périmètre documentaire. Aucun test produit exécuté.

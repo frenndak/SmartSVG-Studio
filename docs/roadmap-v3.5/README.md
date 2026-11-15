@@ -103,3 +103,5 @@ Chaque cycle horaire d'architecture reprend le **dernier micro-lot effectivement
 [Revue des 32 décisions D/E](REVIEW_DE_RESOLUTION.md) : critères, DoD, propriétaires corrigés et recettes discriminantes. Corrections explicites des anciennes fiches : priorités, persistance V2, historique portable, accessibilité et données de bibliothèque. Suite dans RUN_STATE : SOURCE_CLOSURE. Revue indépendante globale et adoption encore ouvertes.
 
 [Ajouts et opportunités : contrats et tranches](OPPORTUNITIES_EXECUTION_RESOLUTION.md) · [118 assertions lots07–10](SOURCE_CLOSURE_SC02B_LOTS07_10_2026_11_15.md) · [Contre-expertise de cette reprise](REVIEW_SESSION_2026_11_15.md). Les rapports horaires D/E et SC-01/SC-02A restent conservés ; suivre RUN_STATE pour les travaux encore ouverts.
+
+[SC-02C : 60 assertions modèles IA et raster](SOURCE_CLOSURE_SC02C_LOTS11_12_2026_11_15.md) complète les lots07–10 ; le curseur détaillé est SOURCE_CLOSURE.continuation dans RUN_STATE.

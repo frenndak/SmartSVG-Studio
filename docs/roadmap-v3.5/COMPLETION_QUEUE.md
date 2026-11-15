@@ -30,3 +30,5 @@ G6 : `S-036/S-064/S-092/R33-028` → typographie/polices/glyphes et conversion (
 **Prochaine action : SOURCE_CLOSURE dans RUN_STATE.json. Les 32 décisions D/E sont rapprochées dans REVIEW_DE_RESOLUTION.md ; Q04K–Q04Y sont raccordés par INTEGRATION_2026_11_15.md. Ne pas recommencer les lectures achevées.** Ne pas transformer cette file en nouvelle liste de dix tickets ou en permission de modifier AGENTS/les tâches/le produit depuis la tâche de conception.
 
 Raccord de session du 15 novembre : OPPORTUNITIES_CLOSURE documenté dans OPPORTUNITIES_EXECUTION_RESOLUTION.md ; D/E complété par REVIEW_DE_RESOLUTION.md en conservant REVIEW_DE_CLOSURE_2026_11_15.md. SC-02B traite individuellement les 118 assertions des lots07–10. Prochaine tranche : SC-02C lots11–12 ; la clôture source et la revue globale restent ouvertes.
+
+Suite après SC-02C : lots11–12 examinés individuellement, suivre désormais SOURCE_CLOSURE.continuation pour SC-02D lots13–17 ; les anciennes prochaines tranches ci-dessus restent historiques.

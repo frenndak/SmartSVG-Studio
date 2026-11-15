@@ -596,3 +596,11 @@ OPPORTUNITIES_EXECUTION_RESOLUTION.md traite les 33 opportunités (8 rejets cons
 SOURCE_CLOSURE_SC02B_LOTS07_10_2026_11_15.md examine 118 assertions individuellement et conserve les DoD des 37 tickets 041–077. Corrections des pertes de précision : cibles 150 ms, limites du planificateur, lecteur d'écran, format réel d'import, cinquante sujets et receipts. SOURCE_CLOSURE reste READY et ouverte ; prochaine tranche SC-02C lots 11–12, puis autres lots et compléments individuels 02–06/141 critères/140 DoD avant GLOBAL_REVIEW. Les compteurs ne sont pas une certification. Aucun nouveau test produit exécuté ; Windows/GPU/DS/physique NOT_RUN, V3.4 active.
 
 Suivi Linear : projet P-FRE-2 et ticket FRE-157 ; GitHub reste la source canonique. GitBook contient un espace TITAN synchronisé au dépôt Titan, aucun espace SmartSVG observé : ne pas y mélanger les projets.
+
+## 2026-11-15 — SC-02C, 60 assertions IA/raster supplémentaires
+
+Base `3e602179a1bda334916f60ffc55933311438fe53`. SOURCE_CLOSURE_SC02C_LOTS11_12_2026_11_15.md rapproche individuellement 60 assertions et les 18 DoD des tickets078–095. Précisions conservées : aucun modèle proposé pour boîte Score+Cut ; admission des poids locaux aussi stricte que téléchargement ; reprise sans Range ; rollback des modèles ; différence entre receipt installation, export et projet ; ICC/CMYK, arrondi mm/ppi, seuils alpha0/20/128 et source/cut digest inchangés.
+
+Revue indépendante bornée, constats et empreinte dans REVIEW_SESSION_2026_11_15.md. Aucun test produit exécuté ; source closure globale ouverte. Suite RUN_STATE : SC-02D lots13–17, puis autres lots et compléments des premiers lots/141 critères/140 DoD. Les 178 lignes des seuls lots07–12 traitées dans cette session ne certifient pas l'ensemble des437.
+
+Suivi : l'intégration Linear avait automatiquement recopié FRE-157 dans Titan#478 ; liaison retirée et copie fermée sans achèvement. Le suivi SmartSVG reste dans le projet Linear P-FRE-2 et dans le dépôt SmartSVG. Aucun réglage global d'intégration modifié.

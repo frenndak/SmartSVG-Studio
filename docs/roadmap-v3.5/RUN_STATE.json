@@ -5,7 +5,7 @@
   "active_roadmap": "3.4",
   "candidate_status": "DESIGN_REVIEW_PENDING",
   "main_observed_sha": "0692f804ad21bd775cd0269dd92dc6e2b1cea01f",
-  "candidate_base_sha": "8f718cf8a0cbbdeecb2920e28ad7389661ee352e",
+  "candidate_base_sha": "3e602179a1bda334916f60ffc55933311438fe53",
   "next_action": "SOURCE_CLOSURE",
   "promotion_ready": false,
   "product_tests_added_in_this_campaign": "NOT_RUN",
@@ -133,11 +133,12 @@
         "Q02_EXCEPTIONS_G6_G9_CANDIDATE_OWNERS.md",
         "SOURCE_CLOSURE_SC01_EXCEPTIONS_2026_11_15.md",
         "SOURCE_CLOSURE_SC02A_LOTS05_06_2026_11_15.md",
-        "SOURCE_CLOSURE_SC02B_LOTS07_10_2026_11_15.md"
+        "SOURCE_CLOSURE_SC02B_LOTS07_10_2026_11_15.md",
+        "SOURCE_CLOSURE_SC02C_LOTS11_12_2026_11_15.md"
       ],
       "done_when": "141 exigences, 140 DoD et 437 assertions sans perte, avec rapport sémantique et exceptions tracées, pas un simple comptage ; six liens historiques restent absents historiquement.",
       "evidence": [],
-      "continuation": "SC-02C : assertions et DoD lots11–12 ; ensuite autres lots, compléments individuels02–06 et rapprochement141critères/140DoD. SC-02B lots07–10 est traité individuellement ; SC-02A05–06 reste partiel. Ne pas recommencer REVIEW_DE."
+      "continuation": "SC-02D : assertions et DoD lots13–17, puis18–22. Compléter ensuite les jugements individuels02–06 et rapprocher les141critères/140DoD. SC-02B07–10 et SC-02C11–12 sont traités individuellement ; SC-02A05–06 reste partiel. REVIEW_DE et OPPORTUNITIES_CLOSURE déjà documentés."
     },
     {
       "id": "OPPORTUNITIES_CLOSURE",
