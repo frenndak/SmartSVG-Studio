@@ -634,3 +634,10 @@ Suivi : l'intégration Linear avait automatiquement recopié FRE-157 dans Titan#
 - [SC-02F2](SOURCE_CLOSURE_SC02F2_LOTS05_06_2026_11_15.md) : 50 assertions (20+30) rapprochées individuellement avec leur texte historique, niveau de preuve, décision et oracle futur. Commit `08edef643661eb71cda92c56d683cca908dd87d9`. Distinctions V1/V2, CAS/receipt, Undo/effets externes et IA consentie préservées.
 - Inventaires 24/141/140/80/437 maintenus, sans certification sémantique globale. Aucun code, aucune fusion, aucun test nouveau ; Windows/GPU/Design Space/physique NOT_RUN. Contrat 25 axes évalué à portée bornée.
 - **Suite unique SC-03 :** confronter individuellement les 141 critères intégraux V3.3 et 140 DoD V34 aux décisions V3.5, puis revue globale après correction des écarts. SOURCE_CLOSURE ouverte, V3.4 active.
+
+
+## 2026-11-15 — SOURCE_CLOSURE SC-03A, S-001–S-010
+
+- [SC-03A](SOURCE_CLOSURE_SC03A_S001_S010_2026_11_15.md), commit `bc83ea397bf408c53c1383507ca358d85428b58c` : dix exigences historiques rapprochées des propriétaires V34, avec risques de perte, oracles et cinq cas négatifs ; ambiguïtés trois/quatre exports, CAS/receipt et qualification physique explicitées. **Ce n'est pas encore la lecture intégrale des critères V3.3 et DoD.**
+- Main observé `0692f804ad21bd775cd0269dd92dc6e2b1cea01f`. Inventaires 24/141/140/80/437 inchangés ; certification sémantique ouverte, tests nouveaux auto/Windows/GPU/Design Space/physique NOT_RUN. V3.4 ACTIVE ; aucun code, fusion ou gouvernance modifié.
+- **Prochaine tranche unique SC-03B :** lire les critères intégraux S-001–S-010 et DoD des tickets propriétaires, corriger les écarts, puis S-011–S-020. `RUN_STATE.next_action=SOURCE_CLOSURE` reste valide.
