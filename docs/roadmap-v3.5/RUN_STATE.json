@@ -6,7 +6,7 @@
   "candidate_status": "DESIGN_REVIEW_PENDING",
   "main_observed_sha": "0692f804ad21bd775cd0269dd92dc6e2b1cea01f",
   "candidate_base_sha": "a14667dbeb398fe82d6d801f890d430b50b67ade",
-  "next_action": "SOURCE_CLOSURE",
+  "next_action": "GLOBAL_REVIEW",
   "promotion_ready": false,
   "product_tests_added_in_this_campaign": "NOT_RUN",
   "completed_source_work": [
@@ -121,7 +121,7 @@
     },
     {
       "id": "SOURCE_CLOSURE",
-      "status": "READY",
+      "status": "DONE",
       "depends_on": [
         "REVIEW_DE"
       ],
@@ -141,11 +141,16 @@
         "SOURCE_CLOSURE_SC02F2_LOTS05_06_2026_11_15.md",
         "SOURCE_CLOSURE_SC03B_CRITERIA_DOD_2026_11_15.md",
         "SOURCE_TRANSFER_REGISTER.json",
-        "REVIEW_SOURCE_TRANSFER_2026_11_15.md"
+        "REVIEW_SOURCE_TRANSFER_2026_11_15.md",
+        "SOURCE_CLOSURE_ACCEPTANCE_GATE_2026_11_15.md"
       ],
       "done_when": "141 exigences, 140 DoD et 437 assertions sans perte, avec rapport sémantique et exceptions tracées, pas un simple comptage ; six liens historiques restent absents historiquement.",
-      "evidence": [],
-      "continuation": "SC-03 final : accepter le transfert au contexte parent complet à partir de SOURCE_TRANSFER_REGISTER.json, SC03B_CRITERIA_DOD et REVIEW_SOURCE_TRANSFER. Les141entrées/140DoD et437assertions ont leurs textes conservés et décisions ; oracles106corrigés. La seconde lecture exhaustive du contexte et les contradictions restantes sont encore ouvertes ; ne pas refaire des tranches de dix intitulés. Après acceptation motivée : SOURCE_CLOSURE DONE puis GLOBAL_REVIEW au SHA fixé."
+      "evidence": [
+        "SOURCE_CLOSURE_SC03B_CRITERIA_DOD_2026_11_15.md",
+        "REVIEW_SOURCE_TRANSFER_2026_11_15.md",
+        "REVIEW_SOURCE_ACCEPTANCE_2026_11_15.md"
+      ],
+      "continuation": "Clôture documentaire acceptée par les revues cumulées des critères/DoD/assertions et le complément indépendant des six familles contextuelles.26blobs rapprochés au main0692f804 et lot22 confirmé. Attribution OCR SC01 corrigée W16/CP6. Revue globale des25axes désormais READY, au SHA publié ; aucune preuve produit ni adoption déduite."
     },
     {
       "id": "OPPORTUNITIES_CLOSURE",
@@ -166,7 +171,7 @@
     },
     {
       "id": "GLOBAL_REVIEW",
-      "status": "PENDING",
+      "status": "READY",
       "depends_on": [
         "REVIEW_DELTA",
         "REVIEW_DE",

@@ -1,5 +1,7 @@
 # SOURCE_CLOSURE — décision d'acceptation conditionnelle (15 novembre 2026)
 
+> **Résolution ultérieure le même jour :** les six contrôles contextuels ci-dessous sont désormais documentés dans [REVIEW_SOURCE_ACCEPTANCE_2026_11_15](REVIEW_SOURCE_ACCEPTANCE_2026_11_15.md). Le verdict conditionnel de cette photographie est dépassé par cette acceptation de conception et RUN_STATE ; ses exigences et limites restent conservées. SOURCE_CLOSURE close, GLOBAL_REVIEW ouverte. Aucun résultat produit ni changement d'autorité.
+
 ## Portée et verdict
 
 **Verdict : ACCEPTATION CONDITIONNELLE, pas DONE.** Le transfert littéral et les réparations d'oracles sont recevables comme *preuves documentaires bornées*. La revue indépendante ne couvre pas tous les paragraphes contextuels et tests locaux des 21 lots ; une conformité sémantique intégrale ne peut donc pas être certifiée. Cette fiche ne modifie ni les 141 critères, ni les 140 DoD, ni les 437 assertions, ni les 80 UX. Elle ne constitue aucune preuve d'exécution produit.

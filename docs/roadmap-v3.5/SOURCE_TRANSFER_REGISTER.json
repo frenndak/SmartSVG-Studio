@@ -3,7 +3,11 @@
   "date": "2026-11-15",
   "candidate_base_sha": "a14667dbeb398fe82d6d801f890d430b50b67ade",
   "main_observed_sha": "0692f804ad21bd775cd0269dd92dc6e2b1cea01f",
-  "documentary_status": "REVIEW_PENDING",
+  "documentary_status": "REVIEWED",
+  "review_evidence": [
+    "REVIEW_SOURCE_TRANSFER_2026_11_15.md",
+    "REVIEW_SOURCE_ACCEPTANCE_2026_11_15.md"
+  ],
   "scope": "Criteria and DoD transfer, never product certification",
   "source_blobs": [
     {

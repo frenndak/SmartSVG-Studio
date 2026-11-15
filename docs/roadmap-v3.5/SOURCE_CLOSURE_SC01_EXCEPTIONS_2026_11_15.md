@@ -21,7 +21,7 @@
 |---|---|---|---|
 | S-036, S-064, S-092, R33-028 | W10 typographie | Police/licence/glyphes identifiés ; texte rééditable après reload ; conversion en chemins sur copie export ; avertissement si police manquante | CONCEPTION_CANDIDATE |
 | S-037 | W11 gabarits | Étiquette, topper, carte **distincts**, dimensions et round-trip, essais physiques par usage lorsque revendiqués | CONCEPTION_CANDIDATE |
-| S-021, S-047 | W10/W14 OCR | OCR local facultatif, proposition corrigée avant commit, source raster préservée, STALE rejeté, repli manuel | CONCEPTION_CANDIDATE |
+| S-021, S-047 | W16 OCR ; gate CP6 ; contributions W10 texte/W14 moteur facultatif | OCR local facultatif, proposition corrigée avant commit, source raster préservée, STALE rejeté, repli manuel | CONCEPTION_CANDIDATE |
 | S-044, S-066, S-099 | W16 diorama | Quatre plans alignables, ordre et guide d'assemblage, tolérances ; assemblage physique mesuré distinct de la simulation | CONCEPTION_CANDIDATE |
 
 **Décision hostile :** « propriétaire W10/W11/W16 » ne vaut pas « DoD intégral satisfait ». Le texte éditable persisté dépend de la migration V2 explicitement autorisée ; un SVG de chemins n'est pas une scène texte rééditable. L'OCR ne doit pas inférer une police ni modifier le projet sans confirmation. Le guide HTML de livraison ne remplace pas le guide d'assemblage diorama. La preuve Design Space ne vaut pas preuve de coupe ni montage.
