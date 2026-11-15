@@ -62,6 +62,10 @@ Pour chaque ID, imposer des champs **indépendants** :
 
 ## 4. Matrice d'échec système et de récupération
 
+### Complément E2E-CST — création continue et réglages rééditables
+
+[Contrat du studio créatif](CREATIVE_STUDIO_PRODUCT_CONTRACT.md) :14recettes T-V35-CST-01..14 proposées, hors437historiques et17SCN. Offset physique après transformation monde (rayon10mm×2+offset1mm→21mm), paramètres retrouvables après reopen CP2/3, protection des trous, variantes LIVE/gelées, versions de moteur/invalidation/STALE, annulation et Undo. Garder quatre rôles, identité et source, signaler les différences de changement d'intention ; refuser cycle/opération hostile/cote inconnue/licence ou moteur manquants sans résultat fabriqué. Quatre parcours comparables proposés (planche12motifs, scène6éléments, illustration fine à deux tailles, texte étiquette), temps/actions/corrections/qualité mesurés sur mêmes entrées, sans promesse de supériorité. Aucun test produit ni benchmark exécuté par ce contrat.
+
 ### Complément E2E-SCN — scène → pièces → planche → relief
 
 [Contrat Décomposer une scène](SCENE_DECOMPOSITION_AND_RELIEF_CONTRACT.md) :17nouveaux scénarios proposés T-V35-SCN-01..17, séparés des437historiques. Fixture synthétique6éléments avec fond conservé, fragments/trous, occultation, échelle1200px→120mm, repositionnement de pièces et deux pages. Exiger sélection/correction manuelles, assistance qualifiée séparément, save/reopen CP2/3, coordonnées source/montage/planche distinctes, quatre exports honnêtes, reconstruction opt-in avec diff/provenance et ancien état restaurable. Preset quatre plans G9 puis montage physique mesuré indépendants. Refus NaN/masque vide/cycle/STALE/concurrence/modèle absent/disque plein/ressource hostile, aucun fragment supprimé ni pièce complétée silencieusement. **Tous NOT_RUN produit.** Aucune présence de ce contrat ou CI documentaire ne prouve une décomposition automatique ou une découpe réelle.
