@@ -6,7 +6,7 @@
   "candidate_status": "DESIGN_REVIEW_PENDING",
   "main_observed_sha": "0692f804ad21bd775cd0269dd92dc6e2b1cea01f",
   "candidate_base_sha": "500c24b0f155dda6b5142d24a3bba7da645c4f5f",
-  "next_action": "REVIEW_DE",
+  "next_action": "SOURCE_CLOSURE",
   "promotion_ready": false,
   "product_tests_added_in_this_campaign": "NOT_RUN",
   "completed_source_work": [
@@ -98,7 +98,7 @@
     },
     {
       "id": "REVIEW_DE",
-      "status": "READY",
+      "status": "DONE",
       "depends_on": [
         "REVIEW_DELTA"
       ],
@@ -113,11 +113,14 @@
         "DECISIONS_TRANSVERSALES.md"
       ],
       "done_when": "32 décisions individuelles rapprochées aux critères/DoD, pertes et contradictions closes ; pas d'exigence de futur test produit PASS pour déclarer la conception revue.",
-      "evidence": []
+      "evidence": [
+        "REVIEW_DE_CLOSURE_2026_11_15.md",
+        "REVIEW_DE_E13_E20_2026_11_15.md"
+      ]
     },
     {
       "id": "SOURCE_CLOSURE",
-      "status": "PENDING",
+      "status": "READY",
       "depends_on": [
         "REVIEW_DE"
       ],
