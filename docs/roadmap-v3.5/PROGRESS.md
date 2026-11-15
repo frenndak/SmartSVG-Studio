@@ -604,3 +604,10 @@ Base `3e602179a1bda334916f60ffc55933311438fe53`. SOURCE_CLOSURE_SC02C_LOTS11_12_
 Revue indépendante bornée, constats et empreinte dans REVIEW_SESSION_2026_11_15.md. Aucun test produit exécuté ; source closure globale ouverte. Suite RUN_STATE : SC-02D lots13–17, puis autres lots et compléments des premiers lots/141 critères/140 DoD. Les 178 lignes des seuls lots07–12 traitées dans cette session ne certifient pas l'ensemble des437.
 
 Suivi : l'intégration Linear avait automatiquement recopié FRE-157 dans Titan#478 ; liaison retirée et copie fermée sans achèvement. Le suivi SmartSVG reste dans le projet Linear P-FRE-2 et dans le dépôt SmartSVG. Aucun réglage global d'intégration modifié.
+
+
+## 2026-11-15 — SOURCE_CLOSURE SC-02D lots13–17
+
+- [SC-02D](SOURCE_CLOSURE_SC02D_LOTS13_17_2026_11_15.md) publié au commit `833c91cf7cdf27ee14d11a15aca3880f4d03792b` : 101 assertions historiques individualisées (30/30/18/10/13), texte original et propriétaire V34 candidat, oracles et niveaux de preuve conservés. Contrats topologie, fabrication, profils tri-state, patrons et quatre exports distingués. Attribution candidate ≠ certification DoD intégrale.
+- Inventaires 24/141/140/80/437 préservés, SOURCE_CLOSURE toujours ouverte. Aucun code ni test nouveau ; Windows/GPU/Design Space/physique NOT_RUN. Les 25 axes examinés à portée bornée. V3.4 reste ACTIVE, aucune fusion/gouvernance.
+- **Prochaine tranche unique SC-02E :** assertions lots18–22 (56 lignes), puis compléments individuels02–06 et rapprochement des141critères/140DoD.
