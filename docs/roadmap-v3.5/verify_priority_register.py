@@ -145,7 +145,7 @@ def main():
     if result:
         print('\n'.join(result))
         return 1
-    print('PASS documentaire: 80 UX, 15 groupes, 33 opportunités, 24/141/140/437 hérités. Couverture sémantique OPEN ; produit non qualifié.')
+    print('PASS documentaire: 80 UX, 15 groupes, 33 opportunités, 24/141/140/437 hérités. Verdicts sémantique et produit hors de ce contrôle.')
     return 0
 
 

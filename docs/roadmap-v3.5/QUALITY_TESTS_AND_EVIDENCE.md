@@ -51,8 +51,8 @@ Pour chaque ID, imposer des champs **indépendants** :
 - **G6/G9 distincts** : trois gabarits métier (étiquette/topper/carte) et diorama **4 plans**, aucun ne peut être qualifié en réutilisant seulement la recette `open_tray`. Prototype et montage physique obligatoires là où critère historique le demande.
 
 ### E2E-04 — Projet, session, texte, Undo et récupération
-- **Positif** : `.smartsvg` V1 créé depuis PNG, SHA figé, sujet/masque et brouillon Undo, commit CAS, réouverture et état cohérent ; texte G6 seulement après contrat et port réels.
-- **Négatifs** : relecture SHA devenu périmé ; double `command_id` différent ; same command after crash ; pending backup ; fonte manquante/licence interdite ; OCR refusé ou absent ; résultat IA tardif.
+- **Positif V1** : `.smartsvg` V1 créé depuis PNG, SHA figé, sujet/masque et brouillon Undo, commit CAS, réouverture et état cohérent. **Sous-gate CP2/V2 distinct** : mutation et receipt durables, replay après perte d'ACK/crash, Undo réconcilié ; texte G6 après CP4 et port réel. Le CAS V1 seul ne satisfait pas ce second gate.
+- **Négatifs** : SHA devenu périmé, pending backup et résultat IA tardif sur le chemin actif ; double `command_id` avec payload différent et même commande après crash exigent CP2/V2 qualifié ; fonte manquante/licence interdite et OCR refusé ou absent s'appliquent aux capacités texte/OCR activées. Aucun receipt durable n'est attribué au V1 par cette liste.
 - **Preuve** : chaque fichier initial/final hash, snapshot, journal recovery et test Windows exact-head. Le document `editor_v216` actuel n'accepte que les strokes; une entrée texte libre n'est pas un test de texte valide.
 
 ### E2E-05 — Planche, bibliothèque, CSV, Smart Delivery
@@ -65,7 +65,7 @@ Pour chaque ID, imposer des champs **indépendants** :
 | Injection | Comportement obligatoire | Ce qu'il ne faut surtout pas revendiquer |
 |---|---|---|
 | Fichier projet corrompu/ZIP traversal | Rejet, aucun écrasement, diagnostic sans chemin privé | « Réparé » par une lecture partielle ou faux succès |
-| SAVE interrompue/disque plein | Dernier projet sain intact, dossier recovery explicite | Commit validé sur simple retour UI |
+| SAVE interrompue/disque plein | Inspecter primaire/backup/pending avant retry ; primaire publié mais backup échoué = commit à réconcilier, COMMITTED_NEEDS_RECOVERY selon contrat actif ; issue indécidable = UNKNOWN_AFTER_INTERRUPTION. En CP2/V2, inspecter aussi le receipt durable. Préserver les fichiers sains et proposer la récupération | Supposer toute erreur sans publication, réessayer aveuglément ou annoncer un receipt durable V1 ; commit validé sur simple retour UI |
 | Modification concurrente du projet | Refus CAS, réinspection et confirmation explicite | Réapplication silencieuse à un SHA différent |
 | GPU OOM / modèle absent | Projet et brouillon intacts, repli manuel/CPU, consentement | Équivalence qualité IA non démontrée |
 | Preview asynchrone périmée | Ignorée sans mutation, nouvelle preview stable | Ancien masque/export présenté comme courant |

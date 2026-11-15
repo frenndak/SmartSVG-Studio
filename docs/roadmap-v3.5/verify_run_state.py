@@ -71,8 +71,11 @@ def validate(state, doc=DOC):
     check({x['id'] for x in source_work} == REQUIRED_SOURCE_WORK, 'Missing or unknown completed source work')
     check(all(x['status'] in ('DOCUMENTED', 'SUPERSEDED_DESIGN', 'REFINED_DESIGN') and local_file(x['evidence']) for x in source_work), 'Missing source work evidence')
     check(state['next_action'] not in {x['id'] for x in source_work}, 'Cursor repeats completed source work')
-    # Adoption changes this verifier deliberately in the separate governance handoff.
-    check(state['active_roadmap'] == '3.4' and state['candidate_status'] == 'DESIGN_REVIEW_PENDING', 'Unreviewed authority transition')
+    # Review completion is distinct from the separate governance adoption.
+    check(state['active_roadmap'] == '3.4', 'Unreviewed authority transition')
+    check(state['candidate_status'] in ('DESIGN_REVIEW_PENDING', 'DESIGN_REVIEWED_PENDING_INTEGRATION'), 'Invalid candidate review status')
+    if state['candidate_status'] == 'DESIGN_REVIEWED_PENDING_INTEGRATION':
+        check(by_id.get('GLOBAL_REVIEW', {}).get('status') == 'DONE', 'Reviewed candidate without completed global review')
     check(state['promotion_ready'] is False, 'Unsupported promotion claim')
     check(state['product_tests_added_in_this_campaign'] == 'NOT_RUN', 'Unsupported product-test claim')
     return errors
@@ -90,7 +93,7 @@ def main():
     if errors:
         print('\n'.join(errors))
         return 1
-    print('PASS documentary cursor/dependencies/evidence. Semantic review pending; V3.4 active.')
+    print('PASS documentary cursor/dependencies/evidence. V3.4 active; semantic and product verdicts are separate.')
     return 0
 
 

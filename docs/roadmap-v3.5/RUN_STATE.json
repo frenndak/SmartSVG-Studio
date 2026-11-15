@@ -3,10 +3,10 @@
   "updated": "2026-11-15",
   "canonical_branch": "roadmap/v3-5-design-candidate-20261112",
   "active_roadmap": "3.4",
-  "candidate_status": "DESIGN_REVIEW_PENDING",
+  "candidate_status": "DESIGN_REVIEWED_PENDING_INTEGRATION",
   "main_observed_sha": "0692f804ad21bd775cd0269dd92dc6e2b1cea01f",
   "candidate_base_sha": "a14667dbeb398fe82d6d801f890d430b50b67ade",
-  "next_action": "GLOBAL_REVIEW",
+  "next_action": "PROMOTION_DOCS",
   "promotion_ready": false,
   "product_tests_added_in_this_campaign": "NOT_RUN",
   "completed_source_work": [
@@ -171,7 +171,7 @@
     },
     {
       "id": "GLOBAL_REVIEW",
-      "status": "READY",
+      "status": "DONE",
       "depends_on": [
         "REVIEW_DELTA",
         "REVIEW_DE",
@@ -185,11 +185,14 @@
         "CAMPAIGN_REVIEW_2026_11_14.md"
       ],
       "done_when": "Verdict indépendant favorable au SHA exact, aucune contradiction non arbitrée ; résultats produit non exécutés honnêtement séparés.",
-      "evidence": []
+      "evidence": [
+        "GLOBAL_REVIEW_2026_11_15.md",
+        "GLOBAL_REVIEW_RESOLUTION_2026_11_15.md"
+      ]
     },
     {
       "id": "PROMOTION_DOCS",
-      "status": "PENDING",
+      "status": "READY",
       "depends_on": [
         "GLOBAL_REVIEW"
       ],
@@ -199,7 +202,8 @@
         "EXECUTION_PLAYBOOK.md"
       ],
       "done_when": "PR docs revue et intégrée, archive historique inchangée, main relu ; pas encore V3.5 ACTIVE sans gouvernance.",
-      "evidence": []
+      "evidence": [],
+      "continuation": "Préparer intégration après lecture main/PR courants. Au15/11:4PRcodeDRAFT138/139/140/144, WIP max3 ; ne pas ouvrir nouvellePRdocs tant que saturé. Préparation/RUN READY ne signifie pas gateG35-12PASS. Après WIP admissible:PRdocs consolidée,CI exact-head et revue, puis gouvernance séparée ; ne pas refaire SOURCE_CLOSURE/GLOBAL_REVIEW sans écart concret ou source changée."
     },
     {
       "id": "GOVERNANCE_HANDOFF",

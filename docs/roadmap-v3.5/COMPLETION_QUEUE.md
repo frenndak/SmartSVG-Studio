@@ -1,5 +1,7 @@
 # File de clôture V3.5 — travail restant concret
 
+> **15/11/2026 :** SOURCE_CLOSURE et GLOBAL_REVIEW DONE pour la conception ; [verdict indépendant](GLOBAL_REVIEW_2026_11_15.md), [résolutions](GLOBAL_REVIEW_RESOLUTION_2026_11_15.md). Prochaine action : **PROMOTION_DOCS**, vérification WIP puis PR/CI/revue selon ses conditions. Quatre PR code DRAFT observées pour un maximum3 ; tant que saturé, ne pas créer de PR docs ni une nouvelle série de fiches d'audit génériques. Gouvernance et handoff restent séparés, V3.4 active. Les anciennes prochaines tranches ci-dessous sont historiques.
+
 > **Pilotage courant — 14/11/2026 :** lire [RUN_STATE.json](RUN_STATE.json) et [EXECUTION_PLAYBOOK.md](EXECUTION_PLAYBOOK.md). Leurs décisions/cursor remplacent les anciennes « prochaines actions » ci-dessous. [Arbitrages transversaux](DECISIONS_TRANSVERSALES.md), [composition persistante](ADR_COMPOSITION_PERSISTENCE.md), [contrat Smart Delivery](SMART_DELIVERY_EXECUTION_CONTRACT.md) et [rapport de campagne](CAMPAIGN_REVIEW_2026_11_14.md) complètent cette photographie. V3.4 reste active ; delta relu ; revue globale en attente.
 
 **14 novembre 2026 — CANDIDAT.** La priorisation et les inventaires ne valent pas fin de conception. Cette file donne un ordre de clôture sans nouvelle campagne de reformulation. Le maître [MASTER_PRIORISE.md](MASTER_PRIORISE.md) ordonne la livraison produit ; la présente file ordonne les **travaux documentaires restants**. Ils ne sont pas la même chose.
