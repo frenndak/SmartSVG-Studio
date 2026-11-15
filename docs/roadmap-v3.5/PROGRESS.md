@@ -562,3 +562,12 @@ Trois nouveaux documents **effectivement publiés puis relus** sur la branche ca
 - [Revue E13–E20](REVIEW_DE_E13_E20_2026_11_15.md), commit `a75e910633666254d31a8b3aebc56a9bbf4c2528` : huit décisions individualisées et corrections sur identité preview inter-session, preuves QA par artefact et niveau, packaging portable ≠ updater, consentements distincts et aide contextuelle.
 - Main observé `0692f804ad21bd775cd0269dd92dc6e2b1cea01f`, branche divergente ; couverture source DoD/ports HEAD non certifiée. Tests nouveaux, Windows, GPU, Design Space et physique NOT_RUN. 24/141/140/80/437 conservés comme inventaires, pas certification sémantique.
 - Prochaine action unique : **REVIEW_DE clôture transversale D01–D12 et E01–E20**, rapprocher les critères/DoD historiques et contradictions ; ensuite SOURCE_CLOSURE. V3.4 reste ACTIVE.
+
+
+## 2026-11-15 — REVIEW_DE clôturé à portée contractuelle
+
+- Source main vérifiée via `branches/main` : `0692f804ad21bd775cd0269dd92dc6e2b1cea01f`. Base candidate avant ce lot : `79bd86f1bdcafdf19d19b571c5d8f234b54d4e82` ; nouveau rapport `REVIEW_DE_CLOSURE_2026_11_15.md` créé par `cfcf580291a519e45447c4a02cbc9674cf6e625c`.
+- Les 32 décisions D01–D12 et E01–E20 sont rapprochées individuellement, avec corrections D10/D11 (recette facultative, P1), D08 (hash ≠ signature), E01/E09 (préférences durables ≠ cache), E11 (PR #144 DRAFT ≠ UI Windows), E18 (portable ≠ updater). Alternatives et oracles négatifs explicités. Aucun code, aucune fusion, aucun test nouveau.
+- RUN_STATE passe `REVIEW_DE=DONE`, `SOURCE_CLOSURE=READY`, `next_action=SOURCE_CLOSURE` (commit `598ce526e773a883cb7da8c640fdf04c03d25a80`). Ceci certifie une **revue de conception bornée**, pas les critères historiques intégraux ni l'exécution Windows/DS/physique.
+- Couverture de référence : 24/24 lots, 141/141 exigences, 140/140 tickets, 80/80 UX et 437/437 scénarios inventoriés ; certification sémantique toujours ouverte (six exceptions de liens historiques et dix G6/G9 sans ticket direct). Statuts produit ajoutés : NOT_RUN. Les 25 contrôles ont été passés au niveau applicable dans le rapport ; SOURCE_CLOSURE doit vérifier les assertions et DoD intégraux, pas recopier des comptes.
+- **Prochaine action unique : SOURCE_CLOSURE**, réconcilier les six exceptions de liens et dix exigences G6/G9 avec critères historiques, puis vérifier les 437 assertions contre les décisions candidates et signaler toute perte réelle.
