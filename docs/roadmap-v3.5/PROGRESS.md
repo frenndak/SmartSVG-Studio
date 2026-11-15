@@ -578,3 +578,10 @@ Trois nouveaux documents **effectivement publiés puis relus** sur la branche ca
 - [Rapport SC-01](SOURCE_CLOSURE_SC01_EXCEPTIONS_2026_11_15.md) publié au commit `e017d30c8ff353be7577d6ef430fe879f7c2f119` : six exceptions historiques attribuées à des propriétaires candidats sans fabriquer de liens historiques ; dix exigences G6/G9 préservées. Correction explicite de l'ambiguïté Q02 : `T-V34-06-22` concerne les packs V2 internes au même projet, sous migration explicitement autorisée, et non une simple partition d'export.
 - Inventaires 24/141/140/80/437 inchangés ; aucune certification sémantique globale, aucun nouveau test exécuté, Windows/GPU/Design Space/physique NOT_RUN. Contrat 25 axes passé à portée bornée SC-01. V3.4 ACTIVE ; aucun code, merge ou gouvernance modifiés.
 - `RUN_STATE.next_action=SOURCE_CLOSURE` reste correct ; prochaine tranche **SC-02** : confrontation des critères intégraux et DoD, puis assertions 437 par lots, en corrigeant uniquement les pertes constatées.
+
+
+## 2026-11-15 — SOURCE_CLOSURE SC-02A lots 05–06
+
+- [Rapprochement lots 05–06](SOURCE_CLOSURE_SC02A_LOTS05_06_2026_11_15.md), commit `f6fb6e6e2aa465a3307e0e90b5908f8a8fae831d` : confrontation ciblée des contrats V1/V2, packs internes 50 sujets, CAS/receipts, Undo float32, jobs IA et événements. Sources lots 05/06 blobs vérifiés ; six groupes de risques et oracles de recette. Aucun nouveau code ni test.
+- Les 50 assertions des lots 05/06 restent inventoriées, **pas toutes certifiées sémantiquement individuellement**. Inventaires 24/141/140/80/437 conservés, 25 axes passés à portée bornée. SOURCE_CLOSURE ouverte ; `next_action=SOURCE_CLOSURE`.
+- **Prochaine tranche unique SC-02B :** critères/DoD et assertions des lots 07–10, corrections des écarts réels. V3.4 reste ACTIVE ; Windows/GPU/Design Space/physique NOT_RUN.
