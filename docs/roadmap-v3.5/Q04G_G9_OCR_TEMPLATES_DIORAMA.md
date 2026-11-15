@@ -1,5 +1,7 @@
 # V35-Q04G — G9 OCR, gabarits G6.4 et diorama quatre plans : frontières de preuve
 
+> **Complément du 15 novembre :** [Décomposer une scène](SCENE_DECOMPOSITION_AND_RELIEF_CONTRACT.md) relie désormais extraction d'objets, planche libre et montage en relief. Il ne remplace pas le critère G9 quatre plans : DioramaProposal/1 et son N6 restent exactement quatre ; le nouveau ReliefPlan de scène peut avoir un autre nombre explicite et n'en tire aucun PASS S-066. Les parties cachées reconstruites sont des propositions signalées, distinctes de pixels observés. Le contenu daté ci-dessous et ses anciennes prochaines actions sont historiques ; suivre RUN_STATE et les décisions ADR courantes.
+
 **14 novembre 2026 — ADR candidate, non normative. V3.4 ACTIVE.** Succède à Q04F. Sources lues sur main : `docs/ROADMAP_HERITAGE_v3_3.md` (blob `c310adf3e972638c5a67332719bb2105ec37e688`), `16_PATRONS_PARAMETRIQUES.md` (blob `562af8bc7ceca562381e08251352dfd5bd6c2b69`), `20_BIBLIOTHEQUE_VARIANTES_CSV.md` (blob `b58e891ce65edcfa5ccabe46c24968036781e92a`). Les références ci-dessous sont **candidates V3.5**, pas des liens historiques ajoutés rétroactivement.
 
 ## 1. Réconciliation et décisions sans doublons

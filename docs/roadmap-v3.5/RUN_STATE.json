@@ -182,12 +182,14 @@
       "inputs": [
         "PROMOTION_CHECKLIST.md",
         "AUTOMATION_QUALITY_CONTRACT.md",
-        "CAMPAIGN_REVIEW_2026_11_14.md"
+        "CAMPAIGN_REVIEW_2026_11_14.md",
+        "SCENE_DECOMPOSITION_AND_RELIEF_CONTRACT.md"
       ],
       "done_when": "Verdict indépendant favorable au SHA exact, aucune contradiction non arbitrée ; résultats produit non exécutés honnêtement séparés.",
       "evidence": [
         "GLOBAL_REVIEW_2026_11_15.md",
-        "GLOBAL_REVIEW_RESOLUTION_2026_11_15.md"
+        "GLOBAL_REVIEW_RESOLUTION_2026_11_15.md",
+        "REVIEW_SCENE_DECOMPOSITION_2026_11_15.md"
       ]
     },
     {
@@ -199,11 +201,13 @@
       "scope": "PR documentaire consolidée, WIP/CI exact-head et fusion dans le cadre de l'autorisation propriétaire et protections applicables ; pas de fusion par tâche horaire.",
       "inputs": [
         "PROMOTION_CHECKLIST.md",
-        "EXECUTION_PLAYBOOK.md"
+        "EXECUTION_PLAYBOOK.md",
+        "SCENE_DECOMPOSITION_AND_RELIEF_CONTRACT.md",
+        "REVIEW_SCENE_DECOMPOSITION_2026_11_15.md"
       ],
       "done_when": "PR docs revue et intégrée, archive historique inchangée, main relu ; pas encore V3.5 ACTIVE sans gouvernance.",
       "evidence": [],
-      "continuation": "Préparer intégration après lecture main/PR courants. Au15/11:4PRcodeDRAFT138/139/140/144, WIP max3 ; ne pas ouvrir nouvellePRdocs tant que saturé. Préparation/RUN READY ne signifie pas gateG35-12PASS. Après WIP admissible:PRdocs consolidée,CI exact-head et revue, puis gouvernance séparée ; ne pas refaire SOURCE_CLOSURE/GLOBAL_REVIEW sans écart concret ou source changée."
+      "continuation": "Préparer intégration après lecture main/PR courants. Au15/11:4PRcodeDRAFT138/139/140/144, WIP max3 ; ne pas ouvrir nouvellePRdocs tant que saturé. Préparation/RUN READY ne signifie pas gateG35-12PASS. Après WIP admissible:PRdocs consolidée,CI exact-head et revue, puis gouvernance séparée ; ne pas refaire SOURCE_CLOSURE/GLOBAL_REVIEW sans écart concret ou source changée. Inclure le contrat Décomposer une scène SCN0–5 et sa revue de delta dans la PR consolidée. La fonction est spécifiée, pas développée ; ne pas rouvrir les inventaires inchangés ni attendre l'exécution future des17recettes produit pour intégrer cette conception."
     },
     {
       "id": "GOVERNANCE_HANDOFF",

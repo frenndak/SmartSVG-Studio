@@ -62,6 +62,10 @@ Pour chaque ID, imposer des champs **indépendants** :
 
 ## 4. Matrice d'échec système et de récupération
 
+### Complément E2E-SCN — scène → pièces → planche → relief
+
+[Contrat Décomposer une scène](SCENE_DECOMPOSITION_AND_RELIEF_CONTRACT.md) :17nouveaux scénarios proposés T-V35-SCN-01..17, séparés des437historiques. Fixture synthétique6éléments avec fond conservé, fragments/trous, occultation, échelle1200px→120mm, repositionnement de pièces et deux pages. Exiger sélection/correction manuelles, assistance qualifiée séparément, save/reopen CP2/3, coordonnées source/montage/planche distinctes, quatre exports honnêtes, reconstruction opt-in avec diff/provenance et ancien état restaurable. Preset quatre plans G9 puis montage physique mesuré indépendants. Refus NaN/masque vide/cycle/STALE/concurrence/modèle absent/disque plein/ressource hostile, aucun fragment supprimé ni pièce complétée silencieusement. **Tous NOT_RUN produit.** Aucune présence de ce contrat ou CI documentaire ne prouve une décomposition automatique ou une découpe réelle.
+
 | Injection | Comportement obligatoire | Ce qu'il ne faut surtout pas revendiquer |
 |---|---|---|
 | Fichier projet corrompu/ZIP traversal | Rejet, aucun écrasement, diagnostic sans chemin privé | « Réparé » par une lecture partielle ou faux succès |

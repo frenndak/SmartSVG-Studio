@@ -46,6 +46,8 @@ Les unités **W00–W16 ci-dessous sont des conteneurs de conception V3.5**, **p
 
 ## 3. Graphe de dépendance réel (DAG de qualification, non de programmation absolue)
 
+**Parcours transversal ajouté le 15 novembre :** [Décomposer une scène](SCENE_DECOMPOSITION_AND_RELIEF_CONTRACT.md), raffinement B03/B08 et planches/relief. W02 possède extraction et objets, W12 la planche et ses placements, W16 le relief/reconstruction avancés, W14 les fournisseurs optionnels ; W03/W04 gardent exports/prévol. SCN0–5 sont six incréments de ces responsabilités, pas six nouveaux tickets V34. SCN1 aperçu/export externe sans CP2 ; scène/placements rééditables SCN2/3 seulement avec CP0–3 et ressources strictes CP0-SCN ; relief manuel dépend uniquement des capacités utiles CP3–6, sans OCR/texte/3D obligatoires. G9 conserve le prototype quatre plans distinct des planches de pièces libres et du nouveau cas à nombre de plans variable. Aucune fonction n'est déclarée implémentée.
+
 ```text
 W00 couverture/gouvernance  -> portes d'adoption documentaire uniquement
 W01 projet V1 + CAS        ──┬─> W02 Atelier/Undo       ─┬─> W10 Texte G6 ──> W11 Gabarits G6

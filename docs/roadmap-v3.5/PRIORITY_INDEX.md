@@ -4,6 +4,8 @@
 
 Les priorités sources restent visibles. Le lien « fiche » ouvre la revue individuelle initiale ; les dossiers de revue contradictoire plus récents figurent dans PRIORITY_REGISTER.json. Un classement ne résout pas à lui seul leurs divergences.
 
+**Complément du 15 novembre : [Décomposer une scène → planche → relief](SCENE_DECOMPOSITION_AND_RELIEF_CONTRACT.md)** explicite B03/B08/B14 et C12–C14 avec SCN0–5. Il réunit objets de décor, personnage/accessoires, planche libre et montage, sans renuméroter les80IDs ni modifier leurs priorités sources. Première extraction/correction liée au socle sélection ; scène/planche rééditable après CP0–3 ; reconstruction avancée et relief P2 conservés.
+
 | Rang d’entrée | ID | Capacité originale #134 | Priorité source | Unité / fiche |
 |---:|---|---|---|---|
 | 1 | A01 | Smart Import : PNG/JPEG/WebP/SVG, lots, contrôles d'entrée, dimensions/alpha/DPI | P0 / A candidate | W01 · [fiche](COV17A_UX_A01_A16_SEMANTIC_AUDIT.md) |
@@ -50,7 +52,7 @@ Les priorités sources restent visibles. Le lien « fiche » ouvre la revue indi
 | 6 | A14 | Smart Vector géométrie : union/différence/intersection, trous, fermeture chemins | P0 / A candidate | W02 · [fiche](COV17A_UX_A01_A16_SEMANTIC_AUDIT.md) |
 | 6 | A15 | Smart Vector optimisation : simplification, nœuds, angles, fragments et intersections | P1 / B candidate | W07 · [fiche](COV17A_UX_A01_A16_SEMANTIC_AUDIT.md) |
 | 6 | A16 | Smart Vector intelligence : variantes et mesures fidélité/complexité/topologie. | P2 / C candidate | W07 · [fiche](COV17A_UX_A01_A16_SEMANTIC_AUDIT.md) |
-| 6 | B03 | décomposition intelligente des accessoires/illustrations en objets éditables | P1 / B candidate | W02 · [fiche](COV17B_UX_B01_B14_SEMANTIC_AUDIT.md) |
+| 6 | B03 | décomposition intelligente des accessoires/illustrations en objets éditables | P1 / B candidate | W02 · [fiche](COV17B_UX_B01_B14_SEMANTIC_AUDIT.md) · [scène et planche](SCENE_DECOMPOSITION_AND_RELIEF_CONTRACT.md) |
 | 6 | C03 | multicouche : palette, couches, alignement | P1 / B candidate | W03 · [fiche](COV17C_UX_C01_C18_SEMANTIC_AUDIT.md) |
 | 6 | C04 | pochoirs : îlots flottants, ponts | P1 / B candidate | W04 · [fiche](COV17C_UX_C01_C18_SEMANTIC_AUDIT.md) |
 | 6 | C05 | dessin/centerline, continuité des chemins | P1 / B candidate | W04 · [fiche](COV17C_UX_C01_C18_SEMANTIC_AUDIT.md) |
