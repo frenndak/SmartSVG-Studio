@@ -540,3 +540,10 @@ Trois nouveaux documents **effectivement publiés puis relus** sur la branche ca
 - [Revue D07–D12](REVIEW_DE_D07_D12_2026_11_15.md) commit `c61be9ed8a4fc4d455049488e6da5851b136c7d2` : six décisions individuelles ; correction hash≠signature D08, presets P1 vs partage P2 D10, enum/reprise/crash D11 alignés avec DECISIONS_TRANSVERSALES ; aucun nouveau moteur, aucune mutation V1.
 - Main comparé à `0692f804ad21bd775cd0269dd92dc6e2b1cea01f` : identique lors de cette revue. Tous les tests proposés NOT_RUN ; couverture 24/141/140/80/437 historique conservée, certification sémantique ouverte.
 - `RUN_STATE.next_action=REVIEW_DE` inchangé à dessein : **prochaine tranche E01–E06**, puis E07–E12 et E13–E20. Aucun changement de producteur V3.4 ni gouvernance.
+
+
+## 2026-11-15 — REVIEW_DE E01–E06
+
+- [Revue E01–E06](REVIEW_DE_E01_E06_2026_11_15.md), commit `e3512390f02d30aa626319383da3be2db1b9878c` : six décisions examinées ; corrections préférences locales ≠ index reconstructible, duplication V1 exige publication exclusive, composition durable V2 uniquement après migration autorisée ; comparaison rendus versionnés.
+- Sources relues : COV18D1, V3.4 lots 18/20, ADR_COMPOSITION_PERSISTENCE, décisions transversales et contrat 25 axes. Revue documentaire bornée, DoD historiques intégraux/ports HEAD non certifiés. Tests nouveaux NOT_RUN, aucun PASS Windows/GPU/Design Space/physique revendiqué.
+- `RUN_STATE.next_action=REVIEW_DE` reste correct ; **prochaine tranche E07–E12** puis E13–E20. V3.4 ACTIVE, aucune fusion, aucun changement de tâche productrice.
