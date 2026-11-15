@@ -1,5 +1,7 @@
 # SmartSVG V3.5 — maître de réalisation priorisé
 
+> **Pilotage courant — 14/11/2026 :** lire [RUN_STATE.json](RUN_STATE.json) et [EXECUTION_PLAYBOOK.md](EXECUTION_PLAYBOOK.md). Leurs décisions/cursor remplacent les anciennes « prochaines actions » ci-dessous. [Arbitrages transversaux](DECISIONS_TRANSVERSALES.md), [composition persistante](ADR_COMPOSITION_PERSISTENCE.md), [contrat Smart Delivery](SMART_DELIVERY_EXECUTION_CONTRACT.md) et [rapport de campagne](CAMPAIGN_REVIEW_2026_11_14.md) complètent cette photographie. V3.4 reste active ; delta relu ; revue globale en attente.
+
 **14 novembre 2026 — CANDIDAT NON NORMATIF.** Point d'entrée de la branche existante `roadmap/v3-5-design-candidate-20261112`, programme [#142](https://github.com/frenndak/SmartSVG-Studio/issues/142). Ce document réunit et ordonne la conception existante ; il ne crée ni nouvelle branche maîtresse, ni nouvelle version de produit, ni tickets de remplacement. V3.4 reste active pour le code.
 
 **Instruction propriétaire de cette session :** compléter au plus vite et avec la meilleure couverture possible la V3.5, avec l'ensemble des améliorations discutées, de la plus intéressante/urgente/utile à la moins nécessaire. La vitesse vient du réemploi et de la réduction des doublons, jamais de la suppression des critères, des fonctions difficiles ou de la distinction entre conception et produit livré.

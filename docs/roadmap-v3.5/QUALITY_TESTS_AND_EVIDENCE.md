@@ -1,5 +1,7 @@
 # SmartSVG V3.5 — Plan de qualité, 437 scénarios hérités et chaîne de preuves
 
+> **Pilotage courant — 14/11/2026 :** lire [RUN_STATE.json](RUN_STATE.json) et [EXECUTION_PLAYBOOK.md](EXECUTION_PLAYBOOK.md). Leurs décisions/cursor remplacent les anciennes « prochaines actions » ci-dessous. [Arbitrages transversaux](DECISIONS_TRANSVERSALES.md), [composition persistante](ADR_COMPOSITION_PERSISTENCE.md), [contrat Smart Delivery](SMART_DELIVERY_EXECUTION_CONTRACT.md) et [rapport de campagne](CAMPAIGN_REVIEW_2026_11_14.md) complètent cette photographie. V3.4 reste active ; delta relu ; revue globale en attente.
+
 **Statut : V35-COV-13 / CONTRAT DE QUALIFICATION CANDIDAT, NON NORMATIF (13 novembre 2026).** Ce document décrit comment démontrer les critères et relever les défauts avant une promotion V3.5. Il **ne signifie pas** que les tests sont codés, exécutés ou PASS. La V3.4 reste active et les critères V3.3 complets sont conservés.
 
 **Dépendances** : [index 437 scénarios](SCENARIOS_V34_INDEX.md), [couverture 141 exigences et 140 tickets](COVERAGE_V34_TO_V35.md), [couverture explicite 02–22](COVERAGE_SCENARIOS_21_22.md), [rattrapage G6/G9](COV10C_V1_TEXT_EXPORT_PORTS.md), [80 capacités UX](UX_ARCHITECTURE_AND_WORKFLOWS.md), [backlog W00–W16](BACKLOG_AND_DEPENDENCIES.md), [25 invariants](AUTOMATION_QUALITY_CONTRACT.md).

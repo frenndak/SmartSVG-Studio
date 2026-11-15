@@ -1,5 +1,7 @@
 # SmartSVG V3.5 — Architecture du backlog, dépendances réelles et jalons
 
+> **Pilotage courant — 14/11/2026 :** lire [RUN_STATE.json](RUN_STATE.json) et [EXECUTION_PLAYBOOK.md](EXECUTION_PLAYBOOK.md). Leurs décisions/cursor remplacent les anciennes « prochaines actions » ci-dessous. [Arbitrages transversaux](DECISIONS_TRANSVERSALES.md), [composition persistante](ADR_COMPOSITION_PERSISTENCE.md), [contrat Smart Delivery](SMART_DELIVERY_EXECUTION_CONTRACT.md) et [rapport de campagne](CAMPAIGN_REVIEW_2026_11_14.md) complètent cette photographie. V3.4 reste active ; delta relu ; revue globale en attente.
+
 > **Complément de pilotage du 14 novembre 2026 :** l'[ordre de livraison recommandé](MASTER_PRIORISE.md) précise l'entrée des premières tranches W00–W16, et l'[index priorisé](PRIORITY_INDEX.md) conserve les 80 libellés originaux avec leurs priorités sources. Les unités et critères de ce document restent conservés ; l'ordre ne transforme pas un grand lot en prérequis global et ne renumérote aucun ticket. Les blocages de fin de conception sont suivis dans [COMPLETION_QUEUE.md](COMPLETION_QUEUE.md).
 
 **État : V35-COV-11 / PREMIÈRE CONCEPTION STRUCTURÉE, NON NORMATIVE — 13/11/2026.** La V3.4 reste ACTIVE. Le présent document transforme les inventaires et les arbitrages en unités de livraison ; il **ne remplace pas** les 140 tickets V34 ni leurs critères V3.3. Aucun ticket V35 nouveau n'est déclaré « intégré » du seul fait qu'il est listé ici.

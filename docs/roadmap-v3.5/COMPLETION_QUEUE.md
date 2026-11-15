@@ -1,5 +1,7 @@
 # File de clôture V3.5 — travail restant concret
 
+> **Pilotage courant — 14/11/2026 :** lire [RUN_STATE.json](RUN_STATE.json) et [EXECUTION_PLAYBOOK.md](EXECUTION_PLAYBOOK.md). Leurs décisions/cursor remplacent les anciennes « prochaines actions » ci-dessous. [Arbitrages transversaux](DECISIONS_TRANSVERSALES.md), [composition persistante](ADR_COMPOSITION_PERSISTENCE.md), [contrat Smart Delivery](SMART_DELIVERY_EXECUTION_CONTRACT.md) et [rapport de campagne](CAMPAIGN_REVIEW_2026_11_14.md) complètent cette photographie. V3.4 reste active ; delta relu ; revue globale en attente.
+
 **14 novembre 2026 — CANDIDAT.** La priorisation et les inventaires ne valent pas fin de conception. Cette file donne un ordre de clôture sans nouvelle campagne de reformulation. Le maître [MASTER_PRIORISE.md](MASTER_PRIORISE.md) ordonne la livraison produit ; la présente file ordonne les **travaux documentaires restants**. Ils ne sont pas la même chose.
 
 | Point | Priorité de clôture | Manque à résoudre | Livrable de sortie et preuve attendue |
@@ -25,4 +27,4 @@ G6 : `S-036/S-064/S-092/R33-028` → typographie/polices/glyphes et conversion (
 
 À chaque fin de lot : préciser le point Q traité, la différence apportée, les références de sources inchangées/changées, les tests documentaires réellement exécutés et les tests produit proposés, le prochain point exact. Une difficulté de code futur se spécifie ; une preuve terrain manquante reste manquante. Réduire les relectures et les répétitions, sans supprimer de négatif ou de fonction.
 
-**Prochaine action : Q01**, puis Q02 si aucun conflit de source ne l'empêche. Ne pas transformer cette file en nouvelle liste de dix tickets ou en permission de modifier AGENTS/les tâches/le produit depuis la tâche de conception.
+**Prochaine action : REVIEW_DE dans RUN_STATE.json. Le delta a été relu ; Q04K–Q04Y sont raccordés par INTEGRATION_2026_11_15.md. Ne pas recommencer les lectures achevées.** Ne pas transformer cette file en nouvelle liste de dix tickets ou en permission de modifier AGENTS/les tâches/le produit depuis la tâche de conception.

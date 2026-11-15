@@ -1,5 +1,7 @@
 # SmartSVG V3.5 — Checklist de préparation et procédure de promotion contrôlée
 
+> **Pilotage courant — 14/11/2026 :** lire [RUN_STATE.json](RUN_STATE.json) et [EXECUTION_PLAYBOOK.md](EXECUTION_PLAYBOOK.md). Leurs décisions/cursor remplacent les anciennes « prochaines actions » ci-dessous. [Arbitrages transversaux](DECISIONS_TRANSVERSALES.md), [composition persistante](ADR_COMPOSITION_PERSISTENCE.md), [contrat Smart Delivery](SMART_DELIVERY_EXECUTION_CONTRACT.md) et [rapport de campagne](CAMPAIGN_REVIEW_2026_11_14.md) complètent cette photographie. V3.4 reste active ; delta relu ; revue globale en attente.
+
 **V35-COV-15 — version candidate, 13 novembre 2026.** Concerne la **promotion de la feuille de route documentaire** V3.5, PAS la certification d'un logiciel V3.5 déjà livré. **Statut au moment de la rédaction : NO-GO** ; les gates ci-dessous ne sont pas tous satisfaits. La V3.4 reste la roadmap active tant que la gouvernance `AGENTS.md` n'est pas modifiée séparément et après revue.
 
 **Documents de preuve V3.5** : [README](README.md), [héritage](INHERITANCE_REGISTER.md), [couverture source](COVERAGE_V34_TO_V35.md), [index 437 scénarios](SCENARIOS_V34_INDEX.md), [COV10C ports](COV10C_V1_TEXT_EXPORT_PORTS.md), [backlog et dépendances](BACKLOG_AND_DEPENDENCIES.md), [UX 80 capacités](UX_ARCHITECTURE_AND_WORKFLOWS.md), [plan de tests](QUALITY_TESTS_AND_EVIDENCE.md), [ADR/opportunités](ADR_RISKS_OPPORTUNITIES.md), [règles des 25 critères](AUTOMATION_QUALITY_CONTRACT.md), [journal](PROGRESS.md).
@@ -70,3 +72,9 @@ La roadmap V3.5 est **prête à être proposée comme référence de conception 
 **Principaux NO-GO restants** : revoir individuellement l'ensemble des critères V3.3 et des 80 UX, qualifier sémantiquement les 437 scénarios (pas uniquement les citations), fermer/acter les six exceptions et dix exigences, arbitrer les 33 opportunités et #141, réaliser contre-expertise indépendante et PR documentaire revue.
 
 **Prochaine action autonome logique** : une fois la checklist publiée, effectuer un audit d'intégrité des documents V3.5 effectivement présents, mettre à jour `README.md`, `PROGRESS.md` et l'issue #142 avec les commits et statuts exacts ; poursuivre les gaps sémantiques au prochain passage horaire. Aucune promotion maintenant.
+
+## Actualisation de passation — 14/11/2026
+
+L’autorisation propriétaire de finaliser puis remplacer V3.4 est acquise dans la session du 14 novembre ; la revue du résultat reste nécessaire. Les propriétaires des six exceptions/dix exigences doivent être acceptés **dans la candidate revue**, puis adoptés lors de la promotion, sans circularité. La référence à des tests Windows/physiques futurs ne bloque pas la clôture documentaire lorsque leurs contrats et recettes sont complets.
+
+Le changement de cible n’étend pas automatiquement l’opt-in `AUTONOMOUS_MERGE_V34=ENABLED`. La PR de gouvernance doit préciser la disposition de la politique V34, du marqueur READY et du prompt ; V3.5 DRAFT-only par défaut jusqu’à transfert explicite du périmètre autorisé. Conserver cycle indépendant de revue, contrôles exact-head, un merge maximum par cycle et validation post-merge. Aucune modification de ces protections dans la PR documentaire. Voir EXECUTION_PLAYBOOK §5.

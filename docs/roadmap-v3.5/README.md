@@ -1,5 +1,7 @@
 # SmartSVG Studio V3.5 — Roadmap de conception candidate
 
+> **Pilotage courant — 14/11/2026 :** lire [RUN_STATE.json](RUN_STATE.json) et [EXECUTION_PLAYBOOK.md](EXECUTION_PLAYBOOK.md). Leurs décisions/cursor remplacent les anciennes « prochaines actions » ci-dessous. [Arbitrages transversaux](DECISIONS_TRANSVERSALES.md), [composition persistante](ADR_COMPOSITION_PERSISTENCE.md), [contrat Smart Delivery](SMART_DELIVERY_EXECUTION_CONTRACT.md) et [rapport de campagne](CAMPAIGN_REVIEW_2026_11_14.md) complètent cette photographie. V3.4 reste active ; delta relu ; revue globale en attente.
+
 > **Point de reprise prioritaire — 14 novembre 2026 :** lire le [maître priorisé](MASTER_PRIORISE.md), l'[index des 80 capacités](PRIORITY_INDEX.md) et la [file de clôture](COMPLETION_QUEUE.md). Ils réunissent les améliorations déjà discutées dans l'ordre d'utilité/urgence, sans remplacer les critères sources ni créer une roadmap concurrente. [COV22](COV22_PORTS_SD_CONSOLIDATION.md) vérifie désormais les ports de main et les deux fiches Smart Delivery historiques ; la couverture sémantique complète reste ouverte. Le [registre structuré](PRIORITY_REGISTER.json) et son [contrôleur](verify_priority_register.py) permettent de vérifier les inventaires et l'ordre sans prétendre qualifier le produit.
 
 > [Revue de cette consolidation et vérifications exécutées](CONSOLIDATION_REVIEW.md) : verdict borné, deux défauts du contrôleur corrigés ; aucune certification globale de la V3.5.
