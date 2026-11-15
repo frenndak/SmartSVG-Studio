@@ -526,3 +526,10 @@ Trois nouveaux documents **effectivement publiés puis relus** sur la branche ca
 - [Revue indépendante favorable du delta](REVIEW_DELTA_RESULT.md), limites explicites ; contrôleur corrigé après reproduction d'une suppression d'étapes non détectée. 17 corruptions du registre rejetées ; contrôleurs documentaires PASS. Cela ne certifie pas la roadmap entière.
 - [Q04Y](Q04Y_ARCHIVE_QUOTAS_ERROR_ORDER.md) termine l'ordre des erreurs et quotas ; suite historique G13 exécutée : 53 PASS, 0 skip, aucune nouvelle fonction OCR ni fixture deux PNG livrée.
 - **Prochaine action : REVIEW_DE** ; REVIEW_DELTA terminé. Revue source/33 opportunités/globale et promotion restent ouvertes. Nouvelle consigne de conception : suivre RUN_STATE et le playbook, conserver les 25 axes, aucun changement de cadence ou tâche dupliquée. L'application effective du prompt n'est confirmée qu'après réponse du service de tâches.
+
+
+## 2026-11-15 — REVIEW_DE tranche D01–D06 (revue bornée)
+
+- [Décisions D01–D06](REVIEW_DE_D01_D06_2026_11_15.md) publiées au commit `81c232063a07d64bc8a3d3224fd02e2f658b69d9`. Six IDs revus sur les contrats candidats ; correction de la promesse de fallback CPU et de l'ambiguïté DPI 300→600, invariants SHA/selection/alpha et tests négatifs ajoutés. Aucun code ou test produit nouveau.
+- Main observé `0692f804ad21bd775cd0269dd92dc6e2b1cea01f` ; base candidate `7ad94ba3e411ea543d3a95657b59690bbbededbc` avant le commit de fiche. **REVIEW_DE non clos** : D07–D12 et E01–E20 restent à revoir ; les DoD intégraux et ports sont encore à confronter avant certification. Le curseur RUN_STATE.next_action reste REVIEW_DE. Aucun changement de V3.4 active, AGENTS, tâche productrice ou gouvernance.
+- Prochaine tranche précise : REVIEW_DE D07–D12 ; conserver les 25 contrôles et les 24/141/140/80/437 inventaires sans les confondre avec tests PASS.
