@@ -138,7 +138,7 @@
       ],
       "done_when": "141 exigences, 140 DoD et 437 assertions sans perte, avec rapport sémantique et exceptions tracées, pas un simple comptage ; six liens historiques restent absents historiquement.",
       "evidence": [],
-      "continuation": "SC-02E lots18–22 : 56 assertions individuelles documentées dans SOURCE_CLOSURE_SC02E_LOTS18_22_2026_11_15.md (commit 03cd8cbae98594e61895f5f7f7bce0913edbb797). Prochaine action SC-02F : jugements individuels restants lots02–06 puis 141 critères intégraux V3.3 / 140 DoD V34. SC-02A lots05–06 reste partiel. SOURCE_CLOSURE non close ; aucune preuve produit ajoutée."
+      "continuation": "SC-02F2: 50 assertions lots05–06 rapprochées individuellement, fiche SOURCE_CLOSURE_SC02F2_LOTS05_06_2026_11_15.md commit 08edef643661eb71cda92c56d683cca908dd87d9. SC-03 NEXT: 141 critères intégraux V3.3 et 140 DoD V34 individuellement, corrections de pertes réelles. SOURCE_CLOSURE reste ouverte; aucun test produit."
     },
     {
       "id": "OPPORTUNITIES_CLOSURE",
