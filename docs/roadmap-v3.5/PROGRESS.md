@@ -620,3 +620,10 @@ Suivi : l'intégration Linear avait automatiquement recopié FRE-157 dans Titan#
 - `main` vérifié `0692f804ad21bd775cd0269dd92dc6e2b1cea01f`. V3.4 active. 24 lots / 141 exigences / 140 tickets / 80 UX / 437 scénarios : inventaires conservés, **pas** certification sémantique ni tests exécutés.
 - Contrôle R3 des 25 axes décrit dans la fiche. Auto/Windows/GPU/Design Space/physique : NOT_RUN pour cette passe. Aucun code ni gouvernance modifiés.
 - **Suite unique : SC-02F**, compléter les jugements individuels 02–06 puis les critères intégraux 141/DoD 140 ; SOURCE_CLOSURE reste ouverte.
+
+
+## 2026-11-15 — SOURCE_CLOSURE SC-02F1 lots 02–04
+
+- 52 assertions historiques individualisées dans [SC-02F1](SOURCE_CLOSURE_SC02F1_LOTS02_04_2026_11_15.md), commit `ea5be6f9a359b539f3479aa1685e0788028677b6`. Textes et niveaux de preuve historiques préservés ; classification de l'oracle candidat et exceptions T-V34-03-16, seuil 5 novices, 100 crashs, AST 148/30.
+- SOURCE_CLOSURE demeure ouverte : jugements 05–06, 141 critères intégraux et 140 DoD à confronter. Aucun test produit exécuté ; inventaires 24/141/140/80/437 non équivalents à certification. V3.4 ACTIVE, aucune fusion.
+- Prochaine action unique : SC-02F2, jugement individuel des 50 assertions lots 05–06.
