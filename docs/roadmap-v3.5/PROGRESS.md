@@ -585,3 +585,14 @@ Trois nouveaux documents **effectivement publiés puis relus** sur la branche ca
 - [Rapprochement lots 05–06](SOURCE_CLOSURE_SC02A_LOTS05_06_2026_11_15.md), commit `f6fb6e6e2aa465a3307e0e90b5908f8a8fae831d` : confrontation ciblée des contrats V1/V2, packs internes 50 sujets, CAS/receipts, Undo float32, jobs IA et événements. Sources lots 05/06 blobs vérifiés ; six groupes de risques et oracles de recette. Aucun nouveau code ni test.
 - Les 50 assertions des lots 05/06 restent inventoriées, **pas toutes certifiées sémantiquement individuellement**. Inventaires 24/141/140/80/437 conservés, 25 axes passés à portée bornée. SOURCE_CLOSURE ouverte ; `next_action=SOURCE_CLOSURE`.
 - **Prochaine tranche unique SC-02B :** critères/DoD et assertions des lots 07–10, corrections des écarts réels. V3.4 reste ACTIVE ; Windows/GPU/Design Space/physique NOT_RUN.
+
+
+## 2026-11-15 — Raccord session, opportunités et SC-02B
+
+Base candidate `8f718cf8a0cbbdeecb2920e28ad7389661ee352e`, main `0692f804ad21bd775cd0269dd92dc6e2b1cea01f`. Les 17 commits horaires depuis 7ad94 sont conservés : clôture D/E, SC-01 et SC-02A. REVIEW_DE_RESOLUTION.md complète leurs rapprochements, sans remplacer les preuves ni confondre CAS V1 et receipt durable V2.
+
+OPPORTUNITIES_EXECUTION_RESOLUTION.md traite les 33 opportunités (8 rejets conservés) et 15 groupes #142 : responsables, entrées/sorties, effort relatif, recettes, priorité et dépendances. Revue indépendante bornée favorable, détails dans REVIEW_SESSION_2026_11_15.md. OPPORTUNITIES_CLOSURE DONE documentaire.
+
+SOURCE_CLOSURE_SC02B_LOTS07_10_2026_11_15.md examine 118 assertions individuellement et conserve les DoD des 37 tickets 041–077. Corrections des pertes de précision : cibles 150 ms, limites du planificateur, lecteur d'écran, format réel d'import, cinquante sujets et receipts. SOURCE_CLOSURE reste READY et ouverte ; prochaine tranche SC-02C lots 11–12, puis autres lots et compléments individuels 02–06/141 critères/140 DoD avant GLOBAL_REVIEW. Les compteurs ne sont pas une certification. Aucun nouveau test produit exécuté ; Windows/GPU/DS/physique NOT_RUN, V3.4 active.
+
+Suivi Linear : projet P-FRE-2 et ticket FRE-157 ; GitHub reste la source canonique. GitBook contient un espace TITAN synchronisé au dépôt Titan, aucun espace SmartSVG observé : ne pas y mélanger les projets.

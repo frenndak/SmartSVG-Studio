@@ -27,4 +27,6 @@ G6 : `S-036/S-064/S-092/R33-028` → typographie/polices/glyphes et conversion (
 
 À chaque fin de lot : préciser le point Q traité, la différence apportée, les références de sources inchangées/changées, les tests documentaires réellement exécutés et les tests produit proposés, le prochain point exact. Une difficulté de code futur se spécifie ; une preuve terrain manquante reste manquante. Réduire les relectures et les répétitions, sans supprimer de négatif ou de fonction.
 
-**Prochaine action : REVIEW_DE dans RUN_STATE.json. Le delta a été relu ; Q04K–Q04Y sont raccordés par INTEGRATION_2026_11_15.md. Ne pas recommencer les lectures achevées.** Ne pas transformer cette file en nouvelle liste de dix tickets ou en permission de modifier AGENTS/les tâches/le produit depuis la tâche de conception.
+**Prochaine action : SOURCE_CLOSURE dans RUN_STATE.json. Les 32 décisions D/E sont rapprochées dans REVIEW_DE_RESOLUTION.md ; Q04K–Q04Y sont raccordés par INTEGRATION_2026_11_15.md. Ne pas recommencer les lectures achevées.** Ne pas transformer cette file en nouvelle liste de dix tickets ou en permission de modifier AGENTS/les tâches/le produit depuis la tâche de conception.
+
+Raccord de session du 15 novembre : OPPORTUNITIES_CLOSURE documenté dans OPPORTUNITIES_EXECUTION_RESOLUTION.md ; D/E complété par REVIEW_DE_RESOLUTION.md en conservant REVIEW_DE_CLOSURE_2026_11_15.md. SC-02B traite individuellement les 118 assertions des lots07–10. Prochaine tranche : SC-02C lots11–12 ; la clôture source et la revue globale restent ouvertes.

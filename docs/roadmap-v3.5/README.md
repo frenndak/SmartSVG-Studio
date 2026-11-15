@@ -97,3 +97,9 @@ Chaque cycle horaire d'architecture reprend le **dernier micro-lot effectivement
 **La V3.4 reste la roadmap principale en production.** Pour promouvoir V3.5 : vérifier 24/24, 141/141, 140/140, 80/80 et 437 scénarios traçables ; exécuter l'intégrité documentaire ; résoudre contradictions et dépendances ; obtenir revue/CI d'une PR documentaire contrôlée et, **séparément**, une modification autorisée et revue d'AGENTS.md et de la gouvernance. Aucune tâche horaire n'est autorisée à fusionner des docs normatives ou changer AGENTS.md automatiquement.
 
 **Statut présent :** CANDIDATE / EN CONCEPTION. Aucune qualification Windows, GPU, Design Space ou coupe physique attribuée à V3.5.
+
+## Raccord D/E du 15 novembre 2026
+
+[Revue des 32 décisions D/E](REVIEW_DE_RESOLUTION.md) : critères, DoD, propriétaires corrigés et recettes discriminantes. Corrections explicites des anciennes fiches : priorités, persistance V2, historique portable, accessibilité et données de bibliothèque. Suite dans RUN_STATE : SOURCE_CLOSURE. Revue indépendante globale et adoption encore ouvertes.
+
+[Ajouts et opportunités : contrats et tranches](OPPORTUNITIES_EXECUTION_RESOLUTION.md) · [118 assertions lots07–10](SOURCE_CLOSURE_SC02B_LOTS07_10_2026_11_15.md) · [Contre-expertise de cette reprise](REVIEW_SESSION_2026_11_15.md). Les rapports horaires D/E et SC-01/SC-02A restent conservés ; suivre RUN_STATE pour les travaux encore ouverts.
