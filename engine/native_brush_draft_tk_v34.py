@@ -128,23 +128,27 @@ class NativeBrushDraftPanel:
         self.canvas.bind('<Control-z>', self._undo_draft_key)
         actions = ttk.Frame(parent)
         actions.pack(fill='x')
+        preview_actions = ttk.Frame(actions)
+        preview_actions.pack(fill='x')
+        draft_actions = ttk.Frame(actions)
+        draft_actions.pack(fill='x', pady=(4, 0))
         self.preview_button = ttk.Button(
-            actions, text='Calculer avant/après', command=self.preview)
+            preview_actions, text='Calculer avant/après', command=self.preview)
         self.preview_button.pack(side='left', padx=(0, 4))
         self.before_button = ttk.Button(
-            actions, text='Avant', command=lambda: self.show('before'))
+            preview_actions, text='Avant', command=lambda: self.show('before'))
         self.before_button.pack(side='left', padx=4)
         self.after_button = ttk.Button(
-            actions, text='Après', command=lambda: self.show('after'))
+            preview_actions, text='Après', command=lambda: self.show('after'))
         self.after_button.pack(side='left', padx=4)
         self.undo_button = ttk.Button(
-            actions, text='Annuler le dernier point', command=self.undo_draft_point)
-        self.undo_button.pack(side='left', padx=4)
+            draft_actions, text='Annuler le dernier point', command=self.undo_draft_point)
+        self.undo_button.pack(side='left', padx=(0, 4))
         self.discard_button = ttk.Button(
-            actions, text='Effacer le brouillon', command=self.discard)
+            draft_actions, text='Effacer le brouillon', command=self.discard)
         self.discard_button.pack(side='left', padx=4)
         self.save_button = ttk.Button(
-            actions, text='Enregistrer…', command=self.save)
+            draft_actions, text='Enregistrer…', command=self.save)
         self.save_button.pack(side='left', padx=4)
         ttk.Label(parent, textvariable=self.status,
                   wraplength=530).pack(anchor='w', pady=(5, 0))
