@@ -48,6 +48,47 @@ class NativeAtelierShutdownTests(unittest.TestCase):
             executor.shutdown(wait=True)
         self.assertTrue(finished.is_set())
 
+    def test_real_tk_root_closes_while_confirmed_worker_is_running(self):
+        """Exercise a real Tk event loop without waiting for a slow writer."""
+        try:
+            import tkinter as tk
+            root = tk.Tk()
+        except Exception as exc:
+            self.skipTest("real Tk display unavailable: " + str(exc))
+        root.withdraw()
+        entered, release = threading.Event(), threading.Event()
+        executor = ThreadPoolExecutor(max_workers=1)
+        panel = NativeAtelierPanel.__new__(NativeAtelierPanel)
+        panel._closed = False
+        panel._history_generation = 0
+        panel._history_worker = executor
+        panel._close_brush = lambda: None
+
+        def slow_write():
+            entered.set()
+            if not release.wait(5):
+                raise AssertionError("worker release timed out")
+            return "committed"
+
+        future = executor.submit(slow_write)
+        try:
+            self.assertTrue(entered.wait(3))
+            root.after(0, lambda: (panel.shutdown(), root.destroy()))
+            import time
+            started = time.monotonic()
+            root.mainloop()
+            self.assertLess(time.monotonic() - started, 1.5)
+            self.assertTrue(panel._closed)
+            self.assertFalse(future.cancelled())
+        finally:
+            release.set()
+            future.result(timeout=5)
+            executor.shutdown(wait=True)
+            try:
+                root.destroy()
+            except tk.TclError:
+                pass
+
     def test_shutdown_cancels_queued_unconfirmed_work(self):
         entered = threading.Event()
         release = threading.Event()
