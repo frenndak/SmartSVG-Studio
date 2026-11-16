@@ -1,5 +1,7 @@
 # SmartSVG V3.5 — Checklist de préparation et procédure de promotion contrôlée
 
+> **Finalisation en session du16novembre :** [séquence d’intégration](INTEGRATION_SESSION_2026_11_16.md). Conception revue ; une seule PR documentaire de maintenance, puis gouvernance distincte et handoff vérifié. Exception WIP strictement bornée à cette session propriétaire, sans nouveau code produit ni droit horaire élargi. [Contre-revue d’intégration](REVIEW_PROMOTION_DOCS_2026_11_16.md), CI exact-head et contrôle post-merge exigés ; aucune adoption avant leur preuve.
+
 > **Delta UX du16novembre :** joindre [contrat d’interaction et graphisme](UX_INTERACTION_AND_VISUAL_CONTRACT.md), ses raccords et [contre-revue indépendante](REVIEW_UX_INTERACTION_2026_11_16.md). Les sources UX figées ne sont pas réécrites ; le nouveau contrat précise leurs libellés/agencement, les contrats techniques et arbitrages restant autorités.18recettes UXI proposées NOT_RUN, hors des inventaires historiques et SCN/CST. G35-12..14 restent PENDING, V3.4 active ; aucune qualification produit ni changement d’autorité.
 
 > **Approfondissement créatif à intégrer avec ses preuves :** [contrat CST](CREATIVE_STUDIO_PRODUCT_CONTRACT.md), ressources paramétriques CP0-CST, raccords et [revue indépendante dédiée](REVIEW_CREATIVE_STUDIO_2026_11_15.md). Le verdict global et le delta SCN demeurent bornés à leurs SHAs ; ce complément est revu sur sa propre portée, notamment architecture, UX, qualité, dépendances et sécurité. Aucun changement d'autorité ni qualification produit, G35-12..14 PENDING.

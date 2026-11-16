@@ -211,11 +211,13 @@
         "CREATIVE_STUDIO_PRODUCT_CONTRACT.md",
         "REVIEW_CREATIVE_STUDIO_2026_11_15.md",
         "UX_INTERACTION_AND_VISUAL_CONTRACT.md",
-        "REVIEW_UX_INTERACTION_2026_11_16.md"
+        "REVIEW_UX_INTERACTION_2026_11_16.md",
+        "INTEGRATION_SESSION_2026_11_16.md",
+        "REVIEW_PROMOTION_DOCS_2026_11_16.md"
       ],
       "done_when": "PR docs revue et intégrée, archive historique inchangée, main relu ; pas encore V3.5 ACTIVE sans gouvernance.",
       "evidence": [],
-      "continuation": "Préparer intégration après lecture main/PR courants. Au15/11:4PRcodeDRAFT138/139/140/144, WIP max3 ; ne pas ouvrir nouvellePRdocs tant que saturé. Préparation/RUN READY ne signifie pas gateG35-12PASS. Après WIP admissible:PRdocs consolidée,CI exact-head et revue, puis gouvernance séparée ; ne pas refaire SOURCE_CLOSURE/GLOBAL_REVIEW sans écart concret ou source changée. Inclure le contrat Décomposer une scène SCN0–5 et sa revue de delta dans la PR consolidée. La fonction est spécifiée, pas développée ; ne pas rouvrir les inventaires inchangés ni attendre l'exécution future des17recettes produit pour intégrer cette conception. Inclure aussi le contrat de studio créatif CST0–4 et sa revue : offset/simplification rééditables via CP0-CST/CP0–3, sans faux état produit ni nouveau moteur. Les14recettes CST restent proposées, séparées des17SCN et437historiques. Inclure le delta UXI0–3 et sa contre-revue : dix états, interactions/focus/unités/graphisme,18recettes proposées NOT_RUN hors437/SCN/CST ; sources UX figées inchangées et aucune réouverture des80audits."
+      "continuation": "Session propriétaire16/11 : intégration documentaire selon INTEGRATION_SESSION_2026_11_16, exception WIP limitée à une PRdocs de maintenance ; vérifier CI/revue exact-head, squash puis G0 main avant gouvernance séparée. Cette exception ne vaut pas pour les tâches horaires et ne donne aucun droit de fusion supplémentaire. Les compléments SCN/CST/UXI et leurs revues restent inclus. Ne pas rouvrir les inventaires ni développer du code produit dans cette étape."
     },
     {
       "id": "GOVERNANCE_HANDOFF",

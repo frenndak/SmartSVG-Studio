@@ -1,0 +1,31 @@
+# Finalisation documentaire en session propriétaire — 16 novembre 2026
+
+## Décision de conduite et périmètre
+
+Le propriétaire a demandé de continuer la roadmap3.5 pour la compléter plus vite et remplacer définitivement3.4, après plusieurs instructions explicites de carte blanche et de finalisation/promotion. Cette session traite maintenant les gates d'intégration, pas un nouveau chapitre de fonctions. Conception source revue jusqu'à `9c936f763fafe2885674135b9c3dd6ab33dca25b`, main relu `0692f804ad21bd775cd0269dd92dc6e2b1cea01f`.
+
+**Décision opérationnelle bornée dans cette session :** ouvrir une seule PR de maintenance documentaire pour clore la conception, malgré les quatre PRcode DRAFT138/139/140/144. La consigne précédente de ne pas ouvrir de PRdocs en WIP saturé reste la règle des exécutions horaires ; elle provoquait ici une attente sans effet sur les quatre branches de code. Cette exception est limitée à l'intégration documentaire conduite dans la session propriétaire, puis à sa PR de gouvernance distincte et séquentielle. Zéro nouveau micro-lot de code produit, zéro PRcode fermée ou fusionnée pour libérer artificiellement une place, pas de nouveau producteur. Elle ne change ni AGENTS ni l'autorisation de fusion des tâches planifiées ni les protections GitHub. Le WIP technique reste quatre, connu et à traiter avant nouveau code. La limite ne devient pas une permission générale dans les prompts.
+
+**Contexte propriétaire déjà en vigueur, relu dans la tâche productrice existante :** l’amendement R10.1 du11novembre distingue explicitement WIP PRODUIT (PRcode ouvertes) et WIP TOTAL ; il précise qu’une PR CI/docs protégée ne consomme pas l’emplacement réservé au micro-lot produit. La présente conduite rétablit cette séparation pour la maintenance documentaire de cette session. La restriction plus conservatrice des passages horaires de conception et leur interdiction de fusion docs/gouvernance restent inchangées. Aucun plafond de PRcode n’est relevé et aucun code supplémentaire n’est lancé tant que les quatre candidats existants n’ont pas été traités.
+
+Cette décision de conduite utilise l'autorisation existante de finaliser/remplacer ; elle n'est ni une approbation GitHub indépendante, ni une dérogation aux contrôles CI/revue/contenu. En cas de protection réelle non satisfaite ou rejet d'accès, arrêter la fusion et conserver le résultat préparé. Aucun admin bypass, push sur main, activation auto-merge ou affaiblissement des tests.
+
+## Étape1 — PR documentaire consolidée
+
+Branche canonique conservée. Réconcilier l'unique commit de packaging arrivé sur main depuis la base de conception : reprendre ses trois blobs exacts dans le tree et conserver main comme deuxième parent de la réconciliation. Les trois fichiers ne font donc pas partie du diff de PR. Les quatre copies historiques sous `docs/roadmap-v3-5/` restent lisibles, avec leur copie canonique déjà présente ; pas de suppression ni seconde référence active.
+
+Portée : `docs/roadmap-v3.5/**`, quatre notes historiques `docs/roadmap-v3-5/**`, et `tests/test_v35_roadmap_integrity.py`. Ce dernier est un contrôle de documentation déclenché par le runner G0 existant, pas du code produit. Il exécute réellement les trois contrôleurs sur le checkout exact et vérifie les destinations locales Markdown. Les assertions d'héritage ne sont pas réduites et aucun workflow modifié. Les huit snapshots épinglés, les critères et DoD sources restent identiques.
+
+Revue globale déjà close et compléments SCN/CST/UXI conservés, pas réétiquetés comme revue d'un nouveau SHA. [Revue de l'intégration](REVIEW_PROMOTION_DOCS_2026_11_16.md) couvre ce delta, la conservation des fichiers antérieurement relus et le contrôle de documentation. Vérifier le diff de PR entier, CI exactHEAD réellement exécutée, main courant et absence de conflits avant squash à expected_head_sha. Après fusion : relire main, comparer les blobs de conception, contrôler G0 post-merge. G35-12 ne devient PASS qu'après cette preuve ; jusque-là V3.4 active et aucune tâche dev retargetée.
+
+## Étape2 — gouvernance distincte après étape1 vérifiée
+
+Préparer une branche neuve depuis main contenant la référence3.5, la décision d'adoption et les gardes testés. Conserver toutes les141obligations et140tickets hérités ; aucun statut produit aval inféré. Définir explicitement l'autorité, le curseur de réalisation et le sort du marqueur/politique V34. Le droit de fusion V34 n'est jamais renommé implicitement ; une éventuelle continuité V35 doit être expressément documentée dans cette PR, avec même périmètre code-only, cycle de revue ultérieur, un squash maximum/cycle, CI exactHEAD et contrôle post-merge. Tant que les autorités ne concordent pas, DRAFT-only.
+
+G35-13 exige revue indépendante, contrôles et fusion de cette PR distincte ; garder archive/politique historique V34 et provenance de READY sans les falsifier. Pas de modification du format projet, dépendances, code produit, packaging, workflows ou secrets dans ce travail. Rollback : revert de gouvernance par PR revue, conserver docs et code, repointer le producteur vers l'autorité effectivement présente sur main.
+
+## Étape3 — tâche existante et résultat vérifié
+
+Seulement après G35-13 : adapter la tâche productrice existante et sa référence, préserver cadence et rôle unique, réconcilier les quatre PR existantes avant nouveau code ; lire les critères complets via registre, réaliser les lots du maître priorisé avec contrôles. Adapter la tâche de conception existante au suivi de la référence adoptée ; elle ne devient pas un second producteur et ne recrée pas de candidats déjà clos. Lire les prompts après écriture et vérifier concordance main/AGENTS/READY/politique/cursor. G35-14 seulement après ces preuves ; si la passation échoue, DRAFT-only et état de reprise explicite.
+
+Preuves produit, UI Windows, GPU, Design Space, coupe et montage restent disjointes et NOT_RUN dans cette finalisation. L'adoption d'une roadmap permet d'exécuter son plan ; elle n'affirme pas que tout son logiciel est déjà développé. Les états du13–15novembre sont des photographies historiques ; l'état final sera celui de l'autorité main et de son reçu de promotion, pas une chaîne de bandeaux contradictoires.
