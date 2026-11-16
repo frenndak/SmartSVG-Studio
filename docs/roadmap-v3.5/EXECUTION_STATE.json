@@ -27,20 +27,38 @@
     "maximum_new_code_wip": 3
   },
   "handoff": {
-    "rule": "Actual tasks must match both bootstrap digests after main authority is verified. Readback receipt belongs in the merged governance PR body, section Handoff vérifié. Until concordance: DRAFT-only.",
+    "rule": "Producer bootstrap must match R12 digest after reviewed main update. Design task must remain paused by owner request; its old bootstrap is retained as history, not a requirement to run a second task. Record real service readback in the R12 amendment PR.",
     "producer": {
       "contract": "PRODUCER_TASK_V35.md",
-      "contract_sha256": "0341a007d1da96e59f0a8b16dde31c10e340580d80e79504a650690bd2c0cea6",
-      "bootstrap_sha256": "ac8895be524c168de3814805eac49d14a9b2d5bbf96702bf9c7dcc551228c93e",
-      "role": "single code producer with bounded integration"
+      "contract_sha256": "5e7bb7a925e0561c49823a8f151d687edcda37dfeae9992e61e5de33848f8e8f",
+      "bootstrap_sha256": "9115960bd0661dc3102ed3df8c0e6aa24877ab7190f73e1d638e312775a22cb3",
+      "role": "single code producer with bounded integration",
+      "expected_is_enabled": true,
+      "revision": "R12"
     },
     "design": {
       "contract": "DESIGN_REVIEW_TASK_V35.md",
-      "contract_sha256": "36cb8bae9165e6a0f8376f4e133a927722d2af1a92e2a1116e62748473d62941",
+      "contract_sha256": "67c6ecbe6123a883ef2d26c8c12b1ba6f4c6946903b55c027093c01ac5da87a1",
       "bootstrap_sha256": "58e93b44fdcc485e8f27fecda806cc2a4d83697fd222ccac567cc0b429eaaff2",
-      "role": "read-only improvement and quality review"
+      "role": "read-only improvement and quality review",
+      "expected_is_enabled": false,
+      "lifecycle": "PAUSED_BY_OWNER_2026_11_16"
     },
     "contract_digest_encoding": "UTF-8 text with LF newlines, not raw checkout CRLF bytes"
   },
-  "proof_axes": "UNIT/CPU/WINDOWS/GPU/DESIGN_SPACE/PHYSICAL_CUT/ASSEMBLY separate; design adoption creates no product PASS"
+  "proof_axes": "UNIT/CPU/WINDOWS/GPU/DESIGN_SPACE/PHYSICAL_CUT/ASSEMBLY separate; design adoption creates no product PASS",
+  "quality_owner": "single producer: implementation + verification + correction + self-audit, with mandatory later independent review cycle",
+  "resume_rule": "Initial WIP reconciliation is conditional: refetch actual PR/main progress; once resolved, select earliest useful incomplete slice from MASTER, keeping durable PR/coordination evidence without rewriting normative state from the code-only task.",
+  "tool_routing": {
+    "primary": "GitHub code/PR/CI/logs",
+    "technical_docs": "Context7 official docs matched to actual library/version",
+    "conditional": [
+      "Graphify only if SmartSVG indexed and snapshot verified",
+      "Linear read-only SmartSVG context",
+      "Figma only with concrete authorized SmartSVG design",
+      "GitBook only with verified SmartSVG space"
+    ],
+    "observed_graphify_2026_11_16": "Only frenndak/Titan indexed; never substitute it for SmartSVG",
+    "new_installs_or_permissions": false
+  }
 }

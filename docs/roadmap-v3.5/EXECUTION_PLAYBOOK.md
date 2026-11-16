@@ -1,5 +1,7 @@
 # Exécuter la V3.5 étape par étape sans recommencer la roadmap
 
+> **R12 :** la tâche séparée de conception/contre-expertise est arrêtée à la demande du propriétaire. Suivre [l’amendement R12](PRODUCER_R12_PLUGIN_AMENDMENT_2026_11_16.md) et EXECUTION_STATE ; qualité et auto-audit intégrés au producteur, cycle de revue ultérieur obligatoire inchangé. Aucun second producteur ni réactivation automatique.
+
 > **Conduite après adoptionV3.5 :** [EXECUTION_STATE.json](EXECUTION_STATE.json) est le curseur courant, sous autorité AGENTS/main et [décision d’adoption](../ROADMAP_PROMOTION_v3_5.md). [Producteur R11](PRODUCER_TASK_V35.md) pour l’ingénierie, [contre-expertise R4](DESIGN_REVIEW_TASK_V35.md) en lecture seule. Les consignes de préparation/promotions et anciennes prochaines actions datées restent une archive de la campagne close, pas une mission de recommencer la conception. RUN_STATE est scellé comme photographie avant adoption, avec ses champs historiques3.4. La routine de production§3/4 et les critères complets continuent à s’appliquer.
 
 **14/11/2026 — conduite candidate ; V3.4 reste active jusqu'à promotion.** Le propriétaire a autorisé la finalisation complète puis le remplacement de V3.4. L'objectif est de produire une application Windows autonome utilisable, en livrant des tranches utiles vérifiées. Une campagne documentaire n'est pas une réalisation du produit.

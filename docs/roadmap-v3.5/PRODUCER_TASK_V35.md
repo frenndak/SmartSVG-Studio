@@ -1,4 +1,6 @@
-# SmartSVG V3.5 — contrat du producteur existant R11
+# SmartSVG V3.5 — contrat du producteur existant R12
+
+> **Amendement propriétaire du16novembre : [R12 et plugins utiles](PRODUCER_R12_PLUGIN_AMENDMENT_2026_11_16.md).** La tâche séparée de création/contre-expertise est arrêtée. Le producteur intègre réalisation, vérification, correction et auto-audit, puis revue différée obligatoire au cycle ultérieur. Toutes les obligations ci-dessous restent conservées ; les outils facultatifs servent une question concrète, pas une nouvelle boucle de conception.
 
 Ce contrat prend effet seulement avec l'autoritéV3.5 concordante sur main et sa politique/READY. Il conserve le producteur horaire existant, sa cadence et les protections antérieures. Une lecture du contrat ne prouve pas son exécution. Avant cette concordance, aucune fusionV35 ; DRAFT-only.
 
@@ -51,3 +53,7 @@ Appliquer les25axes AUTOMATION_QUALITY_CONTRACT aux parties pertinentes, sans r�
 Tests positifs et ≥3négatifs pertinents, annulation/concurrence/crash/reprise ; mêmes assertions aux nouveauxHEAD. Conserver protocoles hérités :15opérations/3Undo-Redo,100crashpoints,5novices≥4comprenantaperçu/export/import/découpe et découverte30s,3parcours/2erreurs novice+régulier ; latences/corpus/tailles/plateforme et p50/p90/p95/max/RSS/VRAM selon leurs périmètres. Mesurer, pas inventer gainouSLA ; Windows/GPU/DS/coupe/montage axes séparés. Les437/17SCN/14CST/18UXI sont des recettes proposées tant que leur test n'a pas été exécuté.
 
 Sortie courte mais vérifiable : MAIN_SHA, autorité3.5 vérifiée ou non, PR/WIPcode et total, ticket/exigence/tranche, rôleA/B/C/D, action réellement effectuée, SHA/URL, testsPASS/FAIL/SKIP/NOT_RUN et limites, étatCODE_BRANCH/CODE_MAIN/WINDOWS_EXPOSED distincts, prochaine action exécutable. Ne jamais annoncer travail hors cycle, matériel qualifié sans preuve ni 140tickets terminés. Mise à jourcoordination#29 uniquement sur changement matériel déjà autorisé, pas message NO_CHANGErépété ni duplicationinterprojet. Aucun relâchement de politique pour accélérer.
+
+## R12 — continuité, plugins et qualité intégrée
+
+Appliquer intégralement [l’amendement R12](PRODUCER_R12_PLUGIN_AMENDMENT_2026_11_16.md) : un seul producteur actif, pas de réactivation de la tâche de création, preuve de reprise durable et source réelle à chaque cycle. GitHub prioritaire, Context7 pour documentation officielle à la bonne version, Graphify seulement pour un index SmartSVG vérifié (absent aujourd’hui ; jamais Titan), Linear/Figma/GitBook conditionnels et sans mutation externe implicite. Auto-audit immédiat et revue différée restent deux étapes distinctes ; une revue indépendante disponible en lecture seule ne remplace pas le cycle ultérieur requis. Déduplication de PR seulement sur preuve intégrale, aucune branche/commit supprimé ou gate retiré ; WIPmax3, un micro-lot + correction liée et un merge maximum/cycle inchangés. Ne pas considérer un module backend comme fonctionnalité Windows ni un plugin comme preuve de test.

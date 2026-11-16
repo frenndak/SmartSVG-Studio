@@ -111,6 +111,10 @@ class OwnerDelegationContractTests(unittest.TestCase):
         self.assertEqual(state["documentary_pr"], 146)
         self.assertEqual(state["inherited_counts"], {"lots": 24, "criteria": 141, "tickets": 140, "ux": 80, "scenarios": 437})
         self.assertEqual(state["qualification_inferred_by_adoption"], False)
+        self.assertTrue(state["handoff"]["producer"]["expected_is_enabled"])
+        self.assertFalse(state["handoff"]["design"]["expected_is_enabled"])
+        self.assertIn("Design task is PAUSED by owner instruction", CONTRACT)
+        self.assertIn("later independent scheduled review cycle remains mandatory", CONTRACT)
         import hashlib
         for name, expected_role in (("producer", "single code producer with bounded integration"), ("design", "read-only improvement and quality review")):
             handoff = state["handoff"][name]
