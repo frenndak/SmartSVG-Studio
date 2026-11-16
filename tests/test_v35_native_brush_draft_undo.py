@@ -140,6 +140,22 @@ class BrushDraftUndoTests(unittest.TestCase):
         self.assertEqual(panel._redo_draft_key(), "break")
         self.assertEqual(panel._points, [[0.1, 0.2], [0.3, 0.4]])
 
+    def test_escape_discards_only_the_local_draft_and_consumes_the_key(self):
+        panel = self.make_panel()
+        panel._redo_points = [[0.5, 0.6]]
+        panel._result_images = {"after": object()}
+
+        self.assertEqual(panel._discard_draft_key(), "break")
+
+        self.assertEqual(panel._points, [])
+        self.assertEqual(panel._redo_points, [])
+        self.assertIsNone(panel._result_images)
+        self.assertIsNone(panel._verified_save_request)
+        self.assertIsNone(panel._inflight_request)
+        self.assertEqual(panel._token, 8)
+        self.assertEqual(panel._draw_calls, 1)
+        self.assertEqual(panel._control_calls, 1)
+
 
 class BrushDraftUndoTkTests(unittest.TestCase):
     def test_real_canvas_owns_ctrl_z_binding_without_global_shortcut(self):
@@ -156,8 +172,10 @@ class BrushDraftUndoTkTests(unittest.TestCase):
 
         self.assertTrue(panel.canvas.bind("<Control-z>"))
         self.assertTrue(panel.canvas.bind("<Control-y>"))
+        self.assertTrue(panel.canvas.bind("<Escape>"))
         self.assertFalse(root.bind("<Control-z>"))
         self.assertFalse(root.bind("<Control-y>"))
+        self.assertFalse(root.bind("<Escape>"))
         self.assertEqual(str(panel.undo_button.cget("state")), "disabled")
         self.assertEqual(str(panel.redo_button.cget("state")), "disabled")
 
@@ -199,6 +217,13 @@ class BrushDraftUndoTkTests(unittest.TestCase):
         root.update()
 
         self.assertEqual(panel._points, [[0.1, 0.2], [0.3, 0.4]])
+        self.assertEqual(str(panel.redo_button.cget("state")), "disabled")
+
+        panel.canvas.event_generate("<Escape>")
+        root.update()
+
+        self.assertEqual(panel._points, [])
+        self.assertEqual(str(panel.undo_button.cget("state")), "disabled")
         self.assertEqual(str(panel.redo_button.cget("state")), "disabled")
 
 

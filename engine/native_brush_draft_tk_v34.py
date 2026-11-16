@@ -128,6 +128,7 @@ class NativeBrushDraftPanel:
         self.canvas.bind('<ButtonRelease-1>', self._release)
         self.canvas.bind('<Control-z>', self._undo_draft_key)
         self.canvas.bind('<Control-y>', self._redo_draft_key)
+        self.canvas.bind('<Escape>', self._discard_draft_key)
         actions = ttk.Frame(parent)
         actions.pack(fill='x')
         preview_actions = ttk.Frame(actions)
@@ -570,6 +571,10 @@ class NativeBrushDraftPanel:
                 and variant in ('before', 'after')):
             self._variant = variant
             self._draw()
+
+    def _discard_draft_key(self, _event=None):
+        self.discard()
+        return 'break'
 
     def discard(self):
         if self._closed or self._save_pending:
