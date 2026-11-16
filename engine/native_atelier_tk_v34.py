@@ -148,6 +148,9 @@ class NativeAtelierPanel:
             navigation, textvariable=self.selection, state='disabled', width=38)
         self.picker.pack(side='left', fill='x', expand=True)
         self.picker.bind('<<ComboboxSelected>>', self.render)
+        # Scoped to the subject picker: do not steal shortcuts from brush editing.
+        self.picker.bind('<Alt-Left>', self._previous_subject_key)
+        self.picker.bind('<Alt-Right>', self._next_subject_key)
         self.next_button = ttk.Button(
             navigation, text='Suiv. ▶', width=9,
             command=self.next_subject, state='disabled')
@@ -436,6 +439,14 @@ class NativeAtelierPanel:
         # Same render path as the combobox: closes any stale brush preview.
         self.render()
         return True
+
+    def _previous_subject_key(self, _event=None):
+        self.previous_subject()
+        return 'break'
+
+    def _next_subject_key(self, _event=None):
+        self.next_subject()
+        return 'break'
 
     def previous_subject(self):
         return self._step_subject(-1)
