@@ -1,7 +1,7 @@
 """V3.5 W02: keyboard navigation is scoped to the native Atelier subject picker."""
 from pathlib import Path
-from types import SimpleNamespace
 import sys
+import tempfile
 import unittest
 
 ENGINE = Path(__file__).resolve().parents[1] / "engine"
@@ -74,6 +74,49 @@ class SubjectKeyboardNavigationTests(unittest.TestCase):
         self.assertTrue(panel.picker.bind("<Alt-Right>"))
         self.assertFalse(root.bind("<Alt-Left>"))
         self.assertFalse(root.bind("<Alt-Right>"))
+
+    def test_real_tk_picker_delivers_alt_arrows_for_persisted_subjects(self):
+        import tkinter as tk
+        from tkinter import ttk
+        from standalone_desktop_v34 import load_native_preview
+        from test_v34_native_app_shell import create_atelier_project
+
+        try:
+            root = tk.Tk()
+        except tk.TclError:
+            self.skipTest("No graphical Tk session available")
+        self.addCleanup(root.destroy)
+        root.geometry("800x600")
+        panel = NativeAtelierPanel(root, tk, ttk)
+        self.addCleanup(panel.shutdown)
+
+        with tempfile.TemporaryDirectory() as directory:
+            project, expected_ids = create_atelier_project(directory)
+            before = project.read_bytes()
+            state, _preview = load_native_preview(project)
+            self.assertTrue(state["ok"])
+            snapshot = state["atelier_snapshot"]
+            self.assertEqual(
+                {subject.subject_id for subject in snapshot.subjects},
+                set(expected_ids),
+            )
+
+            panel.load(snapshot, project_path=str(project))
+            subjects = tuple(panel.subjects)
+            self.assertEqual(len(subjects), 2)
+            root.update()
+            panel.picker.focus_force()
+            root.update()
+            self.assertEqual(root.focus_get(), panel.picker)
+            self.assertEqual(panel.selection.get(), subjects[0])
+
+            panel.picker.event_generate("<Alt-Right>")
+            root.update()
+            self.assertEqual(panel.selection.get(), subjects[1])
+            panel.picker.event_generate("<Alt-Left>")
+            root.update()
+            self.assertEqual(panel.selection.get(), subjects[0])
+            self.assertEqual(project.read_bytes(), before)
 
 
 if __name__ == "__main__":
