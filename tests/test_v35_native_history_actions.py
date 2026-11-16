@@ -322,6 +322,138 @@ class NativeHistoryCPUActionTests(unittest.TestCase):
             self.assertEqual(self.receipts[-1]['action'], action)
         self.assertEqual(self.export.read_bytes(), b'<svg/>')
 
+    def test_real_cas_history_finishes_after_shutdown_without_late_ui_update(self):
+        from threading import Event, Thread
+        from smartsvg_core.project_archive import load_project
+        from smartsvg_core.native_brush_history_v34 import inspect_native_brush_history
+
+        panel = self.panel
+        entered, release, closed = Event(), Event(), Event()
+        writer = panel._history_change_fn
+        before = self.path.read_bytes()
+        def delayed_writer(**request):
+            entered.set()
+            if not release.wait(10):
+                raise AssertionError('test did not release confirmed writer')
+            return writer(**request)
+        panel._history_change_fn = delayed_writer
+        self.assertTrue(panel.undo_brush())
+        future = panel._history_future
+        try:
+            self.assertTrue(entered.wait(3))
+            closer = Thread(target=lambda: (panel.shutdown(), closed.set()), daemon=True)
+            closer.start()
+            self.assertTrue(closed.wait(1), 'shutdown waited for confirmed disk write')
+            self.assertFalse(future.cancelled())
+            # Simulate delivery to an already destroyed UI: no status or host
+            # callback may run, although the confirmed CAS command must finish.
+            panel.history.set = lambda _value: self.fail('late UI status update')
+            release.set()
+            receipt = future.result(timeout=15)
+            self.scheduled.pop(0)()
+            self.assertEqual(self.receipts, [])
+            self.assertTrue(receipt['persisted'])
+            reopened = load_project(self.path)
+            self.assertNotIn('editor_v216', reopened.document)
+            self.assertEqual(reopened.resources, self.original.resources)
+            self.assertEqual(reopened.subjects, self.original.subjects)
+            self.assertEqual(reopened.masks, self.original.masks)
+            self.assertEqual(reopened.document['notes'], 'Notes conservées')
+            self.assertEqual(self.path.with_suffix('.previous.smartsvg').read_bytes(), before)
+            self.assertTrue(inspect_native_brush_history(
+                project_path=str(self.path),
+                expected_sha256=receipt['project_sha256'])['redo_available'])
+            self.assertEqual(self.export.read_bytes(), b'<svg/>')
+        finally:
+            release.set()
+            future.result(timeout=15)
+
+    def test_real_tk_full_panel_teardown_finishes_cas_and_reopens_safely(self):
+        """Teardown API during a write; the desktop close guard is separate."""
+        import tkinter as tk
+        from tkinter import ttk
+        from threading import Event, Timer
+        from smartsvg_core.project_archive import load_project
+        from smartsvg_core.native_brush_history_command_v34 import change_native_brush_history
+        from smartsvg_core.native_brush_history_v34 import inspect_native_brush_history
+
+        try:
+            root = tk.Tk()
+        except tk.TclError:
+            self.skipTest('No graphical Tk session available')
+        def destroy_root():
+            try:
+                root.destroy()
+            except tk.TclError:
+                pass  # The test deliberately destroys this interpreter first.
+        self.addCleanup(destroy_root)
+        root.geometry('900x650')
+        entered, release = Event(), Event()
+        callbacks, errors = [], []
+        root.report_callback_exception = lambda *args: errors.append(args)
+        def delayed_writer(**request):
+            entered.set()
+            if not release.wait(10):
+                raise AssertionError('test did not release confirmed writer')
+            return change_native_brush_history(**request)
+        panel = NativeAtelierPanel(
+            root, tk, ttk, on_saved=callbacks.append,
+            history_change_fn=delayed_writer, confirm_history_fn=lambda *_args: True)
+        self.addCleanup(panel.shutdown)
+        panel.load(self.panel.snapshot, selected_subject=self.subject_id,
+                   project_path=str(self.path))
+        root.update()
+        self.assertTrue(panel.undo_button.winfo_viewable())
+        # Exercise the real brush-dialog lifecycle first: history actions are
+        # unavailable until that actual child panel has been closed.
+        self.assertTrue(panel.open_brush())
+        brush, dialog = panel._brush_panel, panel._brush_dialog
+        root.update()
+        self.assertFalse(panel.undo_brush())
+        panel._close_brush()
+        self.assertTrue(brush._closed)
+        self.assertFalse(dialog.winfo_exists())
+        panel.undo_button.invoke()
+        future = panel._history_future
+        self.assertIsNotNone(future)
+        # A watchdog releases the writer even if a regressed shutdown waits.
+        watchdog = Timer(3, release.set)
+        watchdog.start()
+        before = self.path.read_bytes()
+        try:
+            self.assertTrue(entered.wait(3))
+            root.after(0, panel.shutdown)
+            root.after(1, root.quit)
+            started = time.monotonic()
+            root.mainloop()
+            self.assertLess(time.monotonic() - started, 1.5)
+            self.assertTrue(panel._closed)
+            self.assertFalse(future.cancelled())
+            self.assertFalse(future.done())
+            root.destroy()
+            release.set()
+            receipt = future.result(timeout=15)
+            # Explicitly deliver stale callbacks after the real widgets died.
+            panel._receive_history()
+            brush._draw()
+            self.assertEqual(callbacks, [])
+            self.assertEqual(errors, [])
+            reopened = load_project(self.path)
+            self.assertNotIn('editor_v216', reopened.document)
+            self.assertEqual(reopened.resources, self.original.resources)
+            self.assertEqual(reopened.masks, self.original.masks)
+            self.assertEqual(reopened.subjects, self.original.subjects)
+            self.assertEqual(reopened.document['notes'], 'Notes conservées')
+            self.assertEqual(self.path.with_suffix('.previous.smartsvg').read_bytes(), before)
+            self.assertTrue(inspect_native_brush_history(
+                project_path=str(self.path),
+                expected_sha256=receipt['project_sha256'])['redo_available'])
+            self.assertEqual(self.export.read_bytes(), b'<svg/>')
+        finally:
+            release.set()
+            watchdog.cancel()
+            future.result(timeout=15)
+
 
 if __name__ == '__main__':
     unittest.main()
