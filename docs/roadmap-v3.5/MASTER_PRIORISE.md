@@ -1,5 +1,7 @@
 # SmartSVG V3.5 — maître de réalisation priorisé
 
+> **Après adoptionV3.5 :** lire [EXECUTION_STATE](EXECUTION_STATE.json) et AGENTS/main pour l’autorité et la prochaine action ; les états/curseurs de candidate datés ci-dessous sont archives. L’ordre de livraison et tous les critères hérités restent conservés. Première action : réconcilier le WIP existant avant nouveau code.
+
 > **Finalisation en session du16novembre :** [séquence d’intégration](INTEGRATION_SESSION_2026_11_16.md). Conception revue ; une seule PR documentaire de maintenance, puis gouvernance distincte et handoff vérifié. Exception WIP strictement bornée à cette session propriétaire, sans nouveau code produit ni droit horaire élargi. [Contre-revue d’intégration](REVIEW_PROMOTION_DOCS_2026_11_16.md), CI exact-head et contrôle post-merge exigés ; aucune adoption avant leur preuve.
 
 > **Décisions UX du16novembre : [contrat d’interaction/graphisme](UX_INTERACTION_AND_VISUAL_CONTRACT.md).** Précise le wireframe historique figé pour les libellés et comportements, sans changer l’inventaire ni les priorités. Un canevas et des intentions modifiables, commandes/focus stables, dix états lisibles, dimensions physiques distinctes du zoom, sauvegarde/export/DS/coupe séparés ; UXI0–3 raccordés aux lots W01/W02/W03/W12/W13/SCN/CST.18recettes proposées, toutes NOT_RUN produit ; ne pas ajouter de catalogue ou de gros redesign préalable.

@@ -1,0 +1,46 @@
+{
+  "schema": "smartsvg-execution-state/1",
+  "active_roadmap": "3.5",
+  "adopted_design_commit": "37a4cd0f63c9dc78a352a8bab396cf3d47f81a52",
+  "documentary_pr": 146,
+  "authority": "AGENTS.md on current main; adoption effective only after separate governance PR merges and G0 post-merge passes",
+  "phase": "ENGINEERING",
+  "next_action": "RECONCILE_EXISTING_CODE_WIP",
+  "inherited_counts": {
+    "lots": 24,
+    "criteria": 141,
+    "tickets": 140,
+    "ux": 80,
+    "scenarios": 437
+  },
+  "qualification_inferred_by_adoption": false,
+  "candidate_snapshot": "RUN_STATE.json (sealed pre-adoption archive, never engineering cursor)",
+  "initial_wip_observation": {
+    "date": "2026-11-16",
+    "code_prs": [
+      138,
+      139,
+      140,
+      144
+    ],
+    "status": "DRAFT at observation; refetch all HEADs, review and CI before action",
+    "maximum_new_code_wip": 3
+  },
+  "handoff": {
+    "rule": "Actual tasks must match both bootstrap digests after main authority is verified. Readback receipt belongs in the merged governance PR body, section Handoff vérifié. Until concordance: DRAFT-only.",
+    "producer": {
+      "contract": "PRODUCER_TASK_V35.md",
+      "contract_sha256": "0341a007d1da96e59f0a8b16dde31c10e340580d80e79504a650690bd2c0cea6",
+      "bootstrap_sha256": "ac8895be524c168de3814805eac49d14a9b2d5bbf96702bf9c7dcc551228c93e",
+      "role": "single code producer with bounded integration"
+    },
+    "design": {
+      "contract": "DESIGN_REVIEW_TASK_V35.md",
+      "contract_sha256": "36cb8bae9165e6a0f8376f4e133a927722d2af1a92e2a1116e62748473d62941",
+      "bootstrap_sha256": "58e93b44fdcc485e8f27fecda806cc2a4d83697fd222ccac567cc0b429eaaff2",
+      "role": "read-only improvement and quality review"
+    },
+    "contract_digest_encoding": "UTF-8 text with LF newlines, not raw checkout CRLF bytes"
+  },
+  "proof_axes": "UNIT/CPU/WINDOWS/GPU/DESIGN_SPACE/PHYSICAL_CUT/ASSEMBLY separate; design adoption creates no product PASS"
+}

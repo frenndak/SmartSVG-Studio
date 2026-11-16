@@ -233,5 +233,7 @@
       "done_when": "Main indique V3.5 active, politique/opt-in/prompt cohérents et vérifiés ; retour V3.4 documenté ; aucune nouvelle tâche dupliquée.",
       "evidence": []
     }
-  ]
+  ],
+  "record_role": "SEALED_PRE_ADOPTION_CANDIDATE_SNAPSHOT",
+  "current_state_after_promotion": "EXECUTION_STATE.json"
 }
