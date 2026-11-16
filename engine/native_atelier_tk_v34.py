@@ -608,4 +608,7 @@ class NativeAtelierPanel:
         self._closed = True
         self._history_generation += 1
         self._close_brush()
-        self._history_worker.shutdown(wait=True, cancel_futures=True)
+        # A confirmed writer must finish, but closing Tk must not wait for disk I/O.
+        # cancel_futures only cancels work that has not started; running work
+        # keeps its own request and cannot update a closed panel.
+        self._history_worker.shutdown(wait=False, cancel_futures=True)
