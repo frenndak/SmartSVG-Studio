@@ -1,4 +1,6 @@
-# SmartSVG Studio V3.5 — Roadmap de conception candidate
+# SmartSVG Studio V3.5 — Référence de développement adoptée
+
+> **Autorité après promotion du16novembre :** laV3.5 remplaceV3.4 lorsque la PR de gouvernance séparée est fusionnée et vérifiée sur main. [Décision d’adoption](../ROADMAP_PROMOTION_v3_5.md), [état d’exécution actuel](EXECUTION_STATE.json), [contrat du producteur R11](PRODUCER_TASK_V35.md) et [contrat de contre-expertise R4](DESIGN_REVIEW_TASK_V35.md). Les mentions « candidate », « V3.4 active » et étapes closes dans les paragraphes datés ci-dessous sont historiques. RUN_STATE et PRIORITY_REGISTER conservent leurs photographies de conception ; ils ne remplacent pas le curseur d’ingénierie EXECUTION_STATE. Les critères hérités et leurs sources restent intégraux ; adoption ne signifie pas logiciel terminé.
 
 > **Finalisation en session du16novembre :** [séquence d’intégration](INTEGRATION_SESSION_2026_11_16.md). Conception revue ; une seule PR documentaire de maintenance, puis gouvernance distincte et handoff vérifié. Exception WIP strictement bornée à cette session propriétaire, sans nouveau code produit ni droit horaire élargi. [Contre-revue d’intégration](REVIEW_PROMOTION_DOCS_2026_11_16.md), CI exact-head et contrôle post-merge exigés ; aucune adoption avant leur preuve.
 

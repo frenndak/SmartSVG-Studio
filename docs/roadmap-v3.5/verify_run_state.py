@@ -1,4 +1,4 @@
-"""Check the documentary resume cursor; never certify semantics or product tests."""
+"""Check the sealed pre-adoption documentary cursor; current authority is AGENTS/main."""
 import argparse
 import json
 from pathlib import Path
@@ -93,7 +93,7 @@ def main():
     if errors:
         print('\n'.join(errors))
         return 1
-    print('PASS documentary cursor/dependencies/evidence. V3.4 active; semantic and product verdicts are separate.')
+    print('PASS documentary candidate snapshot/dependencies/evidence (V3.4 at capture). Current authority: AGENTS/main; product verdicts are separate.')
     return 0
 
 
