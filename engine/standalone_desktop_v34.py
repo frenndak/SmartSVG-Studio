@@ -205,7 +205,9 @@ def _start_gui(first_project: str | None) -> int:
     appearance = shell.add_page('appearance', 'Apparence')
     atelier = NativeAtelierPanel(
         shell.add_page('atelier', 'Atelier'), tk, ttk,
-        on_saved=lambda receipt: refresh(saved_brush=receipt))
+        on_saved=lambda receipt: refresh(saved_brush=receipt),
+        can_history=lambda: (not notes.busy and not notes.confirming_discard
+                             and not recovery.busy and not creation_busy()))
     # Build each tool once. Navigation changes visibility, never the project.
     # Load preferences immediately so the first screen uses the saved theme.
     theme_picker = ArtisanThemePicker(root=root, parent=appearance, tk=tk, ttk=ttk)
@@ -231,7 +233,10 @@ def _start_gui(first_project: str | None) -> int:
     recovery_slot = ttk.Frame(frame)
     recovery_slot.pack(fill='x')
     notes = NativeNotesPanel(root, frame, tk, ttk, messagebox,
-                             on_saved=lambda revision: refresh(saved_notes=revision))
+                             on_saved=lambda revision: refresh(saved_notes=revision),
+                             can_save=lambda: (not atelier.busy
+                                               and not atelier.history_requires_review
+                                               and not recovery.busy))
     ttk.Label(frame, textvariable=preview_info, wraplength=640).pack(anchor="w", pady=(16, 5))
     preview_panel = NativeImageViewport(frame, tk, ttk)
 
@@ -249,7 +254,7 @@ def _start_gui(first_project: str | None) -> int:
             # Preserve an unsaved notes draft after an unrelated brush commit.
             # The new CAS revision is adopted only after verified reinspection.
             selected_subject = atelier.selection.get() or selected_subject
-        atelier.load(None)
+        atelier.load(None, require_history_review=saved_brush is not None)
         atelier.project.set("Vérification de la révision du projet…")
         recovery.load(None)
         # Only the Tk main thread manipulates PhotoImage and widgets.
@@ -257,7 +262,21 @@ def _start_gui(first_project: str | None) -> int:
         message.set("Analyse du projet en cours…")
         summary.set("Lecture et vérification sans modification.")
         preview_info.set("Préparation de l'aperçu…")
-        version, future = jobs.submit(current[0])
+        def read_unavailable():
+            # A failed host read cannot turn an acknowledged commit into a
+            # claim that no write occurred. Keep the draft and review latch.
+            message.set('Modification du pinceau enregistrée ; relecture indisponible.'
+                        if saved_brush is not None else 'Impossible de lire ce projet.')
+            summary.set('Notes locales conservées. Réexaminez le projet (F5).'
+                        if saved_brush is not None else 'Aucune modification effectuée.')
+            preview_info.set('Aperçu indisponible.')
+            atelier.project.set('Impossible de relire ce projet. Réexaminez le projet (F5).')
+
+        try:
+            version, future = jobs.submit(current[0])
+        except Exception:
+            read_unavailable()
+            return
 
         def receive():
             if not jobs.current(version):
@@ -269,10 +288,7 @@ def _start_gui(first_project: str | None) -> int:
                 state, preview = future.result()
             except Exception:
                 # Unexpected reader failure: fail closed without private paths.
-                message.set("Impossible de lire ce projet.")
-                summary.set("Aucune modification effectuée.")
-                preview_info.set("Aperçu indisponible.")
-                atelier.project.set("Impossible de lire ce projet.")
+                read_unavailable()
                 return
 
             snapshot = state.get('atelier_snapshot')
@@ -316,7 +332,7 @@ def _start_gui(first_project: str | None) -> int:
                 notes_synced = notes.rebase_after_external_save(
                     state.get('notes_revision'))
                 message.set(
-                    'Retouche sauvegardée et projet réexaminé.'
+                    'Modification du pinceau enregistrée et projet réexaminé.'
                     if notes_synced else
                     'Retouche sauvegardée, mais les notes locales ne peuvent '
                     'pas être resynchronisées automatiquement.')
@@ -367,7 +383,7 @@ def _start_gui(first_project: str | None) -> int:
         refresh()
 
     def reexamine():
-        if recovery.busy:
+        if recovery.busy or atelier.busy:
             return 'break'
         if creation_busy():
             return show_creator()
@@ -377,18 +393,18 @@ def _start_gui(first_project: str | None) -> int:
         return 'break'
 
     def show_creator(*_unused):
-        if recovery.busy:
+        if recovery.busy or atelier.busy:
             return 'break'
         if creator[0] is not None and creator[0].window.winfo_exists():
             creator[0].window.lift()
         else:
             creator[0] = NativeCreateDialog(
                 root, tk, ttk, filedialog, open_created,
-                can_create=lambda: not recovery.busy and notes.can_leave())
+                can_create=lambda: not recovery.busy and not atelier.busy and notes.can_leave())
         return 'break'
 
     def select_project():
-        if recovery.busy:
+        if recovery.busy or atelier.busy:
             return
         if creation_busy():
             show_creator()
@@ -396,7 +412,7 @@ def _start_gui(first_project: str | None) -> int:
         chosen = filedialog.askopenfilename(
             parent=root, title="Ouvrir un projet SmartSVG",
             filetypes=[("Projets SmartSVG", "*.smartsvg")])
-        if chosen and not recovery.busy and notes.can_leave():
+        if chosen and not recovery.busy and not atelier.busy and notes.can_leave():
             creation_info.set('')
             recovery.status.set('')
             shell.show('project', focus=True)
@@ -405,7 +421,7 @@ def _start_gui(first_project: str | None) -> int:
             refresh()
 
     recovery = NativeRecoveryPanel(root, recovery_slot, tk, ttk, messagebox, refresh,
-                                   lambda: not creation_busy() and notes.can_leave())
+                                   lambda: not atelier.busy and not creation_busy() and notes.can_leave())
 
     ttk.Button(buttons, text="Ouvrir un projet…", command=select_project).pack(side="left")
     ttk.Button(buttons, text="Créer depuis un PNG…", command=show_creator).pack(side="left", padx=12)
@@ -450,7 +466,7 @@ def _start_gui(first_project: str | None) -> int:
         file_name.set(Path(current[0]).name)
         refresh()
     def close_window():
-        if recovery.busy:
+        if recovery.busy or atelier.busy:
             return
         if creation_busy():
             creator[0].close()
