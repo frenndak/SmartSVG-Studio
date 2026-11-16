@@ -17,10 +17,12 @@ class NotesRevision:
 
 
 class NativeNotesPanel:
-    def __init__(self, root, parent, tk, ttk, messagebox, *, on_saved=None):
+    def __init__(self, root, parent, tk, ttk, messagebox, *, on_saved=None,
+                 can_save=None):
         self.root = root
         self.messagebox = messagebox
         self.on_saved = on_saved
+        self._can_save = can_save
         self.revision = None
         self.future = None
         self.confirming_discard = False
@@ -101,6 +103,15 @@ class NativeNotesPanel:
     def save(self):
         if self.busy or self.confirming_discard or self.revision is None:
             return
+        guard = getattr(self, '_can_save', None)
+        if guard is not None:
+            try:
+                allowed = guard() is True
+            except Exception:
+                allowed = False
+            if not allowed:
+                self.status.set('Écriture du projet en cours ou à vérifier. Brouillon conservé.')
+                return
         draft = self._draft()
         revision = self.revision
         if draft == revision.notes:

@@ -48,10 +48,11 @@ class AtelierHistoryStatusTests(unittest.TestCase):
     def test_pinned_status_is_visible_without_private_metadata_or_write(self):
         self.panel._refresh_history()
         message = self.panel.history.get()
-        self.assertIn("lecture seule", message)
+        self.assertIn("Historique du pinceau", message)
         self.assertIn("Annulation possible : oui", message)
         self.assertIn("Rétablissement possible : non", message)
-        self.assertIn("non encore raccordées", message)
+        self.assertIn("Choisissez le sujet concerné", message)
+        self.assertNotIn("internal_private_path", self.panel._history_status)
         self.assertNotIn("/private/", message)
         self.assertEqual(self.calls, [{
             "project_path": self.panel._project_path,
@@ -165,7 +166,9 @@ class AtelierHistoryStatusTests(unittest.TestCase):
             panel.load(AtelierSnapshot("history-ui", created["sha256"], ()),
                        project_path=str(project))
             message = panel.history.get()
-            self.assertIn("lecture seule", message)
+            self.assertIn("Historique du pinceau", message)
+            self.assertEqual(str(panel.undo_button.cget('state')), 'disabled')
+            self.assertEqual(str(panel.redo_button.cget('state')), 'disabled')
             self.assertIn("Annulation possible : non", message)
             self.assertIn("Rétablissement possible : non", message)
             self.assertEqual(project.read_bytes(), before)

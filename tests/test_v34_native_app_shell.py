@@ -682,6 +682,146 @@ class DesktopShellIntegrationTests(unittest.TestCase):
 
             self.run_desktop(scenario, first_project=str(target))
 
+    def seed_history_project(self, directory):
+        from smartsvg_core.native_subject_preview_v34 import preview_native_subject_stroke
+        from smartsvg_core.native_subject_save_v34 import save_native_subject_stroke
+        from smartsvg_core.project_archive import load_project
+        from hashlib import sha256
+        target, ids = create_atelier_project(directory)
+        subject = next(iter(ids))
+        request = dict(project_path=str(target), expected_sha256=sha256(target.read_bytes()).hexdigest(),
+                       subject_id=subject, mode='add', radius=.05, points=[[.5, .5]])
+        preview = preview_native_subject_stroke(**request)
+        save_native_subject_stroke(
+            **request, expected_preview_mask_sha256_float32=preview['preview_mask_sha256_float32'],
+            command_id='desktop-history-seed', confirmed=True)
+        return target, subject, load_project(target)
+
+    @unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
+                         'Real desktop history requires NumPy/Pillow')
+    def test_history_commands_refresh_real_project_and_preserve_dirty_notes(self):
+        from smartsvg_core.project_archive import load_project
+        with tempfile.TemporaryDirectory() as directory:
+            target, subject, saved = self.seed_history_project(directory)
+            def scenario(root, state):
+                state.jobs.futures[-1].result(timeout=15); root.pending.pop(0)()
+                p = state.atelier
+                p.parent.after = root.after  # Tk-frame scheduling in widget double.
+                p._confirm_history_fn = lambda *_args: True
+                p.selection.set(subject); p.render()
+                notes = state.notes
+                notes.editor.insert('1.0', 'Notes encore non enregistrées')
+                for button, action in ((p.undo_button, 'undo'), (p.redo_button, 'redo')):
+                    self.assertEqual(button.options['state'], 'normal')
+                    reads = len(state.jobs.futures)
+                    button.options['command']()
+                    self.assertTrue(p.busy)
+                    root.events['<Control-o>'](None)
+                    root.events['<F5>'](None)
+                    root.protocols['WM_DELETE_WINDOW']()
+                    notes.save()
+                    self.assertIsNone(notes.future)
+                    self.assertTrue(root.exists)
+                    self.assertEqual(len(state.jobs.futures), reads)
+                    p._history_future.result(timeout=15); root.pending.pop(0)()
+                    # Receipt acknowledged, but host reinspection not delivered:
+                    # no notes writer can race the pending revision adoption.
+                    self.assertTrue(p.history_requires_review)
+                    notes.save()
+                    self.assertIsNone(notes.future)
+                    state.jobs.futures[-1].result(timeout=15); root.pending.pop(0)()
+                    self.assertEqual(p.selection.get(), subject)
+                    self.assertEqual(notes.editor.get(), 'Notes encore non enregistrées')
+                    self.assertEqual(notes.revision.sha256, p.snapshot.sha256)
+                    self.assertFalse(p.history_requires_review)
+                    if action == 'undo':
+                        self.assertNotIn('editor_v216', load_project(target).document)
+                self.assertEqual(load_project(target).document['editor_v216'], saved.document['editor_v216'])
+                self.assertEqual(load_project(target).resources, saved.resources)
+            self.run_desktop(scenario, first_project=str(target), chosen=str(target))
+
+    @unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
+                         'Real desktop history requires NumPy/Pillow')
+    def test_history_host_read_failure_or_mismatch_keeps_notes_write_blocked(self):
+        from dataclasses import replace
+        for failure in ('reader', 'revision', 'submit'):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                target, subject, _ = self.seed_history_project(directory)
+                def scenario(root, state):
+                    state.jobs.futures[-1].result(timeout=15); root.pending.pop(0)()
+                    p, notes = state.atelier, state.notes
+                    p.parent.after = root.after
+                    p._confirm_history_fn = lambda *_args: True
+                    p.selection.set(subject); p.render()
+                    notes.editor.insert('1.0', 'Brouillon non perdu après écriture')
+                    old_revision = notes.revision
+                    before = target.read_bytes()
+                    read = state.jobs._read
+                    def failed(*_args):
+                        raise OSError('/private/reader-failure')
+                    def mismatch(path):
+                        state_, preview = read(path)
+                        state_['atelier_snapshot'] = replace(
+                            state_['atelier_snapshot'], sha256='0' * 64)
+                        return state_, preview
+                    if failure == 'submit':
+                        state.jobs.submit = failed
+                    else:
+                        state.jobs._read = failed if failure == 'reader' else mismatch
+                    self.assertTrue(p.undo_brush())
+                    p._history_future.result(timeout=15); root.pending.pop(0)()
+                    self.assertTrue(p.history_requires_review)
+                    notes.save()
+                    self.assertIsNone(notes.future)
+                    if failure != 'submit':
+                        if failure == 'reader':
+                            with self.assertRaises(OSError): state.jobs.futures[-1].result(timeout=15)
+                        else:
+                            state.jobs.futures[-1].result(timeout=15)
+                        root.pending.pop(0)()
+                    self.assertNotEqual(target.read_bytes(), before)
+                    self.assertIsNone(p.snapshot)
+                    self.assertTrue(p.history_requires_review)
+                    notes.save()
+                    self.assertIsNone(notes.future)
+                    self.assertEqual(notes.revision, old_revision)
+                    self.assertEqual(notes.editor.get(), 'Brouillon non perdu après écriture')
+                    self.assertFalse(p.undo_brush())
+                    self.assertNotIn('/private/', p.project.get())
+                self.run_desktop(scenario, first_project=str(target))
+
+    @unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
+                         'Real desktop history requires NumPy/Pillow')
+    def test_uncertain_history_after_real_commit_keeps_notes_and_blocks_other_writes(self):
+        from smartsvg_core.native_brush_history_command_v34 import change_native_brush_history
+        with tempfile.TemporaryDirectory() as directory:
+            target, subject, _ = self.seed_history_project(directory)
+            def scenario(root, state):
+                state.jobs.futures[-1].result(timeout=15); root.pending.pop(0)()
+                p = state.atelier
+                p.parent.after = root.after
+                p._confirm_history_fn = lambda *_args: True
+                p.selection.set(subject); p.render()
+                state.notes.editor.insert('1.0', 'Brouillon à conserver')
+                before = target.read_bytes()
+                def interrupted(**request):
+                    change_native_brush_history(**request)
+                    raise OSError('/private/post-commit')
+                p._history_change_fn = interrupted
+                self.assertTrue(p.undo_brush())
+                with self.assertRaises(OSError): p._history_future.result(timeout=15)
+                root.pending.pop(0)()
+                self.assertNotEqual(target.read_bytes(), before)
+                self.assertTrue(p.history_requires_review)
+                self.assertIn('non confirmée', p.history.get())
+                self.assertNotIn('/private/', p.history.get())
+                state.notes.save()
+                self.assertIsNone(state.notes.future)
+                self.assertEqual(state.notes.editor.get(), 'Brouillon à conserver')
+                self.assertFalse(p.undo_brush())
+                self.assertEqual(len(state.jobs.futures), 1)
+            self.run_desktop(scenario, first_project=str(target))
+
     def test_native_brush_refresh_does_not_rebase_external_notes_conflict(self):
         from smartsvg_core.project_archive import load_project
         from smartsvg_core.project_workspace_g22 import (

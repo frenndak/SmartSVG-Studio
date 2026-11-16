@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import base64
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import re
+from uuid import uuid4
 
 from native_image_viewport_v34 import NativeImageViewport
 from smartsvg_core.native_brush_history_v34 import inspect_native_brush_history
+from smartsvg_core.native_brush_history_command_v34 import change_native_brush_history
 from smartsvg_core.source_preview_v34 import MAX_ENCODED_BYTES
 
 
@@ -91,10 +94,22 @@ def _admit_subject_catalog(snapshot):
 
 class NativeAtelierPanel:
     def __init__(self, parent, tk, ttk, *, on_saved=None,
-                 history_fn=inspect_native_brush_history):
+                 history_fn=inspect_native_brush_history,
+                 history_change_fn=change_native_brush_history,
+                 confirm_history_fn=None, can_history=None):
         self.tk, self.ttk, self.parent = tk, ttk, parent
         self._on_saved = on_saved
         self._history_fn = history_fn
+        self._history_change_fn = history_change_fn
+        self._confirm_history_fn = confirm_history_fn
+        self._can_history = can_history
+        self._history_status = self._history_future = self._history_pending = None
+        self._history_confirming = self._history_needs_review = self._closed = False
+        self._history_generation = 0
+        # One outstanding confirmed command, using the existing writer only.
+        # Unlike read-only previews, a running mutation is never cancelled as stale.
+        self._history_worker = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix='smartsvg-history')
         self.snapshot = None
         self.subjects = {}
         self._project_path = None
@@ -113,6 +128,14 @@ class NativeAtelierPanel:
         ttk.Label(parent, text='Atelier', font=('Segoe UI', 16, 'bold')).pack(anchor='w', pady=(0, 12))
         ttk.Label(parent, textvariable=self.project, wraplength=640).pack(anchor='w')
         ttk.Label(parent, textvariable=self.history, wraplength=640).pack(anchor='w', pady=(4, 0))
+        history_actions = ttk.Frame(parent)
+        history_actions.pack(fill='x', pady=(4, 4))
+        self.undo_button = ttk.Button(history_actions, text='Annuler la retouche',
+                                      command=self.undo_brush, state='disabled')
+        self.undo_button.pack(side='left', padx=(0, 6))
+        self.redo_button = ttk.Button(history_actions, text='Rétablir la retouche',
+                                      command=self.redo_brush, state='disabled')
+        self.redo_button.pack(side='left')
         ttk.Label(parent, text='Sujet enregistré · inspection en lecture seule').pack(anchor='w', pady=(8, 0))
         # In the same row to preserve canvas height on smaller Windows panes.
         navigation = ttk.Frame(parent)
@@ -140,7 +163,14 @@ class NativeAtelierPanel:
         parent.bind('<Map>', self._on_map)
         self.load(None)
 
-    def load(self, snapshot, *, selected_subject=None, project_path=None):
+    def load(self, snapshot, *, selected_subject=None, project_path=None,
+             require_history_review=False):
+        if self._closed:
+            return
+        self._history_generation += 1
+        # A committed command remains write-blocked while its host asynchronously
+        # verifies the receipt. Only a correlated snapshot may clear that latch.
+        self._history_needs_review = require_history_review is True
         # Refresh/recovery/switch invalidates all outstanding CPU brush work.
         self._close_brush()
         self._project_path = project_path
@@ -163,6 +193,8 @@ class NativeAtelierPanel:
         Called only on project load/F5, not on canvas events or subject
         navigation. A stale project or malformed history stays unavailable.
         """
+        self._history_status = None
+        self._update_history_controls()
         snapshot = self.snapshot
         revision = getattr(snapshot, 'sha256', None)
         path = self._project_path
@@ -195,10 +227,183 @@ class NativeAtelierPanel:
             return
         undo = 'oui' if status['undo_available'] else 'non'
         redo = 'oui' if status['redo_available'] else 'non'
+        self._history_status = {key: status[key] for key in (
+            'project_sha256', 'undo_available', 'redo_available',
+            'undo_subject_id', 'redo_subject_id') if key in status}
         self.history.set(
-            'Journal V1 (lecture seule) · Annulation possible : '
+            'Historique du pinceau · Annulation possible : '
             + undo + ' · Rétablissement possible : ' + redo
-            + ' · Commandes non encore raccordées.')
+            + ' · Choisissez le sujet concerné ; fermez sa fenêtre de retouche.')
+        self._update_history_controls()
+
+    @property
+    def busy(self):
+        return (getattr(self, '_history_confirming', False) or
+                getattr(self, '_history_future', None) is not None)
+
+    @property
+    def history_requires_review(self):
+        return getattr(self, '_history_needs_review', False)
+
+    def _history_request(self, action):
+        if (action not in ('undo', 'redo') or getattr(self, '_closed', False)
+                or self.history_requires_review or self.busy
+                or getattr(self, '_brush_dialog', None) is not None
+                or not callable(getattr(self, '_on_saved', None))):
+            return None
+        status = getattr(self, '_history_status', None)
+        selection = getattr(self, 'selection', None)
+        sid = selection.get() if selection is not None else None
+        subject = getattr(self, 'subjects', {}).get(sid)
+        revision = getattr(self.snapshot, 'sha256', None)
+        path = self._project_path
+        if (type(status) is not dict or type(path) is not str
+                or not Path(path).is_absolute() or type(revision) is not str
+                or not _REVISION.fullmatch(revision)
+                or status.get('project_sha256') != revision
+                or status.get(action + '_available') is not True
+                or type(sid) is not str or not _PROVEN_SUBJECT.fullmatch(sid)
+                or status.get(action + '_subject_id') != sid
+                or getattr(subject, 'subject_id', None) != sid
+                or getattr(subject, 'proof_status', None) != 'verified'):
+            return None
+        return dict(project_path=path, expected_sha256=revision,
+                    subject_id=sid, action=action)
+
+    def _history_allowed(self):
+        guard = getattr(self, '_can_history', None)
+        try:
+            return guard is None or guard() is True
+        except Exception:
+            return False
+
+    def _update_history_controls(self):
+        if getattr(self, '_closed', False):
+            return
+        for action in ('undo', 'redo'):
+            button = getattr(self, action + '_button', None)
+            if button is not None:
+                button.configure(state='normal' if self._history_request(action)
+                                 and self._history_allowed() else 'disabled')
+        button = getattr(self, 'brush_button', None)
+        if button is not None:
+            selection = getattr(self, 'selection', None)
+            subject = getattr(self, 'subjects', {}).get(
+                selection.get() if selection is not None else None)
+            request = brush_preview_request(self.snapshot, subject, self._project_path)
+            button.configure(state='normal' if not self.busy
+                             and not self.history_requires_review
+                             and request is not None
+                             and getattr(self, '_brush_class', None) is not None
+                             else 'disabled')
+
+    def undo_brush(self):
+        return self._change_history('undo')
+
+    def redo_brush(self):
+        return self._change_history('redo')
+
+    def _change_history(self, action):
+        request = self._history_request(action)
+        if request is None or not self._history_allowed():
+            return False
+        generation = self._history_generation
+        confirm = self._confirm_history_fn
+        if confirm is None:
+            from tkinter import messagebox
+            confirm = lambda operation, _sid: messagebox.askyesno(
+                'Annuler la retouche' if operation == 'undo' else 'Rétablir la retouche',
+                'Modifier le masque du sujet sélectionné dans ce projet ? '
+                'Les fichiers déjà exportés seront conservés.',
+                parent=self.parent, default='no')
+        self._history_confirming = True
+        self._update_history_controls()
+        try:
+            accepted = confirm(action, request['subject_id']) is True
+        except Exception:
+            accepted = False
+        finally:
+            self._history_confirming = False
+        if self._closed:
+            return False
+        # Modal callbacks may switch selection, reload even the same revision,
+        # start another writer or destroy this panel. Recheck before submit.
+        if (not accepted or self._history_generation != generation
+                or self._history_request(action) != request
+                or not self._history_allowed()):
+            self._update_history_controls()
+            return False
+        command = dict(request, command_id='native-history-' + uuid4().hex,
+                       confirmed=True)
+        try:
+            future = self._history_worker.submit(self._history_change_fn, **command)
+        except RuntimeError:
+            self.history.set('Commande indisponible. Réexaminez le projet (F5).')
+            self._update_history_controls()
+            return False
+        self._history_future = future
+        self._history_pending = (generation, request, command['command_id'])
+        self.history.set('Modification du pinceau en cours…')
+        self._update_history_controls()
+        self._update_navigation()
+        self.parent.after(50, self._receive_history)
+        return True
+
+    def _receive_history(self):
+        if self._closed or self._history_future is None:
+            return
+        if not self._history_future.done():
+            self.parent.after(50, self._receive_history)
+            return
+        future, self._history_future = self._history_future, None
+        pending, self._history_pending = self._history_pending, None
+        generation, request, command_id = pending
+        # Completion belongs to its captured context, never a new project.
+        current = (self._history_generation == generation
+                   and self._project_path == request['project_path']
+                   and getattr(self.snapshot, 'sha256', None) == request['expected_sha256']
+                   and self.selection.get() == request['subject_id'])
+        if not current:
+            if (self._project_path == request['project_path']
+                    and getattr(self.snapshot, 'sha256', None) == request['expected_sha256']):
+                self._history_status = None
+                self._history_needs_review = True
+                self.history.set('Révision modifiée pendant la commande. '
+                                 'Réexaminez le projet (F5).')
+            self._update_history_controls()
+            self._update_navigation()
+            return
+        self._history_status = None
+        self._history_needs_review = True
+        viewport = getattr(self, 'viewport', None)
+        if viewport is not None:
+            viewport.load(None)
+        self._update_history_controls()
+        try:
+            receipt = future.result()
+            if (type(receipt) is not dict or receipt.get('persisted') is not True
+                    or receipt.get('cricut_certified') is not False
+                    or receipt.get('action') != request['action']
+                    or receipt.get('subject_id') != request['subject_id']
+                    or receipt.get('command_id') != command_id
+                    or receipt.get('status') not in ('brush_history_' + request['action'],
+                                                    'brush_history_already_applied')
+                    or type(receipt.get('project_sha256')) is not str
+                    or not _REVISION.fullmatch(receipt['project_sha256'])
+                    or receipt['project_sha256'] == request['expected_sha256']):
+                raise ValueError('UNCERTAIN_HISTORY_RECEIPT')
+        except Exception:
+            self.history.set('Modification non confirmée. Réexaminez le projet (F5) '
+                             'avant une nouvelle écriture ; notes locales conservées.')
+            return
+        self.history.set('Modification enregistrée ; actualisation du projet…')
+        try:
+            # Same verified host reinspection/rebase path as a brush save.
+            self._on_saved(receipt)
+        except Exception:
+            if not self._closed and self._history_generation == generation:
+                self.history.set('Modification enregistrée ; actualisation indisponible. '
+                                 'Réexaminez le projet (F5).')
 
     def _update_navigation(self):
         # Choose the canonical order already returned by the V1 inspector.
@@ -210,11 +415,16 @@ class NativeAtelierPanel:
             f'Sujet {index + 1} sur {len(keys)} · sélectionner pour inspecter'
             if index >= 0 else ('Aucun sujet sélectionné' if keys else ''))
         self.previous_button.configure(
-            state='normal' if index > 0 else 'disabled')
+            state='normal' if index > 0 and not self.busy else 'disabled')
         self.next_button.configure(
-            state='normal' if 0 <= index < len(keys) - 1 else 'disabled')
+            state='normal' if 0 <= index < len(keys) - 1 and not self.busy else 'disabled')
+        picker = getattr(self, 'picker', None)
+        if picker is not None:
+            picker.configure(state='readonly' if keys and not self.busy else 'disabled')
 
     def _step_subject(self, offset):
+        if self.busy:
+            return False
         keys = tuple(self.subjects)
         selected = self.selection.get()
         if selected not in self.subjects:
@@ -252,6 +462,11 @@ class NativeAtelierPanel:
 
     def render(self, _event=None):
         self._update_navigation()
+        self._update_history_controls()
+        if self.history_requires_review:
+            self.viewport.load(None)
+            self.details.set('Révision à vérifier : réexaminez le projet (F5).')
+            return
         subject = self.subjects.get(self.selection.get())
         request = brush_preview_request(
             self.snapshot, subject, getattr(self, '_project_path', None))
@@ -261,7 +476,7 @@ class NativeAtelierPanel:
             self._close_brush()
         button = getattr(self, 'brush_button', None)
         if button is not None:
-            button.configure(state='normal' if request is not None
+            button.configure(state='normal' if not self.busy and request is not None
                              and self._brush_class is not None else 'disabled')
         self.viewport.load(None)
         if subject is None:
@@ -335,6 +550,8 @@ class NativeAtelierPanel:
 
     def open_brush(self):
         """Open a verified V1 Subject draft with an explicit save path."""
+        if self._closed or self.busy or self.history_requires_review:
+            return False
         request = brush_preview_request(
             self.snapshot, self.subjects.get(self.selection.get()),
             self._project_path)
@@ -368,6 +585,7 @@ class NativeAtelierPanel:
                 'Le projet reste intact.')
             return False
         self._brush_dialog, self._brush_panel, self._brush_key = dialog, panel, key
+        self._update_history_controls()
         dialog.protocol('WM_DELETE_WINDOW', self._close_brush)
         return True
 
@@ -382,6 +600,12 @@ class NativeAtelierPanel:
                 dialog.destroy()
             except self.tk.TclError:
                 pass  # The parent root has already been destroyed.
+        self._update_history_controls()
 
     def shutdown(self):
+        if self._closed:
+            return
+        self._closed = True
+        self._history_generation += 1
         self._close_brush()
+        self._history_worker.shutdown(wait=True, cancel_futures=True)
