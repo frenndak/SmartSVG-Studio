@@ -3,8 +3,9 @@
 This panel is deliberately standalone until the Atelier PR and the verified
 bridge have landed together. A UI gesture yields normalized image coordinates;
 the existing G3.3e engine alone resolves subject identity, validates float32
-and computes before/after PNG previews. No archive writes, export, or Undo
-claims. All Tk objects are confined to the UI thread.
+and computes before/after PNG previews. Draft-point undo is UI-local; no
+persisted history, export, or archive-write claim is made. All Tk objects are
+confined to the UI thread.
 """
 from __future__ import annotations
 
@@ -124,22 +125,30 @@ class NativeBrushDraftPanel:
         self.canvas.bind('<ButtonPress-1>', self._press)
         self.canvas.bind('<B1-Motion>', self._drag)
         self.canvas.bind('<ButtonRelease-1>', self._release)
+        self.canvas.bind('<Control-z>', self._undo_draft_key)
         actions = ttk.Frame(parent)
         actions.pack(fill='x')
+        preview_actions = ttk.Frame(actions)
+        preview_actions.pack(fill='x')
+        draft_actions = ttk.Frame(actions)
+        draft_actions.pack(fill='x', pady=(4, 0))
         self.preview_button = ttk.Button(
-            actions, text='Calculer avant/après', command=self.preview)
+            preview_actions, text='Calculer avant/après', command=self.preview)
         self.preview_button.pack(side='left', padx=(0, 4))
         self.before_button = ttk.Button(
-            actions, text='Avant', command=lambda: self.show('before'))
+            preview_actions, text='Avant', command=lambda: self.show('before'))
         self.before_button.pack(side='left', padx=4)
         self.after_button = ttk.Button(
-            actions, text='Après', command=lambda: self.show('after'))
+            preview_actions, text='Après', command=lambda: self.show('after'))
         self.after_button.pack(side='left', padx=4)
+        self.undo_button = ttk.Button(
+            draft_actions, text='Annuler le dernier point', command=self.undo_draft_point)
+        self.undo_button.pack(side='left', padx=(0, 4))
         self.discard_button = ttk.Button(
-            actions, text='Effacer le brouillon', command=self.discard)
+            draft_actions, text='Effacer le brouillon', command=self.discard)
         self.discard_button.pack(side='left', padx=4)
         self.save_button = ttk.Button(
-            actions, text='Enregistrer…', command=self.save)
+            draft_actions, text='Enregistrer…', command=self.save)
         self.save_button.pack(side='left', padx=4)
         ttk.Label(parent, textvariable=self.status,
                   wraplength=530).pack(anchor='w', pady=(5, 0))
@@ -152,6 +161,9 @@ class NativeBrushDraftPanel:
         self.preview_button.configure(
             state='normal' if active and bool(self._points)
             and not self._overflow and not self._busy and not self._save_pending else 'disabled')
+        self.undo_button.configure(
+            state='normal' if active and bool(self._points) and not self._busy
+            and not self._save_pending and self._result_images is None else 'disabled')
         self.discard_button.configure(
             state='normal' if active and not self._save_pending and (self._points or self._result_images)
             else 'disabled')
@@ -292,6 +304,29 @@ class NativeBrushDraftPanel:
         # A queued release can arrive after the parent Tk widget was destroyed.
         if not self._closed:
             self._controls()
+
+    def undo_draft_point(self):
+        """Remove one uncommitted point and invalidate every older preview proof."""
+        if (self._closed or self._identity is None or self._busy or
+                self._save_pending or self._result_images is not None or
+                not self._points):
+            return False
+        self._token += 1
+        self._points.pop()
+        self._overflow = False
+        self._verified_save_request = None
+        self._inflight_request = None
+        self._variant = 'after'
+        count = len(self._points)
+        self.status.set(
+            f'{count} point(s) · dernier point annulé · brouillon non enregistré.')
+        self._draw()
+        self._controls()
+        return True
+
+    def _undo_draft_key(self, _event=None):
+        self.undo_draft_point()
+        return 'break'
 
     def preview(self):
         if (self._closed or self._identity is None or not self._points
