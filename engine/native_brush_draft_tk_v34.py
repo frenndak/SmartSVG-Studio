@@ -3,7 +3,7 @@
 This panel is deliberately standalone until the Atelier PR and the verified
 bridge have landed together. A UI gesture yields normalized image coordinates;
 the existing G3.3e engine alone resolves subject identity, validates float32
-and computes before/after PNG previews. Draft-point undo is UI-local; no
+and computes before/after PNG previews. Draft-point undo/redo is UI-local; no
 persisted history, export, or archive-write claim is made. All Tk objects are
 confined to the UI thread.
 """
@@ -95,6 +95,7 @@ class NativeBrushDraftPanel:
         self._save_pending = False
         self._box = None
         self._points = []
+        self._redo_points = []
         self._overflow = False
         self._busy = False
         self._variant = 'after'
@@ -126,6 +127,7 @@ class NativeBrushDraftPanel:
         self.canvas.bind('<B1-Motion>', self._drag)
         self.canvas.bind('<ButtonRelease-1>', self._release)
         self.canvas.bind('<Control-z>', self._undo_draft_key)
+        self.canvas.bind('<Control-y>', self._redo_draft_key)
         actions = ttk.Frame(parent)
         actions.pack(fill='x')
         preview_actions = ttk.Frame(actions)
@@ -144,6 +146,9 @@ class NativeBrushDraftPanel:
         self.undo_button = ttk.Button(
             draft_actions, text='Annuler le dernier point', command=self.undo_draft_point)
         self.undo_button.pack(side='left', padx=(0, 4))
+        self.redo_button = ttk.Button(
+            draft_actions, text='Rétablir le point', command=self.redo_draft_point)
+        self.redo_button.pack(side='left', padx=4)
         self.discard_button = ttk.Button(
             draft_actions, text='Effacer le brouillon', command=self.discard)
         self.discard_button.pack(side='left', padx=4)
@@ -163,6 +168,9 @@ class NativeBrushDraftPanel:
             and not self._overflow and not self._busy and not self._save_pending else 'disabled')
         self.undo_button.configure(
             state='normal' if active and bool(self._points) and not self._busy
+            and not self._save_pending and self._result_images is None else 'disabled')
+        self.redo_button.configure(
+            state='normal' if active and bool(self._redo_points) and not self._busy
             and not self._save_pending and self._result_images is None else 'disabled')
         self.discard_button.configure(
             state='normal' if active and not self._save_pending and (self._points or self._result_images)
@@ -185,6 +193,7 @@ class NativeBrushDraftPanel:
         self._inflight_request = None
         self._save_pending = False
         self._points = []
+        self._redo_points = []
         self._box = None
         self._overflow = self._busy = False
         self._variant = 'after'
@@ -263,6 +272,7 @@ class NativeBrushDraftPanel:
             self.status.set('Geste trop long (64 points maximum) : effacez le brouillon.')
             self._controls()
             return
+        self._redo_points = []
         self._points.append(point)
         self.status.set(f'{len(self._points)} point(s) · brouillon non enregistré.')
         self._controls()
@@ -279,6 +289,7 @@ class NativeBrushDraftPanel:
         self._busy = False
         self._result_images = None
         self._points = []
+        self._redo_points = []
         self._overflow = False
         self.canvas.focus_set()
         self._append(event.x, event.y)
@@ -295,6 +306,7 @@ class NativeBrushDraftPanel:
         self._token += 1  # ignore an in-flight result from the old settings
         self._busy = False
         self._result_images = None
+        self._redo_points = []
         self._variant = 'after'
         self.status.set('Pinceau modifié : recalculez l’aperçu avant/après.')
         self._draw()
@@ -312,7 +324,7 @@ class NativeBrushDraftPanel:
                 not self._points):
             return False
         self._token += 1
-        self._points.pop()
+        self._redo_points.append(self._points.pop())
         self._overflow = False
         self._verified_save_request = None
         self._inflight_request = None
@@ -326,6 +338,29 @@ class NativeBrushDraftPanel:
 
     def _undo_draft_key(self, _event=None):
         self.undo_draft_point()
+        return 'break'
+
+    def redo_draft_point(self):
+        """Restore one locally undone point without touching persisted history."""
+        if (self._closed or self._identity is None or self._busy or
+                self._save_pending or self._result_images is not None or
+                not self._redo_points or len(self._points) >= MAX_GESTURE_POINTS):
+            return False
+        self._token += 1
+        self._points.append(self._redo_points.pop())
+        self._overflow = False
+        self._verified_save_request = None
+        self._inflight_request = None
+        self._variant = 'after'
+        count = len(self._points)
+        self.status.set(
+            f'{count} point(s) · point rétabli · brouillon non enregistré.')
+        self._draw()
+        self._controls()
+        return True
+
+    def _redo_draft_key(self, _event=None):
+        self.redo_draft_point()
         return 'break'
 
     def preview(self):
@@ -497,6 +532,7 @@ class NativeBrushDraftPanel:
             self._verified_save_request = None
             self._result_images = None
             self._identity = None
+            self._redo_points = []
             self._save_pending = False
             code = getattr(exc, 'code', '')
             self.status.set(
@@ -513,6 +549,7 @@ class NativeBrushDraftPanel:
         self._verified_save_request = None
         self._result_images = None
         self._identity = None
+        self._redo_points = []
         self._save_pending = False
         if not self._closed:
             self.status.set('Retouche enregistrée. Réexaminez le projet (F5).')
@@ -540,6 +577,7 @@ class NativeBrushDraftPanel:
         self._token += 1
         self._busy = False
         self._points = []
+        self._redo_points = []
         self._overflow = False
         self._result_images = None
         self._verified_save_request = None
