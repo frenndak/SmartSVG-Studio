@@ -1,0 +1,237 @@
+{
+  "schema": "smartsvg-roadmap-run-state/1",
+  "updated": "2026-11-16",
+  "canonical_branch": "roadmap/v3-5-design-candidate-20261112",
+  "active_roadmap": "3.4",
+  "candidate_status": "DESIGN_REVIEWED_PENDING_INTEGRATION",
+  "main_observed_sha": "0692f804ad21bd775cd0269dd92dc6e2b1cea01f",
+  "candidate_base_sha": "a14667dbeb398fe82d6d801f890d430b50b67ade",
+  "next_action": "PROMOTION_DOCS",
+  "promotion_ready": false,
+  "product_tests_added_in_this_campaign": "NOT_RUN",
+  "completed_source_work": [
+    {
+      "id": "Q01",
+      "status": "DOCUMENTED",
+      "evidence": "Q01_TRANSFER_CLAUSE_DOD_SCENARIOS.md"
+    },
+    {
+      "id": "Q02",
+      "status": "DOCUMENTED",
+      "evidence": "Q02_EXCEPTIONS_G6_G9_CANDIDATE_OWNERS.md"
+    },
+    {
+      "id": "Q03",
+      "status": "SUPERSEDED_DESIGN",
+      "evidence": "ADR_COMPOSITION_PERSISTENCE.md"
+    },
+    {
+      "id": "Q04A",
+      "status": "DOCUMENTED",
+      "evidence": "Q04A_UX_SEMANTIC_CERTIFICATION_TEXT.md"
+    },
+    {
+      "id": "Q04B",
+      "status": "DOCUMENTED",
+      "evidence": "Q04B_TEXT_G6_CLAUSE_RECONCILIATION.md"
+    },
+    {
+      "id": "Q04C",
+      "status": "DOCUMENTED",
+      "evidence": "Q04C_LOT06_COMMAND_BUS_TEXT_BOUNDARY.md"
+    },
+    {
+      "id": "Q04D",
+      "status": "DOCUMENTED",
+      "evidence": "Q04D_LOT18_ATELIER_TEXT_BOUNDARY.md"
+    },
+    {
+      "id": "Q04E",
+      "status": "DOCUMENTED",
+      "evidence": "Q04E_B12_TEXT_OUTLINES_LOTS13_17.md"
+    },
+    {
+      "id": "Q04F",
+      "status": "REFINED_DESIGN",
+      "evidence": "ADR_COMPOSITION_PERSISTENCE.md"
+    },
+    {
+      "id": "Q04G",
+      "status": "DOCUMENTED",
+      "evidence": "Q04G_G9_OCR_TEMPLATES_DIORAMA.md"
+    },
+    {
+      "id": "Q04H",
+      "status": "DOCUMENTED",
+      "evidence": "Q04H_B13_OCR_RASTER_VECTOR_PORT_AUDIT.md"
+    },
+    {
+      "id": "Q04I",
+      "status": "DOCUMENTED",
+      "evidence": "Q04I_B13_LOT12_TEST_TICKET_MATRIX.md"
+    },
+    {
+      "id": "Q04J",
+      "status": "DOCUMENTED",
+      "evidence": "Q04J_OCR_PR_PORT_DECISION.md"
+    }
+  ],
+  "actions": [
+    {
+      "id": "REVIEW_DELTA",
+      "status": "DONE",
+      "depends_on": [],
+      "scope": "Contre-relire les nouveaux contrats composition, arbitrages transversaux, Smart Delivery et reprise ; vérifier chaque correction des constats du rapport, sans recommencer Q04C–J.",
+      "inputs": [
+        "CAMPAIGN_REVIEW_2026_11_14.md",
+        "ADR_COMPOSITION_PERSISTENCE.md",
+        "Q04_RESOLUTION_COMPOSITION_COMMANDES.md",
+        "Q04J_OCR_PR_PORT_DECISION.md",
+        "DECISIONS_TRANSVERSALES.md",
+        "SMART_DELIVERY_EXECUTION_CONTRACT.md",
+        "EXECUTION_PLAYBOOK.md"
+      ],
+      "done_when": "Rapport indépendant au SHA exact, constats bloquants corrigés ou arbitrés ; portée et limites explicites.",
+      "evidence": [
+        "REVIEW_DELTA_RESULT.md"
+      ]
+    },
+    {
+      "id": "REVIEW_DE",
+      "status": "DONE",
+      "depends_on": [
+        "REVIEW_DELTA"
+      ],
+      "scope": "Terminer la relecture individuelle D01–D12 et E01–E20 ; la revue précédente est partielle, pas 32 verdicts acquis.",
+      "inputs": [
+        "INHERITANCE_REGISTER.md",
+        "COV18C1_IA_D01_D06_HOSTILE.md",
+        "COV18C2_IA_D07_D12_HOSTILE.md",
+        "COV18D1_LIBRARY_CANVAS_E01_E06_HOSTILE.md",
+        "COV18D2_INTERACTION_RECOVERY_E07_E12_HOSTILE.md",
+        "COV18D3_QA_RELEASE_PRIVACY_E13_E20_HOSTILE.md",
+        "DECISIONS_TRANSVERSALES.md"
+      ],
+      "done_when": "32 décisions individuelles rapprochées aux critères/DoD, pertes et contradictions closes ; pas d'exigence de futur test produit PASS pour déclarer la conception revue.",
+      "evidence": [
+        "REVIEW_DE_CLOSURE_2026_11_15.md",
+        "REVIEW_DE_E13_E20_2026_11_15.md",
+        "REVIEW_DE_RESOLUTION.md"
+      ]
+    },
+    {
+      "id": "SOURCE_CLOSURE",
+      "status": "DONE",
+      "depends_on": [
+        "REVIEW_DE"
+      ],
+      "scope": "Clore Q07 : comparer les assertions conservées et critères intégraux aux décisions V3.5, traiter seulement écarts non déjà résolus ; accepter explicitement les propriétaires des six exceptions/dix G6-G9 dans la candidate revue.",
+      "inputs": [
+        "COVERAGE_V34_TO_V35.md",
+        "SCENARIOS_V34_INDEX.md",
+        "Q04_RESOLUTION_COMPOSITION_COMMANDES.md",
+        "Q02_EXCEPTIONS_G6_G9_CANDIDATE_OWNERS.md",
+        "SOURCE_CLOSURE_SC01_EXCEPTIONS_2026_11_15.md",
+        "SOURCE_CLOSURE_SC02A_LOTS05_06_2026_11_15.md",
+        "SOURCE_CLOSURE_SC02B_LOTS07_10_2026_11_15.md",
+        "SOURCE_CLOSURE_SC02C_LOTS11_12_2026_11_15.md",
+        "SOURCE_CLOSURE_SC02D_LOTS13_17_2026_11_15.md",
+        "SOURCE_CLOSURE_SC02E_LOTS18_22_2026_11_15.md",
+        "SOURCE_CLOSURE_SC02F1_LOTS02_04_2026_11_15.md",
+        "SOURCE_CLOSURE_SC02F2_LOTS05_06_2026_11_15.md",
+        "SOURCE_CLOSURE_SC03B_CRITERIA_DOD_2026_11_15.md",
+        "SOURCE_TRANSFER_REGISTER.json",
+        "REVIEW_SOURCE_TRANSFER_2026_11_15.md",
+        "SOURCE_CLOSURE_ACCEPTANCE_GATE_2026_11_15.md"
+      ],
+      "done_when": "141 exigences, 140 DoD et 437 assertions sans perte, avec rapport sémantique et exceptions tracées, pas un simple comptage ; six liens historiques restent absents historiquement.",
+      "evidence": [
+        "SOURCE_CLOSURE_SC03B_CRITERIA_DOD_2026_11_15.md",
+        "REVIEW_SOURCE_TRANSFER_2026_11_15.md",
+        "REVIEW_SOURCE_ACCEPTANCE_2026_11_15.md"
+      ],
+      "continuation": "Clôture documentaire acceptée par les revues cumulées des critères/DoD/assertions et le complément indépendant des six familles contextuelles.26blobs rapprochés au main0692f804 et lot22 confirmé. Attribution OCR SC01 corrigée W16/CP6. Revue globale des25axes désormais READY, au SHA publié ; aucune preuve produit ni adoption déduite."
+    },
+    {
+      "id": "OPPORTUNITIES_CLOSURE",
+      "status": "DONE",
+      "depends_on": [],
+      "scope": "Clore Q06 : confronter 33 décisions et 15 groupes #142 aux deltas déjà spécifiés ; conserver huit rejets, responsabilités et priorité des tranches utiles.",
+      "inputs": [
+        "COV19_OPPORTUNITIES_001_033_DECISIONS.md",
+        "SOURCE_142_SCOPE_SNAPSHOT.md",
+        "PRIORITY_REGISTER.json",
+        "DECISIONS_TRANSVERSALES.md"
+      ],
+      "done_when": "33 décisions et 15 groupes revus, périmètres/DoD/coûts qualitatifs sans doublon ni nouvelle exploration indéfinie.",
+      "evidence": [
+        "OPPORTUNITIES_EXECUTION_RESOLUTION.md",
+        "REVIEW_SESSION_2026_11_15.md"
+      ]
+    },
+    {
+      "id": "GLOBAL_REVIEW",
+      "status": "DONE",
+      "depends_on": [
+        "REVIEW_DELTA",
+        "REVIEW_DE",
+        "SOURCE_CLOSURE",
+        "OPPORTUNITIES_CLOSURE"
+      ],
+      "scope": "Revue globale Q09 des gates G35-01..11 et 15, 25 axes, liens et intégrité ; fixer SHA candidat à promouvoir.",
+      "inputs": [
+        "PROMOTION_CHECKLIST.md",
+        "AUTOMATION_QUALITY_CONTRACT.md",
+        "CAMPAIGN_REVIEW_2026_11_14.md",
+        "SCENE_DECOMPOSITION_AND_RELIEF_CONTRACT.md",
+        "CREATIVE_STUDIO_PRODUCT_CONTRACT.md",
+        "UX_INTERACTION_AND_VISUAL_CONTRACT.md"
+      ],
+      "done_when": "Verdict indépendant favorable au SHA exact, aucune contradiction non arbitrée ; résultats produit non exécutés honnêtement séparés.",
+      "evidence": [
+        "GLOBAL_REVIEW_2026_11_15.md",
+        "GLOBAL_REVIEW_RESOLUTION_2026_11_15.md",
+        "REVIEW_SCENE_DECOMPOSITION_2026_11_15.md",
+        "REVIEW_CREATIVE_STUDIO_2026_11_15.md",
+        "REVIEW_UX_INTERACTION_2026_11_16.md"
+      ]
+    },
+    {
+      "id": "PROMOTION_DOCS",
+      "status": "READY",
+      "depends_on": [
+        "GLOBAL_REVIEW"
+      ],
+      "scope": "PR documentaire consolidée, WIP/CI exact-head et fusion dans le cadre de l'autorisation propriétaire et protections applicables ; pas de fusion par tâche horaire.",
+      "inputs": [
+        "PROMOTION_CHECKLIST.md",
+        "EXECUTION_PLAYBOOK.md",
+        "SCENE_DECOMPOSITION_AND_RELIEF_CONTRACT.md",
+        "REVIEW_SCENE_DECOMPOSITION_2026_11_15.md",
+        "CREATIVE_STUDIO_PRODUCT_CONTRACT.md",
+        "REVIEW_CREATIVE_STUDIO_2026_11_15.md",
+        "UX_INTERACTION_AND_VISUAL_CONTRACT.md",
+        "REVIEW_UX_INTERACTION_2026_11_16.md",
+        "INTEGRATION_SESSION_2026_11_16.md",
+        "REVIEW_PROMOTION_DOCS_2026_11_16.md"
+      ],
+      "done_when": "PR docs revue et intégrée, archive historique inchangée, main relu ; pas encore V3.5 ACTIVE sans gouvernance.",
+      "evidence": [],
+      "continuation": "Session propriétaire16/11 : intégration documentaire selon INTEGRATION_SESSION_2026_11_16, exception WIP limitée à une PRdocs de maintenance ; vérifier CI/revue exact-head, squash puis G0 main avant gouvernance séparée. Cette exception ne vaut pas pour les tâches horaires et ne donne aucun droit de fusion supplémentaire. Les compléments SCN/CST/UXI et leurs revues restent inclus. Ne pas rouvrir les inventaires ni développer du code produit dans cette étape."
+    },
+    {
+      "id": "GOVERNANCE_HANDOFF",
+      "status": "PENDING",
+      "depends_on": [
+        "PROMOTION_DOCS"
+      ],
+      "scope": "PR séparée de gouvernance en session autorisée, référence active et portée fusion explicites ; ensuite passation de la tâche de développement existante.",
+      "inputs": [
+        "PROMOTION_CHECKLIST.md",
+        "EXECUTION_PLAYBOOK.md"
+      ],
+      "done_when": "Main indique V3.5 active, politique/opt-in/prompt cohérents et vérifiés ; retour V3.4 documenté ; aucune nouvelle tâche dupliquée.",
+      "evidence": []
+    }
+  ]
+}

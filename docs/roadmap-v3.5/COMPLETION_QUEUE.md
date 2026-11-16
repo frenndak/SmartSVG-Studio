@@ -1,0 +1,40 @@
+# File de clôture V3.5 — travail restant concret
+
+> **15/11/2026 :** SOURCE_CLOSURE et GLOBAL_REVIEW DONE pour la conception ; [verdict indépendant](GLOBAL_REVIEW_2026_11_15.md), [résolutions](GLOBAL_REVIEW_RESOLUTION_2026_11_15.md). Prochaine action : **PROMOTION_DOCS**, vérification WIP puis PR/CI/revue selon ses conditions. Quatre PR code DRAFT observées pour un maximum3 ; tant que saturé, ne pas créer de PR docs ni une nouvelle série de fiches d'audit génériques. Gouvernance et handoff restent séparés, V3.4 active. Les anciennes prochaines tranches ci-dessous sont historiques.
+
+> **Pilotage courant — 14/11/2026 :** lire [RUN_STATE.json](RUN_STATE.json) et [EXECUTION_PLAYBOOK.md](EXECUTION_PLAYBOOK.md). Leurs décisions/cursor remplacent les anciennes « prochaines actions » ci-dessous. [Arbitrages transversaux](DECISIONS_TRANSVERSALES.md), [composition persistante](ADR_COMPOSITION_PERSISTENCE.md), [contrat Smart Delivery](SMART_DELIVERY_EXECUTION_CONTRACT.md) et [rapport de campagne](CAMPAIGN_REVIEW_2026_11_14.md) complètent cette photographie. V3.4 reste active ; delta relu ; revue globale en attente.
+
+**14 novembre 2026 — CANDIDAT.** La priorisation et les inventaires ne valent pas fin de conception. Cette file donne un ordre de clôture sans nouvelle campagne de reformulation. Le maître [MASTER_PRIORISE.md](MASTER_PRIORISE.md) ordonne la livraison produit ; la présente file ordonne les **travaux documentaires restants**. Ils ne sont pas la même chose.
+
+| Point | Priorité de clôture | Manque à résoudre | Livrable de sortie et preuve attendue |
+|---|---|---|---|
+| **Q01** | immédiate, reprise COV22 | Les cinq contrats de transfert ont des ports et commentaires désormais relus ; toutes leurs associations exactes aux critères/DoD/tests ne sont pas closes | Matrice clause par clause O-001/002/004/028/032 → critère source → V34/DoD → scénario local → contre-exemple ; aucun lien seulement « même domaine » |
+| **Q02** | haute | Six scénarios sans TEST→TICKET explicite et dix obligations G6/G9 sans V34 direct | Utiliser COV16 et les rapprochements corrigés : propriétaire **candidat** distinct, intégralité du critère, tests et décision d'exception ; aucune réécriture des sources |
+| **Q03** | haute | Modèle objets/calques/texte/transformations et rôle d'Artifact V1 | ADR par responsabilité : ce que V1 porte déjà, brouillon en mémoire, projection externe et cas nécessitant une migration ; aucun TextNode inventé dans strokes |
+| **Q04** | haute | Toutes les 80 capacités ont des fiches, mais la chaîne sémantique complète n'est pas certifiée | Lire les derniers COV18 corrigés, traiter les divergences de priorité/mapping et lier une fiche finie par ID à ses critères/tests ; ne pas refaire les 80 premiers audits |
+| **Q05** | haute | Smart Delivery reste un contrat externe, QA historique non universelle | Compléter le plan SD0/SD1/SD2 par rôle et prévol ciblé, erreurs et quotas configurables ; ne pas attendre quatre exporteurs achevés pour spécifier PNG-seul |
+| **Q06** | ensuite | Les 33 opportunités et 15 groupes #142 sont classés mais pas tous reliés à un delta codable et au coût | Achever raisons de fusion/rejet, entrée/sortie, états, DoD, risque et tranche ; conserver les huit rejets et les fonctionnalités facultatives |
+| **Q07** | transverse | Les 437 assertions sont inventoriées ; la présence de références ne prouve pas la couverture des critères | Réconciliation assertion par assertion depuis les trois inventaires, statuts EXACT/PARTIEL/À_ARBITRER ; citer les contre-exemples, pas un compteur de liens seul |
+| **Q08** | avant clôture de conception | Architecture UI, accessibilité, performances et packaging doivent être décidés à partir de preuves disponibles | ADR, critères et protocole de benchmark ; résultats NOT_RUN si non disponibles. Un futur benchmark n'est pas requis pour terminer tous les contrats indépendants |
+| **Q09** | avant proposition d'adoption | Revue indépendante globale et 25 contrôles non tous fermés | Rapport contradictoire borné, défauts corrigés ou arbitrés, intégrité reproductible, références immuables des sources ; aucune adoption par déduction |
+| **Q10** | après Q01–Q09 et règles WIP | PR documentaire unique, puis gouvernance séparée | Réconcilier/retirer #143 de la voie maîtresse, préparer une PR depuis la branche existante quand autorisé ; V3.4 reste active jusqu'à promotion vérifiée |
+
+## Les six exceptions et les dix obligations ne disparaissent pas
+
+Scénarios source concernés : `T-V34-03-16`, `T-V34-06-22`, `T-V34-06-24`, `T-V34-06-25`, `T-V34-07-16`, `T-V34-07-25`. Les propriétaires futurs proposés ne doivent pas être présentés comme liens écrits dans la source V3.4.
+
+G6 : `S-036/S-064/S-092/R33-028` → typographie/polices/glyphes et conversion (W10), `S-037` → trois usages métiers (W11). G9 : `S-021/S-047` → OCR contrôlé ; `S-044/S-066/S-099` → diorama quatre plans et assemblage (W16). Les titres sources et leurs critères prévalent sur ce résumé de navigation.
+
+## Contrat de passage de témoin
+
+À chaque fin de lot : préciser le point Q traité, la différence apportée, les références de sources inchangées/changées, les tests documentaires réellement exécutés et les tests produit proposés, le prochain point exact. Une difficulté de code futur se spécifie ; une preuve terrain manquante reste manquante. Réduire les relectures et les répétitions, sans supprimer de négatif ou de fonction.
+
+**Prochaine action : SOURCE_CLOSURE dans RUN_STATE.json. Les 32 décisions D/E sont rapprochées dans REVIEW_DE_RESOLUTION.md ; Q04K–Q04Y sont raccordés par INTEGRATION_2026_11_15.md. Ne pas recommencer les lectures achevées.** Ne pas transformer cette file en nouvelle liste de dix tickets ou en permission de modifier AGENTS/les tâches/le produit depuis la tâche de conception.
+
+Raccord de session du 15 novembre : OPPORTUNITIES_CLOSURE documenté dans OPPORTUNITIES_EXECUTION_RESOLUTION.md ; D/E complété par REVIEW_DE_RESOLUTION.md en conservant REVIEW_DE_CLOSURE_2026_11_15.md. SC-02B traite individuellement les 118 assertions des lots07–10. Prochaine tranche : SC-02C lots11–12 ; la clôture source et la revue globale restent ouvertes.
+
+Suite après SC-02C : lots11–12 examinés individuellement, suivre désormais SOURCE_CLOSURE.continuation pour SC-02D lots13–17 ; les anciennes prochaines tranches ci-dessus restent historiques.
+
+## Raccord SC-03B — 15 novembre
+
+Le registre SOURCE_TRANSFER_REGISTER.json et sa requête par ID remplacent la reconstruction répétée des intitulés. Les corrections de scénarios et le périmètre indépendant sont dans REVIEW_SOURCE_TRANSFER_2026_11_15.md. SOURCE_CLOSURE.continuation donne désormais l’acceptation finale du contexte complet ; ne pas recommencer SC-03A ni une série de dix exigences. SOURCE_CLOSURE/GLOBAL_REVIEW et la promotion restent ouvertes.
