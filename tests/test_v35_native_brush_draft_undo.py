@@ -93,13 +93,30 @@ class BrushDraftUndoTkTests(unittest.TestCase):
         except tk.TclError:
             self.skipTest("No graphical Tk session available")
         self.addCleanup(root.destroy)
-        root.withdraw()
+        root.geometry("600x450")
         panel = NativeBrushDraftPanel(root, root, tk, ttk)
         self.addCleanup(panel.shutdown)
 
         self.assertTrue(panel.canvas.bind("<Control-z>"))
         self.assertFalse(root.bind("<Control-z>"))
         self.assertEqual(str(panel.undo_button.cget("state")), "disabled")
+
+        panel._identity = (
+            "C:/synthetic.smartsvg", "a" * 64, "subject-" + "b" * 32
+        )
+        panel._points = [[0.1, 0.2], [0.3, 0.4]]
+        panel._controls()
+        root.update()
+        panel.canvas.focus_force()
+        root.update()
+        self.assertEqual(root.focus_get(), panel.canvas)
+        self.assertEqual(str(panel.undo_button.cget("state")), "normal")
+
+        panel.canvas.event_generate("<Control-z>")
+        root.update()
+
+        self.assertEqual(panel._points, [[0.1, 0.2]])
+        self.assertEqual(str(panel.undo_button.cget("state")), "normal")
 
 
 if __name__ == "__main__":
