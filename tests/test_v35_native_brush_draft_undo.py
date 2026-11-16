@@ -101,6 +101,20 @@ class BrushDraftUndoTkTests(unittest.TestCase):
         self.assertFalse(root.bind("<Control-z>"))
         self.assertEqual(str(panel.undo_button.cget("state")), "disabled")
 
+        root.update()
+        window_left = root.winfo_rootx()
+        window_right = window_left + root.winfo_width()
+        for button in (
+                panel.preview_button, panel.before_button, panel.after_button,
+                panel.undo_button, panel.discard_button, panel.save_button):
+            with self.subTest(button=button.cget("text")):
+                self.assertTrue(button.winfo_ismapped())
+                self.assertGreaterEqual(button.winfo_rootx(), window_left)
+                self.assertLessEqual(
+                    button.winfo_rootx() + button.winfo_width(), window_right)
+        self.assertLess(
+            panel.preview_button.winfo_rooty(), panel.undo_button.winfo_rooty())
+
         panel._identity = (
             "C:/synthetic.smartsvg", "a" * 64, "subject-" + "b" * 32
         )
