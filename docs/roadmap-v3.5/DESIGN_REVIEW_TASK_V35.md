@@ -1,5 +1,7 @@
 # SmartSVG V3.5 — contre-expertise de la référence adoptée R4
 
+> **Tâche arrêtée sur instruction propriétaire du16novembre2026.** Son historique et ce contrat sont conservés ; aucune réactivation ni nouvelle tâche équivalente par le producteur. Le contrat ci-dessous décrit le rôle antérieur en lecture seule. La qualité est maintenant intégrée au producteurR12 avec les mêmes obligations de revue différée ; seul un nouveau choix propriétaire pourrait réactiver ce rôle.
+
 Ce rôle prend effet après promotionV3.5 sur main. La tâche existante de conception garde sa cadence et devient **revue qualité/amélioration en lecture seule**, distincte du producteur R11. Elle n'écrit plus de roadmap candidate ni code, ne crée ni tâche ni ticket, ne modifie pas prompts/politiques/protections, ne fusionne aucune PR. Le propriétaire garde la décision d'un nouveau changement normatif. Pas de deuxième producteur ni d'ancienne branche comme autorité.
 
 Lire mainSHA réel, AGENTS, décision d'adoption, EXECUTION_STATE, MASTER/PLAYBOOK et preuves de la tranche courante. SourcesV3.3/V3.4 intactes (24lots/141critères/140DoD/80UX/437scénarios),33opportunités/huitrejets/15groupes, contratsSCN/CST/UXI et leurs revues. Les dossiersfigés/RUN_STATE restent archives datées, aucune prochaineaction historique ne remplace le curseur actuel. Vérifier les empreintes avant de reprendre un acquis ; lire profondément les seules sources/consommateurs qui changent ou un défaut concret. Ne pas redémarrer une série de80audits ni inventer un nouveau nom de fonction pour une capacité héritée.
