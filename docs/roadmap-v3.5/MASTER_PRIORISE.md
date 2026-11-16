@@ -1,5 +1,7 @@
 # SmartSVG V3.5 — maître de réalisation priorisé
 
+> **Décisions UX du16novembre : [contrat d’interaction/graphisme](UX_INTERACTION_AND_VISUAL_CONTRACT.md).** Précise le wireframe historique figé pour les libellés et comportements, sans changer l’inventaire ni les priorités. Un canevas et des intentions modifiables, commandes/focus stables, dix états lisibles, dimensions physiques distinctes du zoom, sauvegarde/export/DS/coupe séparés ; UXI0–3 raccordés aux lots W01/W02/W03/W12/W13/SCN/CST.18recettes proposées, toutes NOT_RUN produit ; ne pas ajouter de catalogue ou de gros redesign préalable.
+
 > **Vision produit renforcée le 15 novembre : [studio créatif et édition réversible](CREATIVE_STUDIO_PRODUCT_CONTRACT.md).** Le cœur est le parcours image→sélection/objets→création modifiable→sorties de fabrication. Réglages de contour/offset et simplification retrouvables, variantes explicites et problèmes localisés ; IA ciblée et facultative. Smart Delivery reste la première tranche de livraison P1, utile dès un export sain, sans bloquer le studio ni représenter à lui seul son identité. Les priorités sources et l'ordre d'entrée des80IDs restent conservés ; les incréments CST0–4 traversent les lots existants.
 
 > **15/11/2026 :** [revue globale favorable](GLOBAL_REVIEW_2026_11_15.md), [remarques harmonisées](GLOBAL_REVIEW_RESOLUTION_2026_11_15.md). Conception revue, intégration documentaire/gouvernance encore à faire ; V3.4 active. Suivre RUN_STATE, sans rouvrir une ADR déjà décidée ni confondre décision et code livré.

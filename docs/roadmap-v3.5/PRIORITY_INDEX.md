@@ -1,5 +1,7 @@
 # Index priorisé des 80 capacités UX V3.5
 
+> **Précisions du16novembre : [contre-expertise UX et décisions](UX_INTERACTION_AND_VISUAL_CONTRACT.md).** Les douze idées sont rattachées aux capacités existantes ; UXI0–3 précisent les interactions, états et composants, sans modifier les80lignes ni les priorités sources ci-dessous. Choix d’intention non exclusif, focus/clavier, unités, comparaison, états et DPI à qualifier dans les lots déjà attribués.
+
 > **Complément du 15 novembre : [studio créatif réversible](CREATIVE_STUDIO_PRODUCT_CONTRACT.md).** Approfondit les capacités existantes de sélection, objets, contours/simplification, préparation par intention et réutilisation. Cinq parcours et incréments CST0–4, sans nouveau rang/source ni81eID : première opération paramétrique offset en mm, puis simplification, avec CP0–3 pour retrouver les réglages après sauvegarde. Le simple export externe ne satisfait pas ce DoD. Le studio reste au centre de l'expérience ; Smart Delivery conserve sa tranche P1 indépendante.
 
 **14 novembre 2026 — CANDIDAT.** Les rangs renvoient au [maître priorisé](MASTER_PRIORISE.md). Ce sont des ordres de première tranche, pas une nouvelle priorité normative, des tickets ou des fonctions livrées.

@@ -62,6 +62,10 @@ Pour chaque ID, imposer des champs **indépendants** :
 
 ## 4. Matrice d'échec système et de récupération
 
+### Complément E2E-UXI — interactions, états et graphisme vérifiables
+
+[Contre-expertise UX](UX_INTERACTION_AND_VISUAL_CONTRACT.md) :18recettes T-V35-UXI-01..18 proposées NOT_RUN produit, distinctes des437historiques/17SCN/14CST, à réutiliser dans les runners pertinents. Parcours sans enfermement, commandes contextuelles stables, focus/raccourcis en saisie, geste unique/Undo, groupes verrouillés, zoom vs mm, comparaison alignée, QA invalidée, perteACK/recovery, arrêt/publication, fenêtres clientes/DPI/multi-écran, lecteur d’écran/contraste élevé, recherche locale fermée, récents privés, scène et quatre sorties/lot partiel. Catalogue dix états et langage de sauvegarde/export/preuves séparées ; validation Windows réelle requise, aucune maquette ni contrôle documentaire ne suffit. Préserver les objectifs hérités et les protocoles humains (cinq novices, au moins quatre comprennent les états ; trois parcours/deux erreurs novices et réguliers), sans benchmark ni gain inventé.
+
 ### Complément E2E-CST — création continue et réglages rééditables
 
 [Contrat du studio créatif](CREATIVE_STUDIO_PRODUCT_CONTRACT.md) :14recettes T-V35-CST-01..14 proposées, hors437historiques et17SCN. Offset physique après transformation monde (rayon10mm×2+offset1mm→21mm), paramètres retrouvables après reopen CP2/3, protection des trous, variantes LIVE/gelées, versions de moteur/invalidation/STALE, annulation et Undo. Garder quatre rôles, identité et source, signaler les différences de changement d'intention ; refuser cycle/opération hostile/cote inconnue/licence ou moteur manquants sans résultat fabriqué. Quatre parcours comparables proposés (planche12motifs, scène6éléments, illustration fine à deux tailles, texte étiquette), temps/actions/corrections/qualité mesurés sur mêmes entrées, sans promesse de supériorité. Aucun test produit ni benchmark exécuté par ce contrat.
