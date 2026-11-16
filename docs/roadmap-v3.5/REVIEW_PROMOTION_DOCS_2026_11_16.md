@@ -53,3 +53,31 @@ Le coordinateur a ajouté uniquement le paragraphe « Contexte propriétaire dé
 Le complément a été relu : il explicite la distinction déjà demandée entre WIP PRODUIT (PR code ouvertes) et WIP TOTAL, et le traitement d'une PR protégée CI/docs hors de l'emplacement produit. Il conserve expressément la restriction des passages horaires de conception, l'absence de droit de fusion docs/gouvernance et le traitement préalable des quatre PR code avant nouveau code. Il renforce donc le bornage de la voie en session propriétaire, sans extension d'autorité. La provenance du prompt R10.1 et son extrait ont été communiqués par le coordinateur après sa lecture de la tâche existante ; cette revue locale ne prétend pas avoir elle-même relu le service de tâches distant.
 
 **Verdict final documentaire maintenu favorable : 0 Critical, 0 Important, 0 Minor ouvert.** Le seul paragraphe ajouté ne crée aucun lien ni changement de contrôleur, test ou registre : les quatre tests PASS réellement exécutés au passage initial restent une preuve de cette exécution, sans être réétiquetés comme un nouveau run. Aucun besoin de les répéter pour ce delta de prose sans destination nouvelle. Les contrôles CI/API au HEAD publié et post-merge restent intégralement requis ; G35-12..14 ne sont pas déclarés PASS et V3.4 reste active. Aucun résultat produit nouveau.
+
+
+## Contre-revue du correctif CRLF après CI de la PR146
+
+**Verdict du correctif documentaire : favorable ; 0 Critical, 0 Important, 0 Minor ouvert.** La première CI Windows du HEAD initial40159cb7 est rapportée par le coordinateur comme FAIL sur les deux contrôles de provenance, tandis que G0 et prévol avaient réussi. Cette revue n'a pas consulté directement les API/logs distants. Elle vérifie le correctif local correspondant, sans transformer la reproduction Linux en verdict Windows. La CI réelle du nouveau HEAD reste obligatoire avant fusion.
+
+Diffs des deux contrôleurs rapprochés aux bases exactes de conception : seuls le calcul de blob et son import changent ; ensembles, pins, règles, critères, assertions, arguments CLI et codes de refus restent identiques. Le helper `file_blob` calcule le hash du contenu actuellement présent avec `git hash-object --path`, en appliquant les règles Git de normalisation du chemin. Il ne substitue ni index ni HEAD au fichier courant et n'écrit pas d'objet (`-w` absent). Appels par liste d'arguments, sans shell, avec délais bornés ; pas de téléchargement, configuration globale, workflow ou code produit modifié. Une erreur de hash dans un dépôt identifié lève ValueError ; elle ne devient pas un hash accepté sans contrôle. Hors Git, les octets sont hashés exactement, sans normalisation aveugle des binaires.
+
+Aucun mécanisme de snapshot atomique n'est ajouté : ces vérifications visent un checkout de CI stable. La lecture du fichier et le hash ne doivent pas être présentés comme protection contre un écrivain concurrent hostile. Aucune mutation concurrente n'est introduite par le correctif et aucun tel contexte n'est requis pour les contrôles documentaires ici. Les attributs/filtres Git du dépôt restent l'autorité de représentation d'un blob ; le correctif ne change ni ces attributs ni les pins.
+
+Les six nouveaux tests couvrent le snapshot nonGit exact, CRLF/LF dans un dépôt réel, modification textuelle réelle, attribut `-text`, binaire avec NUL et échec du hash Git. Les attentes viennent des objets de l'index de fixtures ou du hash brut indépendant, sans recopier le résultat attendu du helper. Un seul échec simulé sert à tester le chemin fail-closed.
+
+**Preuves fraîches indépendantes :** `python -m unittest discover -s tests -p 'test_v35*.py' -v` :10tests PASS,0échec/erreur/SKIP, exit0,0,344s. Reproduction séparée en copie temporaire Git avec `core.autocrlf=true`,241fichiers md/py/json convertis en CRLF et les mêmes dix tests :10PASS,0échec/erreur/SKIP, exit0,0,401s. Une modification réelle ajoutée ensuite au fichier source épinglé ROADMAP_HERITAGE fait échouer le contrôleur avec exit1 et `Source blob changed`, sans réutiliser le pin. Le premier montage temporaire avait omis AGENTS.md : le test des liens l'a correctement refusé ; ajout de ce fichier à la seule fixture, puis reproduction complète réussie. Aucun changement de la candidate pour obtenir ce succès.
+
+Une remarque mineure documentaire est corrigée et relue : le paragraphe Étape1 désigne maintenant le premier module comme exécuteur des trois contrôleurs/liens, et le second comme tests des six régressions de provenance. Le complément journal conserve les preuves CI comme faits datés et exige une nouvelle CI Windows. G35-12..14 restent non déclarés PASS, V3.4 active, produit/UI Windows/GPU/Design Space/coupe/montage NOT_RUN.
+
+Photographie finale du correctif, six SHA256 vérifiés directement :
+
+| Fichier | SHA256 |
+|---|---|
+| `docs/roadmap-v3.5/INTEGRATION_SESSION_2026_11_16.md` | `497751666de4fe7f037c75fd592183510f3b568cbc2827b2a26dcbc039ecf32d` |
+| `docs/roadmap-v3.5/PROGRESS.md` | `068136504b2f9fbeaace45dc21d4a2e54ab58286e484f2c979ef7fd441a07210` |
+| `docs/roadmap-v3.5/git_blob_provenance.py` | `d24fbbcb2bba855b4bbcee1759f79ba75187800fc2ce67b053d147f91af18d27` |
+| `docs/roadmap-v3.5/verify_source_transfer.py` | `df3ad33752542d07dbe8030e7bfb125b5ffe0ee60cc3fcb0ee9607c0af1556ef` |
+| `docs/roadmap-v3.5/verify_priority_register.py` | `5d243c2711f3598122a1dfa89de6d5aedf7df50dad890aa0301752d7e4e7a6a0` |
+| `tests/test_v35_git_blob_provenance.py` | `de59e7a8a4d2d2579acc8d01b64803433d83c5fca3e23c55d5178c0e7a726738` |
+
+Après insertion du présent complément et relecture de la correction mineure : même commande ciblée rejouée sur la photographie finale,10tests PASS,0échec/erreur/SKIP, exit0,0,410s. Verdict final maintenu favorable à la publication du correctif pour qualification CI Windows réelle.

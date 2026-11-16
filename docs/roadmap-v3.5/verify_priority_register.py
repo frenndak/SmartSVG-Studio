@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import argparse
-from hashlib import sha1
+from git_blob_provenance import file_blob
 import json
 from pathlib import Path
 import re
@@ -30,9 +30,6 @@ def rows(path):
     return [[c.strip() for c in line.split('|')[1:-1]]
             for line in path.read_text(encoding='utf-8').splitlines() if line.startswith('|')]
 
-
-def blob(raw):
-    return sha1(b'blob ' + str(len(raw)).encode('ascii') + b'\0' + raw).hexdigest()
 
 
 def validate(plan, doc=DOC, *, pinned=False, main_root=None):
@@ -123,11 +120,11 @@ def validate(plan, doc=DOC, *, pinned=False, main_root=None):
     if pinned:
         for item in plan['source_documents']:
             file = doc.parents[1]/item['path']
-            check(file.is_file() and blob(file.read_bytes()) == item['sha'], 'Source snapshot changed: '+item['path'])
+            check(file.is_file() and file_blob(file) == item['sha'], 'Source snapshot changed: '+item['path'])
     if main_root:
         for item in plan['main_ports']:
             file = Path(main_root)/item['path']
-            check(file.is_file() and blob(file.read_bytes()) == item['blob_sha'], 'Main port differs: '+item['path'])
+            check(file.is_file() and file_blob(file) == item['blob_sha'], 'Main port differs: '+item['path'])
     return errors
 
 

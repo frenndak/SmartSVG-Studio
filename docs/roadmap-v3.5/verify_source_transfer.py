@@ -1,6 +1,6 @@
 """Verify literal source transfer and lookup integrity, never semantic/product PASS."""
 import argparse
-import hashlib
+from git_blob_provenance import file_blob
 import json
 from pathlib import Path
 import re
@@ -56,7 +56,7 @@ def validate(data, main_root, doc=DOC):
     cache = {}
     for name, expected in pinned.items():
         raw = source_path(name).read_bytes()
-        actual = hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+        actual = file_blob(source_path(name))
         check(actual == expected, 'Source blob changed: ' + name)
         cache[name] = raw.decode('utf-8').splitlines()
 
