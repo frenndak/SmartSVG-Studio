@@ -140,6 +140,25 @@ class BrushDraftUndoTests(unittest.TestCase):
         self.assertEqual(panel._redo_draft_key(), "break")
         self.assertEqual(panel._points, [[0.1, 0.2], [0.3, 0.4]])
 
+    def test_escape_does_not_consume_key_when_save_pending_or_closed(self):
+        for attribute in ("_save_pending", "_closed"):
+            with self.subTest(attribute=attribute):
+                panel = self.make_panel()
+                setattr(panel, attribute, True)
+                before = [point[:] for point in panel._points]
+                self.assertIsNone(panel._discard_draft_key())
+                self.assertEqual(panel._points, before)
+                self.assertEqual(panel._token, 7)
+                self.assertEqual(panel._draw_calls, 0)
+                self.assertEqual(panel._control_calls, 0)
+
+    def test_discard_returns_success_only_when_permitted(self):
+        panel = self.make_panel()
+        self.assertTrue(panel.discard())
+        self.assertEqual(panel._points, [])
+        panel._save_pending = True
+        self.assertFalse(panel.discard())
+
     def test_escape_discards_only_the_local_draft_and_consumes_the_key(self):
         panel = self.make_panel()
         panel._redo_points = [[0.5, 0.6]]
