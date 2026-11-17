@@ -1,5 +1,8 @@
 # SmartSVG V3.5 — maître de réalisation priorisé
 
+> **Contre-expertise complète du 17/11/2026 :** [80/80 fonctionnalités UX relues individuellement](COUNTER_REVIEW_80_UX_2026_11_17.md) et [17/17 lots W00–W16 vérifiés transversalement](COUNTER_REVIEW_W00_W16_UX_2026_11_17.md). Axes : simplicité, gestes, interface dynamique, canevas unique, IA ciblée, statuts honnêtes, parcours et preuves. **Cette revue est une amélioration de la conception, pas des fonctions codées ou des tests exécutés.** Conserver les 24/141/140/80/437 hérités, les M26/U26, les priorités source et le curseur W02 de [EXECUTION_STATE](EXECUTION_STATE.json) ; pas de nouveau W17, de migration implicite ou de tâche supplémentaire.
+
+
 > **Après adoptionV3.5 :** lire [EXECUTION_STATE](EXECUTION_STATE.json) et AGENTS/main pour l’autorité et la prochaine action ; les états/curseurs de candidate datés ci-dessous sont archives. L’ordre de livraison et tous les critères hérités restent conservés. Première action : réconcilier le WIP existant avant nouveau code.
 
 > **Finalisation en session du16novembre :** [séquence d’intégration](INTEGRATION_SESSION_2026_11_16.md). Conception revue ; une seule PR documentaire de maintenance, puis gouvernance distincte et handoff vérifié. Exception WIP strictement bornée à cette session propriétaire, sans nouveau code produit ni droit horaire élargi. [Contre-revue d’intégration](REVIEW_PROMOTION_DOCS_2026_11_16.md), CI exact-head et contrôle post-merge exigés ; aucune adoption avant leur preuve.
