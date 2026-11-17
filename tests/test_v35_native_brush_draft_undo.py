@@ -238,7 +238,9 @@ class BrushDraftUndoTkTests(unittest.TestCase):
         for button in (
                 panel.preview_button, panel.before_button, panel.after_button,
                 panel.undo_button, panel.redo_button,
-                panel.discard_button, panel.save_button):
+                panel.discard_button, panel.save_button,
+                panel.add_zone_button, panel.remove_zone_button,
+                panel.restore_zone_button):
             with self.subTest(button=button.cget("text")):
                 self.assertTrue(button.winfo_ismapped())
                 self.assertGreaterEqual(button.winfo_rootx(), window_left)

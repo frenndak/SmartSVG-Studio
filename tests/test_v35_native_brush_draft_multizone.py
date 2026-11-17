@@ -211,6 +211,7 @@ class MultiZoneDraftTests(unittest.TestCase):
         panel.save_button = Button()
         panel.add_zone_button = Button()
         panel.remove_zone_button = Button()
+        panel.restore_zone_button = Button()
         panel.before_button = Button()
         panel.after_button = Button()
         panel._controls = NativeBrushDraftPanel._controls.__get__(panel)
