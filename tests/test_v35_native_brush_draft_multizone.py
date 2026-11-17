@@ -35,6 +35,7 @@ class MultiZoneDraftTests(unittest.TestCase):
         panel._points = [[0.1, 0.2], [0.3, 0.4]]
         panel._redo_points = []
         panel._strokes = []
+        panel._redo_strokes = []
         panel._overflow = False
         panel._result_images = None
         panel._verified_save_request = ("stale",)
@@ -88,7 +89,59 @@ class MultiZoneDraftTests(unittest.TestCase):
         panel._points = []
         self.assertTrue(panel.remove_last_draft_zone())
         self.assertEqual(len(panel._strokes), MAX_DRAFT_STROKES - 1)
+        self.assertEqual(len(panel._redo_strokes), 1)
         self.assertTrue(panel.remove_last_draft_zone())
+
+    def test_removed_zone_can_be_restored_locally_without_calling_a_writer(self):
+        panel = self.make_panel()
+        zone = {"mode": "erase", "radius": 0.10,
+                "points": [[0.2, 0.3], [0.4, 0.5]]}
+        panel._points = []
+        panel._strokes = [zone]
+        panel._save_fn = lambda **_request: self.fail("local redo called writer")
+        panel._save_many_fn = lambda **_request: self.fail("local redo called writer")
+
+        self.assertTrue(panel.remove_last_draft_zone())
+        zone["points"][0][0] = 0.9
+        self.assertEqual(panel._strokes, [])
+        self.assertEqual(panel._redo_strokes[0]["points"][0][0], 0.2)
+
+        self.assertTrue(panel.restore_last_draft_zone())
+        self.assertEqual(panel._strokes, [{
+            "mode": "erase", "radius": 0.10,
+            "points": [[0.2, 0.3], [0.4, 0.5]],
+        }])
+        self.assertEqual(panel._redo_strokes, [])
+        self.assertIsNone(panel._verified_save_request)
+        self.assertIsNone(panel._inflight_request)
+
+    def test_ctrl_z_and_ctrl_y_fall_back_to_zone_history(self):
+        panel = self.make_panel()
+        panel._points = []
+        panel._strokes = [{
+            "mode": "add", "radius": 0.05, "points": [[0.1, 0.2]],
+        }]
+
+        self.assertEqual(panel._undo_draft_key(), "break")
+        self.assertEqual(panel._strokes, [])
+        self.assertEqual(len(panel._redo_strokes), 1)
+        self.assertEqual(panel._redo_draft_key(), "break")
+        self.assertEqual(len(panel._strokes), 1)
+        self.assertEqual(panel._redo_strokes, [])
+
+    def test_new_point_after_zone_undo_discards_zone_redo_branch(self):
+        panel = self.make_panel()
+        panel._points = []
+        panel._box = (0, 0, 100, 100)
+        panel._strokes = [{
+            "mode": "add", "radius": 0.05, "points": [[0.1, 0.2]],
+        }]
+        self.assertTrue(panel.remove_last_draft_zone())
+
+        panel._append(50, 50)
+
+        self.assertEqual(panel._redo_strokes, [])
+        self.assertFalse(panel.restore_last_draft_zone())
 
     def test_preview_dispatch_uses_legacy_contract_for_one_zone_and_batch_for_many(self):
         calls = []

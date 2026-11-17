@@ -31,6 +31,8 @@ class BrushDraftUndoTests(unittest.TestCase):
         panel._save_pending = False
         panel._points = [[0.1, 0.2], [0.3, 0.4]]
         panel._redo_points = []
+        panel._strokes = []
+        panel._redo_strokes = []
         panel._overflow = True
         panel._result_images = None
         panel._verified_save_request = ("stale",)
