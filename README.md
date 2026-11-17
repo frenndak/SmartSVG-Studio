@@ -2,11 +2,20 @@
 
 **Dépôt public de développement**, basé sur le moteur ComfyUI SmartSVG. Objectif : passer d'une image à une planche de sujets et à des fichiers de découpe / impression préparés pour être vérifiés dans Cricut Design Space.
 
-> **Statut au 6 novembre 2026 : prototype autonome Python/Tk raccordé après #119, pas de version Cricut certifiée.** Accueil, lecture de projets, Fabrique théorique et Apparence partagent une fenêtre. La création depuis PNG et sa première sauvegarde/relecture V1 sont raccordées. Atelier, mise à jour des projets et exports natifs restent à raccorder aux moteurs existants. Le test graphique Windows automatisé est acquis sur trois tailles ; installation, DPI/accessibilité complets, GPU RTX 3070 et fabrication restent à qualifier.
+> **État vérifié au 17 novembre 2026 : roadmap V3.5 adoptée, développement natif en cours sur `main@8586f81819eff5828ba862d48e0f1469fd49f21e`.** Projets V1, Atelier Tk, retouches multizones, sauvegarde et Annuler/Rétablir sont progressivement intégrés ; un ZIP Windows **Alpha** du 14 novembre existe mais ne contient pas les changements suivants. Quatre exports natifs complets, IA facultative, parcours Cricut, installation sur poste utilisateur et validation physique restent à réaliser/qualifier. [Reprise et preuves exactes](docs/roadmap-v3.5/ENGINEERING_STATUS_2026_11_17.md).
 
-📋 **[Voir l'état précis des fonctions et les prochaines étapes](docs/ETAT_ACTUEL_SMARTSVG.md)** · 🗺️ **[Roadmap V3.4 active](docs/roadmap-v3.4/README.md)** · **[Ordre de réalisation et raccordements](docs/roadmap-v3.4/EXECUTION_ET_INTEGRATION_2026_11_06.md)** · [Héritage V3.3](docs/ROADMAP_MASTER_v3_3.md) · 📦 [V3.2 historique](docs/ROADMAP_MASTER_v3_2.md) · 🧪 **[État du regroupement G1/G2 (archive historique du processus)](docs/INTEGRATION_CANDIDATE_2026_10_27.md)**
+🗺️ **[Roadmap V3.5 active](docs/roadmap-v3.5/README.md)** · **[État d'ingénierie au 17/11](docs/roadmap-v3.5/ENGINEERING_STATUS_2026_11_17.md)** · **[Ordre priorisé W00–W16](docs/roadmap-v3.5/MASTER_PRIORISE.md)** · [Ancienne V3.4](docs/roadmap-v3.4/README.md) · [Héritage V3.3](docs/ROADMAP_MASTER_v3_3.md) · [V3.2 archivée](docs/ROADMAP_MASTER_v3_2.md)
 
-## Ce qui est disponible dans le code
+## Avancées natives récentes (17 novembre 2026)
+
+- **Atelier natif :** gestion d'un sujet vérifié, pinceau/multizones, aperçu, sauvegarde, annulation/rétablissement, isolation d'un sujet voisin. PR [#139](https://github.com/frenndak/SmartSVG-Studio/pull/139) et [#155–160](https://github.com/frenndak/SmartSVG-Studio/pull/160).
+- **Validation automatisée :** [G0 post-fusion de #160](https://github.com/frenndak/SmartSVG-Studio/actions/runs/44161000593) SUCCESS ; tests CPU ciblés pinceau **55/55 PASS** dans cette PR. Windows runner qualifie des scénarios ciblés, pas un usage réel sur PC/Cricut.
+- **Distribution :** [Alpha portable Windows](https://github.com/frenndak/SmartSVG-Studio/actions/runs/43621278755) construite et testée le 14 novembre, **antérieure** aux retouches les plus récentes ; aucune Release officielle ni certification Cricut.
+- **Suite :** W02/W13 puis premier export natif W03/W04, et Smart Delivery W05/W06. Voir le [point de reprise](docs/roadmap-v3.5/ENGINEERING_STATUS_2026_11_17.md) ; actualiser le HEAD avant tout développement.
+
+## Inventaire historique du moteur et du prototype (photographie du 6 novembre)
+
+> Les lignes de cette ancienne matrice sont conservées pour la provenance. Elles **ne décrivent pas intégralement le `main` actuel** après les PR V3.5.
 
 | Domaine | Implémentation intégrée | Validation restant à faire |
 | --- | --- | --- |
@@ -44,7 +53,7 @@ Pour **inspecter réellement un SVG**, utiliser l'installation ComfyUI et ouvrir
 - Archive figée : `source-releases/ComfyUI_SmartSVG_Studio_V21_15_2_Installation.zip`.
 - SHA-256 attendu : `9369656f0216cebb6dccce0d0155bffa16d8c384da6a984bf848cdd8aa003c54`.
 - Manifeste V21.15.2 : **651 empreintes internes**, conservées et testées par CI.
-- La roadmap **active** est la [V3.4](docs/roadmap-v3.4/README.md), adoptée par [promotion contrôlée](docs/ROADMAP_PROMOTION_v3_4.md), avec les 141 exigences V3.3 conservées ([traçabilité héritée](docs/ROADMAP_TRACEABILITY_v3_3.md), [couverture héritée](docs/ROADMAP_COVERAGE_v3_3.md)). La V3.2 originale reste **figée et archivée** ; une roadmap décrit l'objectif, **pas la liste de fonctions déjà achevées**.
+- La roadmap **active** est la [V3.5](docs/roadmap-v3.5/README.md), adoptée par [promotion contrôlée](docs/ROADMAP_PROMOTION_v3_5.md), avec les 141 exigences V3.3, 140 tickets V3.4, 24 lots, 80 capacités UX et 437 scénarios historiques préservés ([état d'exécution](docs/roadmap-v3.5/EXECUTION_STATE.json)). V3.4/V3.3/V3.2 restent archivées ; une roadmap décrit l'objectif, **pas le nombre de fonctions déjà achevées**.
 
 ## Vérifications reproductibles
 
@@ -58,6 +67,6 @@ Les contrôles historiques Python, JavaScript et dépendances CPU/GPU complètes
 
 ## Automatisation et sécurité
 
-Les GitHub Actions publiques incluent des contrôles **lecture seule**. La tâche Codex optionnelle nécessiterait des variables et un secret API renseignés volontairement, ainsi qu'un budget déclaré et un plafond quotidien ; **aucun appel payant n'est une condition pour consulter le dépôt ou ouvrir l'aperçu**. Les conditions de fusion sont celles du [contrat courant AGENTS.md](AGENTS.md), relu sur `main` : autorisation applicable, éligibilité du lot, revue indépendante et contrôles du candidat exact. Cette documentation ne crée ni n'active de tâche et ne modifie aucune autorisation.
+Les GitHub Actions publiques incluent des contrôles **lecture seule**. La tâche horaire **SmartSVG V3.5 — Développement natif et intégration** est activée avec le contrat producteur R12 ; la tâche séparée de conception est suspendue par décision du propriétaire. Les GitHub Actions complémentaires de développement privé qui réclament une clé ou un budget optionnel restent distinctes : **aucun appel payant ni installation externe n'est obligatoire pour consulter le dépôt ou ouvrir l'aperçu**. Les conditions de fusion sont celles du [contrat courant AGENTS.md](AGENTS.md), relu sur `main` : autorisation applicable, éligibilité du lot, revue indépendante et contrôles du candidat exact. Cette documentation ne crée ni n'active de tâche et ne modifie aucune autorisation.
 
 Ne jamais commiter de clé API, image personnelle, poids de modèle soumis à restriction ou artefact de fabrication confidentiel dans ce dépôt public.
