@@ -15,8 +15,9 @@ from .mask_binding_g33e import snapshot_mask_bindings
 from .mask_snapshot_g24 import SNAPSHOT_KEY
 from .project_archive import _payload
 
+GROUP_SAVE_KIND='save_subject_brushes_v35_w02_v1'
 SAVE_KINDS=frozenset(('save_subject_brush_g33e_b2b1','save_subject_brush_g33e_b2b2',
-                      'save_subject_brush_g33e_b2b3'))
+                      'save_subject_brush_g33e_b2b3',GROUP_SAVE_KIND))
 HISTORY_KIND='subject_brush_history_g33e_v1'
 _SHA=re.compile(r'^[0-9a-f]{64}$')
 
@@ -34,6 +35,23 @@ def editor_digest(session):
 
 def logical_digest(project):
     return sha256(_payload(project)['manifest.json']).hexdigest()
+
+
+def _receipt_strokes(receipt):
+    """Return the one logical command's strokes, including legacy receipts."""
+    if receipt.get('kind')==GROUP_SAVE_KIND:
+        strokes=receipt.get('strokes')
+        if (type(strokes) is not list or not 1 <= len(strokes) <= 16 or
+                receipt.get('stroke_count') != len(strokes) or
+                any(type(stroke) is not dict for stroke in strokes) or
+                sum(len(stroke.get('points', ())) if type(stroke.get('points')) is list
+                    else 257 for stroke in strokes) > 256):
+            raise BrushHistoryError('INVALID_BRUSH_HISTORY')
+        return strokes
+    stroke=receipt.get('stroke')
+    if type(stroke) is not dict:
+        raise BrushHistoryError('INVALID_BRUSH_HISTORY')
+    return [stroke]
 
 
 def _session(project):
@@ -77,10 +95,10 @@ def _journal(project):
                 continue
             digest=op.get('editor_sha256')
             if (type(digest) is not str or not _SHA.fullmatch(digest) or
-                    type(op.get('stroke')) is not dict or
                     type(op.get('previous_editor_present')) is not bool):
                 raise BrushHistoryError('INVALID_BRUSH_HISTORY')
-            if kind=='save_subject_brush_g33e_b2b3':
+            _receipt_strokes(op)
+            if kind in ('save_subject_brush_g33e_b2b3',GROUP_SAVE_KIND):
                 previous=op.get('previous_editor_sha256')
                 if type(previous) is not str or not _SHA.fullmatch(previous):
                     raise BrushHistoryError('INVALID_BRUSH_HISTORY')
@@ -123,10 +141,13 @@ def plan_history_change(project,action):
         if (catalog['subject_proof_schema_valid'] is not True or len(bindings)!=1 or
                 bindings[0]['subject_proof_status']!='verified' or
                 bindings[0]['subject_ambiguous'] is not False or
-                bindings[0]['mask_id']!=target.get('mask_id') or
-                target['stroke'].get('object')!=bindings[0]['mask_index']):
+                bindings[0]['mask_id']!=target.get('mask_id')):
             raise ValueError('proof mismatch')
-        if target['kind']=='save_subject_brush_g33e_b2b3':
+        target_strokes=_receipt_strokes(target)
+        if any(stroke.get('object')!=bindings[0]['mask_index']
+               for stroke in target_strokes):
+            raise ValueError('proof mismatch')
+        if target['kind'] in ('save_subject_brush_g33e_b2b3',GROUP_SAVE_KIND):
             if (snapshot['sha256_raw']!=target.get('base_snapshot_sha256') or
                     snapshot['editor_fingerprint']!=target.get('source_sha256') or
                     bindings[0]['mask_sha256_float32']!=target.get('base_mask_sha256_float32')):
@@ -137,19 +158,21 @@ def plan_history_change(project,action):
     template=dict(version=1,width=width,height=height,count=count,
                   source=snapshot['editor_fingerprint'],strokes=[])
     try:
-        parse_editor_document(json.dumps({**template,'strokes':[target['stroke']]},
+        parse_editor_document(json.dumps({**template,'strokes':target_strokes},
             allow_nan=False,separators=(',',':')),source_dimensions=(width,height))
     except (EditorSessionError,TypeError,ValueError,OverflowError,RecursionError) as exc:
         raise BrushHistoryError('INVALID_BRUSH_HISTORY') from exc
     if action=='undo':
-        if session is None or not session['strokes'] or session['strokes'][-1]!=target['stroke']:
+        count=len(target_strokes)
+        if (session is None or len(session['strokes']) < count or
+                session['strokes'][-count:]!=target_strokes):
             raise BrushHistoryError('BRUSH_HISTORY_CHANGED')
-        next_session={**session,'strokes':session['strokes'][:-1]}
+        next_session={**session,'strokes':session['strokes'][:-count]}
         if not next_session['strokes'] and target['previous_editor_present'] is False:
             next_session=None
     else:
         next_session={**(session or template),'strokes':[
-            *(session or template)['strokes'],target['stroke']]}
+            *(session or template)['strokes'],*target_strokes]}
     try:
         if next_session is not None:
             next_session,_=parse_editor_document(json.dumps(next_session,allow_nan=False,

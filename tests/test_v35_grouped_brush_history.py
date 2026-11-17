@@ -1,4 +1,5 @@
 """V3.5 W02: one confirmed multi-zone batch is one durable Undo unit."""
+from dataclasses import replace
 from hashlib import sha256
 import importlib.util
 from pathlib import Path
@@ -11,7 +12,8 @@ sys.path.insert(0, str(ROOT / "engine"))
 sys.path.insert(0, str(ROOT / "tests"))
 import test_g33e_subject_brush_preview as fixtures
 from smartsvg_core.native_subject_save_v34 import save_native_subject_strokes
-from smartsvg_core.project_archive import load_project
+from smartsvg_core.project_archive import load_project, save_project
+from smartsvg_core.project_workspace_g22 import WorkspaceError
 from smartsvg_core.subject_brush_preview_g33e import preview_subject_brush_strokes
 
 
@@ -76,12 +78,12 @@ class GroupedBrushHistoryTests(unittest.TestCase):
         self.assertEqual(project.resources, original.resources)
 
         undone = self.history("undo", "undo-grouped")
-        self.assertEqual(undone["status"], "brush_history_undo_saved")
+        self.assertEqual(undone["status"], "brush_history_undo")
         self.assertEqual(self.rendered(), before)
         self.assertNotIn("editor_v216", load_project(self.path).document)
 
         redone = self.history("redo", "redo-grouped")
-        self.assertEqual(redone["status"], "brush_history_redo_saved")
+        self.assertEqual(redone["status"], "brush_history_redo")
         self.assertEqual(self.rendered(), after)
         self.assertEqual(load_project(self.path).resources, original.resources)
 
@@ -92,6 +94,11 @@ class GroupedBrushHistoryTests(unittest.TestCase):
         retry = self.workspace.save_subject_brushes("brush-preview", **request)
         self.assertEqual(retry["status"], "subject_brushes_already_saved")
         self.assertEqual(first["sha256"], retry["sha256"])
+        self.assertEqual(
+            {p.name: p.read_bytes() for p in self.path.parent.iterdir()}, before)
+        with self.assertRaisesRegex(WorkspaceError, "BRUSH_COMMAND_ID_REUSED"):
+            self.workspace.save_subject_brushes(
+                "brush-preview", **{**request, "strokes": self.strokes[:-1]})
         self.assertEqual(
             {p.name: p.read_bytes() for p in self.path.parent.iterdir()}, before)
 
@@ -114,6 +121,18 @@ class GroupedBrushHistoryTests(unittest.TestCase):
         self.assertNotIn("strokes", result)
         pixels = struct.unpack("<384f", self.rendered())
         self.assertEqual(pixels[round(0.2 * 11) * 16 + round(0.2 * 15)], 1.0)
+
+    def test_corrupt_group_receipt_fails_closed_without_history_write(self):
+        self.workspace.save_subject_brushes("brush-preview", **self.request())
+        project = load_project(self.path)
+        corrupt = {**project.operations[-1], "stroke_count": 2}
+        save_project(self.path, replace(project, operations=[
+            *project.operations[:-1], corrupt]), overwrite=True)
+        before = {p.name: p.read_bytes() for p in self.path.parent.iterdir()}
+        with self.assertRaisesRegex(WorkspaceError, "INVALID_BRUSH_HISTORY"):
+            self.history("undo", "corrupt-group")
+        self.assertEqual(
+            {p.name: p.read_bytes() for p in self.path.parent.iterdir()}, before)
 
 
 if __name__ == "__main__":
