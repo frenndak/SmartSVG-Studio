@@ -1,6 +1,6 @@
 # SmartSVG V3.5 — micro-gains UX et production (veille du 17 novembre 2026)
 
-**Statut :** proposition documentaire adoptable ; **aucune capacité livrée ni performance mesurée**. Revue des pratiques 2026 et du corpus existant V3.5 au 17/11/2026, sans inventer un nouveau lot W17, un 81e ID UX, une sortie machine ou un rôle `Artifact.use` V1. La prochaine action d'ingénierie reste celle de `EXECUTION_STATE.json` : **W02 native selection**. Ce complément ne bloque pas l'alpha Windows, W03/W04 et Smart Delivery.
+**Statut :** proposition documentaire adoptable ; **aucune capacité livrée ni performance mesurée**. **Contre-expertise du 17/11 :** [verdict hostile et correction des ambiguïtés](COUNTER_REVIEW_2026_11_17_WORKFLOW_TOOLS.md) ; neuf idées conservées avec garde-fous, plus U26-07 diagnostic d'entrée en option UX, sans nouveaux moteurs. Revue des pratiques 2026 et du corpus existant V3.5 au 17/11/2026, sans inventer un nouveau lot W17, un 81e ID UX, une sortie machine ou un rôle `Artifact.use` V1. La prochaine action d'ingénierie reste celle de `EXECUTION_STATE.json` : **W02 native selection**. Ce complément ne bloque pas l'alpha Windows, W03/W04 et Smart Delivery.
 
 ## 1. Pourquoi ce complément et quelles sources ?
 
@@ -50,7 +50,7 @@ Constat : les meilleurs gains peuvent provenir de **petites commandes détermini
 
 ### U26-05 — Bon à tirer (BAT) client 2D hors ligne (P2 courte, W06/SD2 + W03/W04)
 
-**Parcours :** produire **sur demande** une planche d'approbation visuelle PNG ou PDF avec miniature, dimensions connues, variante, date, révision de fichier et avertissements ; client peut valider le dessin **humainement** hors SmartSVG. Ce BAT est une **pièce de revue** jointe au dossier, **pas un cinquième format de fabrication** ni une preuve de coupe/gravure réussie.
+**Parcours :** produire **sur demande** une planche de **revue visuelle** PNG (PDF facultatif si port disponible) avec miniature, dimensions connues, variante, date, révision de fichier et avertissements ; le client peut **examiner** le dessin hors SmartSVG. Ce BAT **ne recueille, n'établit ni n'authentifie une approbation client** ; il est une pièce de revue jointe au dossier, **pas un cinquième format de fabrication**, ni une preuve de coupe/gravure réussie.
 
 **Delta :** Smart Delivery prévoit déjà un guide et manifeste, mais la **preuve visuelle d'accord client avec version et garde-fous** est un usage pro distinct.
 
@@ -58,11 +58,15 @@ Constat : les meilleurs gains peuvent provenir de **petites commandes détermini
 
 ### U26-06 — Enregistrer une séquence d'actions comme recette sûre (P2, W12/CST/UXI, après bus de commandes fiable)
 
-**Parcours :** « enregistrer comme recette » une **petite suite de commandes déjà typées et réversibles** (aligner, répartir, simplifier, ajouter contour, exporter à destination choisie) ; régler des paramètres explicites ; appliquer sur une nouvelle sélection **uniquement après aperçu et confirmation**.
+**Parcours :** « enregistrer comme recette » une **petite suite de commandes d'édition déjà typées et réversibles** (aligner, répartir, simplifier, ajouter contour) ; régler des paramètres explicites ; appliquer sur une nouvelle sélection **uniquement après aperçu et confirmation**. Une **configuration d'export** peut être proposée séparément, mais **l'export/ZIP externe n'est pas exécuté par la recette**, requiert une nouvelle confirmation de destination et ne relève jamais d'Undo.
 
 **Delta :** les recettes CST et batch W12 existent dans la conception ; il manque un **mode de capture depuis les gestes utilisateur**, plus abordable qu'écrire des scripts ou configurer un agent IA. Le langage naturel pourrait **proposer** une recette admise en P2, jamais exécuter librement.
 
-**Refus/tests :** aucune macro enregistrant des clics absolus, commandes machine, scripts, URL, chemins secrets, sauvegardes/publications automatiques ou opérations non prises en charge ; versions et permissions vérifiées ; refus groupé ou PARTIAL explicite, tests double-clic/Undo/annulation.
+**Refus/tests :** aucune macro enregistrant des clics absolus, commandes machine, scripts, URL, chemins secrets, sauvegardes/publications automatiques ou opérations non prises en charge ; versions et permissions vérifiées ; refus groupé ou PARTIAL explicite, tests double-clic/Undo/annulation. **Undo d'une édition ne supprime jamais un export historique** ; publication par W03/SD seulement, après revalidation.
+
+### U26-07 — Diagnostic d'entrée lisible « Fichier client » (P1 UX facultatif ; W01/W04/W10/W13, sans nouveau parseur)
+
+**Parcours :** après un import valide, afficher dans une fiche discrète les dimensions connues/inconnues, ressources et polices manquantes **si réellement inspectables**, et anomalies géométriques disponibles ; proposer une action de correction manuelle ou d'orientation, sans toucher à la source. Si un fichier est dangereux, le refuser **avant** aperçu. Cette fiche n'est pas un prévol de fabrication et ne certifie aucune machine. Recyclage de l'import W01, du prévol W04, des textes W10 et du panneau U26-03. Détail, négatifs et limites dans [contre-expertise](COUNTER_REVIEW_2026_11_17_WORKFLOW_TOOLS.md).
 
 ## 3. Arbitrage, ordre de livraison et limites
 
@@ -73,7 +77,8 @@ Constat : les meilleurs gains peuvent provenir de **petites commandes détermini
 | U26-03 | **P1** | W04/W07, une fois prévol réel | ≥3 défauts localisés et 1 correction approuvée ; aucune fausse certification |
 | U26-04 | P2 | W12 après CP2/3 | 50 placements resynchronisés sans écraser les exports |
 | U26-05 | P2 ciblée | W06 SD2 | BAT versionné et non confondu avec fichier machine ou validation matérielle |
-| U26-06 | P2 | CST/W12, bus de commandes qualifié | 3 commandes réversibles rejouées ; preview diff, récupération et refus scripts |
+| U26-06 | P2 | CST/W12, bus de commandes qualifié | 3 commandes **d'édition** réversibles rejouées ; aperçu diff, récupération et refus scripts ; export externe séparé |
+| U26-07 | P1 facultatif | W01/W04/W10/W13, après import stable | 3 fichiers (PNG sans mm, SVG sain, fichier dangereux) : diagnostic ou rejet justifié, source intacte, aucune dimension inventée |
 
 **Ne pas ajouter** : nouvel agent généraliste IA à droits illimités, système de plugins arbitraires, assistant conversationnel comme passage obligatoire, duplication de la recherche d'action UXI-11, nouvelle application de CAO, simulation mécanique/laser certifiée, nouvel éditeur/canevas parallèle. Les idées « chercher des assets par image », « IA qui refait tout le dessin » et « 3D physique » sont reportées à étude distincte : coût mémoire, modèles, licences et risque de résultats invérifiables disproportionnés à ce stade.
 
