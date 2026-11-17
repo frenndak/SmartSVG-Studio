@@ -107,7 +107,21 @@ class OwnerDelegationContractTests(unittest.TestCase):
         state = json.loads((ROOT / "docs/roadmap-v3.5/EXECUTION_STATE.json").read_text())
         self.assertIn("Governing roadmap: **V3.5**", CONTRACT)
         self.assertEqual(state["active_roadmap"], "3.5")
-        self.assertEqual(state["next_action"], "RECONCILE_EXISTING_CODE_WIP")
+        # After the owner-reviewed initial reconciliation, the execution cursor
+        # must move to an evidenced engineering lot rather than remain frozen
+        # on an already completed WIP snapshot.
+        action = state["next_action"]
+        self.assertRegex(action, r"^(?:RECONCILE_EXISTING_CODE_WIP|W(?:0[1-9]|1[0-6])_[A-Z0-9_]+)$")
+        if action != "RECONCILE_EXISTING_CODE_WIP":
+            resume = state["engineering_resume"]
+            self.assertTrue(resume["initial_wip_reconciled"])
+            self.assertRegex(resume["observed_main_sha"], r"^[0-9a-f]{40}$")
+            self.assertEqual(resume["open_code_prs_at_observation"], 0)
+            self.assertTrue(resume["next_micro_lot"].startswith(action.split("_")[0]))
+            evidence = ROOT / "docs/roadmap-v3.5" / resume["evidence"]
+            self.assertEqual(evidence.parent, ROOT / "docs/roadmap-v3.5")
+            self.assertTrue(evidence.is_file(), "Engineering cursor must have recorded evidence")
+
         self.assertEqual(state["documentary_pr"], 146)
         self.assertEqual(state["inherited_counts"], {"lots": 24, "criteria": 141, "tickets": 140, "ux": 80, "scenarios": 437})
         self.assertEqual(state["qualification_inferred_by_adoption"], False)
