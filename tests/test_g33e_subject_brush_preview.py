@@ -223,6 +223,21 @@ class SubjectBrushPreviewTests(unittest.TestCase):
         self.assertEqual(self.path.read_bytes(), archive)
         self.assertEqual(previous.read_bytes() if previous.exists() else None, backup)
         self.assertEqual(load_project(self.path).resources, project.resources)
+        from smartsvg_core.native_subject_preview_v34 import (
+            preview_native_subject_strokes,
+        )
+        native = preview_native_subject_strokes(
+            project_path=str(self.path),
+            expected_sha256=sha256(archive).hexdigest(),
+            subject_id=self.subject_ids[0], strokes=[
+                {'mode': 'add', 'radius': 0.03, 'points': [[0.2, 0.2]]},
+                {'mode': 'add', 'radius': 0.03, 'points': [[0.8, 0.8]]},
+                {'mode': 'erase', 'radius': 0.03, 'points': [[0.5, 0.5]]},
+            ])
+        self.assertEqual(native['after_png_l8'], result['after_png_l8'])
+        self.assertEqual(native['changed_pixels'], result['changed_pixels'])
+        self.assertNotIn('preview_float32', native)
+        self.assertEqual(self.path.read_bytes(), archive)
 
     def test_multi_stroke_preview_rejects_unbounded_or_ambiguous_batch(self):
         project, values = self.command()

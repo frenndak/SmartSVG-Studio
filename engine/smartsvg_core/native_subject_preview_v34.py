@@ -138,6 +138,34 @@ def preview_native_subject_stroke(
 ):
     """Preview one Add/Erase stroke on the actual proven Subject.
 
+    Preserve the historical single-stroke API for existing UI callers.
+    """
+    return _preview_native_subject_strokes(
+        project_path=project_path, expected_sha256=expected_sha256,
+        subject_id=subject_id, multi=False,
+        replay_kwargs={'mode': mode, 'radius': radius, 'points': points},
+    )
+
+
+def preview_native_subject_strokes(
+    *, project_path, expected_sha256, subject_id, strokes,
+):
+    """Preview one bounded multi-zone batch on the proven Subject.
+
+    The batch remains read-only and is never promoted to archive authority.
+    """
+    return _preview_native_subject_strokes(
+        project_path=project_path, expected_sha256=expected_sha256,
+        subject_id=subject_id, multi=True,
+        replay_kwargs={'strokes': strokes},
+    )
+
+
+def _preview_native_subject_strokes(
+    *, project_path, expected_sha256, subject_id, multi, replay_kwargs,
+):
+    """Shared native proof boundary for mono- and multi-stroke previews.
+
     Result is UI-safe: only two PNG L8 previews, bounded metadata and
     revision/identity. In particular neither replay float32 nor editor
     document escapes. The managed backend checks the revision before and
@@ -173,14 +201,14 @@ def preview_native_subject_stroke(
                 matches[0].get("has_foreground") is not True):
             raise NativeSubjectPreviewError("SUBJECT_NOT_VERIFIED")
         match = matches[0]
-        result = workspace.preview_subject_brush_readonly(
-            name, expected_sha256=expected_sha256,
-            subject_id=subject_id, mask_id=match["mask_id"],
+        method = (workspace.preview_subject_brushes_readonly if multi else
+                  workspace.preview_subject_brush_readonly)
+        result = method(
+            name, expected_sha256=expected_sha256, subject_id=subject_id,
+            mask_id=match["mask_id"],
             mask_sha256_float32=match["mask_sha256_float32"],
             source_id=catalog["source_id"],
-            source_sha256=masks["editor_fingerprint"],
-            mode=mode, radius=radius, points=points,
-        )
+            source_sha256=masks["editor_fingerprint"], **replay_kwargs)
         # Treat an unexpected backend return type as a stable, fail-closed
         # preview error, not an AttributeError escaping the Tk worker.
         if not isinstance(result, dict):
