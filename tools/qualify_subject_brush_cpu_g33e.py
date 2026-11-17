@@ -21,6 +21,8 @@ CPU_TESTS = (
     "test_add_preview_is_deterministic_and_does_not_write_archive_or_backup",
     "test_native_second_subject_preview_is_readonly_and_revision_pinned",
     "test_erase_preview_preserves_other_subject_and_base_float32",
+    "test_multi_stroke_preview_composes_islands_and_hole_without_writes",
+    "test_negative_batch_never_propagates_to_overlapping_neighbour",
     "test_fail_closed_on_identity_revision_source_and_stroke",
 )
 
