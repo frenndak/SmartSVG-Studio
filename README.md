@@ -2,9 +2,9 @@
 
 **Dépôt public de développement**, basé sur le moteur ComfyUI SmartSVG. Objectif : passer d'une image à une planche de sujets et à des fichiers de découpe / impression préparés pour être vérifiés dans Cricut Design Space.
 
-> **État vérifié au 17 novembre 2026 : roadmap V3.5 adoptée, développement natif en cours sur `main@8586f81819eff5828ba862d48e0f1469fd49f21e`.** Projets V1, Atelier Tk, retouches multizones, sauvegarde et Annuler/Rétablir sont progressivement intégrés ; un ZIP Windows **Alpha** du 14 novembre existe mais ne contient pas les changements suivants. Quatre exports natifs complets, IA facultative, parcours Cricut, installation sur poste utilisateur et validation physique restent à réaliser/qualifier. [Reprise et preuves exactes](docs/roadmap-v3.5/ENGINEERING_STATUS_2026_11_17.md).
+> **État vérifié au 17 novembre 2026 : roadmap V3.5 adoptée, développement natif en cours sur `main@8586f81819eff5828ba862d48e0f1469fd49f21e`.** Projets V1, Atelier Tk, retouches multizones, sauvegarde et Annuler/Rétablir sont progressivement intégrés ; un ZIP Windows **Alpha** du 14 novembre existe mais ne contient pas les changements suivants. Quatre exports natifs complets, IA facultative, parcours Cricut, installation sur poste utilisateur et validation physique restent à réaliser/qualifier. **Aucune certification Cricut.** [Reprise et preuves exactes](docs/roadmap-v3.5/ENGINEERING_STATUS_2026_11_17.md).
 
-🗺️ **[Roadmap V3.5 active](docs/roadmap-v3.5/README.md)** · **[État d'ingénierie au 17/11](docs/roadmap-v3.5/ENGINEERING_STATUS_2026_11_17.md)** · **[Ordre priorisé W00–W16](docs/roadmap-v3.5/MASTER_PRIORISE.md)** · [Ancienne V3.4](docs/roadmap-v3.4/README.md) · [Héritage V3.3](docs/ROADMAP_MASTER_v3_3.md) · [V3.2 archivée](docs/ROADMAP_MASTER_v3_2.md)
+📋 [Bilans historiques et statut](docs/ETAT_ACTUEL_SMARTSVG.md) · 🗺️ **[Roadmap V3.5 active](docs/roadmap-v3.5/README.md)** · **[État d'ingénierie au 17/11](docs/roadmap-v3.5/ENGINEERING_STATUS_2026_11_17.md)** · **[Ordre priorisé W00–W16](docs/roadmap-v3.5/MASTER_PRIORISE.md)** · [Ancienne V3.4](docs/roadmap-v3.4/README.md) · [Héritage V3.3](docs/ROADMAP_MASTER_v3_3.md) · [V3.2 archivée](docs/ROADMAP_MASTER_v3_2.md)
 
 ## Avancées natives récentes (17 novembre 2026)
 
