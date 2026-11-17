@@ -338,8 +338,7 @@ class NativeBrushDraftPanel:
         return True
 
     def _undo_draft_key(self, _event=None):
-        self.undo_draft_point()
-        return 'break'
+        return 'break' if self.undo_draft_point() else None
 
     def redo_draft_point(self):
         """Restore one locally undone point without touching persisted history."""
@@ -361,8 +360,7 @@ class NativeBrushDraftPanel:
         return True
 
     def _redo_draft_key(self, _event=None):
-        self.redo_draft_point()
-        return 'break'
+        return 'break' if self.redo_draft_point() else None
 
     def preview(self):
         if (self._closed or self._identity is None or not self._points
