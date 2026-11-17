@@ -118,6 +118,7 @@ class NativeBrushDraftPanel:
         self._points = []
         self._strokes = []
         self._redo_points = []
+        self._redo_strokes = []
         self._overflow = False
         self._busy = False
         self._variant = 'after'
@@ -141,7 +142,7 @@ class NativeBrushDraftPanel:
         self.radius_picker.pack(side='left', padx=4)
         self.radius_picker.bind('<<ComboboxSelected>>', self._parameter_changed)
         self.canvas = tk.Canvas(
-            parent, width=480, height=320, highlightthickness=1,
+            parent, width=480, height=260, highlightthickness=1,
             takefocus=True)
         self.canvas.pack(fill='both', expand=True, pady=(4, 6))
         self.canvas.bind('<Configure>', self._draw)
@@ -187,6 +188,10 @@ class NativeBrushDraftPanel:
             zone_actions, text='Retirer la derniere zone',
             command=self.remove_last_draft_zone)
         self.remove_zone_button.pack(side='left', padx=4)
+        self.restore_zone_button = ttk.Button(
+            zone_actions, text='Retablir la zone',
+            command=self.restore_last_draft_zone)
+        self.restore_zone_button.pack(side='left', padx=4)
         ttk.Label(parent, textvariable=self.status,
                   wraplength=530).pack(anchor='w', pady=(5, 0))
         self._controls()
@@ -206,7 +211,9 @@ class NativeBrushDraftPanel:
             state='normal' if active and bool(self._redo_points) and not self._busy
             and not self._save_pending and self._result_images is None else 'disabled')
         self.discard_button.configure(
-            state='normal' if active and not self._save_pending and (self._points or self._strokes or self._result_images)
+            state='normal' if active and not self._save_pending and (
+                self._points or self._strokes or self._redo_points or
+                self._redo_strokes or self._result_images)
             else 'disabled')
         self.save_button.configure(
             state='normal' if active and not self._busy and not self._save_pending
@@ -218,8 +225,14 @@ class NativeBrushDraftPanel:
             and not self._save_pending and self._result_images is None else 'disabled')
         self.remove_zone_button.configure(
             state='normal' if active and bool(self._strokes) and not self._points
+            and not self._redo_points
             and not self._busy and not self._save_pending
             and self._result_images is None else 'disabled')
+        self.restore_zone_button.configure(
+            state='normal' if active and bool(self._redo_strokes)
+            and not self._points and not self._redo_points
+            and len(self._strokes) < MAX_DRAFT_STROKES and not self._busy
+            and not self._save_pending and self._result_images is None else 'disabled')
         for button in (self.before_button, self.after_button):
             button.configure(
                 state='normal' if active and self._result_images is not None else 'disabled')
@@ -236,6 +249,7 @@ class NativeBrushDraftPanel:
         self._points = []
         self._strokes = []
         self._redo_points = []
+        self._redo_strokes = []
         self._box = None
         self._overflow = self._busy = False
         self._variant = 'after'
@@ -326,6 +340,7 @@ class NativeBrushDraftPanel:
             self._controls()
             return
         self._redo_points = []
+        self._redo_strokes = []
         self._points.append(point)
         self.status.set(f'{len(self._points)} point(s) · brouillon non enregistré.')
         self._controls()
@@ -390,7 +405,8 @@ class NativeBrushDraftPanel:
         return True
 
     def _undo_draft_key(self, _event=None):
-        return 'break' if self.undo_draft_point() else None
+        return 'break' if (self.undo_draft_point() or
+                           self.remove_last_draft_zone()) else None
 
     def redo_draft_point(self):
         """Restore one locally undone point without touching persisted history."""
@@ -412,7 +428,8 @@ class NativeBrushDraftPanel:
         return True
 
     def _redo_draft_key(self, _event=None):
-        return 'break' if self.redo_draft_point() else None
+        return 'break' if (self.redo_draft_point() or
+                           self.restore_last_draft_zone()) else None
 
     def _draft_strokes(self):
         strokes = [{
@@ -474,6 +491,7 @@ class NativeBrushDraftPanel:
         })
         self._points = []
         self._redo_points = []
+        self._redo_strokes = []
         self._token += 1
         self._verified_save_request = None
         self._inflight_request = None
@@ -487,14 +505,39 @@ class NativeBrushDraftPanel:
         """Remove one frozen local zone; persisted history remains untouched."""
         if (self._closed or self._identity is None or self._busy or
                 self._save_pending or self._result_images is not None or
-                self._points or not self._strokes):
+                self._points or self._redo_points or not self._strokes):
             return False
-        self._strokes.pop()
+        stroke = self._strokes.pop()
+        self._redo_strokes.append({
+            'mode': stroke['mode'], 'radius': stroke['radius'],
+            'points': [point[:] for point in stroke['points']],
+        })
         self._token += 1
         self._verified_save_request = None
         self._inflight_request = None
         self.status.set(
             f'{len(self._strokes)} zone(s) prete(s) - derniere zone retiree.')
+        self._draw()
+        self._controls()
+        return True
+
+    def restore_last_draft_zone(self):
+        """Restore one locally removed zone without touching project history."""
+        if (self._closed or self._identity is None or self._busy or
+                self._save_pending or self._result_images is not None or
+                self._points or self._redo_points or not self._redo_strokes or
+                len(self._strokes) >= MAX_DRAFT_STROKES):
+            return False
+        stroke = self._redo_strokes.pop()
+        self._strokes.append({
+            'mode': stroke['mode'], 'radius': stroke['radius'],
+            'points': [point[:] for point in stroke['points']],
+        })
+        self._token += 1
+        self._verified_save_request = None
+        self._inflight_request = None
+        self.status.set(
+            f'{len(self._strokes)} zone(s) prete(s) - zone retablie.')
         self._draw()
         self._controls()
         return True
@@ -664,6 +707,7 @@ class NativeBrushDraftPanel:
             self._identity = None
             self._strokes = []
             self._redo_points = []
+            self._redo_strokes = []
             self._save_pending = False
             code = getattr(exc, 'code', '')
             self.status.set(
@@ -682,6 +726,7 @@ class NativeBrushDraftPanel:
         self._identity = None
         self._strokes = []
         self._redo_points = []
+        self._redo_strokes = []
         self._save_pending = False
         if not self._closed:
             self.status.set('Retouche enregistrée. Réexaminez le projet (F5).')
@@ -715,6 +760,7 @@ class NativeBrushDraftPanel:
         self._points = []
         self._strokes = []
         self._redo_points = []
+        self._redo_strokes = []
         self._overflow = False
         self._result_images = None
         self._verified_save_request = None
