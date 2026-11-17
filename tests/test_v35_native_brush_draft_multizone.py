@@ -136,6 +136,45 @@ class MultiZoneDraftTests(unittest.TestCase):
                 self.assertFalse(panel.remove_last_draft_zone())
                 self.assertEqual(len(panel._strokes), 1)
 
+    def test_discard_enabled_for_frozen_only_draft_and_disabled_when_saving(self):
+        class Button:
+            def __init__(self):
+                self.state = None
+
+            def configure(self, **options):
+                self.state = options.get("state")
+
+        panel = self.make_panel()
+        panel._points = []
+        panel._strokes = [{
+            "mode": "add", "radius": 0.05, "points": [[0.1, 0.2]],
+        }]
+        panel.mode_picker = Button()
+        panel.radius_picker = Button()
+        panel.preview_button = Button()
+        panel.undo_button = Button()
+        panel.redo_button = Button()
+        panel.discard_button = Button()
+        panel.save_button = Button()
+        panel.add_zone_button = Button()
+        panel.remove_zone_button = Button()
+        panel.before_button = Button()
+        panel.after_button = Button()
+        panel._controls = NativeBrushDraftPanel._controls.__get__(panel)
+
+        panel._controls()
+        self.assertEqual(panel.discard_button.state, "normal")
+        self.assertEqual(panel.preview_button.state, "normal")
+
+        panel._save_pending = True
+        panel._controls()
+        self.assertEqual(panel.discard_button.state, "disabled")
+
+        panel._save_pending = False
+        panel._strokes = []
+        panel._controls()
+        self.assertEqual(panel.discard_button.state, "disabled")
+
     def test_confirmed_multi_zone_save_uses_grouped_writer_once(self):
         panel = self.make_panel()
         panel._strokes = [{

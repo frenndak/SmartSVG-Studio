@@ -206,7 +206,7 @@ class NativeBrushDraftPanel:
             state='normal' if active and bool(self._redo_points) and not self._busy
             and not self._save_pending and self._result_images is None else 'disabled')
         self.discard_button.configure(
-            state='normal' if active and not self._save_pending and (self._points or self._result_images)
+            state='normal' if active and not self._save_pending and (self._points or self._strokes or self._result_images)
             else 'disabled')
         self.save_button.configure(
             state='normal' if active and not self._busy and not self._save_pending
