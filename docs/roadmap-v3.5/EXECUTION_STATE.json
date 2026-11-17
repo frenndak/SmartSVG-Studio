@@ -5,7 +5,7 @@
   "documentary_pr": 146,
   "authority": "AGENTS.md on current main; adoption effective only after separate governance PR merges and G0 post-merge passes",
   "phase": "ENGINEERING",
-  "next_action": "RECONCILE_EXISTING_CODE_WIP",
+  "next_action": "W02_NATIVE_SELECTION_NEXT_MICROLOT",
   "inherited_counts": {
     "lots": 24,
     "criteria": 141,
@@ -60,5 +60,17 @@
     ],
     "observed_graphify_2026_11_16": "Only frenndak/Titan indexed; never substitute it for SmartSVG",
     "new_installs_or_permissions": false
+  },
+  "engineering_resume": {
+    "observed_date": "2026-11-17",
+    "observed_main_sha": "8586f81819eff5828ba862d48e0f1469fd49f21e",
+    "initial_wip_reconciled": true,
+    "initial_wip_result": "PR #138/#139/#140 merged; #144 closed unmerged but both introduced file blobs identical to main",
+    "open_code_prs_at_observation": 0,
+    "open_wip_capacity": 3,
+    "next_micro_lot": "W02/W13 native multi-zone Subject selection and keep/exclude UX integration; tests and review later cycle",
+    "then": "W03 first native export with typed artifacts and W04 QA; W05/W06 when one export is valid",
+    "evidence": "ENGINEERING_STATUS_2026_11_17.md",
+    "status_note": "Point-in-time evidence; scheduled producer must refresh live GitHub and must not update protected documentary cursor itself."
   }
 }
