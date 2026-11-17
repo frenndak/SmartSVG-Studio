@@ -1,4 +1,7 @@
-# SmartSVG Studio — État réel et prochains développements
+# SmartSVG Studio — Archives des bilans de développement
+
+> **État actualisé :** [V3.5 adoptée et point de reprise du 17 novembre 2026](roadmap-v3.5/ENGINEERING_STATUS_2026_11_17.md). Le bilan daté du 6 novembre ci-dessous est une **archive historique V3.4**, pas le statut du `main` courant. Les PR #139 et #155–160 ont depuis intégré l'Atelier natif, les retouches multizones et Undo/Redo. Ne pas interpréter ses anciennes prochaines actions comme le curseur courant : [EXECUTION_STATE](roadmap-v3.5/EXECUTION_STATE.json).
+
 
 **Base historique de la fenêtre : 6 novembre 2026, Europe/Paris**, code `main@467712be9421034c69fa2f2e6ace0b0bf153dd08`, après la [PR #119](https://github.com/frenndak/SmartSVG-Studio/pull/119). Roadmap active : **V3.4**, avec les 141 exigences héritées conservées. Point de reprise unique : [roadmap d'exécution et matrice des raccordements](roadmap-v3.4/EXECUTION_ET_INTEGRATION_2026_11_06.md).
 
