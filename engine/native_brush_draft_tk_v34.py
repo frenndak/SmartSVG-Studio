@@ -573,12 +573,12 @@ class NativeBrushDraftPanel:
             self._draw()
 
     def _discard_draft_key(self, _event=None):
-        self.discard()
-        return 'break'
+        # Do not swallow Escape if saving or shutting down prevents discard.
+        return 'break' if self.discard() else None
 
     def discard(self):
         if self._closed or self._save_pending:
-            return
+            return False
         self._token += 1
         self._busy = False
         self._points = []
@@ -591,6 +591,7 @@ class NativeBrushDraftPanel:
         self.status.set('Brouillon abandonné. Le projet n’a pas été modifié.')
         self._draw()
         self._controls()
+        return True
 
     def shutdown(self):
         if not self._closed:
