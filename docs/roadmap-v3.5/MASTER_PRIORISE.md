@@ -1,5 +1,7 @@
 # SmartSVG V3.5 — maître de réalisation priorisé
 
+> **Nouvelle contre-expertise du 18/11/2026 :** [inventaire indépendant et vérifications source-à-source](INDEPENDENT_COUNTER_REVIEW_2026_11_18.md) : 80/80 fonctions, 17/17 conteneurs W, 281/281 lignes exigences/tickets et 437/437 scénarios confrontés aux documents V3.4 ; ambiguïtés d'autorité historique et B13 corrigées, parcours UX/QA et dépendances requalifiés. **Contrôle documentaire seulement**, aucun PASS Windows/GPU/Design Space/coupe induit ; `EXECUTION_STATE.json` reste pilote, micro-lot immédiat W02 et tâches inchangées.
+
 > **Contre-expertise complète du 17/11/2026 :** [80/80 fonctionnalités UX relues individuellement](COUNTER_REVIEW_80_UX_2026_11_17.md) et [17/17 lots W00–W16 vérifiés transversalement](COUNTER_REVIEW_W00_W16_UX_2026_11_17.md). Axes : simplicité, gestes, interface dynamique, canevas unique, IA ciblée, statuts honnêtes, parcours et preuves. **Cette revue est une amélioration de la conception, pas des fonctions codées ou des tests exécutés.** Conserver les 24/141/140/80/437 hérités, les M26/U26, les priorités source et le curseur W02 de [EXECUTION_STATE](EXECUTION_STATE.json) ; pas de nouveau W17, de migration implicite ou de tâche supplémentaire.
 
 
