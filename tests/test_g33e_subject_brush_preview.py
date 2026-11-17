@@ -18,6 +18,7 @@ from smartsvg_core.project_archive import load_project
 from smartsvg_core.project_workspace_g22 import ManagedWorkspace, WorkspaceError
 from smartsvg_core.subject_brush_preview_g33e import (
     SubjectBrushPreviewError, preview_subject_brush,
+    preview_subject_brush_strokes,
     _other_masks_bit_identical,
 )
 
@@ -192,6 +193,56 @@ class SubjectBrushPreviewTests(unittest.TestCase):
         self.assertEqual(second["subject_id"], self.subject_ids[1])
         self.assertEqual(self.path.read_bytes(), archive)
         self.assertEqual(load_project(self.path).resources, project.resources)
+
+    @unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
+                         'CPU brush dependencies not installed in stdlib-only G0')
+    def test_multi_stroke_preview_composes_islands_and_hole_without_writes(self):
+        project, values = self.command()
+        identity = {key: values[key] for key in (
+            'subject_id', 'mask_id', 'mask_sha256_float32',
+            'source_id', 'source_sha256')}
+        archive = self.path.read_bytes()
+        previous = self.path.with_name('brush-preview.previous.smartsvg')
+        backup = previous.read_bytes() if previous.exists() else None
+
+        result = preview_subject_brush_strokes(project, **identity, strokes=[
+            {'mode': 'add', 'radius': 0.03, 'points': [[0.2, 0.2]]},
+            {'mode': 'add', 'radius': 0.03, 'points': [[0.8, 0.8]]},
+            {'mode': 'erase', 'radius': 0.03, 'points': [[0.5, 0.5]]},
+        ])
+
+        pixels = struct.unpack('<192f', result['preview_float32'])
+        self.assertEqual(pixels[round(0.2 * 11) * 16 + round(0.2 * 15)], 1.0)
+        self.assertEqual(pixels[round(0.8 * 11) * 16 + round(0.8 * 15)], 1.0)
+        self.assertEqual(pixels[6 * 16 + 8], 0.0)
+        self.assertEqual(
+            [stroke['mode'] for stroke in result['editor_document']['strokes'][-3:]],
+            ['add', 'add', 'erase'])
+        self.assertGreater(result['changed_pixels'], 0)
+        self.assertFalse(result['persisted'])
+        self.assertEqual(self.path.read_bytes(), archive)
+        self.assertEqual(previous.read_bytes() if previous.exists() else None, backup)
+        self.assertEqual(load_project(self.path).resources, project.resources)
+
+    def test_multi_stroke_preview_rejects_unbounded_or_ambiguous_batch(self):
+        project, values = self.command()
+        identity = {key: values[key] for key in (
+            'subject_id', 'mask_id', 'mask_sha256_float32',
+            'source_id', 'source_sha256')}
+        valid = {'mode': 'add', 'radius': 0.03, 'points': [[0.2, 0.2]]}
+        invalid = (
+            [],
+            [valid] * 17,
+            [{**valid, 'extra': True}],
+            [{'mode': 'replace', 'radius': 0.03, 'points': [[0.2, 0.2]]}],
+            [{'mode': 'add', 'radius': 0.03, 'points': [[0.2, 0.2]] * 65}],
+            [{'mode': 'add', 'radius': 0.03, 'points': [[0.2, 0.2]] * 64}] * 5,
+        )
+        for strokes in invalid:
+            with self.subTest(stroke_count=len(strokes)), self.assertRaisesRegex(
+                    SubjectBrushPreviewError, 'INVALID_PREVIEW_STROKE'):
+                preview_subject_brush_strokes(
+                    project, **identity, strokes=strokes)
 
     @unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
                          'CPU brush dependencies not installed in stdlib-only G0')
