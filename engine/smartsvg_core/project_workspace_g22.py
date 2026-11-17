@@ -32,7 +32,8 @@ from .subject_brush_preview_g33e import (
     SubjectBrushPreviewError,
 )
 from .subject_brush_history_g33e import (
-    SAVE_KINDS, HISTORY_KIND, BrushHistoryError, editor_digest, plan_history_change,
+    SAVE_KINDS, GROUP_SAVE_KIND, HISTORY_KIND, BrushHistoryError, editor_digest,
+    plan_history_change,
 )
 from .project_recovery import (
     RecoveryError, inspect_project, inspect_recovery_plan, recover_previous, resolve_pending_backup,
@@ -697,10 +698,39 @@ class ManagedWorkspace:
             mask_sha256_float32, source_id, source_sha256, mode, radius,
             points, expected_preview_mask_sha256_float32, command_id,
             confirmed=False):
-        """G3.3e-b2b: explicitly append one proven stroke as V21.6 replay.
+        """Preserve the historical one-stroke writer and receipt contract."""
+        return self._save_subject_brushes(
+            name, expected_sha256=expected_sha256, subject_id=subject_id,
+            mask_id=mask_id, mask_sha256_float32=mask_sha256_float32,
+            source_id=source_id, source_sha256=source_sha256,
+            strokes=[{'mode': mode, 'radius': radius, 'points': points}],
+            expected_preview_mask_sha256_float32=
+                expected_preview_mask_sha256_float32,
+            command_id=command_id, confirmed=confirmed, grouped=False)
+
+    def save_subject_brushes(
+            self, name, *, expected_sha256, subject_id, mask_id,
+            mask_sha256_float32, source_id, source_sha256, strokes,
+            expected_preview_mask_sha256_float32, command_id,
+            confirmed=False):
+        """Persist one confirmed multi-zone batch as one logical Undo unit."""
+        return self._save_subject_brushes(
+            name, expected_sha256=expected_sha256, subject_id=subject_id,
+            mask_id=mask_id, mask_sha256_float32=mask_sha256_float32,
+            source_id=source_id, source_sha256=source_sha256, strokes=strokes,
+            expected_preview_mask_sha256_float32=
+                expected_preview_mask_sha256_float32,
+            command_id=command_id, confirmed=confirmed, grouped=True)
+
+    def _save_subject_brushes(
+            self, name, *, expected_sha256, subject_id, mask_id,
+            mask_sha256_float32, source_id, source_sha256, strokes,
+            expected_preview_mask_sha256_float32, command_id, confirmed,
+            grouped):
+        """G3.3e/V3.5: append one proven logical brush command.
 
         No base resources change. Preview composes the saved native session
-        with the proposed gesture and enforces its cumulative bounds. This backend
+        with the proposed gesture(s) and enforces cumulative bounds. This backend
         method is consumed by the explicit local Atelier save route.
         Identical immediate retries are read-only; a changed command ID payload
         or a later project revision is never silently treated as a retry.
@@ -718,8 +748,17 @@ class ManagedWorkspace:
         request = dict(
             expected_sha256=expected_sha256, subject_id=subject_id, mask_id=mask_id,
             mask_sha256_float32=mask_sha256_float32, source_id=source_id,
-            source_sha256=source_sha256, mode=mode, radius=radius, points=points,
+            source_sha256=source_sha256,
             expected_preview_mask_sha256_float32=expected_preview_mask_sha256_float32)
+        if grouped:
+            request['strokes']=strokes
+        else:
+            try:
+                stroke=strokes[0]
+                request.update(mode=stroke['mode'],radius=stroke['radius'],
+                               points=stroke['points'])
+            except (KeyError,TypeError,IndexError) as exc:
+                raise WorkspaceError('INVALID_PREVIEW_STROKE') from exc
         try:
             request_sha = _sha(json.dumps(request, allow_nan=False, sort_keys=True,
                                          separators=(',', ':')).encode('utf-8'))
@@ -739,12 +778,14 @@ class ManagedWorkspace:
             raise WorkspaceError('PROJECT_ID_MISMATCH')
         if _revision(path) != current_sha:
             raise WorkspaceError('PROJECT_CHANGED')
-        kind = 'save_subject_brush_g33e_b2b3'
+        kind = GROUP_SAVE_KIND if grouped else 'save_subject_brush_g33e_b2b3'
         if any(type(op) is not dict for op in project.operations):
             raise WorkspaceError('INVALID_BRUSH_HISTORY')
         receipts = [op for op in project.operations if op.get('command_id') == command_id]
         if receipts:
-            if any(type(op.get('kind')) is not str or op.get('kind') not in SAVE_KINDS or
+            retry_kinds=({GROUP_SAVE_KIND} if grouped else
+                         set(SAVE_KINDS)-{GROUP_SAVE_KIND})
+            if any(op.get('kind') not in retry_kinds or
                    op.get('request_sha256') != request_sha for op in receipts):
                 raise WorkspaceError('BRUSH_COMMAND_ID_REUSED')
             receipt = receipts[0]
@@ -764,16 +805,22 @@ class ManagedWorkspace:
         if receipts:
             # Revalidate a retry against its pre-command native session. This
             # avoids replaying a duplicate stroke or exceeding 400 on retry.
-            if (type(session) is not dict or type(session.get('strokes')) is not list
-                    or not session['strokes']):
+            receipt_count=receipt.get('stroke_count',1)
+            if (type(receipt_count) is not int or receipt_count < 1 or
+                    type(session) is not dict or type(session.get('strokes')) is not list or
+                    len(session['strokes']) < receipt_count):
                 raise WorkspaceError('INVALID_BRUSH_HISTORY')
             preview_project = replace(project, document={**project.document,
-                'editor_v216': {**session, 'strokes': session['strokes'][:-1]}})
+                'editor_v216': {**session, 'strokes': session['strokes'][:-receipt_count]}})
         try:
-            preview = preview_subject_brush(
+            replay=preview_subject_brush_strokes if grouped else preview_subject_brush
+            replay_args={'strokes':strokes} if grouped else request
+            if not grouped:
+                replay_args={key:request[key] for key in ('mode','radius','points')}
+            preview = replay(
                 preview_project, subject_id=subject_id, mask_id=mask_id,
                 mask_sha256_float32=mask_sha256_float32, source_id=source_id,
-                source_sha256=source_sha256, mode=mode, radius=radius, points=points)
+                source_sha256=source_sha256, **replay_args)
         except SubjectBrushPreviewError as exc:
             raise WorkspaceError(exc.code) from exc
         if preview['preview_mask_sha256_float32'] != expected_preview_mask_sha256_float32:
@@ -784,25 +831,33 @@ class ManagedWorkspace:
                     _brush_receipt_state_sha(replace(project, operations=project.operations[:-1]))
                     != receipt.get('result_state_sha256')):
                 raise WorkspaceError('PROJECT_CHANGED')
-            return {'name': name, 'status': 'subject_brush_already_saved',
+            return {'name': name,
+                    'status': ('subject_brushes_already_saved' if grouped
+                               else 'subject_brush_already_saved'),
                     'sha256': current_sha, 'command_id': command_id,
                     'persisted': True, 'cricut_certified': False}
         if len(project.operations) >= 4999:
             raise WorkspaceError('HISTORY_LIMIT')
-        updated = replace(project,
-            document={**project.document, 'editor_v216': editor},
-            operations=[*project.operations, {
+        stroke_count=len(strokes) if grouped else 1
+        receipt = {
                 'kind': kind, 'command_id': command_id, 'request_sha256': request_sha,
                 'subject_id': subject_id, 'mask_id': mask_id,
                 'preview_mask_sha256_float32': expected_preview_mask_sha256_float32,
                 'editor_sha256': _sha(json.dumps(editor, allow_nan=False, sort_keys=True,
                                       separators=(',', ':')).encode()),
-                'stroke': editor['strokes'][-1],
                 'previous_editor_sha256': editor_digest(project.document.get('editor_v216')),
                 'source_sha256': source_sha256,
                 'base_mask_sha256_float32': mask_sha256_float32,
                 'base_snapshot_sha256': project.document[SNAPSHOT_KEY]['sha256_raw'],
-                'previous_editor_present': 'editor_v216' in project.document}])
+                'previous_editor_present': 'editor_v216' in project.document}
+        if grouped:
+            receipt.update(strokes=editor['strokes'][-stroke_count:],
+                           stroke_count=stroke_count)
+        else:
+            receipt['stroke']=editor['strokes'][-1]
+        updated = replace(project,
+            document={**project.document, 'editor_v216': editor},
+            operations=[*project.operations, receipt])
         updated.operations[-1]['result_state_sha256'] = _brush_receipt_state_sha(
             replace(updated, operations=project.operations))
         def verified(reopened):
@@ -817,7 +872,8 @@ class ManagedWorkspace:
                                        verify_saved_project=verified)
         except (RecoveryError, ProjectArchiveError, OSError) as exc:
             raise WorkspaceError(getattr(exc, 'code', 'SAVE_FAILED')) from exc
-        return {'name': name, 'status': 'subject_brush_saved',
+        return {'name': name,
+                'status': ('subject_brushes_saved' if grouped else 'subject_brush_saved'),
                 'sha256': saved['sha256'], 'command_id': command_id,
                 'previous_available': saved['previous_available'],
                 'persisted': True, 'cricut_certified': False}

@@ -11,7 +11,7 @@ import re
 
 from .native_subject_preview_v34 import (
     NativeSubjectPreviewError, _SHA, _SUBJECT, _workspace_from_path,
-    preview_native_subject_stroke,
+    preview_native_subject_stroke, preview_native_subject_strokes,
 )
 from .project_workspace_g22 import WorkspaceError
 
@@ -22,7 +22,34 @@ def save_native_subject_stroke(
     *, project_path, expected_sha256, subject_id, mode, radius, points,
     expected_preview_mask_sha256_float32, command_id, confirmed=False,
 ):
-    """Persist exactly a confirmed, revision-pinned V1 brush gesture.
+    """Preserve the historical single-stroke native save boundary."""
+    return _save_native_subject_strokes(
+        project_path=project_path, expected_sha256=expected_sha256,
+        subject_id=subject_id,
+        strokes=[{'mode': mode, 'radius': radius, 'points': points}],
+        expected_preview_mask_sha256_float32=
+            expected_preview_mask_sha256_float32,
+        command_id=command_id, confirmed=confirmed, grouped=False)
+
+
+def save_native_subject_strokes(
+    *, project_path, expected_sha256, subject_id, strokes,
+    expected_preview_mask_sha256_float32, command_id, confirmed=False,
+):
+    """Persist one confirmed multi-zone batch as one durable Undo unit."""
+    return _save_native_subject_strokes(
+        project_path=project_path, expected_sha256=expected_sha256,
+        subject_id=subject_id, strokes=strokes,
+        expected_preview_mask_sha256_float32=
+            expected_preview_mask_sha256_float32,
+        command_id=command_id, confirmed=confirmed, grouped=True)
+
+
+def _save_native_subject_strokes(
+    *, project_path, expected_sha256, subject_id, strokes,
+    expected_preview_mask_sha256_float32, command_id, confirmed, grouped,
+):
+    """Persist exactly one confirmed, revision-pinned logical gesture.
 
     The input contains no mask ID/index/source digest. We re-create the
     genuine CPU preview before saving and resolve the subject's proven
@@ -43,9 +70,14 @@ def save_native_subject_stroke(
 
     workspace, name = _workspace_from_path(project_path)
     # The independent backend validates the CPU result and refuses stale V1.
-    preview = preview_native_subject_stroke(
+    preview_method=(preview_native_subject_strokes if grouped
+                    else preview_native_subject_stroke)
+    preview_args=({'strokes':strokes} if grouped else {
+        'mode':strokes[0]['mode'], 'radius':strokes[0]['radius'],
+        'points':strokes[0]['points']})
+    preview = preview_method(
         project_path=project_path, expected_sha256=expected_sha256,
-        subject_id=subject_id, mode=mode, radius=radius, points=points)
+        subject_id=subject_id, **preview_args)
     if preview["preview_mask_sha256_float32"] != expected_preview_mask_sha256_float32:
         raise NativeSubjectPreviewError("BRUSH_PREVIEW_CHANGED")
 
@@ -76,15 +108,17 @@ def save_native_subject_stroke(
 
         # This existing method is solely responsible for archive writes,
         # CAS, command receipts, backups and the G3.3e float32 replay.
-        saved = workspace.save_subject_brush(
+        save_method=(workspace.save_subject_brushes if grouped
+                     else workspace.save_subject_brush)
+        save_args=({'strokes':strokes} if grouped else preview_args)
+        saved = save_method(
             name, expected_sha256=expected_sha256, subject_id=subject_id,
             mask_id=row["mask_id"],
             mask_sha256_float32=row["mask_sha256_float32"],
             source_id=catalog["source_id"],
             source_sha256=masks["editor_fingerprint"],
-            mode=mode, radius=radius, points=points,
             expected_preview_mask_sha256_float32=expected_preview_mask_sha256_float32,
-            command_id=command_id, confirmed=True,
+            command_id=command_id, confirmed=True, **save_args,
         )
     except NativeSubjectPreviewError:
         raise
@@ -94,8 +128,10 @@ def save_native_subject_stroke(
         raise NativeSubjectPreviewError("BRUSH_SAVE_UNAVAILABLE") from exc
 
     if (not isinstance(saved, dict) or
-            saved.get("status") not in ("subject_brush_saved",
-                                        "subject_brush_already_saved") or
+            saved.get("status") not in (("subject_brushes_saved",
+                                         "subject_brushes_already_saved") if grouped else
+                                        ("subject_brush_saved",
+                                         "subject_brush_already_saved")) or
             saved.get("persisted") is not True or
             saved.get("cricut_certified") is not False or
             saved.get("command_id") != command_id or
