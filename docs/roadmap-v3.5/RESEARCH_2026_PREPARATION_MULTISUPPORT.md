@@ -44,7 +44,7 @@ Cette veille identifie des pratiques existantes, **pas une nouveauté exclusive 
 
 **Besoin :** réadapter une boîte ou un assemblage papier/bois/acrylique à une autre épaisseur nominale sans casser les dimensions ou redessiner tous les assemblages.
 
-**Petit périmètre :** sur un **gabarit reconnu** uniquement, saisir manuellement l'épaisseur (mm) et le jeu explicite (mm) **sans en déduire automatiquement kerf, outil ni tenue mécanique**,  analyser les couples tenon/encoche reconnus, montrer **avant/après et un diff coté**, proposer le recalcul **sur copie et après confirmation** ; vérifier interférences/géométrie et conserver l'original. Ne pas détecter automatiquement le matériau, ni inventer kerf/tolérances/force d'assemblage. Si topologie non reconnue, revenir à diagnostic manuel, pas « correction » automatique.
+**Petit périmètre :** sur un **gabarit reconnu** uniquement, saisir manuellement l'épaisseur (mm) et le jeu explicite (mm) **sans en déduire automatiquement kerf, outil ni tenue mécanique**, analyser les couples tenon/encoche reconnus, montrer **avant/après et un diff coté**, proposer le recalcul **sur copie et après confirmation** ; vérifier interférences/géométrie et conserver l'original. Ne pas détecter automatiquement le matériau, ni inventer kerf/tolérances/force d'assemblage. Si topologie non reconnue, revenir à diagnostic manuel, pas « correction » automatique.
 
 **Anti-doublon :** C17/W11 couvre déjà languettes, plis et épaisseur ; le delta nouveau est **le redimensionnement contrôlé de projets existants**, non un nouveau type de gabarit ni un moteur 3D.
 
