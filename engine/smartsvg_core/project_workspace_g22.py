@@ -27,7 +27,10 @@ from .mask_snapshot_g24 import (
     encode_preview_l8, MaskSnapshotError,
 )
 from .subject_identity_g33e import register_subject_identity as bind_subject_identity, SubjectIdentityError
-from .subject_brush_preview_g33e import preview_subject_brush, SubjectBrushPreviewError
+from .subject_brush_preview_g33e import (
+    preview_subject_brush, preview_subject_brush_strokes,
+    SubjectBrushPreviewError,
+)
 from .subject_brush_history_g33e import (
     SAVE_KINDS, HISTORY_KIND, BrushHistoryError, editor_digest, plan_history_change,
 )
@@ -920,6 +923,37 @@ class ManagedWorkspace:
             points):
         """G3.3e-b2a: preview a proven Subject at a pinned archive revision.
 
+        Preserve the historical single-stroke boundary for existing callers.
+        """
+        return self._preview_subject_brushes_readonly(
+            name, expected_sha256=expected_sha256, subject_id=subject_id,
+            mask_id=mask_id, mask_sha256_float32=mask_sha256_float32,
+            source_id=source_id, source_sha256=source_sha256,
+            replay=preview_subject_brush,
+            replay_kwargs={'mode': mode, 'radius': radius, 'points': points},
+        )
+
+    def preview_subject_brushes_readonly(
+            self, name, *, expected_sha256, subject_id, mask_id,
+            mask_sha256_float32, source_id, source_sha256, strokes):
+        """Preview one bounded multi-zone batch at a pinned archive revision.
+
+        Uses the same revision and archive checks as the historical boundary.
+        """
+        return self._preview_subject_brushes_readonly(
+            name, expected_sha256=expected_sha256, subject_id=subject_id,
+            mask_id=mask_id, mask_sha256_float32=mask_sha256_float32,
+            source_id=source_id, source_sha256=source_sha256,
+            replay=preview_subject_brush_strokes,
+            replay_kwargs={'strokes': strokes},
+        )
+
+    def _preview_subject_brushes_readonly(
+            self, name, *, expected_sha256, subject_id, mask_id,
+            mask_sha256_float32, source_id, source_sha256, replay,
+            replay_kwargs):
+        """Shared read-only admission for mono- and multi-stroke replay.
+
         This is a trusted server-side read, not a persistence or HTTP route.
         Reject recovery-pending archives; recheck the revision after CPU replay
         so a late preview never appears to belong to a changed project.
@@ -947,11 +981,11 @@ class ManagedWorkspace:
         if _revision(path) != expected_sha256:
             raise WorkspaceError('PROJECT_CHANGED')
         try:
-            preview = preview_subject_brush(
+            preview = replay(
                 project, subject_id=subject_id, mask_id=mask_id,
                 mask_sha256_float32=mask_sha256_float32,
                 source_id=source_id, source_sha256=source_sha256,
-                mode=mode, radius=radius, points=points)
+                **replay_kwargs)
         except SubjectBrushPreviewError as exc:
             raise WorkspaceError(exc.code) from exc
         if _revision(path) != expected_sha256:

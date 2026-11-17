@@ -21,6 +21,8 @@ from .subject_identity_g33e import SubjectIdentityError
 _SUBJECT_ID = re.compile(r"^subject-[0-9a-f]{32}$")
 _SHA = re.compile(r"^[0-9a-f]{64}$")
 MAX_PREVIEW_POINTS = 64
+MAX_PREVIEW_STROKES = 16
+MAX_PREVIEW_POINTS_TOTAL = 256
 
 
 def _other_masks_bit_identical(raw, masks, target_index, stride):
@@ -48,6 +50,23 @@ def preview_subject_brush(
 ):
     """Preview ONE add/erase stroke after saved strokes; never alter the base.
 
+    Preserve the historical single-stroke API while routing through the
+    bounded multi-stroke primitive used by the native multi-zone draft.
+    """
+    return preview_subject_brush_strokes(
+        project, subject_id=subject_id, mask_id=mask_id,
+        mask_sha256_float32=mask_sha256_float32, source_id=source_id,
+        source_sha256=source_sha256,
+        strokes=[{'mode': mode, 'radius': radius, 'points': points}],
+    )
+
+
+def preview_subject_brush_strokes(
+    project, *, subject_id, mask_id, mask_sha256_float32,
+    source_id, source_sha256, strokes,
+):
+    """Preview one bounded batch of Add/Erase strokes without persistence.
+
     Return internal-only immutable float32 bytes plus before/after L8 PNG
     previews. Never send preview_float32 to a browser as an archive authority.
     A caller must separately pin and recheck the on-disk .smartsvg revision.
@@ -60,9 +79,17 @@ def preview_subject_brush(
             or not isinstance(source_sha256, str)
             or not _SHA.fullmatch(source_sha256)):
         raise SubjectBrushPreviewError("INVALID_PREVIEW_IDENTITY")
-    if (mode not in ("add", "erase") or type(mode) is not str
-            or not isinstance(points, list)
-            or not 1 <= len(points) <= MAX_PREVIEW_POINTS):
+    if (not isinstance(strokes, list)
+            or not 1 <= len(strokes) <= MAX_PREVIEW_STROKES
+            or any(not isinstance(stroke, dict)
+                   or set(stroke) != {'mode', 'radius', 'points'}
+                   or type(stroke.get('mode')) is not str
+                   or stroke['mode'] not in ('add', 'erase')
+                   or not isinstance(stroke.get('points'), list)
+                   or not 1 <= len(stroke['points']) <= MAX_PREVIEW_POINTS
+                   for stroke in strokes)
+            or sum(len(stroke['points']) for stroke in strokes)
+               > MAX_PREVIEW_POINTS_TOTAL):
         raise SubjectBrushPreviewError("INVALID_PREVIEW_STROKE")
     # Reuse the G3.3e-a/b1 proof validator: mask indices are NEVER subject IDs.
     try:
@@ -102,8 +129,7 @@ def preview_subject_brush(
     command = {
         "version": 1, "width": width, "height": height,
         "count": count, "source": source_sha256,
-        "strokes": [{"object": index, "mode": mode,
-                     "radius": radius, "points": points}],
+        "strokes": [{"object": index, **stroke} for stroke in strokes],
     }
     # Validate the same G2.3 stroke contract before importing optional CPU
     # dependencies. Invalid user gestures must not be reported as a missing
@@ -146,8 +172,10 @@ def preview_subject_brush(
         base = np.frombuffer(raw, dtype="<f4").reshape(count, height, width)
         base.flags.writeable = False
         # Reuse the native replay for BOTH the saved state and the new gesture.
-        before = apply_strokes(base, validated[:-1]) if len(validated) > 1 else base
-        corrected = apply_strokes(before, validated[-1:])
+        proposed_count = len(strokes)
+        before = (apply_strokes(base, validated[:-proposed_count])
+                  if len(validated) > proposed_count else base)
+        corrected = apply_strokes(before, validated[-proposed_count:])
     except (StrokeError, TypeError, ValueError, OverflowError, RecursionError) as exc:
         raise SubjectBrushPreviewError("INVALID_PREVIEW_STROKE") from exc
     # Compare raw IEEE-754 payloads, not numerical values: np.array_equal

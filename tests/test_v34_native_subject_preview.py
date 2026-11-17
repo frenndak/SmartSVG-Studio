@@ -16,6 +16,7 @@ if str(ENGINE) not in sys.path:
 
 from smartsvg_core.native_subject_preview_v34 import (
     NativeSubjectPreviewError, preview_native_subject_stroke,
+    preview_native_subject_strokes,
 )
 from smartsvg_core.project_workspace_g22 import ManagedWorkspace, WorkspaceError
 
@@ -98,6 +99,30 @@ class NativeSubjectPreviewTests(unittest.TestCase):
         self.assertEqual(result["changed_pixels"], 4)
         self.assertIs(result["persisted"], False)
         self.assertIs(result["cricut_certified"], False)
+        self.assertEqual(self.bytes_before(), before)
+
+    def test_multi_stroke_native_bridge_forwards_one_bounded_batch_and_hides_internals(self):
+        before = self.bytes_before()
+        backend = dict(project_sha256=self.sha, subject_id=self.subject_id,
+            mask_id=self.binding['mask_id'], before_png_l8=_png(grayscale=True),
+            after_png_l8=_png(grayscale=True), dimensions_px=[16, 12],
+            changed_pixels=7, preview_mask_sha256_float32='e' * 64,
+            persisted=False, preview_float32=b'private',
+            editor_document={'strokes': [1, 2, 3]})
+        strokes = [
+            {'mode': 'add', 'radius': 0.03, 'points': [[0.2, 0.2]]},
+            {'mode': 'erase', 'radius': 0.03, 'points': [[0.5, 0.5]]},
+        ]
+        with patch.object(ManagedWorkspace, 'preview_subject_brushes_readonly',
+                          return_value=backend) as preview:
+            result = preview_native_subject_strokes(
+                project_path=str(self.path), expected_sha256=self.sha,
+                subject_id=self.subject_id, strokes=strokes)
+        preview.assert_called_once()
+        self.assertEqual(preview.call_args.kwargs['strokes'], strokes)
+        self.assertEqual(result['changed_pixels'], 7)
+        self.assertNotIn('preview_float32', result)
+        self.assertNotIn('editor_document', result)
         self.assertEqual(self.bytes_before(), before)
 
 
