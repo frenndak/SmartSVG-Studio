@@ -21,7 +21,7 @@
 
 **Exceptions réelles toujours ouvertes et conservées :**
 - **Six scénarios sans ticket source explicite** : `T-V34-03-16`, `T-V34-06-22`, `T-V34-06-24`, `T-V34-06-25`, `T-V34-07-16`, `T-V34-07-25`. Ne pas leur fabriquer un ticket de rattachement.
-- **Dix exigences V3.3 sans ticket direct V34** : `S-021`, `S-036`, `S-037`, `S-044`, `S-047`, `S-064`, `S-066`, `S-092`, `S-099`, `R33-028`. G6 (texte/typographie/gabarits) et G9 (OCR/diorama) demeurent juridiquement et techniquement des obligations de roadmap, même si leur couverture doit être qualifiée via W10/W11/W16.
+- **Dix exigences V3.3 sans ticket direct V34** : `S-021`, `S-036`, `S-037`, `S-044`, `S-047`, `S-064`, `S-066`, `S-092`, `S-099`, `R33-028`. G6 (texte/typographie/gabarits) et G9 (OCR/diorama) demeurent des obligations explicites de roadmap, même si leur couverture doit être qualifiée via W10/W11/W16.
 - Ces manques de **lien** ne constituent pas un manque automatique de fonction mais doivent être résolus par preuves, et jamais masqués par « 80/80 relus ».
 
 ## 2. Défauts et ambiguïtés identifiés à cette deuxième passe
