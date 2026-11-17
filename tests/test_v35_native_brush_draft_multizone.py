@@ -88,7 +88,7 @@ class MultiZoneDraftTests(unittest.TestCase):
         panel._points = []
         self.assertTrue(panel.remove_last_draft_zone())
         self.assertEqual(len(panel._strokes), MAX_DRAFT_STROKES - 1)
-        self.assertFalse(panel.remove_last_draft_zone() is None)
+        self.assertTrue(panel.remove_last_draft_zone())
 
     def test_preview_dispatch_uses_legacy_contract_for_one_zone_and_batch_for_many(self):
         calls = []
@@ -135,6 +135,58 @@ class MultiZoneDraftTests(unittest.TestCase):
                 setattr(panel, attribute, value)
                 self.assertFalse(panel.remove_last_draft_zone())
                 self.assertEqual(len(panel._strokes), 1)
+
+    def test_confirmed_multi_zone_save_uses_grouped_writer_once(self):
+        panel = self.make_panel()
+        panel._strokes = [{
+            "mode": "add", "radius": 0.05, "points": [[0.1, 0.2]],
+        }]
+        panel.mode.set("Effacer")
+        panel.radius.set("0.10")
+        panel._points = [[0.6, 0.7]]
+        strokes = panel._draft_strokes()
+        bound = panel._bound_request(strokes)
+        panel._result_images = {"after": object()}
+        panel._verified_save_request = ("c" * 64, panel._token, bound)
+        panel._confirm_fn = lambda: True
+        panel._on_saved = None
+        calls = []
+        panel._save_fn = lambda **_request: self.fail("batch used single writer")
+
+        def save_many(**request):
+            calls.append(request)
+            return {
+                "status": "subject_brushes_saved", "persisted": True,
+                "subject_id": panel._identity[2], "project_sha256": "d" * 64,
+            }
+
+        panel._save_many_fn = save_many
+
+        self.assertTrue(panel.save())
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["strokes"], strokes)
+        self.assertTrue(calls[0]["confirmed"])
+        self.assertEqual(calls[0]["expected_preview_mask_sha256_float32"],
+                         "c" * 64)
+        self.assertIsNone(panel._identity)
+        self.assertEqual(panel._strokes, [])
+
+    def test_multi_zone_save_never_calls_writer_without_literal_confirmation(self):
+        panel = self.make_panel()
+        panel._strokes = [{
+            "mode": "add", "radius": 0.05, "points": [[0.1, 0.2]],
+        }]
+        strokes = panel._draft_strokes()
+        bound = panel._bound_request(strokes)
+        panel._result_images = {"after": object()}
+        panel._verified_save_request = ("c" * 64, panel._token, bound)
+        panel._confirm_fn = lambda: False
+        panel._on_saved = None
+        panel._save_many_fn = lambda **_request: self.fail("writer called")
+        panel._save_fn = lambda **_request: self.fail("writer called")
+
+        self.assertFalse(panel.save())
+        self.assertEqual(panel._identity[1], "a" * 64)
 
 
 if __name__ == "__main__":

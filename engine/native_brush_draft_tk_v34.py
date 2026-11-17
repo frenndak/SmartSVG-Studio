@@ -17,17 +17,32 @@ import re
 import struct
 
 from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
-from smartsvg_core.native_subject_preview_v34 import preview_native_subject_stroke
-from smartsvg_core.native_subject_save_v34 import save_native_subject_stroke
+from smartsvg_core.native_subject_preview_v34 import (
+    preview_native_subject_stroke, preview_native_subject_strokes,
+)
+from smartsvg_core.native_subject_save_v34 import (
+    save_native_subject_stroke, save_native_subject_strokes,
+)
 from smartsvg_core.source_preview_v34 import MAX_ENCODED_BYTES
 
 
 _SHA = re.compile(r"^[0-9a-f]{64}$")
 _SUBJECT = re.compile(r"^subject-[0-9a-f]{32}$")
 MAX_GESTURE_POINTS = 64
+MAX_DRAFT_STROKES = 16
 _MODES = {"Ajouter": "add", "Effacer": "erase"}
 _RADII = ("0.02", "0.05", "0.10")
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+def dispatch_preview_request(single_fn, many_fn, request):
+    """Keep the historical one-stroke call shape while routing batches."""
+    strokes = request['strokes']
+    identity = {key: request[key] for key in (
+        'project_path', 'expected_sha256', 'subject_id')}
+    if len(strokes) == 1:
+        return single_fn(**identity, **strokes[0])
+    return many_fn(**identity, strokes=strokes)
 
 
 def bounded_tk_png(raw):
@@ -78,14 +93,20 @@ def normalized_mask_point(x, y, image_box):
 
 class NativeBrushDraftPanel:
     def __init__(self, root, parent, tk, ttk, *, preview_fn=preview_native_subject_stroke,
-                 save_fn=save_native_subject_stroke, confirm_fn=None, on_saved=None):
+                 preview_many_fn=preview_native_subject_strokes,
+                 save_fn=save_native_subject_stroke,
+                 save_many_fn=save_native_subject_strokes,
+                 confirm_fn=None, on_saved=None):
         self.root, self.tk = root, tk
         self._save_fn = save_fn
+        self._save_many_fn = save_many_fn
         self._confirm_fn = confirm_fn
         self._on_saved = on_saved
         self._closed = False
         self._token = 0
-        self._job = LatestOnlyJob(lambda request: preview_fn(**request))
+        self._job = LatestOnlyJob(
+            lambda request: dispatch_preview_request(
+                preview_fn, preview_many_fn, request))
         self._identity = None
         self._identity_png = None
         self._image = self._display = None
@@ -95,6 +116,7 @@ class NativeBrushDraftPanel:
         self._save_pending = False
         self._box = None
         self._points = []
+        self._strokes = []
         self._redo_points = []
         self._overflow = False
         self._busy = False
@@ -135,6 +157,8 @@ class NativeBrushDraftPanel:
         preview_actions.pack(fill='x')
         draft_actions = ttk.Frame(actions)
         draft_actions.pack(fill='x', pady=(4, 0))
+        zone_actions = ttk.Frame(actions)
+        zone_actions.pack(fill='x', pady=(4, 0))
         self.preview_button = ttk.Button(
             preview_actions, text='Calculer avant/après', command=self.preview)
         self.preview_button.pack(side='left', padx=(0, 4))
@@ -156,6 +180,13 @@ class NativeBrushDraftPanel:
         self.save_button = ttk.Button(
             draft_actions, text='Enregistrer…', command=self.save)
         self.save_button.pack(side='left', padx=4)
+        self.add_zone_button = ttk.Button(
+            zone_actions, text='Ajouter cette zone', command=self.add_draft_zone)
+        self.add_zone_button.pack(side='left', padx=(0, 4))
+        self.remove_zone_button = ttk.Button(
+            zone_actions, text='Retirer la derniere zone',
+            command=self.remove_last_draft_zone)
+        self.remove_zone_button.pack(side='left', padx=4)
         ttk.Label(parent, textvariable=self.status,
                   wraplength=530).pack(anchor='w', pady=(5, 0))
         self._controls()
@@ -164,8 +195,9 @@ class NativeBrushDraftPanel:
         active = self._identity is not None and not self._closed
         self.mode_picker.configure(state='readonly' if active and not self._save_pending else 'disabled')
         self.radius_picker.configure(state='readonly' if active and not self._save_pending else 'disabled')
+        has_draft = bool(self._points or self._strokes)
         self.preview_button.configure(
-            state='normal' if active and bool(self._points)
+            state='normal' if active and has_draft
             and not self._overflow and not self._busy and not self._save_pending else 'disabled')
         self.undo_button.configure(
             state='normal' if active and bool(self._points) and not self._busy
@@ -180,6 +212,14 @@ class NativeBrushDraftPanel:
             state='normal' if active and not self._busy and not self._save_pending
             and self._result_images is not None
             and self._verified_save_request is not None else 'disabled')
+        self.add_zone_button.configure(
+            state='normal' if active and bool(self._points) and not self._overflow
+            and len(self._strokes) < MAX_DRAFT_STROKES and not self._busy
+            and not self._save_pending and self._result_images is None else 'disabled')
+        self.remove_zone_button.configure(
+            state='normal' if active and bool(self._strokes) and not self._points
+            and not self._busy and not self._save_pending
+            and self._result_images is None else 'disabled')
         for button in (self.before_button, self.after_button):
             button.configure(
                 state='normal' if active and self._result_images is not None else 'disabled')
@@ -194,6 +234,7 @@ class NativeBrushDraftPanel:
         self._inflight_request = None
         self._save_pending = False
         self._points = []
+        self._strokes = []
         self._redo_points = []
         self._box = None
         self._overflow = self._busy = False
@@ -250,20 +291,31 @@ class NativeBrushDraftPanel:
             0, (height - display.height()) // 2)
         self._box, self._display = (left, top, display.width(), display.height()), display
         self.canvas.create_image(left, top, anchor='nw', image=display)
-        if self._points and self._variant == 'after' and self._result_images is None:
+        if self._variant == 'after' and self._result_images is None:
+            for stroke in self._strokes:
+                self._draw_stroke(left, top, display, stroke['points'], '#6b7280')
+            self._draw_stroke(left, top, display, self._points, '#2473ad')
+
+    def _draw_stroke(self, left, top, display, points, colour):
+        if points:
             screen = [(left + x * display.width(), top + y * display.height())
-                      for x, y in self._points]
+                      for x, y in points]
             if len(screen) == 1:
                 x, y = screen[0]
-                self.canvas.create_oval(x-2, y-2, x+2, y+2, outline='#2473ad')
+                self.canvas.create_oval(x-2, y-2, x+2, y+2, outline=colour)
             else:
                 self.canvas.create_line(
-                    *[value for xy in screen for value in xy], fill='#2473ad',
+                    *[value for xy in screen for value in xy], fill=colour,
                     width=2)
 
     def _append(self, x, y):
         if (self._closed or self._identity is None or self._busy or self._save_pending or
                 self._result_images is not None):
+            return
+        if not self._points and len(self._strokes) >= MAX_DRAFT_STROKES:
+            self.status.set(
+                f'{MAX_DRAFT_STROKES} zones maximum : calculez ou effacez le brouillon.')
+            self._controls()
             return
         point = normalized_mask_point(x, y, self._box)
         if point is None or (self._points and point == self._points[-1]):
@@ -362,24 +414,106 @@ class NativeBrushDraftPanel:
     def _redo_draft_key(self, _event=None):
         return 'break' if self.redo_draft_point() else None
 
+    def _draft_strokes(self):
+        strokes = [{
+            'mode': stroke['mode'], 'radius': stroke['radius'],
+            'points': [point[:] for point in stroke['points']],
+        } for stroke in self._strokes]
+        if self._points:
+            strokes.append({
+                'mode': _MODES[self.mode.get()],
+                'radius': float(self.radius.get()),
+                'points': [point[:] for point in self._points],
+            })
+        return strokes
+
+    @staticmethod
+    def _freeze_strokes(strokes):
+        return tuple((stroke['mode'], stroke['radius'],
+                      tuple(tuple(point) for point in stroke['points']))
+                     for stroke in strokes)
+
+    def _bound_request(self, strokes):
+        frozen = self._freeze_strokes(strokes)
+        if not self._strokes and len(strokes) == 1:
+            mode, radius, points = frozen[0]
+            return self._identity, mode, radius, points
+        return self._identity, 'draft', len(strokes) > 1, frozen
+
+    @staticmethod
+    def _bound_strokes(bound):
+        frozen = ((bound[1], bound[2], bound[3]),) if bound[1] != 'draft' else bound[3]
+        return [{'mode': mode, 'radius': radius,
+                 'points': [list(point) for point in points]}
+                for mode, radius, points in frozen]
+
+    def _bound_matches(self, bound):
+        if bound[0] != self._identity:
+            return False
+        try:
+            return self._freeze_strokes(self._draft_strokes()) == self._freeze_strokes(
+                self._bound_strokes(bound))
+        except (KeyError, TypeError, ValueError):
+            return False
+
+    def add_draft_zone(self):
+        """Freeze the current local stroke and open a fresh editable zone."""
+        if (self._closed or self._identity is None or self._busy or
+                self._save_pending or self._result_images is not None or
+                not self._points or self._overflow):
+            return False
+        if len(self._strokes) >= MAX_DRAFT_STROKES:
+            self.status.set(
+                f'{MAX_DRAFT_STROKES} zones maximum : calculez ou effacez le brouillon.')
+            self._controls()
+            return False
+        self._strokes.append({
+            'mode': _MODES[self.mode.get()],
+            'radius': float(self.radius.get()),
+            'points': [point[:] for point in self._points],
+        })
+        self._points = []
+        self._redo_points = []
+        self._token += 1
+        self._verified_save_request = None
+        self._inflight_request = None
+        self.status.set(
+            f'{len(self._strokes)} zone(s) prete(s) - dessinez la suivante ou calculez.')
+        self._draw()
+        self._controls()
+        return True
+
+    def remove_last_draft_zone(self):
+        """Remove one frozen local zone; persisted history remains untouched."""
+        if (self._closed or self._identity is None or self._busy or
+                self._save_pending or self._result_images is not None or
+                self._points or not self._strokes):
+            return False
+        self._strokes.pop()
+        self._token += 1
+        self._verified_save_request = None
+        self._inflight_request = None
+        self.status.set(
+            f'{len(self._strokes)} zone(s) prete(s) - derniere zone retiree.')
+        self._draw()
+        self._controls()
+        return True
+
     def preview(self):
-        if (self._closed or self._identity is None or not self._points
+        if (self._closed or self._identity is None or not (self._points or self._strokes)
                 or self._overflow or self._busy or self._save_pending or
                 self.mode.get() not in _MODES or self.radius.get() not in _RADII):
             return False
         project_path, expected_sha256, subject_id = self._identity
+        strokes = self._draft_strokes()
         payload = {
             'project_path': project_path, 'expected_sha256': expected_sha256,
-            'subject_id': subject_id, 'mode': _MODES[self.mode.get()],
-            'radius': float(self.radius.get()),
-            'points': [point[:] for point in self._points],
+            'subject_id': subject_id, 'strokes': strokes,
         }
         self._verified_save_request = None
         # Pin exactly the gesture submitted to the CPU worker. No later UI
         # event may promote a different gesture to a saveable preview.
-        self._inflight_request = (
-            self._identity, payload['mode'], payload['radius'],
-            tuple(tuple(point) for point in payload['points']))
+        self._inflight_request = self._bound_request(strokes)
         self._token += 1
         token = self._token
         self._busy = True
@@ -406,11 +540,7 @@ class NativeBrushDraftPanel:
         self._busy = False
         try:
             bound = self._inflight_request
-            if (bound is None or bound[0] != self._identity or
-                    bound[1] != _MODES.get(self.mode.get()) or
-                    self.radius.get() not in _RADII or
-                    bound[2] != float(self.radius.get()) or
-                    bound[3] != tuple(tuple(point) for point in self._points)):
+            if bound is None or not self._bound_matches(bound):
                 raise ValueError('STALE_STROKE')
             result = future.result()
             if (result['subject_id'] != self._identity[2] or
@@ -480,11 +610,7 @@ class NativeBrushDraftPanel:
                 self._verified_save_request is None):
             return False
         digest, token, bound = self._verified_save_request
-        if (token != self._token or bound[0] != self._identity or
-                bound[1] != _MODES.get(self.mode.get()) or
-                self.radius.get() not in _RADII or
-                bound[2] != float(self.radius.get()) or
-                bound[3] != tuple(tuple(p) for p in self._points)):
+        if token != self._token or not self._bound_matches(bound):
             self._verified_save_request = None
             self.status.set('Aperçu périmé : recalculez avant d’enregistrer.')
             self._controls()
@@ -509,18 +635,23 @@ class NativeBrushDraftPanel:
         self._controls()
         self.status.set('Enregistrement confirmé · vérification du projet…')
         project_path, revision, subject_id = bound[0]
+        strokes = self._bound_strokes(bound)
         try:
-            result = self._save_fn(
+            request = dict(
                 project_path=project_path, expected_sha256=revision,
-                subject_id=subject_id, mode=bound[1], radius=bound[2],
-                points=[list(p) for p in bound[3]],
+                subject_id=subject_id,
                 expected_preview_mask_sha256_float32=digest,
                 command_id='native-' + uuid4().hex, confirmed=True)
+            if len(strokes) == 1:
+                result = self._save_fn(**request, **strokes[0])
+                statuses = ('subject_brush_saved', 'subject_brush_already_saved')
+            else:
+                result = self._save_many_fn(**request, strokes=strokes)
+                statuses = ('subject_brushes_saved', 'subject_brushes_already_saved')
             if (type(result) is not dict or
                     result.get('persisted') is not True or
                     result.get('subject_id') != subject_id or
-                    result.get('status') not in
-                    ('subject_brush_saved', 'subject_brush_already_saved') or
+                    result.get('status') not in statuses or
                     type(result.get('project_sha256')) is not str or
                     not _SHA.fullmatch(result['project_sha256'])):
                 raise ValueError('UNCERTAIN_SAVE_RECEIPT')
@@ -531,6 +662,7 @@ class NativeBrushDraftPanel:
             self._verified_save_request = None
             self._result_images = None
             self._identity = None
+            self._strokes = []
             self._redo_points = []
             self._save_pending = False
             code = getattr(exc, 'code', '')
@@ -548,6 +680,7 @@ class NativeBrushDraftPanel:
         self._verified_save_request = None
         self._result_images = None
         self._identity = None
+        self._strokes = []
         self._redo_points = []
         self._save_pending = False
         if not self._closed:
@@ -580,6 +713,7 @@ class NativeBrushDraftPanel:
         self._token += 1
         self._busy = False
         self._points = []
+        self._strokes = []
         self._redo_points = []
         self._overflow = False
         self._result_images = None
