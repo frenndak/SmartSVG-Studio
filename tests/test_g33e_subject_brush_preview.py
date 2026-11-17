@@ -63,6 +63,9 @@ class SubjectBrushPreviewTests(unittest.TestCase):
         self.first[6 * 16 + 8] = 0.6
         self.second[2 * 16 + 2] = 1.0
         self.second[3 * 16 + 3] = 0.4
+        # Deliberately overlap the neighbour at the first Subject's edited
+        # pixel. Object indices, not pixel proximity, own every brush change.
+        self.second[6 * 16 + 8] = 0.75
         raw = struct.pack("<384f", *(self.first + self.second))
         self.workspace.save_base_masks(
             "brush-preview", raw_float32=raw, shape=[2, 12, 16],
@@ -191,6 +194,28 @@ class SubjectBrushPreviewTests(unittest.TestCase):
                                                       points=[[0.125, 0.18]])
         second = preview_subject_brush(second_project, **second_values)
         self.assertEqual(second["subject_id"], self.subject_ids[1])
+        self.assertEqual(self.path.read_bytes(), archive)
+        self.assertEqual(load_project(self.path).resources, project.resources)
+
+    @unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
+                         'CPU brush dependencies not installed in stdlib-only G0')
+    def test_negative_batch_never_propagates_to_overlapping_neighbour(self):
+        project, values = self.command()
+        identity = {key: values[key] for key in (
+            'subject_id', 'mask_id', 'mask_sha256_float32',
+            'source_id', 'source_sha256')}
+        archive = self.path.read_bytes()
+
+        result = preview_subject_brush_strokes(project, **identity, strokes=[
+            {'mode': 'erase', 'radius': 0.03, 'points': [[0.5, 0.5]]},
+        ])
+
+        target = struct.unpack('<192f', result['preview_float32'])
+        self.assertEqual(target[6 * 16 + 8], 0.0)
+        # The core rejects the preview if any non-target float32 byte changes.
+        # The neighbour has foreground at this exact pixel, making this a
+        # pipeline-level regression for target identity rather than distance.
+        self.assertGreater(self.second[6 * 16 + 8], 0.0)
         self.assertEqual(self.path.read_bytes(), archive)
         self.assertEqual(load_project(self.path).resources, project.resources)
 
