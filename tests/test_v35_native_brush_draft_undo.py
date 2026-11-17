@@ -84,6 +84,38 @@ class BrushDraftUndoTests(unittest.TestCase):
         self.assertEqual(panel._undo_draft_key(), "break")
         self.assertEqual(panel._points, [[0.1, 0.2]])
 
+    def test_undo_shortcut_propagates_when_operation_is_blocked(self):
+        for attribute, value in (
+            ("_busy", True), ("_save_pending", True),
+            ("_result_images", {"after": object()}), ("_points", []),
+            ("_identity", None), ("_closed", True),
+        ):
+            with self.subTest(attribute=attribute):
+                panel = self.make_panel()
+                setattr(panel, attribute, value)
+                before = [point[:] for point in panel._points]
+                self.assertIsNone(panel._undo_draft_key())
+                self.assertEqual(panel._points, before)
+                self.assertEqual(panel._token, 7)
+
+    def test_redo_shortcut_propagates_when_operation_is_blocked(self):
+        for attribute, value in (
+            ("_busy", True), ("_save_pending", True),
+            ("_result_images", {"after": object()}),
+            ("_identity", None), ("_closed", True),
+        ):
+            with self.subTest(attribute=attribute):
+                panel = self.make_panel()
+                panel._redo_points = [[0.5, 0.6]]
+                setattr(panel, attribute, value)
+                before = [point[:] for point in panel._points]
+                self.assertIsNone(panel._redo_draft_key())
+                self.assertEqual(panel._points, before)
+                self.assertEqual(panel._token, 7)
+        panel = self.make_panel()
+        self.assertIsNone(panel._redo_draft_key())
+        self.assertEqual(panel._token, 7)
+
     def test_redo_restores_last_undone_point_and_invalidates_stale_proofs(self):
         panel = self.make_panel()
 
