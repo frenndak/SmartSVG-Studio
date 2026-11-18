@@ -64,7 +64,7 @@ class SubjectKeyboardNavigationTests(unittest.TestCase):
 
     def prepare_draft(self):
         self.brush = self.panel._brush_panel = SimpleNamespace(
-            has_draft=True, shutdown=Mock())
+            has_draft=True, draft_checkpoint=lambda: ('unchanged',), shutdown=Mock())
         self.dialog = self.panel._brush_dialog = SimpleNamespace(
             lift=Mock(), destroy=Mock())
         self.panel._brush_key = ('project', 'revision', 'one')
@@ -122,6 +122,42 @@ class SubjectKeyboardNavigationTests(unittest.TestCase):
         self.assertEqual(self.panel.selection.get(), 'one')
         self.brush.shutdown.assert_not_called()
 
+    def test_close_prompt_preserves_a_queued_gesture_change(self):
+        self.prepare_draft()
+        brush = NativeBrushDraftPanel.__new__(NativeBrushDraftPanel)
+        brush._closed = brush._busy = brush._save_pending = False
+        brush._identity = ('C:/synthetic.smartsvg', 'a' * 64, 'subject-' + 'b' * 32)
+        brush._points = [[0.1, 0.2]]
+        brush._strokes = []
+        brush._redo_points = []
+        brush._redo_strokes = []
+        brush._result_images = None
+        brush._overflow = False
+        brush._box = (0, 0, 100, 100)
+        brush._token = 7
+        brush.status = Variable()
+        brush._draw = brush._controls = lambda: None
+        brush.shutdown = Mock()
+        self.panel._brush_panel = brush
+
+        def confirm_after_queued_motion(*_args, **_kwargs):
+            brush._append(50, 50)
+            return True
+        with patch('tkinter.messagebox.askyesno', side_effect=confirm_after_queued_motion):
+            self.assertFalse(self.panel._request_close_brush())
+        self.assertIs(self.panel._brush_panel, brush)
+        self.assertEqual(brush._points[-1], [0.5, 0.5])
+        brush.shutdown.assert_not_called()
+
+    def test_close_fails_closed_if_draft_cannot_be_snapshotted(self):
+        self.prepare_draft()
+        del self.brush.draft_checkpoint
+        with patch('tkinter.messagebox.askyesno') as ask:
+            self.assertFalse(self.panel._request_close_brush())
+        ask.assert_not_called()
+        self.assertIs(self.panel._brush_panel, self.brush)
+        self.brush.shutdown.assert_not_called()
+
     def test_both_active_and_redo_only_edits_count_as_drafts(self):
         brush = NativeBrushDraftPanel.__new__(NativeBrushDraftPanel)
         fields = ('_points', '_strokes', '_redo_points', '_redo_strokes')
@@ -173,6 +209,16 @@ class SubjectKeyboardNavigationTests(unittest.TestCase):
                 self.assertEqual(len(brush._strokes), 1)
                 self.assertEqual(brush._points, [[0.5, 0.5]])
                 self.assertEqual(path.read_bytes(), before)
+            left, top, _, _ = brush._box
+            def confirm_after_motion(*_args, **_kwargs):
+                brush._append(left, top)
+                return True
+            with patch('tkinter.messagebox.askyesno', side_effect=confirm_after_motion):
+                self.assertFalse(panel.next_subject())
+            self.assertEqual(panel.selection.get(), first)
+            self.assertTrue(dialog.winfo_exists())
+            self.assertEqual(brush._points[-1], [0.0, 0.0])
+            self.assertEqual(path.read_bytes(), before)
             with patch('tkinter.messagebox.askyesno', return_value=True):
                 self.assertTrue(panel.next_subject())
             self.assertEqual(panel.selection.get(), second)

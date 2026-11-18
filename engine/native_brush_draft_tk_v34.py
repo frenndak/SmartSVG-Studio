@@ -904,6 +904,14 @@ class NativeBrushDraftPanel:
         return bool(self._points or self._strokes or
                     self._redo_points or self._redo_strokes)
 
+    def draft_checkpoint(self):
+        """Snapshot the local work that a destructive confirmation refers to."""
+        return (self._token, getattr(self, '_identity', None),
+                getattr(self, '_recovery_identity', None),
+                getattr(self, '_stroke_style', None),
+                deepcopy((self._points, self._strokes,
+                          self._redo_points, self._redo_strokes)))
+
     def _discard_draft_key(self, _event=None):
         # Escape cancels the current gesture only. Earlier completed zones and
         # their redo history remain part of the local, uncommitted draft.
@@ -934,9 +942,7 @@ class NativeBrushDraftPanel:
             return False
         from tkinter import messagebox
 
-        token = self._token
-        draft = deepcopy((self._points, self._strokes,
-                          self._redo_points, self._redo_strokes))
+        checkpoint = self.draft_checkpoint()
         self._discard_confirming = True
         try:
             accepted = messagebox.askyesno(
@@ -953,8 +959,7 @@ class NativeBrushDraftPanel:
         # that changed while the user was answering about an older draft.
         if accepted is not True or self._closed or self._save_pending:
             return False
-        if token != self._token or draft != (
-                self._points, self._strokes, self._redo_points, self._redo_strokes):
+        if checkpoint != self.draft_checkpoint():
             self.status.set('Brouillon modifié pendant la confirmation : rien n’a été effacé.')
             return False
         return self.discard()

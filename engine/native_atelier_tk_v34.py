@@ -632,6 +632,12 @@ class NativeAtelierPanel:
             return True
         from tkinter import messagebox
 
+        try:
+            checkpoint = panel.draft_checkpoint()
+        except Exception:
+            # Without a snapshot the confirmation cannot be tied to the work
+            # that will be discarded, so keep the panel open.
+            return False
         dialog = self._brush_dialog
         self._brush_close_confirming = True
         try:
@@ -642,10 +648,15 @@ class NativeAtelierPanel:
                 parent=dialog, default='no')
             if self._brush_panel is not panel:
                 return False
+            if confirmed is True and checkpoint != panel.draft_checkpoint():
+                panel.status.set(
+                    'Brouillon modifié pendant la confirmation : rien n’a été effacé.')
+                dialog.lift()
+                return False
             if not confirmed:
                 dialog.lift()
             return confirmed is True
-        except self.tk.TclError:
+        except Exception:
             return False
         finally:
             self._brush_close_confirming = False

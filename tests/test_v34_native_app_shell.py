@@ -353,7 +353,8 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 state.jobs.futures[0].result(timeout=15)
                 root.pending.pop(0)()
                 atelier = state.atelier
-                panel = SimpleNamespace(has_draft=True, shutdown=lambda: None)
+                panel = SimpleNamespace(has_draft=True, draft_checkpoint=lambda: ('unchanged',),
+                                        shutdown=lambda: None)
                 dialog = SimpleNamespace(lift=lambda: None, destroy=lambda: None)
                 atelier._brush_panel, atelier._brush_dialog = panel, dialog
                 subject = atelier.selection.get()
@@ -377,7 +378,8 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 root.pending.pop(0)()
                 atelier = state.atelier
                 closed = []
-                panel = SimpleNamespace(has_draft=True, shutdown=lambda: closed.append('panel'))
+                panel = SimpleNamespace(has_draft=True, draft_checkpoint=lambda: ('unchanged',),
+                                        shutdown=lambda: closed.append('panel'))
                 dialog = SimpleNamespace(lift=lambda: None, destroy=lambda: closed.append('window'))
                 atelier._brush_panel, atelier._brush_dialog = panel, dialog
                 atelier._brush_key = (str(path), atelier.snapshot.sha256, atelier.selection.get())
@@ -424,7 +426,8 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 root.pending.pop(0)()
                 atelier = state.atelier
                 closed = []
-                panel = SimpleNamespace(has_draft=True, shutdown=lambda: closed.append('panel'))
+                panel = SimpleNamespace(has_draft=True, draft_checkpoint=lambda: ('unchanged',),
+                                        shutdown=lambda: closed.append('panel'))
                 dialog = SimpleNamespace(lift=lambda: None, destroy=lambda: closed.append('window'))
                 atelier._brush_panel, atelier._brush_dialog = panel, dialog
                 atelier._brush_key = (str(path), atelier.snapshot.sha256, atelier.selection.get())
