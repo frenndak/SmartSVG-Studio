@@ -318,6 +318,65 @@ class MultiZoneDraftTests(unittest.TestCase):
         self.assertIn("brouillon", panel.status.get().lower())
         self.assertNotIn("private", panel.status.get())
 
+    def test_uncertain_draft_offers_recheck_but_not_edit_or_save(self):
+        class Button:
+            def __init__(self): self.options = {}
+            def configure(self, **options): self.options.update(options)
+        panel = self.make_panel()
+        panel._recovery_identity, panel._identity = panel._identity, None
+        panel._result_images = None
+        for name in ('mode_picker', 'radius_picker', 'preview_button', 'undo_button',
+                     'redo_button', 'discard_button', 'save_button', 'add_zone_button',
+                     'remove_zone_button', 'restore_zone_button', 'before_button', 'after_button'):
+            setattr(panel, name, Button())
+        panel._controls = NativeBrushDraftPanel._controls.__get__(panel)
+        panel._controls()
+        self.assertEqual(panel.preview_button.options['state'], 'normal')
+        self.assertEqual(panel.preview_button.options['text'], 'Vérifier et recalculer')
+        self.assertEqual(panel.discard_button.options['state'], 'normal')
+        for name in ('mode_picker', 'radius_picker', 'undo_button', 'save_button', 'add_zone_button'):
+            self.assertEqual(getattr(panel, name).options['state'], 'disabled')
+
+    def test_abandoning_an_uncertain_draft_does_not_claim_project_unchanged(self):
+        panel = self.make_panel()
+        panel._recovery_identity, panel._identity = panel._identity, None
+        self.assertTrue(panel.discard())
+        self.assertFalse(panel.has_draft)
+        self.assertIsNone(panel._recovery_identity)
+        self.assertIn('vérifiez', panel.status.get().lower())
+        self.assertNotIn('pas été modifié', panel.status.get())
+
+    def test_late_recheck_cannot_restore_an_abandoned_draft(self):
+        from threading import Event
+        from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
+        started, release = Event(), Event()
+        panel = self.make_panel()
+        panel._recovery_identity, panel._identity = panel._identity, None
+        pending = []
+        panel.root = SimpleNamespace(after=lambda _delay, callback: pending.append(callback))
+
+        def delayed(_request):
+            started.set()
+            if not release.wait(5):
+                raise TimeoutError('test timeout')
+            return {}
+        panel._job = LatestOnlyJob(delayed)
+        try:
+            self.assertTrue(panel.preview())
+            future = panel._job._future
+            self.assertTrue(started.wait(5))
+            self.assertTrue(panel.discard())
+            release.set()
+            future.result(timeout=15)
+            pending.pop(0)()
+            self.assertIsNone(panel._identity)
+            self.assertIsNone(panel._recovery_identity)
+            self.assertIsNone(panel._verified_save_request)
+            self.assertFalse(panel.has_draft)
+        finally:
+            release.set()
+            panel._job.close()
+
     def test_ui_limits_match_brush_preview_contract(self):
         from native_brush_draft_tk_v34 import MAX_GESTURE_POINTS, MAX_DRAFT_POINTS_TOTAL
         from smartsvg_core.subject_brush_preview_g33e import (
@@ -370,6 +429,91 @@ class MultiZoneDraftTests(unittest.TestCase):
             self.assertEqual(reopened.operations[-1]['kind'], 'save_subject_brushes_v35_w02_v1')
             self.assertEqual(reopened.resources, original.resources)
             self.assertEqual(reopened.subjects, original.subjects)
+
+    @unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
+                         'The real brush writer requires NumPy/Pillow')
+    def test_uncertain_save_rechecks_revision_before_enabling_retry(self):
+        from hashlib import sha256
+        import tempfile
+        from test_v34_native_app_shell import create_atelier_project
+        from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
+        from smartsvg_core.native_subject_preview_v34 import (
+            preview_native_subject_stroke, preview_native_subject_strokes,
+        )
+        from smartsvg_core.native_subject_save_v34 import save_native_subject_strokes
+        from smartsvg_core.project_archive import load_project
+
+        class Scheduler:
+            def __init__(self): self.pending = []
+            def after(self, _delay, callback): self.pending.append(callback)
+
+        class Photo:
+            def __init__(self, **_kwargs): pass
+            def width(self): return 4
+            def height(self): return 3
+
+        for committed in (False, True):
+            with self.subTest(committed=committed), tempfile.TemporaryDirectory() as directory:
+                path, subjects = create_atelier_project(directory)
+                subject = next(iter(subjects))
+                panel = self.make_panel()
+                panel._identity = (str(path), sha256(path.read_bytes()).hexdigest(), subject)
+                panel._points = [[0.8, 0.8]]
+                panel._strokes = [{"mode": "add", "radius": 0.05,
+                                   "points": [[0.2, 0.2]]}]
+                strokes = panel._draft_strokes()
+                initial = preview_native_subject_strokes(
+                    project_path=str(path), expected_sha256=panel._identity[1],
+                    subject_id=subject, strokes=strokes)
+                panel._identity_png = initial['before_png_l8']
+                panel._result_images = {'after': object()}
+                panel._verified_save_request = (
+                    initial['preview_mask_sha256_float32'], panel._token,
+                    panel._bound_request(strokes))
+                panel._confirm_fn = lambda: True
+                panel._on_saved = None
+                panel.root = Scheduler()
+                panel.tk = SimpleNamespace(PhotoImage=Photo)
+                panel._job = LatestOnlyJob(lambda request: dispatch_preview_request(
+                    preview_native_subject_stroke, preview_native_subject_strokes, request))
+
+                def uncertain(**request):
+                    if committed:
+                        save_native_subject_strokes(**request)
+                    raise OSError('uncertain result')
+                panel._save_many_fn = uncertain
+                try:
+                    self.assertFalse(panel.save())
+                    self.assertTrue(panel.has_draft)
+                    self.assertIsNone(panel._identity)
+                    self.assertFalse(panel.save())
+                    revision_after_failure = path.read_bytes()
+
+                    # The read-only check must never apply or repeat a write.
+                    self.assertTrue(panel.preview())
+                    future = panel._job._future
+                    try:
+                        future.result(timeout=15)
+                    except Exception:
+                        if not committed:
+                            raise
+                    panel.root.pending.pop(0)()
+                    self.assertEqual(path.read_bytes(), revision_after_failure)
+
+                    if committed:
+                        self.assertIsNone(panel._identity)
+                        self.assertTrue(panel.has_draft)
+                        self.assertFalse(panel.save())
+                        self.assertIn('modifié', panel.status.get().lower())
+                        self.assertEqual(len(load_project(path).document['editor_v216']['strokes']), 2)
+                    else:
+                        self.assertIsNotNone(panel._identity)
+                        self.assertIsNotNone(panel._verified_save_request)
+                        panel._save_many_fn = save_native_subject_strokes
+                        self.assertTrue(panel.save())
+                        self.assertEqual(len(load_project(path).document['editor_v216']['strokes']), 2)
+                finally:
+                    panel._job.close()
 
     def test_next_gesture_preserves_preceding_stroke(self):
         panel = self.make_panel()

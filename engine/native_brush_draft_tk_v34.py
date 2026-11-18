@@ -111,6 +111,7 @@ class NativeBrushDraftPanel:
             lambda request: dispatch_preview_request(
                 preview_fn, preview_many_fn, request))
         self._identity = None
+        self._recovery_identity = None
         self._identity_png = None
         self._image = self._display = None
         self._result_images = None
@@ -202,12 +203,15 @@ class NativeBrushDraftPanel:
 
     def _controls(self):
         active = self._identity is not None and not self._closed
+        recoverable = (getattr(self, '_recovery_identity', None) is not None
+                       and not self._closed)
         self.mode_picker.configure(state='readonly' if active and not self._save_pending else 'disabled')
         self.radius_picker.configure(state='readonly' if active and not self._save_pending else 'disabled')
         has_draft = bool(self._points or self._strokes)
         self.preview_button.configure(
-            state='normal' if active and has_draft
-            and not self._overflow and not self._busy and not self._save_pending else 'disabled')
+            state='normal' if (active or recoverable) and has_draft
+            and not self._overflow and not self._busy and not self._save_pending else 'disabled',
+            text='Vérifier et recalculer' if recoverable else 'Calculer avant/après')
         self.undo_button.configure(
             state='normal' if active and bool(self._points) and not self._busy
             and not self._save_pending and self._result_images is None else 'disabled')
@@ -215,7 +219,7 @@ class NativeBrushDraftPanel:
             state='normal' if active and bool(self._redo_points) and not self._busy
             and not self._save_pending and self._result_images is None else 'disabled')
         self.discard_button.configure(
-            state='normal' if active and not self._save_pending and (
+            state='normal' if (active or recoverable) and not self._save_pending and (
                 self._points or self._strokes or self._redo_points or
                 self._redo_strokes or self._result_images)
             else 'disabled')
@@ -246,6 +250,7 @@ class NativeBrushDraftPanel:
         """Reset selection and invalidate every outstanding CPU result."""
         self._token += 1
         self._identity, self._image, self._result_images = None, None, None
+        self._recovery_identity = None
         self._identity_png = None
         self._verified_save_request = None
         self._inflight_request = None
@@ -497,10 +502,11 @@ class NativeBrushDraftPanel:
 
     def _bound_request(self, strokes):
         frozen = self._freeze_strokes(strokes)
+        identity = self._identity or getattr(self, '_recovery_identity', None)
         if not self._strokes and len(strokes) == 1:
             mode, radius, points = frozen[0]
-            return self._identity, mode, radius, points
-        return self._identity, 'draft', len(strokes) > 1, frozen
+            return identity, mode, radius, points
+        return identity, 'draft', len(strokes) > 1, frozen
 
     @staticmethod
     def _bound_strokes(bound):
@@ -510,7 +516,8 @@ class NativeBrushDraftPanel:
                 for mode, radius, points in frozen]
 
     def _bound_matches(self, bound):
-        if bound[0] != self._identity:
+        identity = self._identity or getattr(self, '_recovery_identity', None)
+        if identity is None or bound[0] != identity:
             return False
         try:
             return self._freeze_strokes(self._draft_strokes()) == self._freeze_strokes(
@@ -595,7 +602,8 @@ class NativeBrushDraftPanel:
         return True
 
     def preview(self):
-        if (self._closed or self._identity is None or not (self._points or self._strokes)
+        identity = self._identity or getattr(self, '_recovery_identity', None)
+        if (self._closed or identity is None or not (self._points or self._strokes)
                 or self._overflow or self._busy or self._save_pending or
                 self.mode.get() not in _MODES or self.radius.get() not in _RADII):
             return False
@@ -603,7 +611,7 @@ class NativeBrushDraftPanel:
             self.status.set(f'{MAX_DRAFT_POINTS_TOTAL} points maximum dans le brouillon.')
             self._controls()
             return False
-        project_path, expected_sha256, subject_id = self._identity
+        project_path, expected_sha256, subject_id = identity
         strokes = self._draft_strokes()
         payload = {
             'project_path': project_path, 'expected_sha256': expected_sha256,
@@ -617,7 +625,9 @@ class NativeBrushDraftPanel:
         token = self._token
         self._busy = True
         self._controls()
-        self.status.set('Calcul de la retouche en lecture seule…')
+        self.status.set('Vérification du projet et recalcul en lecture seule…'
+                        if self._identity is None else
+                        'Calcul de la retouche en lecture seule…')
         try:
             version, future = self._job.submit(payload)
         except RuntimeError:
@@ -642,8 +652,8 @@ class NativeBrushDraftPanel:
             if bound is None or not self._bound_matches(bound):
                 raise ValueError('STALE_STROKE')
             result = future.result()
-            if (result['subject_id'] != self._identity[2] or
-                    result['project_sha256'] != self._identity[1] or
+            if (result['subject_id'] != bound[0][2] or
+                    result['project_sha256'] != bound[0][1] or
                     result['persisted'] is not False):
                 raise ValueError('STALE_PREVIEW')
             # Validate the displayed count before publishing any preview images.
@@ -678,7 +688,7 @@ class NativeBrushDraftPanel:
             # filesystem paths or private project data; never show str(exc).
             code = getattr(exc, 'code', '')
             if code in ('PROJECT_CHANGED', 'PROJECT_CHANGED_DURING_PREVIEW'):
-                self.status.set('Projet modifié ailleurs : réexaminez-le (F5).')
+                self.status.set('Projet modifié : brouillon conservé. Réexaminez-le (F5).')
             elif code in ('SUBJECT_NOT_VERIFIED', 'SUBJECT_PROOF_MISMATCH',
                           'INVALID_SUBJECT_PROOF'):
                 self.status.set('Identité du sujet non vérifiée : aucune retouche.')
@@ -691,6 +701,12 @@ class NativeBrushDraftPanel:
         # Preserve the immutable CPU command with its verified preview digest.
         # A later save button must reuse this command, not rebuild points from
         # potentially changed controls or a new subject selection.
+        if self._identity is None:
+            # Only an exact-revision, subject-bound read-only preview can
+            # restore write eligibility after an uncertain save. The writer
+            # still performs CAS and requires a new explicit confirmation.
+            self._identity = self._recovery_identity
+            self._recovery_identity = None
         self._verified_save_request = (
             result['preview_mask_sha256_float32'], token, bound)
         self._inflight_request = None
@@ -762,6 +778,7 @@ class NativeBrushDraftPanel:
             self._token += 1
             self._verified_save_request = None
             self._result_images = None
+            self._recovery_identity = bound[0]
             self._identity = None
             self._variant = 'after'
             self._save_pending = False
@@ -769,8 +786,8 @@ class NativeBrushDraftPanel:
             self.status.set(
                 'Projet modifié ailleurs. Brouillon conservé ; réexaminez-le (F5).' if
                 code == 'PROJECT_CHANGED' else
-                'Enregistrement non confirmé. Brouillon conservé dans cette fenêtre ; '
-                'réexaminez le projet (F5) avant toute nouvelle retouche.')
+                'Enregistrement non confirmé. Brouillon conservé ; vérifiez et '
+                'recalculez, ou réexaminez le projet (F5).')
             if not self._closed:
                 self._draw()
                 self._controls()
@@ -780,6 +797,7 @@ class NativeBrushDraftPanel:
         self._verified_save_request = None
         self._result_images = None
         self._identity = None
+        self._recovery_identity = None
         self._strokes = []
         self._redo_points = []
         self._redo_strokes = []
@@ -832,6 +850,7 @@ class NativeBrushDraftPanel:
     def discard(self):
         if self._closed or self._save_pending:
             return False
+        uncertain = getattr(self, '_recovery_identity', None) is not None
         self._token += 1
         self._busy = False
         self._points = []
@@ -844,7 +863,10 @@ class NativeBrushDraftPanel:
         self._verified_save_request = None
         self._inflight_request = None
         self._variant = 'after'
-        self.status.set('Brouillon abandonné. Le projet n’a pas été modifié.')
+        self._recovery_identity = None
+        self.status.set('Brouillon abandonné. Vérifiez l’enregistrement du projet (F5).'
+                        if uncertain else
+                        'Brouillon abandonné. Le projet n’a pas été modifié.')
         self._draw()
         self._controls()
         return True
