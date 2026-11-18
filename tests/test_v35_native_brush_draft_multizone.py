@@ -127,7 +127,7 @@ class MultiZoneDraftTests(unittest.TestCase):
                                "subject-" + "b" * 32)
             panel._controls()
             self.assertEqual(tuple(picker.cget("values")), _VISIBLE_MODES)
-            self.assertEqual(picker.cget("state"), "readonly")
+            self.assertEqual(str(picker.cget("state")), "readonly")
             self.assertEqual(picker.get(), _VISIBLE_MODES[0])
             self.assertNotIn("Ajouter", picker.cget("values"))
             panel._identity = ("C:/synthetic.smartsvg", "a" * 64,
@@ -143,7 +143,7 @@ class MultiZoneDraftTests(unittest.TestCase):
             self.assertIsNone(panel._verified_save_request)
             self.assertIsNone(panel._inflight_request)
             self.assertGreater(panel._token, previous_token)
-            self.assertEqual(picker.cget("state"), "readonly")
+            self.assertEqual(str(picker.cget("state")), "readonly")
         finally:
             if panel is not None:
                 panel.shutdown()
