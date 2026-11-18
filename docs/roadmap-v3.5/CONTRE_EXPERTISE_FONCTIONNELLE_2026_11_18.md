@@ -8,14 +8,14 @@
 
 ## Suivi des correctifs préparés
 
-La [PR 169](https://github.com/frenndak/SmartSVG-Studio/pull/169), au HEAD `f8400ffd5b7ed9ff464cf04c29ddb36da11d88fa` lors de cette mise à jour, contient une tranche candidate W02/W13. Elle est **en brouillon et non fusionnée**. Les constats détaillés ci-dessous restent les observations initiales sur les révisions qui y sont indiquées ; ils ne décrivent pas automatiquement le comportement des versions ultérieures.
+La [PR 169](https://github.com/frenndak/SmartSVG-Studio/pull/169), au HEAD `5277d347ca8dd83dcdc998117710c541d0390d95` lors de cette mise à jour, contient une tranche candidate W02/W13. Elle est **en brouillon et non fusionnée**. Les constats détaillés ci-dessous restent les observations initiales sur les révisions qui y sont indiquées ; ils ne décrivent pas automatiquement le comportement des versions ultérieures.
 
 | Constats | Avancement dans la PR candidate | À poursuivre |
 |---|---|---|
 | F01 · Navigation et notes | Les notes attendent la fermeture du pinceau ; la création demande confirmation et ferme le panneau avant l’écriture. Une écriture en cours bloque l’ouverture d’une nouvelle retouche. | Qualifier les autres transitions, notamment la récupération, et étudier une synchronisation conservant simultanément les deux brouillons. |
 | F02 · Enregistrement incertain | Le brouillon reste visible. Une nouvelle prévisualisation en lecture seule rétablit la possibilité d’enregistrer seulement si la révision et le sujet sont encore vérifiés ; une confirmation et les contrôles du writer restent exigés. Si la première écriture a abouti ou si le projet a changé, la reprise est refusée. | Réconcilier un résultat déjà écrit ; permettre de conserver et reprendre le brouillon après changement de révision ou redémarrage. |
 | F03–F04 · Gestes et Échap | Un nouveau geste conserve le précédent ; Échap annule le geste courant tout en gardant les zones antérieures. | Rendre l’historique des gestes plus naturel et vérifier l’ergonomie sur le bureau Windows réel. |
-| F05 · Budgets | L’interface vérifie le plafond global de 256 points avant la prévisualisation ; elle conserve le brouillon si un nouveau geste dépasse le budget. | Un geste de plus de 64 points reste interrompu et signalé. Étudier un découpage ou une simplification dont la fidélité est mesurée et qui conserve le geste complet. |
+| F05 · Budgets | Les gestes au-delà de 64 points sont découpés en segments raccordés, sans simplification, et restent une seule commande d’historique après enregistrement. Les tests comparent les pixels du tracé continu et du tracé découpé. Le budget moteur de 256 points, raccords compris, et 16 segments est vérifié avant prévisualisation. | Au-delà du budget moteur, le geste reste interrompu et signalé. Étudier une reprise qui conserve également la partie excédentaire et qualifier cette interaction sur le matériel Windows réel. |
 | F10 · Libellés | Les sauts de ligne et l’avis sur la disponibilité de la retouche sont corrigés dans la PR. | Noms et miniatures des sujets, version du build et autres états à qualifier dans W13. |
 
 Les autres points, notamment premier sujet et export, grandes planches, import multiformat, zoom et superposition, restent des travaux à réaliser. Les résultats de CI du HEAD courant sont à relire sur GitHub ; une ancienne réussite ne valide pas un nouveau commit.
