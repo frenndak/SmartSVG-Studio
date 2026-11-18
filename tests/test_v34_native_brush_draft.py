@@ -143,6 +143,32 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.assertIsNone(self.panel._result_images)
         self.assertEqual(self.project.read_bytes(), self.before)
 
+    def test_real_tk_long_gesture_reaches_bounded_group_preview(self):
+        # Exercise actual Tk widgets and their canvas geometry; the preview
+        # callable remains read-only and the archive is a synthetic fixture.
+        self.panel.shutdown()
+        self.panel = NativeBrushDraftPanel(
+            self.root, self.root, self.tk, self.ttk,
+            preview_fn=self._fn, preview_many_fn=self._fn)
+        self.addCleanup(self.panel.shutdown)
+        self.load()
+        left, top, width, height = self.panel._box
+        self.assertGreaterEqual(width, 2)
+        self.assertGreaterEqual(height, 2)
+        self.panel._press(SimpleNamespace(x=left, y=top))
+        for i in range(1, 130):
+            self.panel._drag(SimpleNamespace(
+                x=left + (i % width), y=top + ((i // width) % height)))
+        self.panel._release(None)
+        self.assertEqual(len(self.panel._points), 130)
+        self.assertFalse(self.panel._overflow)
+        self.assertTrue(self.panel.preview())
+        self.receive()
+        request = self.preview_calls[-1]
+        self.assertEqual([len(s['points']) for s in request['strokes']], [64, 64, 4])
+        self.assertIsNotNone(self.panel._result_images)
+        self.assertEqual(self.project.read_bytes(), self.before)
+
     def test_cpu_digest_is_pinned_and_discard_invalidates_save_signature(self):
         self.load()
         self.stroke()
