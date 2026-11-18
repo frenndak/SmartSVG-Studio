@@ -349,6 +349,32 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 self.assertTrue(any(str(value).startswith('Projet créé, enregistré et relu') for value in notices))
             self.run_desktop(scenario, source_choice=str(source), output_choice=directory)
 
+    def test_f5_keeps_notes_changed_during_discard_confirmation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            before = path.read_bytes()
+            current_notes = {}
+
+            def confirm_after_edit(**_kwargs):
+                editor = current_notes['panel'].editor
+                editor.delete('1.0', 'end')
+                editor.insert('1.0', 'Note modifiée pendant le dialogue')
+                return True
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                current_notes['panel'] = state.notes
+                state.notes.editor.insert('1.0', 'Première note')
+                root.events['<F5>'](None)
+                self.assertEqual(state.notes.editor.get(), 'Note modifiée pendant le dialogue')
+                self.assertEqual(len(state.jobs.futures), 1)
+                self.assertEqual(path.read_bytes(), before)
+                root.protocols['WM_DELETE_WINDOW']()
+
+            self.run_desktop(scenario, first_project=str(path),
+                             discard_notes=confirm_after_edit)
+
     def test_f5_preserves_brush_draft_when_discard_is_declined(self):
         with tempfile.TemporaryDirectory() as directory:
             path, _ = create_atelier_project(directory)
