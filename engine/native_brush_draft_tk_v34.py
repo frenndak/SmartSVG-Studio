@@ -30,7 +30,9 @@ _SHA = re.compile(r"^[0-9a-f]{64}$")
 _SUBJECT = re.compile(r"^subject-[0-9a-f]{32}$")
 MAX_GESTURE_POINTS = 64
 MAX_DRAFT_STROKES = 16
-_MODES = {"Ajouter": "add", "Effacer": "erase"}
+_MODES = {"Garder (masque)": "add", "Masquer (masque)": "erase",
+          "Ajouter": "add", "Effacer": "erase"}
+_VISIBLE_MODES = ("Garder (masque)", "Masquer (masque)")
 _RADII = ("0.02", "0.05", "0.10")
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -122,17 +124,17 @@ class NativeBrushDraftPanel:
         self._overflow = False
         self._busy = False
         self._variant = 'after'
-        self.mode = tk.StringVar(value='Ajouter')
+        self.mode = tk.StringVar(value='Garder (masque)')
         self.radius = tk.StringVar(value='0.05')
         self.status = tk.StringVar(value='Choisissez un sujet float32 vérifié.')
         ttk.Label(parent, text='Retouche · brouillon non enregistré',
                   font=('Segoe UI', 12, 'bold')).pack(anchor='w', pady=(8, 4))
         controls = ttk.Frame(parent)
         controls.pack(fill='x', pady=(0, 4))
-        ttk.Label(controls, text='Pinceau :').pack(side='left')
+        ttk.Label(controls, text='Pinceau sur le masque :').pack(side='left')
         self.mode_picker = ttk.Combobox(
             controls, textvariable=self.mode, state='readonly',
-            values=tuple(_MODES), width=10)
+            values=_VISIBLE_MODES, width=19)
         self.mode_picker.pack(side='left', padx=(4, 8))
         self.mode_picker.bind('<<ComboboxSelected>>', self._parameter_changed)
         ttk.Label(controls, text='Rayon :').pack(side='left')
@@ -185,11 +187,11 @@ class NativeBrushDraftPanel:
             zone_actions, text='Ajouter cette zone', command=self.add_draft_zone)
         self.add_zone_button.pack(side='left', padx=(0, 4))
         self.remove_zone_button = ttk.Button(
-            zone_actions, text='Retirer la derniere zone',
+            zone_actions, text='Annuler la dernière zone tracée',
             command=self.remove_last_draft_zone)
         self.remove_zone_button.pack(side='left', padx=4)
         self.restore_zone_button = ttk.Button(
-            zone_actions, text='Retablir la zone',
+            zone_actions, text='Rétablir la zone tracée',
             command=self.restore_last_draft_zone)
         self.restore_zone_button.pack(side='left', padx=4)
         ttk.Label(parent, textvariable=self.status,
