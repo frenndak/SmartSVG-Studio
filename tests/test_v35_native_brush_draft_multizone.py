@@ -627,6 +627,35 @@ class MultiZoneDraftTests(unittest.TestCase):
                 self.assertEqual(panel._strokes, [])
                 self.assertIn("invalide", panel.status.get())
 
+    def test_discard_button_requires_confirmation_and_preserves_work_on_cancel(self):
+        from unittest.mock import patch
+
+        panel = self.make_panel()
+        panel.root = object()
+        panel._strokes = [{"mode": "add", "radius": 0.05,
+                           "points": [[0.2, 0.3]]}]
+        before = panel._draft_strokes()
+        with patch('tkinter.messagebox.askyesno', return_value=False) as confirm:
+            self.assertFalse(panel.request_discard())
+        self.assertEqual(panel._draft_strokes(), before)
+        self.assertEqual(confirm.call_args.kwargs['default'], 'no')
+        with patch('tkinter.messagebox.askyesno', return_value=True):
+            self.assertTrue(panel.request_discard())
+        self.assertFalse(panel.has_draft)
+
+    def test_discard_confirmation_cannot_erase_a_draft_changed_in_the_dialog(self):
+        from unittest.mock import patch
+
+        panel = self.make_panel()
+        panel.root = object()
+        before = panel._draft_strokes()
+        def change_while_confirming(*_args, **_kwargs):
+            panel._token += 1
+            return True
+        with patch('tkinter.messagebox.askyesno', side_effect=change_while_confirming):
+            self.assertFalse(panel.request_discard())
+        self.assertEqual(panel._draft_strokes(), before)
+
     def test_next_gesture_preserves_preceding_stroke(self):
         panel = self.make_panel()
         panel._box = (0, 0, 100, 100)

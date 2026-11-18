@@ -180,6 +180,20 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.assertIsNone(self.panel._verified_save_request)
         self.assertEqual(self.project.read_bytes(), self.before)
 
+    def test_real_discard_button_confirms_before_erasing(self):
+        from unittest.mock import patch
+        self.load()
+        self.stroke()
+        points = [point[:] for point in self.panel._points]
+        with patch('tkinter.messagebox.askyesno', return_value=False) as confirm:
+            self.panel.discard_button.invoke()
+        confirm.assert_called_once()
+        self.assertEqual(self.panel._points, points)
+        with patch('tkinter.messagebox.askyesno', return_value=True):
+            self.panel.discard_button.invoke()
+        self.assertFalse(self.panel.has_draft)
+        self.assertEqual(self.project.read_bytes(), self.before)
+
     def test_missing_cpu_digest_refuses_preview_without_writing(self):
         self.panel.shutdown()
         def missing(**request):

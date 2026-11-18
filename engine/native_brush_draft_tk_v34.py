@@ -119,6 +119,7 @@ class NativeBrushDraftPanel:
         self._verified_save_request = None
         self._inflight_request = None
         self._save_pending = False
+        self._discard_confirming = False
         self._box = None
         self._points = []
         self._stroke_style = None
@@ -183,7 +184,7 @@ class NativeBrushDraftPanel:
             draft_actions, text='Rétablir le point', command=self.redo_draft_point)
         self.redo_button.pack(side='left', padx=4)
         self.discard_button = ttk.Button(
-            draft_actions, text='Effacer le brouillon', command=self.discard)
+            draft_actions, text='Effacer le brouillon', command=self.request_discard)
         self.discard_button.pack(side='left', padx=4)
         self.save_button = ttk.Button(
             draft_actions, text='Enregistrer…', command=self.save)
@@ -922,6 +923,32 @@ class NativeBrushDraftPanel:
         self._draw()
         self._controls()
         return 'break'
+
+    def request_discard(self):
+        """Ask before the UI irreversibly discards all local gesture history."""
+        if (self._closed or self._save_pending or not self.has_draft or
+                getattr(self, '_discard_confirming', False)):
+            return False
+        from tkinter import messagebox
+
+        token = self._token
+        self._discard_confirming = True
+        try:
+            accepted = messagebox.askyesno(
+                'Effacer le brouillon ?',
+                'Effacer toutes les zones et leur historique local ?',
+                detail='Cette action ne peut pas être annulée. Si le dernier '
+                       'enregistrement est incertain, vérifiez aussi le projet.',
+                parent=self.root, default='no')
+        except Exception:
+            return False
+        finally:
+            self._discard_confirming = False
+        # A modal Tk dialog can dispatch nested callbacks. Never discard work
+        # that changed while the user was answering about an older draft.
+        if accepted is not True or self._closed or self._save_pending or token != self._token:
+            return False
+        return self.discard()
 
     def discard(self):
         if self._closed or self._save_pending:
