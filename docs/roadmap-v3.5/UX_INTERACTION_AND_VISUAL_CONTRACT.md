@@ -1,5 +1,7 @@
 # SmartSVG V3.5 — contre-expertise UX et décisions d'interaction
 
+> **Raccord du 18/11 :** les [constats fonctionnels et recommandations d’interface](CONTRE_EXPERTISE_FONCTIONNELLE_2026_11_18.md#4-parcours-et-design-recommandés) complètent ce contrat. En particulier, conserver les gestes lors des transitions, montrer l’image et l’épaisseur réellement peinte, rendre les sujets lisibles et différencier aperçu, sauvegarde confirmée et résultat incertain. Les tests de fenêtre, DPI et accessibilité restent à exécuter.
+
 **16 novembre 2026 — conception candidate, à implémenter.** Base documentaire `dde08cc793bf0a810745b5991ad20462bc79c600`, main observé `0692f804ad21bd775cd0269dd92dc6e2b1cea01f`. Demande propriétaire : contre-expertiser les propositions d'outils, d'ergonomie et de graphisme, corriger et compléter ce qui aide réellement la création SVG/Cricut. Aucun écran produit ni essai utilisateur exécuté par ce document.
 
 ## 1. Verdict et portée
