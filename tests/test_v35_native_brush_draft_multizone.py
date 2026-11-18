@@ -65,6 +65,47 @@ class MultiZoneDraftTests(unittest.TestCase):
         self.assertEqual(panel._draft_strokes()[-1]["mode"], "erase")
         self.assertIsNone(panel._verified_save_request)
 
+    def test_tk_constructor_wires_visible_readonly_mode_picker_and_change_event(self):
+        """Verify the actual constructor call shape without requiring a display."""
+        import ast
+        import inspect
+        import textwrap
+
+        tree = ast.parse(textwrap.dedent(inspect.getsource(NativeBrushDraftPanel.__init__)))
+        assignments = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Attribute)
+                    and target.attr == "mode_picker" for target in node.targets)
+        ]
+        self.assertEqual(len(assignments), 1)
+        picker = assignments[0].value
+        self.assertIsInstance(picker, ast.Call)
+        self.assertIsInstance(picker.func, ast.Attribute)
+        self.assertEqual(picker.func.attr, "Combobox")
+        options = {kw.arg: kw.value for kw in picker.keywords}
+        self.assertIsInstance(options["values"], ast.Name)
+        self.assertEqual(options["values"].id, "_VISIBLE_MODES")
+        self.assertEqual(ast.literal_eval(options["state"]), "readonly")
+        self.assertIsInstance(options["textvariable"], ast.Attribute)
+        self.assertEqual(options["textvariable"].attr, "mode")
+        bindings = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "bind"
+            and isinstance(node.func.value, ast.Attribute)
+            and node.func.value.attr == "mode_picker"
+        ]
+        self.assertTrue(any(
+            len(call.args) >= 2
+            and isinstance(call.args[0], ast.Constant)
+            and call.args[0].value == "<<ComboboxSelected>>"
+            and isinstance(call.args[1], ast.Attribute)
+            and call.args[1].attr == "_parameter_changed"
+            for call in bindings
+        ))
+
     def test_invalid_mode_or_radius_rejects_zone_without_mutating_draft(self):
         for field, invalid in (("mode", "mode-inconnu"), ("radius", "999")):
             with self.subTest(field=field):
