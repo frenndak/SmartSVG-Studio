@@ -486,6 +486,10 @@ class NativeBrushDraftPanel:
                 f'{MAX_DRAFT_STROKES} zones maximum : calculez ou effacez le brouillon.')
             self._controls()
             return False
+        if self.mode.get() not in _MODES or self.radius.get() not in _RADII:
+            self.status.set('Mode ou rayon invalide : zone non ajoutée.')
+            self._controls()
+            return False
         self._strokes.append({
             'mode': _MODES[self.mode.get()],
             'radius': float(self.radius.get()),
