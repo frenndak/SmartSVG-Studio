@@ -106,6 +106,44 @@ class MultiZoneDraftTests(unittest.TestCase):
             for call in bindings
         ))
 
+    def test_real_tk_mode_picker_values_and_selection_invalidate_preview(self):
+        """Exercise the real ttk widget when a graphical Tk session exists."""
+        try:
+            import tkinter as tk
+            from tkinter import ttk
+            root = tk.Tk()
+        except (ImportError, tk.TclError) as exc:
+            self.skipTest(f"Graphical Tk unavailable: {type(exc).__name__}")
+        root.withdraw()
+        panel = None
+        try:
+            parent = ttk.Frame(root)
+            parent.pack()
+            panel = NativeBrushDraftPanel(root, parent, tk, ttk)
+            picker = panel.mode_picker
+            self.assertEqual(tuple(picker.cget("values")), _VISIBLE_MODES)
+            self.assertEqual(picker.cget("state"), "readonly")
+            self.assertEqual(picker.get(), _VISIBLE_MODES[0])
+            self.assertNotIn("Ajouter", picker.cget("values"))
+            panel._identity = ("C:/synthetic.smartsvg", "a" * 64,
+                               "subject-" + "b" * 32)
+            panel._verified_save_request = ("stale",)
+            panel._inflight_request = ("stale",)
+            previous_token = panel._token
+            picker.current(1)
+            picker.event_generate("<<ComboboxSelected>>")
+            root.update()
+            self.assertEqual(panel.mode.get(), _VISIBLE_MODES[1])
+            self.assertEqual(_MODES[panel.mode.get()], "erase")
+            self.assertIsNone(panel._verified_save_request)
+            self.assertIsNone(panel._inflight_request)
+            self.assertGreater(panel._token, previous_token)
+            self.assertEqual(picker.cget("state"), "readonly")
+        finally:
+            if panel is not None:
+                panel.close()
+            root.destroy()
+
     def test_invalid_mode_or_radius_rejects_zone_without_mutating_draft(self):
         for field, invalid in (("mode", "mode-inconnu"), ("radius", "999")):
             with self.subTest(field=field):
