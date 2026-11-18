@@ -17,6 +17,7 @@ import re
 import struct
 
 from smartsvg_core.subject_brush_preview_g33e import (
+    MAX_PREVIEW_POINTS as MAX_GESTURE_SEGMENT_POINTS,
     MAX_PREVIEW_POINTS_TOTAL as MAX_DRAFT_POINTS_TOTAL,
 )
 from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
@@ -31,7 +32,7 @@ from smartsvg_core.source_preview_v34 import MAX_ENCODED_BYTES
 
 _SHA = re.compile(r"^[0-9a-f]{64}$")
 _SUBJECT = re.compile(r"^subject-[0-9a-f]{32}$")
-MAX_GESTURE_POINTS = 64
+MAX_GESTURE_POINTS = MAX_DRAFT_POINTS_TOTAL
 MAX_DRAFT_STROKES = 16
 _MODES = {"Ajouter": "add", "Effacer": "erase"}
 _RADII = ("0.02", "0.05", "0.10")
@@ -336,9 +337,10 @@ class NativeBrushDraftPanel:
         if (self._closed or self._identity is None or self._busy or self._save_pending or
                 self._result_images is not None):
             return
-        if not self._points and len(self._strokes) >= MAX_DRAFT_STROKES:
+        if not self._points and self._draft_segment_count() >= MAX_DRAFT_STROKES:
             self.status.set(
-                f'{MAX_DRAFT_STROKES} zones maximum : calculez ou effacez le brouillon.')
+                f'Limite de {MAX_DRAFT_STROKES} parties pour le calcul : '
+                'enregistrez ou retirez une zone.')
             self._controls()
             return
         point = normalized_mask_point(x, y, self._box)
@@ -346,14 +348,16 @@ class NativeBrushDraftPanel:
             return
         if len(self._points) >= MAX_GESTURE_POINTS:
             self._overflow = True
-            self.status.set('Geste interrompu à 64 points : corrigez-le avant de continuer.')
+            self.status.set('Geste interrompu : limite du brouillon atteinte.')
             self._controls()
             return
-        if self._draft_point_count() >= MAX_DRAFT_POINTS_TOTAL:
-            self._overflow = True
+        segments, points = self._draft_budget(current_size=len(self._points) + 1)
+        if segments > MAX_DRAFT_STROKES or points > MAX_DRAFT_POINTS_TOTAL:
+            self._overflow = bool(self._points)
             self.status.set(
-                f'Geste interrompu : limite de {MAX_DRAFT_POINTS_TOTAL} points atteinte. '
-                'Annulez un point ou retirez une zone avant de continuer.')
+                f'Geste interrompu : limite de {MAX_DRAFT_POINTS_TOTAL} points '
+                f'ou {MAX_DRAFT_STROKES} segments atteinte. '
+                'Corrigez ou annulez le geste avant de recalculer.')
             self._controls()
             return
         self._redo_points = []
@@ -379,9 +383,10 @@ class NativeBrushDraftPanel:
             self.status.set(
                 f'{MAX_DRAFT_POINTS_TOTAL} points maximum : calculez ou retirez une zone.')
             return
-        if len(self._strokes) + bool(self._points) >= MAX_DRAFT_STROKES:
+        if self._draft_segment_count() >= MAX_DRAFT_STROKES:
             self.status.set(
-                f'{MAX_DRAFT_STROKES} zones maximum : calculez ou retirez une zone.')
+                f'Limite de {MAX_DRAFT_STROKES} parties pour le calcul : '
+                'calculez ou retirez une zone.')
             return
         if self._points and (self.mode.get() not in _MODES or self.radius.get() not in _RADII):
             self.status.set('Choisissez un mode et un rayon valides avant de continuer.')
@@ -458,8 +463,11 @@ class NativeBrushDraftPanel:
                 self._save_pending or self._result_images is not None or
                 not self._redo_points or len(self._points) >= MAX_GESTURE_POINTS):
             return False
-        if self._draft_point_count() >= MAX_DRAFT_POINTS_TOTAL:
-            self.status.set(f'{MAX_DRAFT_POINTS_TOTAL} points maximum dans le brouillon.')
+        segments, points = self._draft_budget(current_size=len(self._points) + 1)
+        if segments > MAX_DRAFT_STROKES or points > MAX_DRAFT_POINTS_TOTAL:
+            self.status.set(
+                f'Limite de {MAX_DRAFT_POINTS_TOTAL} points ou '
+                f'{MAX_DRAFT_STROKES} parties pour le calcul.')
             return False
         self._token += 1
         self._points.append(self._redo_points.pop())
@@ -478,8 +486,24 @@ class NativeBrushDraftPanel:
         return 'break' if (self.redo_draft_point() or
                            self.restore_last_draft_zone()) else None
 
+    @staticmethod
+    def _segment_cost(size):
+        if size <= 0:
+            return 0, 0
+        segments = 1 + max(0, (size - 2) // (MAX_GESTURE_SEGMENT_POINTS - 1))
+        return segments, size + segments - 1
+
+    def _draft_budget(self, *, current_size=None):
+        sizes = [len(stroke['points']) for stroke in self._strokes]
+        sizes.append(len(self._points) if current_size is None else current_size)
+        costs = [self._segment_cost(size) for size in sizes]
+        return sum(cost[0] for cost in costs), sum(cost[1] for cost in costs)
+
     def _draft_point_count(self):
-        return sum(len(stroke['points']) for stroke in self._strokes) + len(self._points)
+        return self._draft_budget()[1]
+
+    def _draft_segment_count(self):
+        return self._draft_budget()[0]
 
     def _draft_strokes(self):
         strokes = [{
@@ -492,7 +516,20 @@ class NativeBrushDraftPanel:
                 'radius': float(self.radius.get()),
                 'points': [point[:] for point in self._points],
             })
-        return strokes
+        # The engine accepts at most 64 points per segment. Split a longer
+        # logical gesture at shared endpoints so no line segment is lost.
+        # Adjacent segments remain in one confirmed grouped history command.
+        split = []
+        for stroke in strokes:
+            points = stroke['points']
+            start = 0
+            while start < len(points):
+                part = points[start:start + MAX_GESTURE_SEGMENT_POINTS]
+                split.append({**stroke, 'points': part})
+                if start + MAX_GESTURE_SEGMENT_POINTS >= len(points):
+                    break
+                start += MAX_GESTURE_SEGMENT_POINTS - 1
+        return split
 
     @staticmethod
     def _freeze_strokes(strokes):
@@ -531,8 +568,11 @@ class NativeBrushDraftPanel:
                 self._save_pending or self._result_images is not None or
                 not self._points or self._overflow):
             return False
-        if self._draft_point_count() > MAX_DRAFT_POINTS_TOTAL:
-            self.status.set(f'{MAX_DRAFT_POINTS_TOTAL} points maximum dans le brouillon.')
+        if (self._draft_point_count() > MAX_DRAFT_POINTS_TOTAL or
+                self._draft_segment_count() > MAX_DRAFT_STROKES):
+            self.status.set(
+                f'Limite de {MAX_DRAFT_POINTS_TOTAL} points ou '
+                f'{MAX_DRAFT_STROKES} parties pour le calcul.')
             return False
         if len(self._strokes) >= MAX_DRAFT_STROKES:
             self.status.set(
@@ -583,9 +623,12 @@ class NativeBrushDraftPanel:
                 self._points or self._redo_points or not self._redo_strokes or
                 len(self._strokes) >= MAX_DRAFT_STROKES):
             return False
-        if (self._draft_point_count() + len(self._redo_strokes[-1]['points'])
-                > MAX_DRAFT_POINTS_TOTAL):
-            self.status.set(f'{MAX_DRAFT_POINTS_TOTAL} points maximum dans le brouillon.')
+        added_segments, added_points = self._segment_cost(len(self._redo_strokes[-1]['points']))
+        if (self._draft_point_count() + added_points > MAX_DRAFT_POINTS_TOTAL or
+                self._draft_segment_count() + added_segments > MAX_DRAFT_STROKES):
+            self.status.set(
+                f'Limite de {MAX_DRAFT_POINTS_TOTAL} points ou '
+                f'{MAX_DRAFT_STROKES} parties pour le calcul.')
             return False
         stroke = self._redo_strokes.pop()
         self._strokes.append({
@@ -607,8 +650,11 @@ class NativeBrushDraftPanel:
                 or self._overflow or self._busy or self._save_pending or
                 self.mode.get() not in _MODES or self.radius.get() not in _RADII):
             return False
-        if self._draft_point_count() > MAX_DRAFT_POINTS_TOTAL:
-            self.status.set(f'{MAX_DRAFT_POINTS_TOTAL} points maximum dans le brouillon.')
+        if (self._draft_point_count() > MAX_DRAFT_POINTS_TOTAL or
+                self._draft_segment_count() > MAX_DRAFT_STROKES):
+            self.status.set(
+                f'Limite de {MAX_DRAFT_POINTS_TOTAL} points ou '
+                f'{MAX_DRAFT_STROKES} parties pour le calcul.')
             self._controls()
             return False
         project_path, expected_sha256, subject_id = identity

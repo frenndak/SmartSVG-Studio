@@ -378,11 +378,14 @@ class MultiZoneDraftTests(unittest.TestCase):
             panel._job.close()
 
     def test_ui_limits_match_brush_preview_contract(self):
-        from native_brush_draft_tk_v34 import MAX_GESTURE_POINTS, MAX_DRAFT_POINTS_TOTAL
+        from native_brush_draft_tk_v34 import (
+            MAX_GESTURE_POINTS, MAX_GESTURE_SEGMENT_POINTS, MAX_DRAFT_POINTS_TOTAL,
+        )
         from smartsvg_core.subject_brush_preview_g33e import (
             MAX_PREVIEW_POINTS, MAX_PREVIEW_POINTS_TOTAL, MAX_PREVIEW_STROKES,
         )
-        self.assertEqual(MAX_GESTURE_POINTS, MAX_PREVIEW_POINTS)
+        self.assertEqual(MAX_GESTURE_SEGMENT_POINTS, MAX_PREVIEW_POINTS)
+        self.assertEqual(MAX_GESTURE_POINTS, MAX_PREVIEW_POINTS_TOTAL)
         self.assertEqual(MAX_DRAFT_STROKES, MAX_PREVIEW_STROKES)
         self.assertEqual(MAX_DRAFT_POINTS_TOTAL, MAX_PREVIEW_POINTS_TOTAL)
 
@@ -646,6 +649,163 @@ class MultiZoneDraftTests(unittest.TestCase):
         panel._press(SimpleNamespace(x=60, y=70))
         self.assertEqual(panel._draft_strokes(), before)
         self.assertIn("256", panel.status.get())
+
+    def test_long_gesture_is_split_without_losing_points_or_logical_zone(self):
+        panel = self.make_panel()
+        panel._points = []
+        panel._box = (0, 0, 1000, 1000)
+        for i in range(130):
+            panel._append(i + 1, 100 + (i % 7))
+        self.assertFalse(panel._overflow)
+        self.assertEqual(len(panel._points), 130)
+        strokes = panel._draft_strokes()
+        self.assertEqual([len(s['points']) for s in strokes], [64, 64, 4])
+        recovered = strokes[0]['points'] + [p for s in strokes[1:] for p in s['points'][1:]]
+        self.assertEqual(recovered, panel._points)
+        self.assertTrue(all(s['mode'] == 'add' and s['radius'] == 0.05 for s in strokes))
+        self.assertTrue(panel.add_draft_zone())
+        self.assertEqual(len(panel._strokes), 1)
+        self.assertEqual(len(panel._strokes[0]['points']), 130)
+        self.assertTrue(panel.remove_last_draft_zone())
+        self.assertTrue(panel.restore_last_draft_zone())
+        self.assertEqual(len(panel._strokes[0]['points']), 130)
+
+    def test_segment_overlap_counts_toward_engine_budget(self):
+        panel = self.make_panel()
+        panel._box = (0, 0, 1000, 1000)
+        panel._strokes = [
+            {'mode': 'add', 'radius': 0.05, 'points': [[j / 100.0, 0.1] for j in range(n)]}
+            for n in (60, 60, 60, 10)
+        ]
+        panel._points = [[i / 1000.0, 0.2] for i in range(64)]
+        panel._append(100, 200)
+        self.assertFalse(panel._overflow)
+        encoded = panel._draft_strokes()
+        self.assertEqual(sum(len(s['points']) for s in encoded), 256)
+        before = [point[:] for point in panel._points]
+        panel._append(101, 200)
+        self.assertTrue(panel._overflow)
+        self.assertEqual(panel._points, before)
+
+    def test_segment_budget_matches_emitted_points_at_boundaries(self):
+        panel = self.make_panel()
+        for size in (1, 63, 64, 65, 126, 127, 128, 189, 190, 252, 253, 254, 256):
+            with self.subTest(points=size):
+                panel._points = [[i / 300.0, 0.3] for i in range(size)]
+                segments = panel._draft_strokes()
+                reconstructed = (segments[0]['points'] +
+                                 [p for item in segments[1:] for p in item['points'][1:]])
+                self.assertEqual(reconstructed, panel._points)
+                self.assertEqual(panel._draft_segment_count(), len(segments))
+                self.assertEqual(panel._draft_point_count(),
+                                 sum(len(item['points']) for item in segments))
+                self.assertTrue(all(len(item['points']) <= 64 for item in segments))
+
+    def test_long_gesture_undo_and_redo_cross_segment_boundary(self):
+        panel = self.make_panel()
+        panel._box = (0, 0, 1000, 1000)
+        panel._points = [[i / 1000.0, 0.2] for i in range(65)]
+        original = [p[:] for p in panel._points]
+        self.assertEqual([len(s['points']) for s in panel._draft_strokes()], [64, 2])
+        self.assertTrue(panel.undo_draft_point())
+        self.assertEqual([len(s['points']) for s in panel._draft_strokes()], [64])
+        self.assertTrue(panel.redo_draft_point())
+        self.assertEqual(panel._points, original)
+        self.assertEqual([len(s['points']) for s in panel._draft_strokes()], [64, 2])
+
+    def test_single_long_gesture_stops_at_engine_budget_without_dropping_previous_points(self):
+        panel = self.make_panel()
+        panel._points = []
+        panel._box = (0, 0, 1000, 1000)
+        for i in range(253):
+            panel._append(i + 1, 200 + i % 3)
+        self.assertFalse(panel._overflow)
+        self.assertEqual(len(panel._points), 253)
+        self.assertEqual(panel._draft_point_count(), 256)
+        before = [p[:] for p in panel._points]
+        panel._append(300, 200)
+        self.assertTrue(panel._overflow)
+        self.assertEqual(panel._points, before)
+
+    def test_segment_count_limit_rejects_extension_without_changing_draft(self):
+        panel = self.make_panel()
+        panel._box = (0, 0, 1000, 1000)
+        panel._strokes = [
+            {'mode': 'add', 'radius': 0.05, 'points': [[0.1, 0.1]]}
+            for _ in range(MAX_DRAFT_STROKES - 1)
+        ]
+        panel._points = [[i / 1000.0, 0.2] for i in range(64)]
+        before = [p[:] for p in panel._points]
+        panel._append(100, 200)
+        self.assertTrue(panel._overflow)
+        self.assertEqual(panel._points, before)
+        self.assertEqual(panel._draft_segment_count(), MAX_DRAFT_STROKES)
+
+    @unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
+                         'Pixel comparison requires NumPy/Pillow')
+    def test_split_long_stroke_matches_unsplit_pixels_for_both_modes(self):
+        import numpy as np
+        from smartsvg_editor.strokes import apply_strokes
+        rng = np.random.default_rng(582)
+        original = rng.random((1, 90, 110), dtype=np.float32)
+        for mode in ('Ajouter', 'Effacer'):
+            panel = self.make_panel()
+            panel.mode.set(mode)
+            panel._points = rng.random((130, 2)).tolist()
+            strokes = panel._draft_strokes()
+            self.assertEqual(len(strokes), 3)
+            whole = {'object': 0, 'mode': strokes[0]['mode'],
+                     'radius': 0.05, 'points': panel._points}
+            split = [{'object': 0, **stroke} for stroke in strokes]
+            self.assertTrue(np.array_equal(apply_strokes(original, [whole]),
+                                           apply_strokes(original, split)))
+
+    @unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
+                         'The real brush writer requires NumPy/Pillow')
+    def test_long_gesture_saves_and_undoes_as_one_history_operation(self):
+        from hashlib import sha256
+        import tempfile
+        from test_v34_native_app_shell import create_atelier_project
+        from smartsvg_core.native_subject_preview_v34 import preview_native_subject_strokes
+        from smartsvg_core.native_subject_save_v34 import save_native_subject_strokes
+        from smartsvg_core.native_brush_history_command_v34 import change_native_brush_history
+        from smartsvg_core.project_archive import load_project
+
+        with tempfile.TemporaryDirectory() as directory:
+            path, subjects = create_atelier_project(directory)
+            subject = next(iter(subjects))
+            original = load_project(path)
+            panel = self.make_panel()
+            panel._identity = (str(path), sha256(path.read_bytes()).hexdigest(), subject)
+            panel._points = [[(i + 1) / 200.0, 0.3 + (i % 4) / 100.0] for i in range(130)]
+            strokes = panel._draft_strokes()
+            self.assertEqual(len(strokes), 3)
+            preview = preview_native_subject_strokes(
+                project_path=str(path), expected_sha256=panel._identity[1],
+                subject_id=subject, strokes=strokes)
+            panel._result_images = {'after': object()}
+            panel._verified_save_request = (
+                preview['preview_mask_sha256_float32'], panel._token,
+                panel._bound_request(strokes))
+            panel._confirm_fn = lambda: True
+            panel._save_many_fn = save_native_subject_strokes
+            panel._on_saved = None
+            self.assertTrue(panel.save())
+            saved = load_project(path)
+            self.assertEqual(len(saved.document['editor_v216']['strokes']), 3)
+            self.assertEqual(len(saved.operations), len(original.operations) + 1)
+            self.assertEqual(saved.resources, original.resources)
+
+            change_native_brush_history(
+                project_path=str(path), expected_sha256=sha256(path.read_bytes()).hexdigest(),
+                subject_id=subject, action='undo', command_id='long-gesture-undo', confirmed=True)
+            self.assertNotIn('editor_v216', load_project(path).document)
+            change_native_brush_history(
+                project_path=str(path), expected_sha256=sha256(path.read_bytes()).hexdigest(),
+                subject_id=subject, action='redo', command_id='long-gesture-redo', confirmed=True)
+            restored = load_project(path)
+            self.assertEqual(restored.document['editor_v216'], saved.document['editor_v216'])
+            self.assertEqual(restored.resources, original.resources)
 
 
 
