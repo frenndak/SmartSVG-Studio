@@ -442,6 +442,7 @@ class MultiZoneDraftTests(unittest.TestCase):
         )
         from smartsvg_core.native_subject_save_v34 import save_native_subject_strokes
         from smartsvg_core.project_archive import load_project
+        from smartsvg_core.project_workspace_g22 import save_project_notes
 
         class Scheduler:
             def __init__(self): self.pending = []
@@ -452,8 +453,9 @@ class MultiZoneDraftTests(unittest.TestCase):
             def width(self): return 4
             def height(self): return 3
 
-        for committed in (False, True):
-            with self.subTest(committed=committed), tempfile.TemporaryDirectory() as directory:
+        for situation in ('unchanged', 'committed', 'changed_after_recheck'):
+            with self.subTest(situation=situation), tempfile.TemporaryDirectory() as directory:
+                committed = situation == 'committed'
                 path, subjects = create_atelier_project(directory)
                 subject = next(iter(subjects))
                 panel = self.make_panel()
@@ -506,6 +508,17 @@ class MultiZoneDraftTests(unittest.TestCase):
                         self.assertFalse(panel.save())
                         self.assertIn('modifié', panel.status.get().lower())
                         self.assertEqual(len(load_project(path).document['editor_v216']['strokes']), 2)
+                    elif situation == 'changed_after_recheck':
+                        self.assertIsNotNone(panel._identity)
+                        save_project_notes(path, path.stem, notes='Modification concurrente',
+                                           expected_sha256=panel._identity[1])
+                        concurrent_bytes = path.read_bytes()
+                        panel._save_many_fn = save_native_subject_strokes
+                        self.assertFalse(panel.save())
+                        self.assertIsNone(panel._identity)
+                        self.assertTrue(panel.has_draft)
+                        self.assertEqual(path.read_bytes(), concurrent_bytes)
+                        self.assertNotIn('editor_v216', load_project(path).document)
                     else:
                         self.assertIsNotNone(panel._identity)
                         self.assertIsNotNone(panel._verified_save_request)
@@ -514,6 +527,58 @@ class MultiZoneDraftTests(unittest.TestCase):
                         self.assertEqual(len(load_project(path).document['editor_v216']['strokes']), 2)
                 finally:
                     panel._job.close()
+
+    @unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
+                         'The real brush writer requires NumPy/Pillow')
+    def test_single_stroke_recheck_reuses_real_single_writer(self):
+        from hashlib import sha256
+        import tempfile
+        from test_v34_native_app_shell import create_atelier_project
+        from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
+        from smartsvg_core.native_subject_preview_v34 import (
+            preview_native_subject_stroke, preview_native_subject_strokes,
+        )
+        from smartsvg_core.native_subject_save_v34 import save_native_subject_stroke
+        from smartsvg_core.project_archive import load_project
+
+        class Photo:
+            def __init__(self, **_kwargs): pass
+            def width(self): return 4
+            def height(self): return 3
+
+        with tempfile.TemporaryDirectory() as directory:
+            path, subjects = create_atelier_project(directory)
+            subject = next(iter(subjects))
+            panel = self.make_panel()
+            panel._identity = (str(path), sha256(path.read_bytes()).hexdigest(), subject)
+            panel._points = [[0.2, 0.2]]
+            stroke = panel._draft_strokes()[0]
+            initial = preview_native_subject_stroke(
+                project_path=str(path), expected_sha256=panel._identity[1],
+                subject_id=subject, **stroke)
+            panel._identity_png = initial['before_png_l8']
+            panel._result_images = {'after': object()}
+            panel._verified_save_request = (
+                initial['preview_mask_sha256_float32'], panel._token,
+                panel._bound_request([stroke]))
+            panel._confirm_fn = lambda: True
+            panel._on_saved = None
+            panel._save_fn = lambda **_request: (_ for _ in ()).throw(OSError('failed'))
+            pending = []
+            panel.root = SimpleNamespace(after=lambda _delay, callback: pending.append(callback))
+            panel.tk = SimpleNamespace(PhotoImage=Photo)
+            panel._job = LatestOnlyJob(lambda request: dispatch_preview_request(
+                preview_native_subject_stroke, preview_native_subject_strokes, request))
+            try:
+                self.assertFalse(panel.save())
+                self.assertTrue(panel.preview())
+                panel._job._future.result(timeout=15)
+                pending.pop(0)()
+                panel._save_fn = save_native_subject_stroke
+                self.assertTrue(panel.save())
+                self.assertEqual(len(load_project(path).document['editor_v216']['strokes']), 1)
+            finally:
+                panel._job.close()
 
     def test_next_gesture_preserves_preceding_stroke(self):
         panel = self.make_panel()
