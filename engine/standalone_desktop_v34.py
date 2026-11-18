@@ -244,11 +244,11 @@ def _start_gui(first_project: str | None) -> int:
     jobs = LatestOnlyJob(load_native_preview)
     selected_subject = None
 
-    def refresh(*, saved_notes=None, saved_brush=None):
+    def refresh(*, saved_notes=None, saved_brush=None, after_recovery=False):
         nonlocal selected_subject
         if not current[0]:
             return
-        if saved_notes is None and saved_brush is None:
+        if saved_notes is None and saved_brush is None and not after_recovery:
             selected_subject = None
             notes.load(None)
         else:
@@ -267,9 +267,12 @@ def _start_gui(first_project: str | None) -> int:
             # A failed host read cannot turn an acknowledged commit into a
             # claim that no write occurred. Keep the draft and review latch.
             message.set('Modification du pinceau enregistrée ; relecture indisponible.'
-                        if saved_brush is not None else 'Impossible de lire ce projet.')
+                        if saved_brush is not None else
+                        'Récupération non réconciliée : relecture indisponible.'
+                        if after_recovery else 'Impossible de lire ce projet.')
             summary.set('Notes locales conservées. Réexaminez le projet (F5).'
-                        if saved_brush is not None else 'Aucune modification effectuée.')
+                        if saved_brush is not None or after_recovery
+                        else 'Aucune modification effectuée.')
             preview_info.set('Aperçu indisponible.')
             atelier.project.set('Impossible de relire ce projet. Réexaminez le projet (F5).')
 
@@ -318,7 +321,9 @@ def _start_gui(first_project: str | None) -> int:
             if not state.get("ok"):
                 recovery.load(state.get('recovery_plan'))
                 atelier.project.set("Ouvrez ou récupérez un projet V1 sain depuis l’espace Projet.")
-                summary.set("Aucune modification effectuée. " +
+                prefix = ('Récupération non réconciliée ; notes locales conservées. '
+                          if after_recovery else 'Aucune modification effectuée. ')
+                summary.set(prefix +
                             (state.get("action_fr") or "Contrôlez le projet avant de réessayer."))
                 preview_info.set("Aperçu non disponible.")
                 return
@@ -337,6 +342,14 @@ def _start_gui(first_project: str | None) -> int:
                     if notes_synced else
                     'Retouche sauvegardée, mais les notes locales ne peuvent '
                     'pas être resynchronisées automatiquement.')
+            elif after_recovery:
+                fresh = state.get('notes_revision')
+                old = notes.revision
+                if old is None or (not notes.busy and not notes.confirming_discard
+                                   and notes._draft() == old.notes):
+                    notes.load(fresh)
+                else:
+                    notes.rebase_after_external_save(fresh)
             elif saved_notes is None:
                 notes.load(state.get('notes_revision'))
             atelier.load(
@@ -431,7 +444,8 @@ def _start_gui(first_project: str | None) -> int:
             return False
         return not atelier.busy and not creation_busy() and notes.can_leave()
 
-    recovery = NativeRecoveryPanel(root, recovery_slot, tk, ttk, messagebox, refresh,
+    recovery = NativeRecoveryPanel(root, recovery_slot, tk, ttk, messagebox,
+                                   lambda: refresh(after_recovery=True),
                                    can_recover)
 
     ttk.Button(buttons, text="Ouvrir un projet…", command=select_project).pack(side="left")

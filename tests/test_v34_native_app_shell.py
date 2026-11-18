@@ -451,6 +451,101 @@ class DesktopShellIntegrationTests(unittest.TestCase):
             self.run_desktop(scenario, first_project=str(path),
                              discard_notes=lambda **_: True)
 
+    def test_notes_typed_during_recovery_survive_its_refresh(self):
+        from threading import Event
+        from smartsvg_core.project_archive import load_project
+        from smartsvg_core.project_workspace_g22 import WorkspaceError, save_project_notes
+
+        for external_notes in (None, 'Notes restaurées ailleurs'):
+            with self.subTest(external_notes=external_notes), tempfile.TemporaryDirectory() as directory:
+                path, _ = create_atelier_project(directory)
+                release = Event()
+
+                def scenario(root, state):
+                    state.jobs.futures[0].result(timeout=15)
+                    root.pending.pop(0)()
+                    initial_sha = state.notes.revision.sha256
+
+                    def apply(*, confirmed):
+                        self.assertIs(confirmed, True)
+                        self.assertTrue(release.wait(timeout=15))
+                        if external_notes is not None:
+                            save_project_notes(path, path.stem, notes=external_notes,
+                                               expected_sha256=initial_sha)
+                        return {'status': 'restored_from_previous', 'project_id': path.stem}
+
+                    plan = SimpleNamespace(outcome='restored_from_previous',
+                                           pending_sha256='missing', previous_sha256='a' * 64,
+                                           project_id=path.stem, apply=apply)
+                    state.recovery.load(plan)
+                    state.recovery.start()
+                    self.assertIsNotNone(state.recovery.future)
+                    state.notes.editor.insert('1.0', 'Note saisie pendant la récupération')
+                    release.set()
+                    state.recovery.future.result(timeout=15)
+                    state.recovery.receive()
+                    self.assertEqual(state.notes.editor.get(), 'Note saisie pendant la récupération')
+                    # Reinspection is asynchronous: a later edit must survive it too.
+                    state.notes.editor.delete('1.0', 'end')
+                    state.notes.editor.insert('1.0', 'Note modifiée pendant la relecture')
+                    state.jobs.futures[-1].result(timeout=15)
+                    while root.pending:
+                        root.pending.pop(0)()
+                    self.assertEqual(state.notes.editor.get(), 'Note modifiée pendant la relecture')
+                    if external_notes is None:
+                        state.notes.save()
+                        state.notes.future.result(timeout=15)
+                        root.pending.pop(0)()
+                        state.jobs.futures[-1].result(timeout=15)
+                        root.pending.pop(0)()
+                        self.assertEqual(load_project(path).document['notes'],
+                                         'Note modifiée pendant la relecture')
+                    else:
+                        self.assertEqual(load_project(path).document['notes'], external_notes)
+                        self.assertIn('non synchronisée', state.notes.status.get())
+                        state.notes.save()
+                        with self.assertRaises(WorkspaceError) as failure:
+                            state.notes.future.result(timeout=15)
+                        self.assertEqual(failure.exception.code, 'PROJECT_CHANGED')
+                        root.pending.pop(0)()
+                        self.assertEqual(state.notes.editor.get(), 'Note modifiée pendant la relecture')
+                        self.assertEqual(load_project(path).document['notes'], external_notes)
+                    root.protocols['WM_DELETE_WINDOW']()
+
+                self.run_desktop(scenario, first_project=str(path),
+                                 discard_notes=lambda **_: True)
+
+    def test_notes_survive_failed_reinspection_after_recovery(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                plan = SimpleNamespace(
+                    outcome='restored_from_previous', pending_sha256='missing',
+                    previous_sha256='a' * 64, project_id=path.stem,
+                    apply=lambda **_kw: {'status': 'restored_from_previous',
+                                         'project_id': path.stem})
+                state.recovery.load(plan)
+                state.recovery.start()
+                state.notes.editor.insert('1.0', 'Brouillon à conserver')
+                state.recovery.future.result(timeout=15)
+                def failed_read(_path):
+                    raise OSError('synthetic read failure')
+                state.jobs._read = failed_read
+                state.recovery.receive()
+                with self.assertRaises(OSError):
+                    state.jobs.futures[-1].result(timeout=15)
+                while root.pending:
+                    root.pending.pop(0)()
+                self.assertEqual(state.notes.editor.get(), 'Brouillon à conserver')
+                self.assertIsNotNone(state.notes.revision)
+                root.protocols['WM_DELETE_WINDOW']()
+
+            self.run_desktop(scenario, first_project=str(path),
+                             discard_notes=lambda **_: True)
+
     def test_new_project_creation_asks_before_discarding_brush_draft(self):
         from test_v34_native_preview_jobs import fixture_module
         with tempfile.TemporaryDirectory() as directory:
