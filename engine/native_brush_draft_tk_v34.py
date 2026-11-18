@@ -10,6 +10,7 @@ confined to the UI thread.
 from __future__ import annotations
 
 import base64
+from copy import deepcopy
 from uuid import uuid4
 from math import ceil, isfinite
 from pathlib import Path
@@ -932,6 +933,8 @@ class NativeBrushDraftPanel:
         from tkinter import messagebox
 
         token = self._token
+        draft = deepcopy((self._points, self._strokes,
+                          self._redo_points, self._redo_strokes))
         self._discard_confirming = True
         try:
             accepted = messagebox.askyesno(
@@ -946,7 +949,11 @@ class NativeBrushDraftPanel:
             self._discard_confirming = False
         # A modal Tk dialog can dispatch nested callbacks. Never discard work
         # that changed while the user was answering about an older draft.
-        if accepted is not True or self._closed or self._save_pending or token != self._token:
+        if accepted is not True or self._closed or self._save_pending:
+            return False
+        if token != self._token or draft != (
+                self._points, self._strokes, self._redo_points, self._redo_strokes):
+            self.status.set('Brouillon modifié pendant la confirmation : rien n’a été effacé.')
             return False
         return self.discard()
 

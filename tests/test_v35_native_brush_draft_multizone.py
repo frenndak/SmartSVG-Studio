@@ -656,6 +656,21 @@ class MultiZoneDraftTests(unittest.TestCase):
             self.assertFalse(panel.request_discard())
         self.assertEqual(panel._draft_strokes(), before)
 
+    def test_discard_confirmation_detects_a_queued_mouse_move(self):
+        from unittest.mock import patch
+
+        panel = self.make_panel()
+        panel.root = object()
+        panel._box = (0, 0, 100, 100)
+        def add_queued_point(*_args, **_kwargs):
+            # Mouse motion can change points without starting another gesture.
+            panel._append(50, 50)
+            return True
+        with patch('tkinter.messagebox.askyesno', side_effect=add_queued_point):
+            self.assertFalse(panel.request_discard())
+        self.assertEqual(panel._points[-1], [0.5, 0.5])
+        self.assertTrue(panel.has_draft)
+
     def test_next_gesture_preserves_preceding_stroke(self):
         panel = self.make_panel()
         panel._box = (0, 0, 100, 100)
