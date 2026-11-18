@@ -121,6 +121,11 @@ class MultiZoneDraftTests(unittest.TestCase):
             parent.pack()
             panel = NativeBrushDraftPanel(root, parent, tk, ttk)
             picker = panel.mode_picker
+            # An unbound panel deliberately disables editing until a verified Subject is selected.
+            self.assertEqual(str(picker.cget("state")), "disabled")
+            panel._identity = ("C:/synthetic.smartsvg", "a" * 64,
+                               "subject-" + "b" * 32)
+            panel._controls()
             self.assertEqual(tuple(picker.cget("values")), _VISIBLE_MODES)
             self.assertEqual(picker.cget("state"), "readonly")
             self.assertEqual(picker.get(), _VISIBLE_MODES[0])
