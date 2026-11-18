@@ -40,6 +40,8 @@ Les unités **W00–W16 ci-dessous sont des conteneurs de conception V3.5**, **p
 | **W15 — P1 qualité/release** | Windows autonome : installation, mises à jour/rollback, état hors ligne, sauvegarde fiable | W01/W02 ; packaging reproductible, CI exact-head, contrôles de non-régression | Installer réellement utilisable, flux de récupération et refus de corruption ; Windows réel validé |
 | **W16 — P2 conservé / R&D** | Diorama 4 plans (S-044/066/099), OCR affiche/couverture (S-021/047), Smart Cost, CSV nom/QR, photos de découpes, multimarque, optimiseur, recettes versionnées et SD3 | G6 composition W10/W11, W03/W04, W12 ; IA W14 seulement pour OCR optionnel ; protos physiques | Fiches séparées de port/contrat/tests et faisabilité. **Exigences G9 restent héritées et conservées** même si leur livraison dépend du jalon adopté ; aucun report silencieux ou abandon |
 
+Pour fermer les raccordements, reprendre les [critères par fonction et recettes de l’Atelier](ATELIER_PARCOURS_ET_RECETTES_UX.md#recettes-de-fermeture-à-reprendre-par-les-chantiers). W01 couvre la miniature et la saisie française. W02/W13 couvre le premier sujet, la protection du brouillon et la réactivité pendant l’enregistrement. W03/W04 raccorde l’action de sortie, ses preuves et le dossier. W07/W12 couvre l’impact d’une correction sur les fichiers et les placements verrouillés. Les autres cartes pointent vers leurs critères dans la même matrice et leurs contrats de référence.
+
 ### 2.1. Anti-perte V3.3 explicite
 
 **Dix exigences historiquement sans ticket V34 direct (toutes visibles)** :
