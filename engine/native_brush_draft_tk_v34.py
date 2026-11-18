@@ -748,6 +748,11 @@ class NativeBrushDraftPanel:
             self._variant = variant
             self._draw()
 
+    @property
+    def has_draft(self):
+        return bool(self._points or self._strokes or
+                    self._redo_points or self._redo_strokes)
+
     def _discard_draft_key(self, _event=None):
         # Do not swallow Escape if saving or shutting down prevents discard.
         return 'break' if self.discard() else None

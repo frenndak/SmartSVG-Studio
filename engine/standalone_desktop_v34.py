@@ -387,7 +387,7 @@ def _start_gui(first_project: str | None) -> int:
             return 'break'
         if creation_busy():
             return show_creator()
-        if notes.can_leave():
+        if notes.can_leave() and atelier.can_leave_brush():
             shell.show('project', focus=True)
             refresh()
         return 'break'
@@ -412,7 +412,8 @@ def _start_gui(first_project: str | None) -> int:
         chosen = filedialog.askopenfilename(
             parent=root, title="Ouvrir un projet SmartSVG",
             filetypes=[("Projets SmartSVG", "*.smartsvg")])
-        if chosen and not recovery.busy and not atelier.busy and notes.can_leave():
+        if (chosen and not recovery.busy and not atelier.busy
+                and notes.can_leave() and atelier.can_leave_brush()):
             creation_info.set('')
             recovery.status.set('')
             shell.show('project', focus=True)
@@ -472,7 +473,7 @@ def _start_gui(first_project: str | None) -> int:
             creator[0].close()
             creator[0].window.lift()
             return
-        if not notes.can_leave():
+        if not notes.can_leave() or not atelier.can_leave_brush():
             return
         if creator[0] is not None:
             creator[0].close()

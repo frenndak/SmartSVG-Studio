@@ -336,6 +336,28 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 self.assertTrue(any(str(value).startswith('Projet créé, enregistré et relu') for value in notices))
             self.run_desktop(scenario, source_choice=str(source), output_choice=directory)
 
+    def test_f5_preserves_brush_draft_when_discard_is_declined(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            before = path.read_bytes()
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                atelier = state.atelier
+                panel = SimpleNamespace(has_draft=True, shutdown=lambda: None)
+                dialog = SimpleNamespace(lift=lambda: None, destroy=lambda: None)
+                atelier._brush_panel, atelier._brush_dialog = panel, dialog
+                subject = atelier.selection.get()
+                atelier._brush_key = (str(path), atelier.snapshot.sha256, subject)
+                root.events['<F5>'](None)
+                self.assertEqual(len(state.jobs.futures), 1)
+                self.assertEqual(atelier.selection.get(), subject)
+                self.assertIs(atelier._brush_panel, panel)
+                self.assertEqual(path.read_bytes(), before)
+
+            self.run_desktop(scenario, first_project=str(path))
+
     def test_notes_save_twice_preserves_sources_and_rotates_backup(self):
         from hashlib import sha256
         from test_v34_native_preview_jobs import fixture_module

@@ -137,6 +137,7 @@ class BrushHandoffTests(unittest.TestCase):
         created = []
 
         class FakeBrush:
+            has_draft = False
             def __init__(self, *_args, **kwargs):
                 self._identity = None
                 self.on_saved = kwargs.get('on_saved')
@@ -313,6 +314,7 @@ class BrushHandoffTests(unittest.TestCase):
         closed = []
 
         class FakeBrush:
+            has_draft = False
             def __init__(self, *_args, **_kwargs):
                 self._identity = None
                 self.shut = False

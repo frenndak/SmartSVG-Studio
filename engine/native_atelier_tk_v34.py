@@ -114,6 +114,7 @@ class NativeAtelierPanel:
         self.subjects = {}
         self._project_path = None
         self._brush_dialog = self._brush_panel = self._brush_key = None
+        self._brush_close_confirming = False
         # The G3.3e brush is delivered separately; no duplicated engine.
         try:
             from native_brush_draft_tk_v34 import NativeBrushDraftPanel
@@ -147,7 +148,7 @@ class NativeAtelierPanel:
         self.picker = ttk.Combobox(
             navigation, textvariable=self.selection, state='disabled', width=38)
         self.picker.pack(side='left', fill='x', expand=True)
-        self.picker.bind('<<ComboboxSelected>>', self.render)
+        self.picker.bind('<<ComboboxSelected>>', self._pick_subject)
         # Scoped to the subject picker: do not steal shortcuts from brush editing.
         self.picker.bind('<Alt-Left>', self._previous_subject_key)
         self.picker.bind('<Alt-Right>', self._next_subject_key)
@@ -435,8 +436,20 @@ class NativeAtelierPanel:
         index = keys.index(selected) + offset
         if not 0 <= index < len(keys):
             return False
-        self.selection.set(keys[index])
-        # Same render path as the combobox: closes any stale brush preview.
+        return self._select_subject(keys[index])
+
+    def _pick_subject(self, _event=None):
+        return self._select_subject(self.selection.get())
+
+    def _select_subject(self, subject_id):
+        brush_key = getattr(self, '_brush_key', None)
+        if brush_key is not None and subject_id != brush_key[2]:
+            # The picker updates its variable before dispatching the event.
+            # Restore the active target before the modal confirmation.
+            self.selection.set(brush_key[2])
+            if not self._request_close_brush():
+                return False
+        self.selection.set(subject_id)
         self.render()
         return True
 
@@ -573,7 +586,8 @@ class NativeAtelierPanel:
         if self._brush_dialog is not None and self._brush_key == key:
             self._brush_dialog.lift()
             return True
-        self._close_brush()
+        if not self._request_close_brush():
+            return False
         dialog = None
         panel = None
         try:
@@ -597,7 +611,40 @@ class NativeAtelierPanel:
             return False
         self._brush_dialog, self._brush_panel, self._brush_key = dialog, panel, key
         self._update_history_controls()
-        dialog.protocol('WM_DELETE_WINDOW', self._close_brush)
+        dialog.protocol('WM_DELETE_WINDOW', self._request_close_brush)
+        return True
+
+    def can_leave_brush(self):
+        """Ask before discarding work, without closing the active panel."""
+        if getattr(self, '_brush_close_confirming', False):
+            return False
+        panel = getattr(self, '_brush_panel', None)
+        if panel is None or not panel.has_draft:
+            return True
+        from tkinter import messagebox
+
+        dialog = self._brush_dialog
+        self._brush_close_confirming = True
+        try:
+            confirmed = messagebox.askyesno(
+                'Retouche non enregistrée',
+                'Abandonner le brouillon du sujet actif ?',
+                detail='Choisissez Non pour revenir à la retouche.',
+                parent=dialog, default='no')
+            if self._brush_panel is not panel:
+                return False
+            if not confirmed:
+                dialog.lift()
+            return confirmed is True
+        except self.tk.TclError:
+            return False
+        finally:
+            self._brush_close_confirming = False
+
+    def _request_close_brush(self):
+        if not self.can_leave_brush():
+            return False
+        self._close_brush()
         return True
 
     def _close_brush(self):
