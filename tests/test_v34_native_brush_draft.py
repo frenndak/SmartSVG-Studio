@@ -194,6 +194,27 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.assertFalse(self.panel.has_draft)
         self.assertEqual(self.project.read_bytes(), self.before)
 
+    def test_escape_keeps_a_released_gesture_and_cancels_only_a_live_one(self):
+        self.load()
+        self.stroke()
+        finished = [point[:] for point in self.panel._points]
+        self.panel.canvas.focus_force()
+        self.root.update()
+        self.panel.canvas.event_generate('<Escape>')
+        self.root.update()
+        self.assertEqual(self.panel._points, finished)
+
+        left, top, width, height = self.panel._box
+        self.panel.canvas.event_generate(
+            '<ButtonPress-1>', x=left + width // 2, y=top + height // 2)
+        self.root.update()
+        self.assertTrue(self.panel._drag_active)
+        self.panel.canvas.event_generate('<Escape>')
+        self.root.update()
+        self.assertEqual(self.panel._points, [])
+        self.assertEqual(self.panel._strokes[0]['points'], finished)
+        self.assertEqual(self.project.read_bytes(), self.before)
+
     def test_missing_cpu_digest_refuses_preview_without_writing(self):
         self.panel.shutdown()
         def missing(**request):

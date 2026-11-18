@@ -907,7 +907,9 @@ class NativeBrushDraftPanel:
     def _discard_draft_key(self, _event=None):
         # Escape cancels the current gesture only. Earlier completed zones and
         # their redo history remain part of the local, uncommitted draft.
-        if self._closed or self._save_pending or not (self._points or self._redo_points):
+        if (self._closed or self._save_pending or
+                not getattr(self, '_drag_active', False) or
+                not (self._points or self._redo_points)):
             return None
         self._token += 1
         self._busy = False
