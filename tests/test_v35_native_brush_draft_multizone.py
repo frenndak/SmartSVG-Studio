@@ -10,6 +10,7 @@ if str(ENGINE) not in sys.path:
 
 from native_brush_draft_tk_v34 import (  # noqa: E402
     MAX_DRAFT_STROKES, NativeBrushDraftPanel, dispatch_preview_request,
+    _MODES, _VISIBLE_MODES,
 )
 
 
@@ -48,6 +49,21 @@ class MultiZoneDraftTests(unittest.TestCase):
         panel._draw = lambda: None
         panel._controls = lambda: None
         return panel
+
+    def test_visible_mask_intentions_keep_engine_modes_and_distinguish_zone_history(self):
+        self.assertEqual(_VISIBLE_MODES, ("Garder (masque)", "Masquer (masque)"))
+        self.assertEqual([_MODES[label] for label in _VISIBLE_MODES],
+                         ["add", "erase"])
+        self.assertNotIn("Ajouter", _VISIBLE_MODES)
+        self.assertNotIn("Effacer", _VISIBLE_MODES)
+        panel = self.make_panel()
+        panel.mode.set(_VISIBLE_MODES[0])
+        self.assertTrue(panel.add_draft_zone())
+        self.assertEqual(panel._strokes[0]["mode"], "add")
+        panel.mode.set(_VISIBLE_MODES[1])
+        panel._points = [[0.6, 0.7]]
+        self.assertEqual(panel._draft_strokes()[-1]["mode"], "erase")
+        self.assertIsNone(panel._verified_save_request)
 
     def test_add_zone_freezes_mode_radius_and_points_then_opens_a_new_zone(self):
         panel = self.make_panel()
