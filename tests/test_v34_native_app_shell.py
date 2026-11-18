@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ENGINE = Path(__file__).resolve().parents[1] / 'engine'
 if str(ENGINE) not in sys.path:
@@ -149,7 +149,7 @@ class DesktopShellIntegrationTests(unittest.TestCase):
         LayoutWidget.all_widgets = []
         captured = SimpleNamespace(
             shell=None, jobs=None, template=None, creator=None, notes=None,
-            atelier=None, theme=None, lifecycle=[])
+            atelier=None, recovery=None, theme=None, lifecycle=[])
         class Root(LayoutWidget):
             def __init__(self):
                 super().__init__()
@@ -201,6 +201,10 @@ class DesktopShellIntegrationTests(unittest.TestCase):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
                 captured.atelier = self
+        class Recovery(desktop.NativeRecoveryPanel):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                captured.recovery = self
         class Photo:
             def __init__(self, **kwargs): self.data = kwargs.get('data')
             def subsample(self, _factor): return self
@@ -222,6 +226,7 @@ class DesktopShellIntegrationTests(unittest.TestCase):
              patch.object(desktop, 'LatestOnlyJob', Jobs), \
              patch.object(desktop, 'TemplatePreviewContent', Template), \
              patch.object(desktop, 'NativeAtelierPanel', Atelier), \
+             patch.object(desktop, 'NativeRecoveryPanel', Recovery), \
              patch.object(desktop, 'NativeNotesPanel', Notes), \
              patch.object(desktop, 'NativeCreateDialog', Creator):
             self.assertEqual(desktop._start_gui(first_project), 0)
@@ -406,6 +411,45 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 root.pending.pop(0)()
 
             self.run_desktop(scenario, first_project=str(path), discard_notes=lambda **_: True)
+
+    def test_recovery_cannot_start_while_a_brush_draft_is_open(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            before = path.read_bytes()
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                brush = SimpleNamespace(has_draft=True,
+                                        draft_checkpoint=lambda: ('unchanged',), shutdown=Mock())
+                dialog = SimpleNamespace(lift=Mock(), destroy=Mock())
+                state.atelier._brush_panel, state.atelier._brush_dialog = brush, dialog
+                apply = Mock(return_value={'status': 'restored_from_previous',
+                                           'project_id': path.stem})
+                plan = SimpleNamespace(outcome='restored_from_previous',
+                                       pending_sha256='missing', previous_sha256='a' * 64,
+                                       project_id=path.stem, apply=apply)
+                state.recovery.load(plan)
+                state.recovery.start()
+                self.assertIsNone(state.recovery.future)
+                apply.assert_not_called()
+                self.assertIn('retouche', state.recovery.status.get().lower())
+                self.assertIs(state.atelier._brush_panel, brush)
+                self.assertEqual(path.read_bytes(), before)
+                self.assertTrue(state.atelier._request_close_brush())
+                brush.shutdown.assert_called_once()
+                state.recovery.start()
+                self.assertIsNotNone(state.recovery.future)
+                state.recovery.future.result(timeout=15)
+                state.recovery.receive()
+                apply.assert_called_once_with(confirmed=True)
+                state.jobs.futures[-1].result(timeout=15)
+                while root.pending:
+                    root.pending.pop(0)()
+                root.protocols['WM_DELETE_WINDOW']()
+
+            self.run_desktop(scenario, first_project=str(path),
+                             discard_notes=lambda **_: True)
 
     def test_new_project_creation_asks_before_discarding_brush_draft(self):
         from test_v34_native_preview_jobs import fixture_module

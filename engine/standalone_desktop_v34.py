@@ -423,8 +423,16 @@ def _start_gui(first_project: str | None) -> int:
             file_name.set(Path(current[0]).name)
             refresh()
 
+    def can_recover():
+        if atelier.has_open_brush:
+            recovery.status.set(
+                'Terminez ou fermez la retouche avant de récupérer le projet. '
+                'Le brouillon reste ouvert.')
+            return False
+        return not atelier.busy and not creation_busy() and notes.can_leave()
+
     recovery = NativeRecoveryPanel(root, recovery_slot, tk, ttk, messagebox, refresh,
-                                   lambda: not atelier.busy and not creation_busy() and notes.can_leave())
+                                   can_recover)
 
     ttk.Button(buttons, text="Ouvrir un projet…", command=select_project).pack(side="left")
     ttk.Button(buttons, text="Créer depuis un PNG…", command=show_creator).pack(side="left", padx=12)
