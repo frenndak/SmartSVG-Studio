@@ -65,6 +65,19 @@ class MultiZoneDraftTests(unittest.TestCase):
         self.assertEqual(panel._draft_strokes()[-1]["mode"], "erase")
         self.assertIsNone(panel._verified_save_request)
 
+    def test_invalid_mode_or_radius_rejects_zone_without_mutating_draft(self):
+        for field, invalid in (("mode", "mode-inconnu"), ("radius", "999")):
+            with self.subTest(field=field):
+                panel = self.make_panel()
+                getattr(panel, field).set(invalid)
+                before = [point[:] for point in panel._points]
+                self.assertFalse(panel.add_draft_zone())
+                self.assertEqual(panel._strokes, [])
+                self.assertEqual(panel._points, before)
+                self.assertEqual(panel._token, 4)
+                self.assertEqual(panel._verified_save_request, ("stale",))
+                self.assertIn("invalide", panel.status.get())
+
     def test_add_zone_freezes_mode_radius_and_points_then_opens_a_new_zone(self):
         panel = self.make_panel()
 
