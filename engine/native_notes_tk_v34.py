@@ -110,7 +110,9 @@ class NativeNotesPanel:
             except Exception:
                 allowed = False
             if not allowed:
-                self.status.set('Écriture du projet en cours ou à vérifier. Brouillon conservé.')
+                self.status.set(
+                    'Une retouche ou écriture du projet est en cours ou à vérifier. '
+                    'Terminez-la avant d’enregistrer les notes : les brouillons sont conservés.')
                 return
         draft = self._draft()
         revision = self.revision

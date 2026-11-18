@@ -236,6 +236,7 @@ def _start_gui(first_project: str | None) -> int:
                              on_saved=lambda revision: refresh(saved_notes=revision),
                              can_save=lambda: (not atelier.busy
                                                and not atelier.history_requires_review
+                                               and not atelier.has_open_brush
                                                and not recovery.busy))
     ttk.Label(frame, textvariable=preview_info, wraplength=640).pack(anchor="w", pady=(16, 5))
     preview_panel = NativeImageViewport(frame, tk, ttk)
@@ -400,7 +401,8 @@ def _start_gui(first_project: str | None) -> int:
         else:
             creator[0] = NativeCreateDialog(
                 root, tk, ttk, filedialog, open_created,
-                can_create=lambda: not recovery.busy and not atelier.busy and notes.can_leave())
+                can_create=lambda: (not recovery.busy and not atelier.busy
+                                    and notes.can_leave() and atelier._request_close_brush()))
         return 'break'
 
     def select_project():

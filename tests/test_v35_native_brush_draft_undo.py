@@ -209,6 +209,23 @@ class BrushDraftUndoTests(unittest.TestCase):
         self.assertEqual(panel._draw_calls, 1)
         self.assertEqual(panel._control_calls, 1)
 
+    def test_escape_keeps_earlier_zones_and_zone_redo(self):
+        panel = self.make_panel()
+        first = {"mode": "add", "radius": 0.05, "points": [[0.2, 0.3]]}
+        undone = {"mode": "erase", "radius": 0.02, "points": [[0.5, 0.6]]}
+        panel._strokes = [first]
+        panel._redo_strokes = [undone]
+        panel._redo_points = [[0.5, 0.6]]
+        panel._result_images = {"after": object()}
+
+        self.assertEqual(panel._discard_draft_key(), "break")
+        self.assertEqual(panel._strokes, [first])
+        self.assertEqual(panel._redo_strokes, [undone])
+        self.assertEqual(panel._points, [])
+        self.assertEqual(panel._redo_points, [])
+        self.assertIsNone(panel._result_images)
+        self.assertIsNone(panel._verified_save_request)
+
 
 class BrushDraftUndoTkTests(unittest.TestCase):
     def test_real_canvas_owns_ctrl_z_binding_without_global_shortcut(self):

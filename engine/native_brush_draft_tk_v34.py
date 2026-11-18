@@ -16,6 +16,9 @@ from pathlib import Path
 import re
 import struct
 
+from smartsvg_core.subject_brush_preview_g33e import (
+    MAX_PREVIEW_POINTS_TOTAL as MAX_DRAFT_POINTS_TOTAL,
+)
 from smartsvg_core.native_preview_jobs_v34 import LatestOnlyJob
 from smartsvg_core.native_subject_preview_v34 import (
     preview_native_subject_stroke, preview_native_subject_strokes,
@@ -121,6 +124,7 @@ class NativeBrushDraftPanel:
         self._redo_strokes = []
         self._overflow = False
         self._busy = False
+        self._drag_active = False
         self._variant = 'after'
         self.mode = tk.StringVar(value='Ajouter')
         self.radius = tk.StringVar(value='0.05')
@@ -252,6 +256,7 @@ class NativeBrushDraftPanel:
         self._redo_strokes = []
         self._box = None
         self._overflow = self._busy = False
+        self._drag_active = False
         self._variant = 'after'
         if self._closed:
             return
@@ -336,7 +341,14 @@ class NativeBrushDraftPanel:
             return
         if len(self._points) >= MAX_GESTURE_POINTS:
             self._overflow = True
-            self.status.set('Geste trop long (64 points maximum) : effacez le brouillon.')
+            self.status.set('Geste interrompu à 64 points : corrigez-le avant de continuer.')
+            self._controls()
+            return
+        if self._draft_point_count() >= MAX_DRAFT_POINTS_TOTAL:
+            self._overflow = True
+            self.status.set(
+                f'Geste interrompu : limite de {MAX_DRAFT_POINTS_TOTAL} points atteinte. '
+                'Annulez un point ou retirez une zone avant de continuer.')
             self._controls()
             return
         self._redo_points = []
@@ -347,11 +359,35 @@ class NativeBrushDraftPanel:
         self._draw()
 
     def _press(self, event):
-        if (self._closed or self._identity is None or self._busy or self._save_pending or
+        if self._closed:
+            return
+        self._drag_active = False
+        if (self._identity is None or self._busy or self._save_pending or
                 normalized_mask_point(event.x, event.y, self._box) is None):
             # A click in the letterbox is not a new stroke; keep the last
             # comparison and in-flight request intact.
             return
+        if self._overflow:
+            self.status.set('Geste trop long : corrigez-le avant de dessiner une autre zone.')
+            return
+        if self._draft_point_count() >= MAX_DRAFT_POINTS_TOTAL:
+            self.status.set(
+                f'{MAX_DRAFT_POINTS_TOTAL} points maximum : calculez ou retirez une zone.')
+            return
+        if len(self._strokes) + bool(self._points) >= MAX_DRAFT_STROKES:
+            self.status.set(
+                f'{MAX_DRAFT_STROKES} zones maximum : calculez ou retirez une zone.')
+            return
+        if self._points and (self.mode.get() not in _MODES or self.radius.get() not in _RADII):
+            self.status.set('Choisissez un mode et un rayon valides avant de continuer.')
+            return
+        self._variant = 'after'
+        if self._points:
+            # Freeze the previous gesture before starting another one. A
+            # comparison must be recalculated for the expanded draft.
+            self._result_images = None
+            if not self.add_draft_zone():
+                return
         self._verified_save_request = None
         self._token += 1  # invalidate any previous asynchronous reply
         self._busy = False
@@ -359,11 +395,13 @@ class NativeBrushDraftPanel:
         self._points = []
         self._redo_points = []
         self._overflow = False
+        self._drag_active = True
         self.canvas.focus_set()
         self._append(event.x, event.y)
 
     def _drag(self, event):
-        self._append(event.x, event.y)
+        if getattr(self, '_drag_active', False):
+            self._append(event.x, event.y)
 
     def _parameter_changed(self, _event=None):
         """Invalidate a result computed with an older mode or radius."""
@@ -383,6 +421,7 @@ class NativeBrushDraftPanel:
     def _release(self, _event):
         # A queued release can arrive after the parent Tk widget was destroyed.
         if not self._closed:
+            self._drag_active = False
             self._controls()
 
     def undo_draft_point(self):
@@ -414,6 +453,9 @@ class NativeBrushDraftPanel:
                 self._save_pending or self._result_images is not None or
                 not self._redo_points or len(self._points) >= MAX_GESTURE_POINTS):
             return False
+        if self._draft_point_count() >= MAX_DRAFT_POINTS_TOTAL:
+            self.status.set(f'{MAX_DRAFT_POINTS_TOTAL} points maximum dans le brouillon.')
+            return False
         self._token += 1
         self._points.append(self._redo_points.pop())
         self._overflow = False
@@ -430,6 +472,9 @@ class NativeBrushDraftPanel:
     def _redo_draft_key(self, _event=None):
         return 'break' if (self.redo_draft_point() or
                            self.restore_last_draft_zone()) else None
+
+    def _draft_point_count(self):
+        return sum(len(stroke['points']) for stroke in self._strokes) + len(self._points)
 
     def _draft_strokes(self):
         strokes = [{
@@ -478,6 +523,9 @@ class NativeBrushDraftPanel:
         if (self._closed or self._identity is None or self._busy or
                 self._save_pending or self._result_images is not None or
                 not self._points or self._overflow):
+            return False
+        if self._draft_point_count() > MAX_DRAFT_POINTS_TOTAL:
+            self.status.set(f'{MAX_DRAFT_POINTS_TOTAL} points maximum dans le brouillon.')
             return False
         if len(self._strokes) >= MAX_DRAFT_STROKES:
             self.status.set(
@@ -528,6 +576,10 @@ class NativeBrushDraftPanel:
                 self._points or self._redo_points or not self._redo_strokes or
                 len(self._strokes) >= MAX_DRAFT_STROKES):
             return False
+        if (self._draft_point_count() + len(self._redo_strokes[-1]['points'])
+                > MAX_DRAFT_POINTS_TOTAL):
+            self.status.set(f'{MAX_DRAFT_POINTS_TOTAL} points maximum dans le brouillon.')
+            return False
         stroke = self._redo_strokes.pop()
         self._strokes.append({
             'mode': stroke['mode'], 'radius': stroke['radius'],
@@ -546,6 +598,10 @@ class NativeBrushDraftPanel:
         if (self._closed or self._identity is None or not (self._points or self._strokes)
                 or self._overflow or self._busy or self._save_pending or
                 self.mode.get() not in _MODES or self.radius.get() not in _RADII):
+            return False
+        if self._draft_point_count() > MAX_DRAFT_POINTS_TOTAL:
+            self.status.set(f'{MAX_DRAFT_POINTS_TOTAL} points maximum dans le brouillon.')
+            self._controls()
             return False
         project_path, expected_sha256, subject_id = self._identity
         strokes = self._draft_strokes()
@@ -700,21 +756,21 @@ class NativeBrushDraftPanel:
                 raise ValueError('UNCERTAIN_SAVE_RECEIPT')
         except Exception as exc:
             # A failed receipt is NOT evidence that the archive was unchanged.
-            # Discard the stale preview; require a new F5 inspection.
+            # Invalidate authority and proof, but keep the local draft visible
+            # until the user explicitly chooses to abandon it. Never retry a
+            # possibly committed command against an unverified revision.
             self._token += 1
             self._verified_save_request = None
             self._result_images = None
             self._identity = None
-            self._strokes = []
-            self._redo_points = []
-            self._redo_strokes = []
+            self._variant = 'after'
             self._save_pending = False
             code = getattr(exc, 'code', '')
             self.status.set(
-                'Projet modifié ailleurs : réexaminez-le (F5).' if
+                'Projet modifié ailleurs. Brouillon conservé ; réexaminez-le (F5).' if
                 code == 'PROJECT_CHANGED' else
-                'Enregistrement non confirmé : réexaminez le projet (F5) '
-                'avant toute nouvelle retouche.')
+                'Enregistrement non confirmé. Brouillon conservé dans cette fenêtre ; '
+                'réexaminez le projet (F5) avant toute nouvelle retouche.')
             if not self._closed:
                 self._draw()
                 self._controls()
@@ -754,8 +810,24 @@ class NativeBrushDraftPanel:
                     self._redo_points or self._redo_strokes)
 
     def _discard_draft_key(self, _event=None):
-        # Do not swallow Escape if saving or shutting down prevents discard.
-        return 'break' if self.discard() else None
+        # Escape cancels the current gesture only. Earlier completed zones and
+        # their redo history remain part of the local, uncommitted draft.
+        if self._closed or self._save_pending or not (self._points or self._redo_points):
+            return None
+        self._token += 1
+        self._busy = False
+        self._points = []
+        self._redo_points = []
+        self._overflow = False
+        self._drag_active = False
+        self._result_images = None
+        self._verified_save_request = None
+        self._inflight_request = None
+        self._variant = 'after'
+        self.status.set('Geste annulé. Les autres zones du brouillon sont conservées.')
+        self._draw()
+        self._controls()
+        return 'break'
 
     def discard(self):
         if self._closed or self._save_pending:
@@ -767,6 +839,7 @@ class NativeBrushDraftPanel:
         self._redo_points = []
         self._redo_strokes = []
         self._overflow = False
+        self._drag_active = False
         self._result_images = None
         self._verified_save_request = None
         self._inflight_request = None

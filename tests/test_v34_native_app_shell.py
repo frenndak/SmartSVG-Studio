@@ -86,6 +86,14 @@ class AppShellTests(unittest.TestCase):
             self.shell.add_page(key, label)
         self.shell.show('home')
 
+    def test_capability_notice_distinguishes_brush_from_unavailable_export(self):
+        labels = [widget.options.get('text', '') for widget in LayoutWidget.all_widgets]
+        notice = next(text for text in labels if 'Création PNG' in text)
+        self.assertIn('retouche', notice.lower())
+        self.assertIn('sujets vérifiés', notice.lower())
+        self.assertIn('exports', notice.lower())
+        self.assertNotIn('Retouche, exports et installation Windows : intégration à venir', notice)
+
     def test_only_selected_page_is_visible_with_textual_active_marker(self):
         self.assertEqual(self.shell.active_page, 'home')
         self.shell.buttons['factory'].options['command']()
@@ -357,6 +365,164 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 self.assertEqual(path.read_bytes(), before)
 
             self.run_desktop(scenario, first_project=str(path))
+
+    def test_notes_wait_for_brush_draft_and_preserve_both_edits(self):
+        from smartsvg_core.project_archive import load_project
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            before = path.read_bytes()
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                atelier = state.atelier
+                closed = []
+                panel = SimpleNamespace(has_draft=True, shutdown=lambda: closed.append('panel'))
+                dialog = SimpleNamespace(lift=lambda: None, destroy=lambda: closed.append('window'))
+                atelier._brush_panel, atelier._brush_dialog = panel, dialog
+                atelier._brush_key = (str(path), atelier.snapshot.sha256, atelier.selection.get())
+                state.notes.editor.insert('1.0', 'Notes à conserver')
+
+                state.notes.save()
+                self.assertIsNone(state.notes.future)
+                self.assertIs(atelier._brush_panel, panel)
+                self.assertEqual(state.notes.editor.get(), 'Notes à conserver')
+                self.assertIn('retouche', state.notes.status.get().lower())
+                self.assertEqual(path.read_bytes(), before)
+                self.assertEqual(closed, [])
+
+                # Explicitly abandoning the brush then permits the notes write.
+                self.assertTrue(atelier._request_close_brush())
+                state.notes.save()
+                state.notes.future.result(timeout=15)
+                root.pending.pop(0)()
+                self.assertEqual(load_project(path).document['notes'], 'Notes à conserver')
+                self.assertEqual(closed, ['panel', 'window'])
+
+            self.run_desktop(scenario, first_project=str(path), discard_notes=lambda **_: True)
+
+    def test_new_project_creation_asks_before_discarding_brush_draft(self):
+        from test_v34_native_preview_jobs import fixture_module
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            before = path.read_bytes()
+            source = Path(directory) / 'nouveau.png'
+            source.write_bytes(fixture_module.png())
+            choices = iter((False, True))
+            prompts = []
+
+            def choose(**kwargs):
+                prompts.append(kwargs)
+                return next(choices)
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                atelier = state.atelier
+                closed = []
+                panel = SimpleNamespace(has_draft=True, shutdown=lambda: closed.append('panel'))
+                dialog = SimpleNamespace(lift=lambda: None, destroy=lambda: closed.append('window'))
+                atelier._brush_panel, atelier._brush_dialog = panel, dialog
+                atelier._brush_key = (str(path), atelier.snapshot.sha256, atelier.selection.get())
+                root.events['<Control-n>'](None)
+                creator = state.creator
+                creator.choose_source()
+                creator.choose_output()
+                creator.start()
+                destination = Path(directory) / 'SmartSVG_Managed_Projects/nouveau.smartsvg'
+                self.assertIsNone(creator.future)
+                self.assertFalse(destination.exists())
+                self.assertIs(atelier._brush_panel, panel)
+                self.assertEqual(path.read_bytes(), before)
+                self.assertEqual(closed, [])
+
+                creator.start()
+                self.assertTrue(creator.busy)
+                creator.future.result(timeout=15)
+                root.pending.pop(0)()
+                self.assertTrue(destination.exists())
+                self.assertEqual(closed, ['panel', 'window'])
+                self.assertEqual(path.read_bytes(), before)
+                self.assertEqual(len(prompts), 2)
+
+            self.run_desktop(scenario, first_project=str(path), source_choice=str(source),
+                             output_choice=directory, discard_notes=choose)
+
+    def test_brush_cannot_open_while_notes_write_is_in_flight(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                state.notes.editor.insert('1.0', 'Notes en cours')
+                state.notes.save()
+                self.assertTrue(state.notes.busy)
+                atelier = state.atelier
+                # A usable brush implementation must not be instantiated against
+                # the revision that the notes writer is about to replace.
+                with patch.object(atelier, '_brush_class', side_effect=AssertionError('stale brush opened')):
+                    self.assertFalse(atelier.open_brush())
+                self.assertIsNone(atelier._brush_dialog)
+                state.notes.future.result(timeout=15)
+                root.pending.pop(0)()
+                state.jobs.futures[-1].result(timeout=15)
+                root.pending.pop(0)()
+
+            self.run_desktop(scenario, first_project=str(path))
+
+    def test_empty_brush_window_blocks_notes_write_until_it_is_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            before = path.read_bytes()
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                atelier = state.atelier
+                panel = SimpleNamespace(has_draft=False, shutdown=lambda: None)
+                dialog = SimpleNamespace(lift=lambda: None, destroy=lambda: None)
+                atelier._brush_panel, atelier._brush_dialog = panel, dialog
+                state.notes.editor.insert('1.0', 'Notes conservées')
+                state.notes.save()
+                self.assertIsNone(state.notes.future)
+                self.assertIs(atelier._brush_panel, panel)
+                self.assertEqual(state.notes.editor.get(), 'Notes conservées')
+                self.assertEqual(path.read_bytes(), before)
+
+            self.run_desktop(scenario, first_project=str(path))
+
+    def test_creation_closes_empty_brush_before_starting_writer(self):
+        from test_v34_native_preview_jobs import fixture_module
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            source = Path(directory) / 'nouveau.png'
+            source.write_bytes(fixture_module.png())
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                atelier = state.atelier
+                closed = []
+                atelier._brush_panel = SimpleNamespace(
+                    has_draft=False, shutdown=lambda: closed.append('panel'))
+                atelier._brush_dialog = SimpleNamespace(
+                    lift=lambda: None, destroy=lambda: closed.append('window'))
+                root.events['<Control-n>'](None)
+                creator = state.creator
+                creator.choose_source()
+                creator.choose_output()
+                creator.start()
+                self.assertTrue(creator.busy)
+                self.assertIsNone(atelier._brush_panel)
+                self.assertEqual(closed, ['panel', 'window'])
+                with patch.object(atelier, '_brush_class', side_effect=AssertionError('brush reopened')):
+                    self.assertFalse(atelier.open_brush())
+                creator.future.result(timeout=15)
+                root.pending.pop(0)()
+
+            self.run_desktop(scenario, first_project=str(path), source_choice=str(source),
+                             output_choice=directory)
 
     def test_notes_save_twice_preserves_sources_and_rotates_backup(self):
         from hashlib import sha256

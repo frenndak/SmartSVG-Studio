@@ -77,6 +77,12 @@ class AtelierFeedbackTests(unittest.TestCase):
         self.assertIsNone(self.loaded_images[-1])
         self.assertEqual(self.decoded, [])
 
+    def test_subject_details_use_real_line_breaks(self):
+        message = self.load_status('SOURCE_MISSING')
+        self.assertIn('subject-synthetic\nSource source-synthetic', message)
+        self.assertIn('\nZone dans la source', message)
+        self.assertNotIn('\\\\n', message)
+
 
 
 class BrushHandoffTests(unittest.TestCase):

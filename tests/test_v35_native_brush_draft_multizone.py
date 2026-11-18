@@ -1,5 +1,7 @@
 """V3.5 W02/T-SEL-02: compose bounded native brush zones before saving."""
 from pathlib import Path
+from types import SimpleNamespace
+import importlib.util
 import sys
 import unittest
 
@@ -280,6 +282,162 @@ class MultiZoneDraftTests(unittest.TestCase):
 
         self.assertFalse(panel.save())
         self.assertEqual(panel._identity[1], "a" * 64)
+
+    def test_uncertain_save_retains_every_zone_but_blocks_retry(self):
+        panel = self.make_panel()
+        panel._strokes = [{"mode": "add", "radius": 0.05,
+                           "points": [[0.2, 0.3], [0.3, 0.4]]}]
+        panel._points = [[0.6, 0.7], [0.7, 0.8]]
+        panel._redo_strokes = [{"mode": "erase", "radius": 0.02,
+                                "points": [[0.8, 0.9]]}]
+        panel._redo_points = [[0.9, 0.9]]
+        before = panel._draft_strokes()
+        redo_before = [dict(panel._redo_strokes[0])]
+        panel._result_images = {"after": object()}
+        panel._variant = "before"
+        panel._confirm_fn = lambda: True
+        panel._on_saved = None
+        calls = []
+        def uncertain(**_kwargs):
+            calls.append(True)
+            raise OSError("private writer failure")
+        panel._save_many_fn = uncertain
+        bound = panel._bound_request(before)
+        panel._verified_save_request = ("c" * 64, panel._token, bound)
+
+        self.assertFalse(panel.save())
+        self.assertEqual(panel._draft_strokes(), before)
+        self.assertEqual(panel._redo_strokes, redo_before)
+        self.assertEqual(panel._redo_points, [[0.9, 0.9]])
+        self.assertEqual(panel._variant, "after")
+        self.assertTrue(panel.has_draft)
+        self.assertIsNone(panel._identity)
+        self.assertIsNone(panel._verified_save_request)
+        self.assertFalse(panel.save())
+        self.assertEqual(len(calls), 1)
+        self.assertIn("brouillon", panel.status.get().lower())
+        self.assertNotIn("private", panel.status.get())
+
+    def test_ui_limits_match_brush_preview_contract(self):
+        from native_brush_draft_tk_v34 import MAX_GESTURE_POINTS, MAX_DRAFT_POINTS_TOTAL
+        from smartsvg_core.subject_brush_preview_g33e import (
+            MAX_PREVIEW_POINTS, MAX_PREVIEW_POINTS_TOTAL, MAX_PREVIEW_STROKES,
+        )
+        self.assertEqual(MAX_GESTURE_POINTS, MAX_PREVIEW_POINTS)
+        self.assertEqual(MAX_DRAFT_STROKES, MAX_PREVIEW_STROKES)
+        self.assertEqual(MAX_DRAFT_POINTS_TOTAL, MAX_PREVIEW_POINTS_TOTAL)
+
+    @unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
+                         'The real brush writer requires NumPy/Pillow')
+    def test_successive_mouse_gestures_reach_the_real_grouped_writer(self):
+        from hashlib import sha256
+        import tempfile
+        from test_v34_native_app_shell import create_atelier_project
+        from smartsvg_core.native_subject_preview_v34 import preview_native_subject_strokes
+        from smartsvg_core.native_subject_save_v34 import save_native_subject_strokes
+        from smartsvg_core.project_archive import load_project
+
+        with tempfile.TemporaryDirectory() as directory:
+            path, subjects = create_atelier_project(directory)
+            subject = next(iter(subjects))
+            original = load_project(path)
+            panel = self.make_panel()
+            panel._identity = (str(path), sha256(path.read_bytes()).hexdigest(), subject)
+            panel._points = []
+            panel._box = (0, 0, 100, 100)
+            panel.canvas = SimpleNamespace(focus_set=lambda: None)
+            for x, y in ((20, 20), (80, 80)):
+                panel._press(SimpleNamespace(x=x, y=y))
+                panel._release(None)
+            strokes = panel._draft_strokes()
+            self.assertEqual(len(strokes), 2)
+            self.assertEqual(strokes[0]['points'], [[0.2, 0.2]])
+            self.assertEqual(strokes[1]['points'], [[0.8, 0.8]])
+            preview = preview_native_subject_strokes(
+                project_path=str(path), expected_sha256=panel._identity[1],
+                subject_id=subject, strokes=strokes)
+            panel._result_images = {'after': object()}
+            panel._verified_save_request = (
+                preview['preview_mask_sha256_float32'], panel._token,
+                panel._bound_request(strokes))
+            panel._confirm_fn = lambda: True
+            panel._save_many_fn = save_native_subject_strokes
+            panel._on_saved = None
+            self.assertTrue(panel.save())
+
+            reopened = load_project(path)
+            self.assertEqual(len(reopened.document['editor_v216']['strokes']), 2)
+            self.assertEqual(reopened.operations[-1]['kind'], 'save_subject_brushes_v35_w02_v1')
+            self.assertEqual(reopened.resources, original.resources)
+            self.assertEqual(reopened.subjects, original.subjects)
+
+    def test_next_gesture_preserves_preceding_stroke(self):
+        panel = self.make_panel()
+        panel._box = (0, 0, 100, 100)
+        panel.canvas = SimpleNamespace(focus_set=lambda: None)
+        panel._result_images = {"after": object()}
+        panel._variant = "before"
+
+        panel._press(SimpleNamespace(x=60, y=70))
+        self.assertEqual(panel._strokes, [{"mode": "add", "radius": 0.05,
+            "points": [[0.1, 0.2], [0.3, 0.4]]}])
+        self.assertEqual(panel._points, [[0.6, 0.7]])
+        self.assertIsNone(panel._verified_save_request)
+        self.assertIsNone(panel._result_images)
+        self.assertEqual(panel._variant, "after")
+
+        panel._press(SimpleNamespace(x=80, y=90))
+        self.assertEqual(len(panel._strokes), 2)
+        self.assertEqual(panel._strokes[1]["points"], [[0.6, 0.7]])
+        self.assertEqual(panel._points, [[0.8, 0.9]])
+
+    def test_next_gesture_at_zone_limit_keeps_current_and_previous_zones(self):
+        panel = self.make_panel()
+        panel._box = (0, 0, 100, 100)
+        panel.canvas = SimpleNamespace(focus_set=lambda: None)
+        panel._strokes = [{"mode": "add", "radius": 0.05,
+                           "points": [[0.1, 0.2]]}
+                          for _ in range(MAX_DRAFT_STROKES - 1)]
+        before = panel._draft_strokes()
+        panel._press(SimpleNamespace(x=60, y=70))
+        panel._drag(SimpleNamespace(x=61, y=71))
+        panel._release(None)
+        self.assertEqual(panel._draft_strokes(), before)
+        self.assertIn(str(MAX_DRAFT_STROKES), panel.status.get())
+
+    def test_total_point_limit_is_enforced_before_preview(self):
+        panel = self.make_panel()
+        panel._box = (0, 0, 100, 100)
+        panel._strokes = [{"mode": "add", "radius": 0.05,
+                           "points": [[j / 100.0, i / 10.0] for j in range(60)]}
+                          for i in range(4)]
+        panel._points = [[j / 100.0, 0.8] for j in range(15)]
+        panel._append(50, 50)  # exactly 256 points
+        self.assertEqual(sum(len(s["points"]) for s in panel._draft_strokes()), 256)
+        self.assertFalse(panel._overflow)
+        before = panel._draft_strokes()
+
+        panel._append(51, 51)  # point 257 is not silently submitted
+        self.assertEqual(panel._draft_strokes(), before)
+        self.assertTrue(panel._overflow)
+        self.assertIn("256", panel.status.get())
+        self.assertFalse(panel.preview())
+        self.assertTrue(panel.undo_draft_point())
+        self.assertFalse(panel._overflow)
+
+    def test_starting_a_new_zone_at_total_limit_does_not_erase_draft(self):
+        panel = self.make_panel()
+        panel._box = (0, 0, 100, 100)
+        panel.canvas = SimpleNamespace(focus_set=lambda: None)
+        panel._strokes = [{"mode": "add", "radius": 0.05,
+                           "points": [[j / 100.0, i / 10.0] for j in range(60)]}
+                          for i in range(4)]
+        panel._points = [[j / 100.0, 0.8] for j in range(16)]
+        before = panel._draft_strokes()
+        panel._press(SimpleNamespace(x=60, y=70))
+        self.assertEqual(panel._draft_strokes(), before)
+        self.assertIn("256", panel.status.get())
+
 
 
 if __name__ == "__main__":

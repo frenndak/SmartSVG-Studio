@@ -249,6 +249,12 @@ class NativeAtelierPanel:
     def history_requires_review(self):
         return getattr(self, '_history_needs_review', False)
 
+    @property
+    def has_open_brush(self):
+        """Even an empty panel could receive a gesture during a notes write."""
+        return (getattr(self, '_brush_panel', None) is not None or
+                getattr(self, '_brush_dialog', None) is not None)
+
     def _history_request(self, action):
         if (action not in ('undo', 'redo') or getattr(self, '_closed', False)
                 or self.history_requires_review or self.busy
@@ -519,9 +525,9 @@ class NativeAtelierPanel:
             self.details.set('Métadonnées du sujet incomplètes. Réexaminez le projet (F5).')
             return
         x, y, width, height = bbox
-        info = (f'Sujet {subject.subject_id}\\n'
-                f'Source {subject.source_id} · Masque {subject.mask_id}\\n'
-                f'Zone dans la source : ({x}, {y}), {width} × {height} px\\n'
+        info = (f'Sujet {subject.subject_id}\n'
+                f'Source {subject.source_id} · Masque {subject.mask_id}\n'
+                f'Zone dans la source : ({x}, {y}), {width} × {height} px\n'
                 f'{PROOF_LABELS.get(getattr(subject, "proof_status", None), "Liaison de masque non vérifiée")}. ')
         if preview.status != 'READY_PNG':
             reason = MASK_PREVIEW_ERRORS.get(
@@ -575,6 +581,9 @@ class NativeAtelierPanel:
     def open_brush(self):
         """Open a verified V1 Subject draft with an explicit save path."""
         if self._closed or self.busy or self.history_requires_review:
+            return False
+        if not self._history_allowed():
+            self.details.set('Terminez l’écriture du projet avant d’ouvrir une retouche.')
             return False
         request = brush_preview_request(
             self.snapshot, self.subjects.get(self.selection.get()),
