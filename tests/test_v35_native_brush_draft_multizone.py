@@ -141,7 +141,7 @@ class MultiZoneDraftTests(unittest.TestCase):
             self.assertEqual(picker.cget("state"), "readonly")
         finally:
             if panel is not None:
-                panel.close()
+                panel.shutdown()
             root.destroy()
 
     def test_invalid_mode_or_radius_rejects_zone_without_mutating_draft(self):
