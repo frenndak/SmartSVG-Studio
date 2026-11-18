@@ -398,6 +398,10 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 root.pending.pop(0)()
                 self.assertEqual(load_project(path).document['notes'], 'Notes à conserver')
                 self.assertEqual(closed, ['panel', 'window'])
+                # Let the host's asynchronous post-save inspection release
+                # its archive handle before the temporary directory is removed.
+                state.jobs.futures[-1].result(timeout=15)
+                root.pending.pop(0)()
 
             self.run_desktop(scenario, first_project=str(path), discard_notes=lambda **_: True)
 
@@ -444,6 +448,8 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 self.assertEqual(closed, ['panel', 'window'])
                 self.assertEqual(path.read_bytes(), before)
                 self.assertEqual(len(prompts), 2)
+                state.jobs.futures[-1].result(timeout=15)
+                root.pending.pop(0)()
 
             self.run_desktop(scenario, first_project=str(path), source_choice=str(source),
                              output_choice=directory, discard_notes=choose)
@@ -519,6 +525,8 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 with patch.object(atelier, '_brush_class', side_effect=AssertionError('brush reopened')):
                     self.assertFalse(atelier.open_brush())
                 creator.future.result(timeout=15)
+                root.pending.pop(0)()
+                state.jobs.futures[-1].result(timeout=15)
                 root.pending.pop(0)()
 
             self.run_desktop(scenario, first_project=str(path), source_choice=str(source),
