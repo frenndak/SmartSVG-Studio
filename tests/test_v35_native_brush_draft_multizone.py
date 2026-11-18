@@ -408,9 +408,13 @@ class MultiZoneDraftTests(unittest.TestCase):
             panel._points = []
             panel._box = (0, 0, 100, 100)
             panel.canvas = SimpleNamespace(focus_set=lambda: None)
-            for x, y in ((20, 20), (80, 80)):
-                panel._press(SimpleNamespace(x=x, y=y))
-                panel._release(None)
+            panel._press(SimpleNamespace(x=20, y=20))
+            panel._release(None)
+            panel.mode.set('Effacer')
+            panel.radius.set('0.10')
+            panel._parameter_changed()
+            panel._press(SimpleNamespace(x=80, y=80))
+            panel._release(None)
             strokes = panel._draft_strokes()
             self.assertEqual(len(strokes), 2)
             self.assertEqual(strokes[0]['points'], [[0.2, 0.2]])
@@ -426,9 +430,14 @@ class MultiZoneDraftTests(unittest.TestCase):
             panel._save_many_fn = save_native_subject_strokes
             panel._on_saved = None
             self.assertTrue(panel.save())
+            self.assertFalse(panel.has_draft)
 
             reopened = load_project(path)
             self.assertEqual(len(reopened.document['editor_v216']['strokes']), 2)
+            self.assertEqual(
+                [(item['mode'], item['radius'])
+                 for item in reopened.document['editor_v216']['strokes']],
+                [('add', 0.05), ('erase', 0.10)])
             self.assertEqual(reopened.operations[-1]['kind'], 'save_subject_brushes_v35_w02_v1')
             self.assertEqual(reopened.resources, original.resources)
             self.assertEqual(reopened.subjects, original.subjects)
@@ -582,6 +591,41 @@ class MultiZoneDraftTests(unittest.TestCase):
                 self.assertEqual(len(load_project(path).document['editor_v216']['strokes']), 1)
             finally:
                 panel._job.close()
+
+    def test_changing_brush_settings_preserves_the_completed_gesture(self):
+        panel = self.make_panel()
+        panel._points = []
+        panel._box = (0, 0, 100, 100)
+        panel.canvas = SimpleNamespace(focus_set=lambda: None)
+
+        panel._press(SimpleNamespace(x=20, y=20))
+        panel._release(None)
+        panel.mode.set("Effacer")
+        panel.radius.set("0.10")
+        panel._parameter_changed()
+
+        # A setting changed for the next gesture must not repaint an existing
+        # uncommitted stroke in another mode or at another width.
+        self.assertEqual(panel._draft_strokes(), [
+            {"mode": "add", "radius": 0.05, "points": [[0.2, 0.2]]},
+        ])
+        panel._press(SimpleNamespace(x=80, y=80))
+        panel._release(None)
+        self.assertEqual(panel._draft_strokes(), [
+            {"mode": "add", "radius": 0.05, "points": [[0.2, 0.2]]},
+            {"mode": "erase", "radius": 0.10, "points": [[0.8, 0.8]]},
+        ])
+
+    def test_invalid_brush_setting_does_not_discard_the_current_gesture(self):
+        for field, value in (("mode", "invalide"), ("radius", "999")):
+            with self.subTest(field=field):
+                panel = self.make_panel()
+                before = [point[:] for point in panel._points]
+                getattr(panel, field).set(value)
+                self.assertFalse(panel.add_draft_zone())
+                self.assertEqual(panel._points, before)
+                self.assertEqual(panel._strokes, [])
+                self.assertIn("invalide", panel.status.get())
 
     def test_next_gesture_preserves_preceding_stroke(self):
         panel = self.make_panel()

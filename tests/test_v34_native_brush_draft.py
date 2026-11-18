@@ -213,6 +213,11 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.assertEqual(self.project.read_bytes(), self.before)
 
     def test_mode_and_radius_changes_invalidate_stale_comparison(self):
+        self.panel.shutdown()
+        self.panel = NativeBrushDraftPanel(
+            self.root, self.root, self.tk, self.ttk,
+            preview_fn=self._fn, preview_many_fn=self._fn)
+        self.addCleanup(self.panel.shutdown)
         self.load()
         self.stroke()
         points = [p[:] for p in self.panel._points]
@@ -226,7 +231,7 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.assertEqual(self.panel._points, points)
         self.assertTrue(self.panel.preview())
         self.receive()
-        self.assertEqual(self.preview_calls[-1]['mode'], 'erase')
+        self.assertEqual(self.preview_calls[-1]['mode'], 'add')
         self.assertIsNotNone(self.panel._result_images)
         self.panel.radius.set('0.10')
         self.panel.radius_picker.event_generate('<<ComboboxSelected>>')
@@ -234,7 +239,14 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.assertIsNone(self.panel._result_images)
         self.assertTrue(self.panel.preview())
         self.receive()
-        self.assertEqual(self.preview_calls[-1]['radius'], 0.10)
+        self.assertEqual(self.preview_calls[-1]['radius'], 0.05)
+        # New settings apply only to the next completed gesture.
+        self.stroke()
+        self.assertTrue(self.panel.preview())
+        self.receive()
+        strokes = self.preview_calls[-1]['strokes']
+        self.assertEqual([(s['mode'], s['radius']) for s in strokes],
+                         [('add', 0.05), ('erase', 0.10)])
         self.assertEqual(self.project.read_bytes(), self.before)
 
     def test_malformed_or_huge_png_never_reaches_tk_decoder(self):

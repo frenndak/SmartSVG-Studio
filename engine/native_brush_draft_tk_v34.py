@@ -121,6 +121,7 @@ class NativeBrushDraftPanel:
         self._save_pending = False
         self._box = None
         self._points = []
+        self._stroke_style = None
         self._strokes = []
         self._redo_points = []
         self._redo_strokes = []
@@ -257,6 +258,7 @@ class NativeBrushDraftPanel:
         self._inflight_request = None
         self._save_pending = False
         self._points = []
+        self._stroke_style = None
         self._strokes = []
         self._redo_points = []
         self._redo_strokes = []
@@ -360,6 +362,15 @@ class NativeBrushDraftPanel:
                 'Corrigez ou annulez le geste avant de recalculer.')
             self._controls()
             return
+        if not self._points:
+            # Capture the settings at the start of this gesture. Subsequent
+            # picker changes apply to the next gesture, not to this one.
+            mode, radius = self.mode.get(), self.radius.get()
+            if mode not in _MODES or radius not in _RADII:
+                self.status.set('Choisissez un mode et un rayon valides.')
+                self._controls()
+                return
+            self._stroke_style = (_MODES[mode], float(radius))
         self._redo_points = []
         self._redo_strokes = []
         self._points.append(point)
@@ -424,7 +435,10 @@ class NativeBrushDraftPanel:
         self._result_images = None
         self._redo_points = []
         self._variant = 'after'
-        self.status.set('Pinceau modifié : recalculez l’aperçu avant/après.')
+        self.status.set(
+            'Réglages appliqués au prochain geste. Recalculez l’aperçu.'
+            if self._points and getattr(self, '_stroke_style', None) is not None
+            else 'Pinceau modifié : recalculez l’aperçu avant/après.')
         self._draw()
         self._controls()
 
@@ -505,15 +519,21 @@ class NativeBrushDraftPanel:
     def _draft_segment_count(self):
         return self._draft_budget()[0]
 
+    def _current_stroke_style(self):
+        style = getattr(self, '_stroke_style', None)
+        return style if style is not None else (
+            _MODES[self.mode.get()], float(self.radius.get()))
+
     def _draft_strokes(self):
         strokes = [{
             'mode': stroke['mode'], 'radius': stroke['radius'],
             'points': [point[:] for point in stroke['points']],
         } for stroke in self._strokes]
         if self._points:
+            mode, radius = self._current_stroke_style()
             strokes.append({
-                'mode': _MODES[self.mode.get()],
-                'radius': float(self.radius.get()),
+                'mode': mode,
+                'radius': radius,
                 'points': [point[:] for point in self._points],
             })
         # The engine accepts at most 64 points per segment. Split a longer
@@ -579,12 +599,17 @@ class NativeBrushDraftPanel:
                 f'{MAX_DRAFT_STROKES} zones maximum : calculez ou effacez le brouillon.')
             self._controls()
             return False
+        if self.mode.get() not in _MODES or self.radius.get() not in _RADII:
+            self.status.set('Mode ou rayon invalide : zone non ajoutée.')
+            self._controls()
+            return False
         self._strokes.append({
-            'mode': _MODES[self.mode.get()],
-            'radius': float(self.radius.get()),
+            'mode': self._current_stroke_style()[0],
+            'radius': self._current_stroke_style()[1],
             'points': [point[:] for point in self._points],
         })
         self._points = []
+        self._stroke_style = None
         self._redo_points = []
         self._redo_strokes = []
         self._token += 1
@@ -844,9 +869,13 @@ class NativeBrushDraftPanel:
         self._result_images = None
         self._identity = None
         self._recovery_identity = None
+        self._points = []
+        self._stroke_style = None
         self._strokes = []
         self._redo_points = []
         self._redo_strokes = []
+        self._overflow = False
+        self._drag_active = False
         self._save_pending = False
         if not self._closed:
             self.status.set('Retouche enregistrée. Réexaminez le projet (F5).')
@@ -881,6 +910,7 @@ class NativeBrushDraftPanel:
         self._token += 1
         self._busy = False
         self._points = []
+        self._stroke_style = None
         self._redo_points = []
         self._overflow = False
         self._drag_active = False
@@ -900,6 +930,7 @@ class NativeBrushDraftPanel:
         self._token += 1
         self._busy = False
         self._points = []
+        self._stroke_style = None
         self._strokes = []
         self._redo_points = []
         self._redo_strokes = []
