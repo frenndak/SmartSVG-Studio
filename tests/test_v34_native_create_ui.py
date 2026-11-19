@@ -122,6 +122,51 @@ class NativeCreateUITests(unittest.TestCase):
             self.assertEqual(self.dialog.name.get(), 'second')
             self.assertFalse(list(Path(directory).rglob('*.smartsvg')))
 
+    def test_failed_worker_start_cannot_write_stale_queued_project_after_retry(self):
+        # ThreadPoolExecutor.submit may put the Future into its queue and
+        # *then* raise while starting a new worker. Model that ordering and
+        # execute the orphan after a successful user-controlled retry.
+        class FailedStartupExecutor:
+            queued = None
+            shutdown_called = False
+
+            def submit(self, callable_, *args, **kwargs):
+                self.queued = lambda: callable_(*args, **kwargs)
+                raise RuntimeError('worker failed after enqueue')
+
+            def shutdown(self, *, wait=True):
+                self.shutdown_called = True
+
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'source.png'
+            source.write_bytes(fixture_module.png())
+            self.dialog.source.set(str(source))
+            self.dialog.output.set(directory)
+            self.dialog.name.set('first-attempt')
+            failed = FailedStartupExecutor()
+            with patch.object(self.module, 'ThreadPoolExecutor', return_value=failed):
+                self.dialog.start()
+
+            self.assertIsNotNone(failed.queued)
+            self.assertTrue(failed.shutdown_called)
+            self.assertIsNone(self.dialog.future)
+            self.assertIsNone(self.dialog.executor)
+            self.assertFalse(self.dialog.busy)
+            self.assertFalse(list(Path(directory).rglob('*.smartsvg')))
+
+            # The user may change the form and retry. Only that second
+            # explicitly authorized request is permitted to reach the writer.
+            self.dialog.name.set('second-attempt')
+            self.dialog.start()
+            self.drain()
+            self.assertEqual(len(self.receipts), 1)
+            destination = Path(directory) / 'SmartSVG_Managed_Projects'
+            self.assertEqual(sorted(p.name for p in destination.glob('*.smartsvg')),
+                             ['second-attempt.smartsvg'])
+            self.assertIsNone(failed.queued())
+            self.assertEqual(sorted(p.name for p in destination.glob('*.smartsvg')),
+                             ['second-attempt.smartsvg'])
+
     def test_double_activation_does_not_queue_or_cancel_a_write_and_close_waits(self):
         from concurrent.futures import Future
         executor = SimpleNamespace(submit=lambda *args, **kwargs: pending,
