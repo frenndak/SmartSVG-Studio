@@ -189,6 +189,7 @@ class NativeAtelierPanel:
         self._project_path = project_path
         self.snapshot = snapshot
         self.subjects, invalid_catalog = _admit_subject_catalog(snapshot)
+        self._first_subject_catalog_invalid = invalid_catalog
         self.picker.configure(values=tuple(self.subjects),
                               state='readonly' if self.subjects else 'disabled')
         self.selection.set(selected_subject if selected_subject in self.subjects
@@ -205,6 +206,7 @@ class NativeAtelierPanel:
         snapshot = self.snapshot
         revision = getattr(snapshot, 'sha256', None)
         available = (self._on_create_first_subject is not None and
+                     not getattr(self, '_first_subject_catalog_invalid', False) and
                      snapshot is not None and not invalid_catalog and
                      not self.subjects and not self.busy and
                      not self.history_requires_review and
@@ -214,10 +216,10 @@ class NativeAtelierPanel:
                      Path(self._project_path).is_absolute())
         self.first_subject_button.configure(
             state='normal' if available else 'disabled')
+        return bool(available)
 
     def create_first_subject(self):
-        self._update_first_subject_button()
-        if str(self.first_subject_button.cget('state')) != 'normal':
+        if not self._update_first_subject_button():
             return False
         return self._on_create_first_subject(self.snapshot, self._project_path) is True
 
