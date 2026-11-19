@@ -221,23 +221,49 @@ def publish_native_ptc_png(*, project_path, expected_sha256, subject_id,
 
     staged = None
     try:
-        from smartsvg_cricut.direct_import_v218 import _copy_atomic
-        fd, raw_path = tempfile.mkstemp(
-            prefix=".smartsvg_ptc_stage_", suffix=".png", dir=str(dest.parent))
-        staged = Path(raw_path)
-        with os.fdopen(fd, "wb") as stream:
-            stream.write(result["png"])
-            stream.flush()
-            os.fsync(stream.fileno())
-        if sha256(staged.read_bytes()).hexdigest() != expected_output_sha256:
-            raise NativePTCError("STAGING_VERIFICATION_FAILED")
-        _copy_atomic(staged, dest)
+        # The historical direct_import_v218._copy_atomic uses this same
+        # completed-file / exclusive-link publication policy, but importing
+        # its module eagerly requires cv2 (not needed to export a PNG here).
+        # Publish the already-verified sibling staging inode directly.
+        if dest.is_symlink() or (dest.exists() and
+                (not dest.is_file() or
+                 sha256(dest.read_bytes()).hexdigest() != expected_output_sha256)):
+            raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
+        if not dest.exists():
+            fd, raw_path = tempfile.mkstemp(
+                prefix=".smartsvg_ptc_stage_", suffix=".png", dir=str(dest.parent))
+            staged = Path(raw_path)
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(result["png"])
+                stream.flush()
+                os.fsync(stream.fileno())
+            if sha256(staged.read_bytes()).hexdigest() != expected_output_sha256:
+                raise NativePTCError("STAGING_VERIFICATION_FAILED")
+            try:
+                os.link(staged, dest)
+            except FileExistsError:
+                if (dest.is_symlink() or not dest.is_file() or
+                        sha256(dest.read_bytes()).hexdigest() != expected_output_sha256):
+                    raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from None
+            except OSError as exc:
+                # Windows rename is non-overwriting when destination exists;
+                # POSIX rename would replace an existing file. Fail closed
+                # without hard links on POSIX.
+                if os.name != "nt":
+                    raise NativePTCError("ATOMIC_PUBLICATION_UNAVAILABLE") from exc
+                try:
+                    os.rename(staged, dest)
+                    staged = None
+                except FileExistsError:
+                    if (dest.is_symlink() or not dest.is_file() or
+                            sha256(dest.read_bytes()).hexdigest() != expected_output_sha256):
+                        raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from None
         if (not dest.is_file() or dest.is_symlink() or
                 sha256(dest.read_bytes()).hexdigest() != expected_output_sha256):
             raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
     except NativePTCError:
         raise
-    except (OSError, ValueError, ImportError) as exc:
+    except (OSError, ValueError) as exc:
         # A failed publication may have happened: do not claim rollback.
         raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from exc
     finally:
