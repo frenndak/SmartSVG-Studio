@@ -106,6 +106,38 @@ class MultiZoneDraftTests(unittest.TestCase):
             for call in bindings
         ))
 
+    def test_brush_actions_remain_visible_at_large_text_scale(self):
+        try:
+            import tkinter as tk
+            from tkinter import ttk
+        except ImportError:
+            self.skipTest('Tk unavailable')
+        try:
+            root = tk.Tk()
+        except tk.TclError:
+            self.skipTest('Graphical Tk unavailable')
+        root.geometry('560x540')
+        root.tk.call('tk', 'scaling', 2.0)
+        panel = NativeBrushDraftPanel(root, root, tk, ttk)
+        try:
+            root.update()
+            actions = (panel.preview_button, panel.before_button, panel.after_button,
+                       panel.undo_button, panel.redo_button, panel.discard_button,
+                       panel.save_button, panel.add_zone_button,
+                       panel.remove_zone_button, panel.restore_zone_button)
+            for button in actions:
+                with self.subTest(label=button.cget('text')):
+                    self.assertTrue(button.winfo_viewable())
+                    self.assertGreaterEqual(button.winfo_width(), button.winfo_reqwidth())
+                    self.assertLessEqual(button.winfo_rootx() + button.winfo_width(),
+                                         root.winfo_rootx() + root.winfo_width())
+                    self.assertLessEqual(button.winfo_rooty() + button.winfo_height(),
+                                         root.winfo_rooty() + root.winfo_height())
+            self.assertGreaterEqual(panel.canvas.winfo_height(), 64)
+        finally:
+            panel.shutdown()
+            root.destroy()
+
     def test_real_tk_mode_picker_values_and_selection_invalidate_preview(self):
         """Exercise the real ttk widget when a graphical Tk session exists."""
         try:

@@ -146,7 +146,6 @@ class NativeBrushDraftPanel:
         self.canvas = tk.Canvas(
             parent, width=480, height=260, highlightthickness=1,
             takefocus=True)
-        self.canvas.pack(fill='both', expand=True, pady=(4, 6))
         self.canvas.bind('<Configure>', self._draw)
         self.canvas.bind('<ButtonPress-1>', self._press)
         self.canvas.bind('<B1-Motion>', self._drag)
@@ -154,14 +153,22 @@ class NativeBrushDraftPanel:
         self.canvas.bind('<Control-z>', self._undo_draft_key)
         self.canvas.bind('<Control-y>', self._redo_draft_key)
         self.canvas.bind('<Escape>', self._discard_draft_key)
-        actions = ttk.Frame(parent)
+        # Reserve the footer before giving the canvas the remaining height.
+        # Two buttons per row keep saving and history reachable at large DPI.
+        footer = ttk.Frame(parent)
+        footer.pack(side='bottom', fill='x')
+        actions = ttk.Frame(footer)
         actions.pack(fill='x')
         preview_actions = ttk.Frame(actions)
         preview_actions.pack(fill='x')
         draft_actions = ttk.Frame(actions)
         draft_actions.pack(fill='x', pady=(4, 0))
+        persist_actions = ttk.Frame(actions)
+        persist_actions.pack(fill='x', pady=(4, 0))
         zone_actions = ttk.Frame(actions)
         zone_actions.pack(fill='x', pady=(4, 0))
+        zone_history = ttk.Frame(actions)
+        zone_history.pack(fill='x', pady=(4, 0))
         self.preview_button = ttk.Button(
             preview_actions, text='Calculer avant/après', command=self.preview)
         self.preview_button.pack(side='left', padx=(0, 4))
@@ -178,24 +185,25 @@ class NativeBrushDraftPanel:
             draft_actions, text='Rétablir le point', command=self.redo_draft_point)
         self.redo_button.pack(side='left', padx=4)
         self.discard_button = ttk.Button(
-            draft_actions, text='Effacer le brouillon', command=self.discard)
+            persist_actions, text='Effacer le brouillon', command=self.discard)
         self.discard_button.pack(side='left', padx=4)
         self.save_button = ttk.Button(
-            draft_actions, text='Enregistrer…', command=self.save)
+            persist_actions, text='Enregistrer…', command=self.save)
         self.save_button.pack(side='left', padx=4)
         self.add_zone_button = ttk.Button(
             zone_actions, text='Ajouter cette zone', command=self.add_draft_zone)
         self.add_zone_button.pack(side='left', padx=(0, 4))
         self.remove_zone_button = ttk.Button(
-            zone_actions, text='Retirer la dernière zone ajoutée',
+            zone_history, text='Retirer la zone ajoutée',
             command=self.remove_last_draft_zone)
         self.remove_zone_button.pack(side='left', padx=4)
         self.restore_zone_button = ttk.Button(
-            zone_actions, text='Rétablir la zone ajoutée',
+            zone_history, text='Rétablir la zone ajoutée',
             command=self.restore_last_draft_zone)
         self.restore_zone_button.pack(side='left', padx=4)
-        ttk.Label(parent, textvariable=self.status,
+        ttk.Label(footer, textvariable=self.status,
                   wraplength=530).pack(anchor='w', pady=(5, 0))
+        self.canvas.pack(fill='both', expand=True, pady=(4, 6))
         self._controls()
 
     def _controls(self):
