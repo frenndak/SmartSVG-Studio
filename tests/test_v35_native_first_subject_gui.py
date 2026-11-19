@@ -352,8 +352,9 @@ class RealDesktopFirstSubjectTests(unittest.TestCase):
                                 f"Worker errors: {errors!r}.")
                         if root.pending:
                             root.pending.pop(0)()
-                        else:
-                            time.sleep(0.005)
+                        # The simulated scheduler runs every callback immediately.
+                        # Yield between polls so ZIP I/O can progress on Windows.
+                        time.sleep(0.005)
 
                 state.jobs.futures[-1].result(timeout=10)
                 root.pending.pop(0)()
