@@ -186,8 +186,8 @@ class FirstAlphaSubjectTests(unittest.TestCase):
         # stability runner installs them and must execute this test.
         import importlib.util
         if not all(importlib.util.find_spec(name) is not None
-                   for name in ("numpy", "PIL", "cv2")):
-            self.skipTest("Native CPU brush dependencies unavailable in G0")
+                   for name in ("numpy", "PIL")):
+            self.skipTest("NumPy/Pillow absent in stdlib-only G0; required on Windows")
         from smartsvg_core.native_subject_preview_v34 import preview_native_subject_stroke
         preview = self.inspect()
         receipt = self.confirm(preview)
