@@ -372,7 +372,6 @@ def _start_gui(first_project: str | None) -> int:
                 message.set('Premier sujet créé et vérifié. Ouvrez l’Atelier pour le retoucher.'
                             if notes_synced else
                             'Sujet créé, mais notes locales à resynchroniser manuellement.')
-                atelier.first_subject_status.set('Premier sujet enregistré et relu.')
             elif saved_brush is not None:
                 notes_synced = notes.rebase_after_external_save(
                     state.get('notes_revision'))
@@ -394,6 +393,8 @@ def _start_gui(first_project: str | None) -> int:
             atelier.load(
                 snapshot, selected_subject=selected_subject,
                 project_path=str(Path(current[0]).absolute()))
+            if saved_first_subject is not None:
+                atelier.first_subject_status.set('Premier sujet enregistré et relu.')
             if first_subject[0] is not None:
                 first_subject[0].acknowledge_reinspection(
                     str(Path(current[0]).absolute()), healthy=True)
