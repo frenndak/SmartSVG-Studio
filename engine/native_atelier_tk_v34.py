@@ -181,6 +181,8 @@ class NativeAtelierPanel:
         if self._closed:
             return
         self._history_generation += 1
+        # A previous project's creation feedback must not follow another file.
+        self.first_subject_status.set('')
         # A committed command remains write-blocked while its host asynchronously
         # verifies the receipt. Only a correlated snapshot may clear that latch.
         self._history_needs_review = require_history_review is True
