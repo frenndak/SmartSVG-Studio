@@ -13,3 +13,8 @@ This marker does not enable GitHub workflow billing or configure API secrets. Ex
 
 AUTONOMOUS_MERGE_V35=ENABLED
 Authorization amendment: 2026-11-16, deliberate live-owner V3.5 adoption micro-PR after documentary PR #146. V34 is now DISABLED; V35 is explicitly enabled only for the same bounded code-only scope, later independent review cycle, exact-head CI, one squash per cycle and post-merge G0. AGENTS, current V35 policy and producer prompt must agree, otherwise DRAFT-only. No historical source-admission evidence or hardware qualification is changed by this amendment.
+
+
+DUAL_PRODUCER_V35=AUTHORIZED
+R13_MERGE_EXECUTOR=AGENT_B
+Owner amendment 2026-11-19: second SmartSVG engineering task B is authorized only after separately reviewed governance integration, exact-main G0 PASS and read-back of both scheduler prompts/cadences. Marker is not evidence of active B. Only B may execute merges after R13 handoff; A has full code and review capability but no merger authority in that mode. Missing or contradictory evidence => DRAFT-only/NO_MERGE. Historical source-admission evidence and V35 code-only scope are unchanged.
