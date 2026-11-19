@@ -12,6 +12,9 @@ if str(ENGINE) not in sys.path:
 
 from native_first_subject_tk_v35 import NativeFirstSubjectFlow
 from smartsvg_core.native_first_subject_v35 import NativeFirstSubjectError
+from smartsvg_core.native_first_subject_v35 import (
+    inspect_first_alpha_subject, confirm_first_alpha_subject,
+)
 from smartsvg_core.project_archive import load_project
 from smartsvg_core.project_workspace_g22 import ManagedWorkspace
 from test_v35_native_first_subject import png
@@ -216,6 +219,37 @@ class FirstSubjectTkFlowTests(unittest.TestCase):
         self.root.tick()
         self.assertEqual(len(self.status), before)
         self.assertEqual(self.saved, [])
+
+    def test_failed_completion_poll_does_not_persist_first_subject(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = ManagedWorkspace(directory)
+            created = workspace.create(
+                "alpha-no-poll", png(), profile="Sticker - contour du sujet",
+                source_provenance="manual_native_png_import")
+            path = workspace.root / "alpha-no-poll.smartsvg"
+            self.path = str(path)
+            self.sha = created["sha256"]
+            before = path.read_bytes()
+            flow = self.make(inspect=inspect_first_alpha_subject,
+                             confirm=confirm_first_alpha_subject)
+            self.assertTrue(flow.start(project_path=self.path, expected_sha256=self.sha))
+
+            self.pool.execute()  # Real read-only alpha proposal completed.
+            poll_failed = False
+            with patch.object(self.root, "after", side_effect=RuntimeError("poll unavailable")):
+                try:
+                    self.root.tick()  # Confirmation succeeds; scheduling the write poll fails.
+                except RuntimeError:
+                    poll_failed = True
+            self.assertEqual(len(self.dialog.calls), 1)
+            self.pool.execute()  # A queued worker may have survived the failure.
+            self.assertEqual(path.read_bytes(), before)
+            self.assertEqual(load_project(path).subjects, ())
+            self.assertFalse(poll_failed)
+            self.assertFalse(flow.busy)
+            self.assertEqual(self.saved, [])
 
 
 class RealDesktopFirstSubjectTests(unittest.TestCase):

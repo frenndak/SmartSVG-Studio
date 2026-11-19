@@ -94,15 +94,15 @@ class NativeFirstSubjectFlow:
             project_path=project_path, expected_sha256=expected_sha256))
 
     def _submit(self, phase, request):
-        # A failed submit may have queued the callable. The authorization gate
-        # prevents such an orphan from writing, even if a worker starts later.
+        # Keep a queued task inert until both submit and Tk's completion poll
+        # succeed. A failed launch cannot orphan a writer.
         launch = Event()
-        authorized = [False]
+        authorized = False
         fn = self._inspect if phase == "inspect" else self._confirm
 
         def guarded():
             launch.wait()
-            if not authorized[0]:
+            if not authorized:
                 return None
             return fn(**request)
 
@@ -111,22 +111,22 @@ class NativeFirstSubjectFlow:
                 self._pool = self._pool_factory(
                     max_workers=1, thread_name_prefix="smartsvg-first-subject")
             future = self._pool.submit(guarded)
+            self._future = future
+            self._generation += 1
+            generation = self._generation
+            self.root.after(50, lambda: self._receive(phase, generation, future))
+            authorized = True
         except Exception:
             launch.set()
-            if self._pool is not None:
-                self._pool.shutdown(wait=False, cancel_futures=True)
-                self._pool = None
+            pool, self._pool = self._pool, None
+            if pool is not None:
+                pool.shutdown(wait=False, cancel_futures=True)
+            self._future = None
             self._busy = False
-            if phase == "write":
-                self._needs_review = True
-            self._status("Opération non confirmée : réexaminer (F5), aucun réessai automatique.")
+            self._status("Opération indisponible. Aucune nouvelle écriture lancée ; vous pouvez réessayer.")
             return False
-        self._future = future
-        self._generation += 1
-        generation = self._generation
-        authorized[0] = True
-        launch.set()
-        self.root.after(50, lambda: self._receive(phase, generation, future))
+        finally:
+            launch.set()
         return True
 
     def _receive(self, phase, generation, future):
