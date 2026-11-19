@@ -33,6 +33,7 @@ from native_theme_tk_v34 import ArtisanThemePicker
 from native_templates_tk_v34 import TemplatePreviewContent
 from native_app_shell_v34 import NativeAppShell
 from native_atelier_tk_v34 import NativeAtelierPanel
+from native_first_subject_tk_v35 import NativeFirstSubjectFlow, show_first_subject_confirmation
 from smartsvg_core.native_atelier_v34 import inspect_atelier_snapshot
 from native_create_tk_v34 import NativeCreateDialog
 from native_notes_tk_v34 import NativeNotesPanel, NotesRevision
@@ -206,8 +207,11 @@ def _start_gui(first_project: str | None) -> int:
     atelier = NativeAtelierPanel(
         shell.add_page('atelier', 'Atelier'), tk, ttk,
         on_saved=lambda receipt: refresh(saved_brush=receipt),
+        on_create_first_subject=lambda snapshot, path: start_first_subject(snapshot, path),
         can_history=lambda: (not notes.busy and not notes.confirming_discard
-                             and not recovery.busy and not creation_busy()))
+                             and not recovery.busy and not creation_busy()
+                             and not subject_creation_busy()
+                             and not project_read_pending[0]))
     # Build each tool once. Navigation changes visibility, never the project.
     # Load preferences immediately so the first screen uses the saved theme.
     theme_picker = ArtisanThemePicker(root=root, parent=appearance, tk=tk, ttk=ttk)
@@ -223,6 +227,7 @@ def _start_gui(first_project: str | None) -> int:
     preview_info = tk.StringVar(value="Aucun aperçu chargé.")
     current: list[str | None] = [None]
     creator = [None]
+    first_subject = [None]
     creation_checkpoint = [None]
     project_read_pending = [False]
     creation_info = tk.StringVar(value='')
@@ -240,25 +245,34 @@ def _start_gui(first_project: str | None) -> int:
                                                and not atelier.history_requires_review
                                                and not atelier.has_open_brush
                                                and not recovery.busy
-                                               and not creation_busy()))
+                                               and not creation_busy()
+                                               and not subject_creation_busy()
+                                               and not subject_requires_review()))
     ttk.Label(frame, textvariable=preview_info, wraplength=640).pack(anchor="w", pady=(16, 5))
     preview_panel = NativeImageViewport(frame, tk, ttk)
 
     jobs = LatestOnlyJob(load_native_preview)
     selected_subject = None
 
-    def refresh(*, saved_notes=None, saved_brush=None, after_recovery=False):
+    def refresh(*, saved_notes=None, saved_brush=None,
+                saved_first_subject=None, after_recovery=False,
+                subject_reinspection=False):
         nonlocal selected_subject
         if not current[0]:
             return
-        if saved_notes is None and saved_brush is None and not after_recovery:
+        if (saved_notes is None and saved_brush is None and
+                saved_first_subject is None and not after_recovery and
+                not subject_reinspection):
             selected_subject = None
             notes.load(None)
         else:
             # Preserve an unsaved notes draft after an unrelated brush commit.
             # The new CAS revision is adopted only after verified reinspection.
-            selected_subject = atelier.selection.get() or selected_subject
-        atelier.load(None, require_history_review=saved_brush is not None)
+            selected_subject = (saved_first_subject.get('subject_id')
+                                if type(saved_first_subject) is dict else
+                                atelier.selection.get() or selected_subject)
+        atelier.load(None, require_history_review=(
+            saved_brush is not None or saved_first_subject is not None))
         atelier.project.set("Vérification de la révision du projet…")
         recovery.load(None)
         # Only the Tk main thread manipulates PhotoImage and widgets.
@@ -269,12 +283,21 @@ def _start_gui(first_project: str | None) -> int:
         def read_unavailable():
             # A failed host read cannot turn an acknowledged commit into a
             # claim that no write occurred. Keep the draft and review latch.
-            message.set('Modification du pinceau enregistrée ; relecture indisponible.'
-                        if saved_brush is not None else
-                        'Récupération non réconciliée : relecture indisponible.'
-                        if after_recovery else 'Impossible de lire ce projet.')
+            if saved_first_subject is not None:
+                notice = 'Premier sujet enregistré ; relecture indisponible (F5).'
+                atelier.first_subject_status.set(notice)
+            elif saved_brush is not None:
+                notice = 'Modification du pinceau enregistrée ; relecture indisponible.'
+            elif after_recovery:
+                notice = 'Récupération non réconciliée : relecture indisponible.'
+            elif subject_reinspection:
+                notice = 'Écriture du sujet non réconciliée ; relecture indisponible.'
+            else:
+                notice = 'Impossible de lire ce projet.'
+            message.set(notice)
             summary.set('Notes locales conservées. Réexaminez le projet (F5).'
-                        if saved_brush is not None or after_recovery
+                        if (saved_brush is not None or saved_first_subject is not None
+                            or after_recovery or subject_reinspection)
                         else 'Aucune modification effectuée.')
             preview_info.set('Aperçu indisponible.')
             atelier.project.set('Impossible de relire ce projet. Réexaminez le projet (F5).')
@@ -302,6 +325,20 @@ def _start_gui(first_project: str | None) -> int:
                 return
 
             snapshot = state.get('atelier_snapshot')
+            if saved_first_subject is not None and (
+                    type(saved_first_subject) is not dict or
+                    saved_first_subject.get('persisted') is not True or
+                    snapshot is None or
+                    snapshot.sha256 != saved_first_subject.get('project_sha256') or
+                    not any(item.subject_id == saved_first_subject.get('subject_id')
+                            and item.proof_status == 'verified'
+                            for item in snapshot.subjects)):
+                message.set('Sujet potentiellement enregistré, mais preuve non '
+                            'vérifiable. Notes conservées ; réexaminer (F5).')
+                summary.set('Révision du sujet non réconciliée.')
+                atelier.project.set('Relecture du premier sujet nécessaire (F5).')
+                preview_info.set('Aperçu indisponible.')
+                return
             if saved_brush is not None and (
                     type(saved_brush) is not dict
                     or saved_brush.get('persisted') is not True
@@ -327,8 +364,12 @@ def _start_gui(first_project: str | None) -> int:
             if not state.get("ok"):
                 recovery.load(state.get('recovery_plan'))
                 atelier.project.set("Ouvrez ou récupérez un projet V1 sain depuis l’espace Projet.")
-                prefix = ('Récupération non réconciliée ; notes locales conservées. '
-                          if after_recovery else 'Aucune modification effectuée. ')
+                if subject_reinspection:
+                    prefix = 'Écriture du sujet non réconciliée ; notes locales conservées. '
+                elif after_recovery:
+                    prefix = 'Récupération non réconciliée ; notes locales conservées. '
+                else:
+                    prefix = 'Aucune modification effectuée. '
                 summary.set(prefix +
                             (state.get("action_fr") or "Contrôlez le projet avant de réessayer."))
                 preview_info.set("Aperçu non disponible.")
@@ -340,7 +381,13 @@ def _start_gui(first_project: str | None) -> int:
                     state["project_id"], state["app_version"], state["sources"],
                     state["masks"], state["subjects"], state["artifacts"]))
 
-            if saved_brush is not None:
+            if saved_first_subject is not None:
+                notes_synced = notes.rebase_after_external_save(
+                    state.get('notes_revision'))
+                message.set('Premier sujet créé et vérifié. Ouvrez l’Atelier pour le retoucher.'
+                            if notes_synced else
+                            'Sujet créé, mais notes locales à resynchroniser manuellement.')
+            elif saved_brush is not None:
                 notes_synced = notes.rebase_after_external_save(
                     state.get('notes_revision'))
                 message.set(
@@ -348,7 +395,7 @@ def _start_gui(first_project: str | None) -> int:
                     if notes_synced else
                     'Retouche sauvegardée, mais les notes locales ne peuvent '
                     'pas être resynchronisées automatiquement.')
-            elif after_recovery:
+            elif after_recovery or subject_reinspection:
                 fresh = state.get('notes_revision')
                 old = notes.revision
                 if old is None or (not notes.busy and not notes.confirming_discard
@@ -361,6 +408,11 @@ def _start_gui(first_project: str | None) -> int:
             atelier.load(
                 snapshot, selected_subject=selected_subject,
                 project_path=str(Path(current[0]).absolute()))
+            if saved_first_subject is not None:
+                atelier.first_subject_status.set('Premier sujet enregistré et relu.')
+            if first_subject[0] is not None:
+                first_subject[0].acknowledge_reinspection(
+                    str(Path(current[0]).absolute()), healthy=True)
             if preview is None:
                 preview_info.set("Aperçu non disponible : réexaminer le projet.")
                 return
@@ -393,6 +445,33 @@ def _start_gui(first_project: str | None) -> int:
 
     def creation_busy():
         return creator[0] is not None and creator[0].busy
+
+    def subject_creation_busy():
+        return first_subject[0] is not None and first_subject[0].busy
+
+    def subject_requires_review():
+        return (first_subject[0] is not None and current[0] is not None and
+                first_subject[0].requires_review_for(str(Path(current[0]).absolute())))
+
+    def first_subject_guard(path, sha):
+        snapshot = atelier.snapshot
+        return (type(path) is str and current[0] is not None and
+                str(Path(current[0]).absolute()) == path and
+                snapshot is not None and snapshot.sha256 == sha and
+                not snapshot.subjects and not atelier.busy and
+                not atelier.history_requires_review and
+                not atelier.has_open_brush and not recovery.busy and
+                not notes.busy and not notes.confirming_discard and
+                not creation_busy() and not project_read_pending[0])
+
+    def first_subject_checkpoint():
+        return (current[0], id(atelier.snapshot), notes.revision, notes._draft())
+
+    def start_first_subject(snapshot, path):
+        action = first_subject[0]
+        if action is None or snapshot is not atelier.snapshot:
+            return False
+        return action.start(project_path=path, expected_sha256=snapshot.sha256)
 
     def can_leave_project(*, close_brush=False, expected_creator=None):
         # A Tk confirmation runs a nested event loop. Approval of the notes
@@ -430,7 +509,8 @@ def _start_gui(first_project: str | None) -> int:
                     'Formulaire ou projet modifié : vérifiez les choix avant de réessayer.')
             return False
 
-        if recovery.busy or atelier.busy or creation_busy() or not notes.can_leave():
+        if (recovery.busy or atelier.busy or creation_busy() or
+                subject_creation_busy() or not notes.can_leave()):
             return False
         if close_brush and not creation_context_valid():
             return creation_context_changed()
@@ -447,7 +527,7 @@ def _start_gui(first_project: str | None) -> int:
             if (notes.busy or notes.confirming_discard or
                     (notes.revision, notes._draft()) != notes_checkpoint or
                     current[0] != project_checkpoint or recovery.busy or
-                    atelier.busy or creation_busy()):
+                    atelier.busy or creation_busy() or subject_creation_busy()):
                 notes.status.set('Notes ou projet modifiés pendant la confirmation : '
                                  'brouillons conservés.')
                 return False
@@ -461,7 +541,7 @@ def _start_gui(first_project: str | None) -> int:
                 if (notes.busy or notes.confirming_discard or
                         (notes.revision, notes._draft()) != notes_checkpoint or
                         current[0] != project_checkpoint or recovery.busy or
-                        atelier.busy or creation_busy()):
+                        atelier.busy or creation_busy() or subject_creation_busy()):
                     notes.status.set('Notes ou projet modifiés pendant la fermeture : '
                                      'notes conservées.')
                     return False
@@ -476,6 +556,7 @@ def _start_gui(first_project: str | None) -> int:
             unchanged = (checkpoint is not None and not notes.busy and
                          not notes.confirming_discard and not recovery.busy and
                          not atelier.busy and not atelier.has_open_brush and
+                         not subject_creation_busy() and
                          (current[0], (notes.revision, notes._draft())) == checkpoint)
         except Exception:
             unchanged = False
@@ -494,17 +575,21 @@ def _start_gui(first_project: str | None) -> int:
         refresh()
 
     def reexamine():
-        if recovery.busy or atelier.busy:
+        if recovery.busy or atelier.busy or subject_creation_busy():
             return 'break'
         if creation_busy():
             return show_creator()
-        if can_leave_project():
+        if (subject_requires_review() and not notes.busy and
+                not notes.confirming_discard and not atelier.has_open_brush):
+            shell.show('project', focus=True)
+            refresh(subject_reinspection=True)
+        elif can_leave_project():
             shell.show('project', focus=True)
             refresh()
         return 'break'
 
     def show_creator(*_unused):
-        if recovery.busy or atelier.busy:
+        if recovery.busy or atelier.busy or subject_creation_busy():
             return 'break'
         if creation_busy():
             if creator[0].window.winfo_exists():
@@ -522,7 +607,7 @@ def _start_gui(first_project: str | None) -> int:
         return 'break'
 
     def select_project():
-        if recovery.busy or atelier.busy:
+        if recovery.busy or atelier.busy or subject_creation_busy():
             return
         if creation_busy():
             show_creator()
@@ -544,11 +629,20 @@ def _start_gui(first_project: str | None) -> int:
                 'Terminez ou fermez la retouche avant de récupérer le projet. '
                 'Le brouillon reste ouvert.')
             return False
-        return not atelier.busy and not creation_busy() and notes.can_leave()
+        return (not atelier.busy and not creation_busy() and
+                not subject_creation_busy() and not project_read_pending[0] and
+                (not notes.busy and not notes.confirming_discard
+                 if subject_requires_review() else notes.can_leave()))
 
     recovery = NativeRecoveryPanel(root, recovery_slot, tk, ttk, messagebox,
                                    lambda: refresh(after_recovery=True),
                                    can_recover)
+    first_subject[0] = NativeFirstSubjectFlow(
+        root, guard=first_subject_guard,
+        checkpoint=first_subject_checkpoint,
+        on_saved=lambda receipt: refresh(saved_first_subject=receipt),
+        on_status=atelier.first_subject_status.set,
+        confirm_preview=lambda proposal: show_first_subject_confirmation(root, tk, ttk, proposal))
 
     ttk.Button(buttons, text="Ouvrir un projet…", command=select_project).pack(side="left")
     ttk.Button(buttons, text="Créer depuis un PNG…", command=show_creator).pack(side="left", padx=12)
@@ -593,7 +687,7 @@ def _start_gui(first_project: str | None) -> int:
         file_name.set(Path(current[0]).name)
         refresh()
     def close_window():
-        if recovery.busy or atelier.busy:
+        if recovery.busy or atelier.busy or subject_creation_busy():
             return
         if creation_busy():
             creator[0].close()
@@ -606,6 +700,7 @@ def _start_gui(first_project: str | None) -> int:
         # Tcl callbacks must be cancelled while their commands still exist.
         theme_picker.shutdown()
         atelier.shutdown()
+        first_subject[0].shutdown()
         # A pending or obsolete generation is never allowed to update Tk.
         jobs.close()
         root.destroy()
@@ -614,6 +709,7 @@ def _start_gui(first_project: str | None) -> int:
     try:
         root.mainloop()
     finally:
+        first_subject[0].shutdown()
         atelier.shutdown()
         theme_picker.shutdown()
         if creator[0] is not None:
