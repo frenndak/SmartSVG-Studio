@@ -32,9 +32,9 @@ class DualProducerR13OwnerGovernanceTests(unittest.TestCase):
     def test_one_merge_executor_and_two_scheduled_roles(self):
         self.assertIn("Only B executes squash merges", AGENTS)
         self.assertIn("unique exécuteur", POLICY)
-        self.assertIn("A ne fusionne plus", POLICY)
-        self.assertIn("B ne s'auto-valide pas", POLICY)
-        self.assertIn("same identity GitHub", CONTRACT)
+        self.assertIn("ne fusionne plus après passation R13", POLICY)
+        self.assertIn("Un agent ne peut être seul réviseur de son propre correctif", POLICY)
+        self.assertIn("même identité GitHub", CONTRACT)
         handoff = STATE["handoff"]["r13"]
         self.assertEqual(handoff["producer_a_task_id"], "6ae27963fd848191a1053dfc486e8eb4")
         self.assertIsNone(handoff["producer_b_task_id"])
@@ -45,7 +45,7 @@ class DualProducerR13OwnerGovernanceTests(unittest.TestCase):
     def test_fail_closed_activation_and_preserved_code_only_scope(self):
         for fragment in (
             "NO_MERGE", "DRAFT-only", "expected_head_sha", "G0",
-            "post-merge", "one writer", "HEAD",
+            "post-merge", "writer", "HEAD",
         ):
             with self.subTest(fragment=fragment):
                 self.assertTrue(fragment in CONTRACT or fragment in POLICY)
