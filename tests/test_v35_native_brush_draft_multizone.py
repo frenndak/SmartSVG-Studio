@@ -12,6 +12,7 @@ if str(ENGINE) not in sys.path:
 
 from native_brush_draft_tk_v34 import (  # noqa: E402
     MAX_DRAFT_STROKES, NativeBrushDraftPanel, dispatch_preview_request,
+    _MODES, _VISIBLE_MODES,
 )
 
 
@@ -50,6 +51,153 @@ class MultiZoneDraftTests(unittest.TestCase):
         panel._draw = lambda: None
         panel._controls = lambda: None
         return panel
+
+    def test_visible_mask_intentions_keep_engine_modes_and_distinguish_zone_history(self):
+        self.assertEqual(_VISIBLE_MODES, ("Garder (masque)", "Masquer (masque)"))
+        self.assertEqual([_MODES[label] for label in _VISIBLE_MODES],
+                         ["add", "erase"])
+        self.assertNotIn("Ajouter", _VISIBLE_MODES)
+        self.assertNotIn("Effacer", _VISIBLE_MODES)
+        panel = self.make_panel()
+        panel.mode.set(_VISIBLE_MODES[0])
+        self.assertTrue(panel.add_draft_zone())
+        self.assertEqual(panel._strokes[0]["mode"], "add")
+        panel.mode.set(_VISIBLE_MODES[1])
+        panel._points = [[0.6, 0.7]]
+        self.assertEqual(panel._draft_strokes()[-1]["mode"], "erase")
+        self.assertIsNone(panel._verified_save_request)
+
+    def test_tk_constructor_wires_visible_readonly_mode_picker_and_change_event(self):
+        """Verify the actual constructor call shape without requiring a display."""
+        import ast
+        import inspect
+        import textwrap
+
+        tree = ast.parse(textwrap.dedent(inspect.getsource(NativeBrushDraftPanel.__init__)))
+        assignments = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Attribute)
+                    and target.attr == "mode_picker" for target in node.targets)
+        ]
+        self.assertEqual(len(assignments), 1)
+        picker = assignments[0].value
+        self.assertIsInstance(picker, ast.Call)
+        self.assertIsInstance(picker.func, ast.Attribute)
+        self.assertEqual(picker.func.attr, "Combobox")
+        options = {kw.arg: kw.value for kw in picker.keywords}
+        self.assertIsInstance(options["values"], ast.Name)
+        self.assertEqual(options["values"].id, "_VISIBLE_MODES")
+        self.assertEqual(ast.literal_eval(options["state"]), "readonly")
+        self.assertIsInstance(options["textvariable"], ast.Attribute)
+        self.assertEqual(options["textvariable"].attr, "mode")
+        bindings = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "bind"
+            and isinstance(node.func.value, ast.Attribute)
+            and node.func.value.attr == "mode_picker"
+        ]
+        self.assertTrue(any(
+            len(call.args) >= 2
+            and isinstance(call.args[0], ast.Constant)
+            and call.args[0].value == "<<ComboboxSelected>>"
+            and isinstance(call.args[1], ast.Attribute)
+            and call.args[1].attr == "_parameter_changed"
+            for call in bindings
+        ))
+
+    def test_brush_actions_remain_visible_at_large_text_scale(self):
+        try:
+            import tkinter as tk
+            from tkinter import ttk
+        except ImportError:
+            self.skipTest('Tk unavailable')
+        try:
+            root = tk.Tk()
+        except tk.TclError:
+            self.skipTest('Graphical Tk unavailable')
+        root.geometry('560x540')
+        root.tk.call('tk', 'scaling', 2.0)
+        panel = NativeBrushDraftPanel(root, root, tk, ttk)
+        try:
+            root.update()
+            actions = (panel.preview_button, panel.before_button, panel.after_button,
+                       panel.undo_button, panel.redo_button, panel.discard_button,
+                       panel.save_button, panel.add_zone_button,
+                       panel.remove_zone_button, panel.restore_zone_button)
+            for button in actions:
+                with self.subTest(label=button.cget('text')):
+                    self.assertTrue(button.winfo_viewable())
+                    self.assertGreaterEqual(button.winfo_width(), button.winfo_reqwidth())
+                    self.assertLessEqual(button.winfo_rootx() + button.winfo_width(),
+                                         root.winfo_rootx() + root.winfo_width())
+                    self.assertLessEqual(button.winfo_rooty() + button.winfo_height(),
+                                         root.winfo_rooty() + root.winfo_height())
+            self.assertGreaterEqual(panel.canvas.winfo_height(), 64)
+        finally:
+            panel.shutdown()
+            root.destroy()
+
+    def test_real_tk_mode_picker_values_and_selection_invalidate_preview(self):
+        """Exercise the real ttk widget when a graphical Tk session exists."""
+        try:
+            import tkinter as tk
+            from tkinter import ttk
+        except ImportError as exc:
+            self.skipTest(f"Tk unavailable: {type(exc).__name__}")
+        try:
+            root = tk.Tk()
+        except tk.TclError as exc:
+            self.skipTest(f"Graphical Tk unavailable: {type(exc).__name__}")
+        root.withdraw()
+        panel = None
+        try:
+            parent = ttk.Frame(root)
+            parent.pack()
+            panel = NativeBrushDraftPanel(root, parent, tk, ttk)
+            picker = panel.mode_picker
+            # An unbound panel deliberately disables editing until a verified Subject is selected.
+            self.assertEqual(str(picker.cget("state")), "disabled")
+            panel._identity = ("C:/synthetic.smartsvg", "a" * 64,
+                               "subject-" + "b" * 32)
+            panel._controls()
+            self.assertEqual(tuple(picker.cget("values")), _VISIBLE_MODES)
+            self.assertEqual(str(picker.cget("state")), "readonly")
+            self.assertEqual(picker.get(), _VISIBLE_MODES[0])
+            self.assertNotIn("Ajouter", picker.cget("values"))
+            panel._identity = ("C:/synthetic.smartsvg", "a" * 64,
+                               "subject-" + "b" * 32)
+            panel._verified_save_request = ("stale",)
+            panel._inflight_request = ("stale",)
+            previous_token = panel._token
+            picker.current(1)
+            picker.event_generate("<<ComboboxSelected>>")
+            root.update()
+            self.assertEqual(panel.mode.get(), _VISIBLE_MODES[1])
+            self.assertEqual(_MODES[panel.mode.get()], "erase")
+            self.assertIsNone(panel._verified_save_request)
+            self.assertIsNone(panel._inflight_request)
+            self.assertGreater(panel._token, previous_token)
+            self.assertEqual(str(picker.cget("state")), "readonly")
+        finally:
+            if panel is not None:
+                panel.shutdown()
+            root.destroy()
+
+    def test_invalid_mode_or_radius_rejects_zone_without_mutating_draft(self):
+        for field, invalid in (("mode", "mode-inconnu"), ("radius", "999")):
+            with self.subTest(field=field):
+                panel = self.make_panel()
+                getattr(panel, field).set(invalid)
+                before = [point[:] for point in panel._points]
+                self.assertFalse(panel.add_draft_zone())
+                self.assertEqual(panel._strokes, [])
+                self.assertEqual(panel._points, before)
+                self.assertEqual(panel._token, 4)
+                self.assertEqual(panel._verified_save_request, ("stale",))
+                self.assertIn("invalide", panel.status.get())
 
     def test_changing_next_brush_style_keeps_undone_gesture_recoverable(self):
         panel = self.make_panel()
