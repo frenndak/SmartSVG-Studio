@@ -349,6 +349,129 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 self.assertTrue(any(str(value).startswith('Projet créé, enregistré et relu') for value in notices))
             self.run_desktop(scenario, source_choice=str(source), output_choice=directory)
 
+    def test_creation_waits_until_initial_project_inspection_is_applied(self):
+        from test_v34_native_preview_jobs import fixture_module
+
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            source = Path(directory) / 'nouveau.png'
+            source.write_bytes(fixture_module.png())
+
+            def scenario(root, state):
+                # The read can be finished in its worker, but its Tk callback
+                # has not yet installed the project and notes revision.
+                state.jobs.futures[0].result(timeout=15)
+                root.events['<Control-n>'](None)
+                creator = state.creator
+                creator.choose_source()
+                creator.choose_output()
+                creator.start()
+                premature = creator.future
+                if premature is not None:
+                    premature.result(timeout=15)
+                self.assertIsNone(premature)
+                self.assertFalse(creator.busy)
+                self.assertIn('vérification', creator.status.get().lower())
+
+                root.pending.pop(0)()
+                creator.start()
+                self.assertTrue(creator.busy)
+                creator.future.result(timeout=15)
+                root.pending.pop(0)()
+                state.jobs.futures[-1].result(timeout=15)
+                root.pending.pop(0)()
+                self.assertEqual(state.notes.revision.path.name, 'nouveau.smartsvg')
+
+            self.run_desktop(scenario, first_project=str(path),
+                             source_choice=str(source), output_choice=directory)
+
+    def test_creation_form_changed_during_brush_confirmation_keeps_draft(self):
+        from test_v34_native_preview_jobs import fixture_module
+
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            source = Path(directory) / 'nouveau.png'
+            source.write_bytes(fixture_module.png())
+            active = {}
+
+            def change_name(**_kwargs):
+                active['creator'].name.set('nouveau-nom')
+                return True
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                panel = SimpleNamespace(has_draft=True,
+                    draft_checkpoint=lambda: ('unchanged',), shutdown=lambda: None)
+                dialog = SimpleNamespace(lift=lambda: None, destroy=lambda: None)
+                state.atelier._brush_panel, state.atelier._brush_dialog = panel, dialog
+                state.atelier._brush_key = (str(path), state.atelier.snapshot.sha256,
+                                            state.atelier.selection.get())
+                root.events['<Control-n>'](None)
+                creator = state.creator
+                active['creator'] = creator
+                creator.choose_source()
+                creator.choose_output()
+                creator.start()
+                premature = creator.future
+                if premature is not None:
+                    premature.result(timeout=15)
+                self.assertIsNone(premature)
+                self.assertIs(state.atelier._brush_panel, panel)
+                self.assertEqual(creator.name.get(), 'nouveau-nom')
+                self.assertFalse(list((Path(directory) / 'SmartSVG_Managed_Projects')
+                                      .glob('nouveau*.smartsvg')))
+
+            self.run_desktop(scenario, first_project=str(path),
+                             source_choice=str(source), output_choice=directory,
+                             discard_notes=change_name)
+
+    def test_replaced_creation_dialog_keeps_existing_brush_draft(self):
+        from test_v34_native_preview_jobs import fixture_module
+
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            before = path.read_bytes()
+            source = Path(directory) / 'nouveau.png'
+            source.write_bytes(fixture_module.png())
+            active = {}
+
+            def replace_creator(**_kwargs):
+                active['creator'].close()
+                active['root'].events['<Control-n>'](None)
+                return True
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                panel = SimpleNamespace(has_draft=True,
+                    draft_checkpoint=lambda: ('unchanged',), shutdown=lambda: None)
+                dialog = SimpleNamespace(lift=lambda: None, destroy=lambda: None)
+                state.atelier._brush_panel, state.atelier._brush_dialog = panel, dialog
+                state.atelier._brush_key = (str(path), state.atelier.snapshot.sha256,
+                                            state.atelier.selection.get())
+                root.events['<Control-n>'](None)
+                creator = state.creator
+                active.update(root=root, creator=creator)
+                creator.choose_source()
+                creator.choose_output()
+                creator.start()
+                # An unfixed implementation may have launched a writer on
+                # the destroyed dialog; let it finish before temp cleanup.
+                if creator.future is not None:
+                    creator.future.result(timeout=15)
+                self.assertFalse(creator.window.winfo_exists())
+                self.assertIsNot(state.creator, creator)
+                self.assertIs(state.atelier._brush_panel, panel)
+                self.assertIsNone(creator.future)
+                self.assertFalse((Path(directory) /
+                    'SmartSVG_Managed_Projects/nouveau.smartsvg').exists())
+                self.assertEqual(path.read_bytes(), before)
+
+            self.run_desktop(scenario, first_project=str(path),
+                             source_choice=str(source), output_choice=directory,
+                             discard_notes=replace_creator)
+
     def test_new_project_does_not_displace_notes_edited_during_creation(self):
         from test_v34_native_preview_jobs import fixture_module
 

@@ -100,6 +100,28 @@ class NativeCreateUITests(unittest.TestCase):
             self.assertEqual(project.sources[0].provenance, 'manual_native_png_import')
             self.assertFalse(self.dialog.window.winfo_exists())
 
+    def test_changed_form_during_confirmation_does_not_create_a_stale_project(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'image.png'
+            source.write_bytes(fixture_module.png())
+            self.dialog.source.set(str(source))
+            self.dialog.output.set(directory)
+            self.dialog.name.set('premier')
+
+            def change_name():
+                self.dialog.name.set('second')
+                return True
+
+            self.dialog.can_create = change_name
+            self.dialog.start()
+            premature = self.dialog.future
+            if premature is not None:
+                self.drain()
+            self.assertIsNone(premature)
+            self.assertFalse(self.dialog.busy)
+            self.assertEqual(self.dialog.name.get(), 'second')
+            self.assertFalse(list(Path(directory).rglob('*.smartsvg')))
+
     def test_double_activation_does_not_queue_or_cancel_a_write_and_close_waits(self):
         from concurrent.futures import Future
         executor = SimpleNamespace(submit=lambda *args, **kwargs: pending,

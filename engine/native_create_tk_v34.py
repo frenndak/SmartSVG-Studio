@@ -113,21 +113,35 @@ class NativeCreateDialog:
             title='Dossier qui contiendra vos projets', mustexist=True)
         if chosen: self.output.set(chosen)
 
+    def form_checkpoint(self):
+        return tuple(field.get() for field in (
+            self.source, self.output, self.name, self.profile, self.width, self.dpi))
+
     def start(self):
         if self.busy: return
-        if not self.source.get() or not self.output.get():
+        form = self.form_checkpoint()
+        source, output, name, profile, raw_width, raw_dpi = form
+        if not source or not output:
             self.status.set('Choisir un PNG et un dossier de projets avant de continuer.')
             return
         try:
-            width = self.width.get().strip().replace(',', '.')
-            if len(width) > 64 or self.dpi.get() not in ('300', '450'):
+            width = raw_width.strip().replace(',', '.')
+            if len(width) > 64 or raw_dpi not in ('300', '450'):
                 raise ValueError('invalid dimensions')
-            args = dict(source_path=self.source.get(), output_root=self.output.get(),
-                name=self.name.get(), profile=self.profile.get(), width_mm=width, dpi=int(self.dpi.get()))
+            args = dict(source_path=source, output_root=output,
+                name=name, profile=profile, width_mm=width, dpi=int(raw_dpi))
         except (ValueError, TypeError):
             self.status.set('Vérifier la largeur en mm et la résolution (300 ou 450 DPI).')
             return
         if self.can_create is not None and not self.can_create():
+            return
+        try:
+            if not self.window.winfo_exists():
+                return
+            if self.form_checkpoint() != form:
+                self.status.set('Formulaire modifié : vérifiez les choix avant de réessayer.')
+                return
+        except self._tcl_error:
             return
         self.window.grab_set()
         self.busy = True

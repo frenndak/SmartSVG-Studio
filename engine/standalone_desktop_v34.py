@@ -224,6 +224,7 @@ def _start_gui(first_project: str | None) -> int:
     current: list[str | None] = [None]
     creator = [None]
     creation_checkpoint = [None]
+    project_read_pending = [False]
     creation_info = tk.StringVar(value='')
     ttk.Label(frame, textvariable=creation_info, wraplength=640).pack(anchor='w')
 
@@ -278,9 +279,11 @@ def _start_gui(first_project: str | None) -> int:
             preview_info.set('Aperçu indisponible.')
             atelier.project.set('Impossible de relire ce projet. Réexaminez le projet (F5).')
 
+        project_read_pending[0] = True
         try:
             version, future = jobs.submit(current[0])
         except Exception:
+            project_read_pending[0] = False
             read_unavailable()
             return
 
@@ -290,6 +293,7 @@ def _start_gui(first_project: str | None) -> int:
             if not future.done():
                 root.after(50, receive)
                 return
+            project_read_pending[0] = False
             try:
                 state, preview = future.result()
             except Exception:
@@ -390,12 +394,46 @@ def _start_gui(first_project: str | None) -> int:
     def creation_busy():
         return creator[0] is not None and creator[0].busy
 
-    def can_leave_project(*, close_brush=False):
+    def can_leave_project(*, close_brush=False, expected_creator=None):
         # A Tk confirmation runs a nested event loop. Approval of the notes
         # must still apply after the later brush confirmation, before either
         # draft is destroyed or a new project writer starts.
+        def creator_still_valid():
+            try:
+                return (expected_creator is not None and creator[0] is expected_creator
+                        and expected_creator.window.winfo_exists()
+                        and not expected_creator.busy)
+            except Exception:
+                return False
+
+        if close_brush and not creator_still_valid():
+            return False
+        if close_brush and project_read_pending[0]:
+            expected_creator.status.set(
+                'Vérification du projet en cours : attendez son résultat, puis réessayez.')
+            return False
+        try:
+            form_checkpoint = expected_creator.form_checkpoint() if close_brush else None
+        except Exception:
+            return False
+
+        def creation_context_valid():
+            try:
+                return (creator_still_valid() and not project_read_pending[0] and
+                        expected_creator.form_checkpoint() == form_checkpoint)
+            except Exception:
+                return False
+
+        def creation_context_changed():
+            if creator_still_valid():
+                expected_creator.status.set(
+                    'Formulaire ou projet modifié : vérifiez les choix avant de réessayer.')
+            return False
+
         if recovery.busy or atelier.busy or creation_busy() or not notes.can_leave():
             return False
+        if close_brush and not creation_context_valid():
+            return creation_context_changed()
         try:
             notes_checkpoint = (notes.revision, notes._draft())
             project_checkpoint = current[0]
@@ -403,6 +441,8 @@ def _start_gui(first_project: str | None) -> int:
             return False
         if not atelier.can_leave_brush():
             return False
+        if close_brush and not creation_context_valid():
+            return creation_context_changed()
         try:
             if (notes.busy or notes.confirming_discard or
                     (notes.revision, notes._draft()) != notes_checkpoint or
@@ -415,6 +455,8 @@ def _start_gui(first_project: str | None) -> int:
             return False
         if close_brush:
             atelier._close_brush()
+            if not creation_context_valid():
+                return creation_context_changed()
             try:
                 if (notes.busy or notes.confirming_discard or
                         (notes.revision, notes._draft()) != notes_checkpoint or
@@ -464,12 +506,19 @@ def _start_gui(first_project: str | None) -> int:
     def show_creator(*_unused):
         if recovery.busy or atelier.busy:
             return 'break'
+        if creation_busy():
+            if creator[0].window.winfo_exists():
+                creator[0].window.lift()
+            return 'break'
         if creator[0] is not None and creator[0].window.winfo_exists():
             creator[0].window.lift()
         else:
-            creator[0] = NativeCreateDialog(
-                root, tk, ttk, filedialog, open_created,
-                can_create=lambda: can_leave_project(close_brush=True))
+            dialog = NativeCreateDialog(root, tk, ttk, filedialog, open_created)
+            creator[0] = dialog
+            # Bind the guard to the dialog whose start() is suspended. Another
+            # dialog must not inherit its pending confirmation after reentry.
+            dialog.can_create = lambda: can_leave_project(
+                close_brush=True, expected_creator=dialog)
         return 'break'
 
     def select_project():
