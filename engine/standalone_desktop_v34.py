@@ -247,8 +247,7 @@ def _start_gui(first_project: str | None) -> int:
                                                and not recovery.busy
                                                and not creation_busy()
                                                and not subject_creation_busy()
-                                               and not subject_requires_review()
-                                               and not project_read_pending[0]))
+                                               and not subject_requires_review()))
     ttk.Label(frame, textvariable=preview_info, wraplength=640).pack(anchor="w", pady=(16, 5))
     preview_panel = NativeImageViewport(frame, tk, ttk)
 
