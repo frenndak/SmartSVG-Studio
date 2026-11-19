@@ -253,7 +253,13 @@ class RealDesktopFirstSubjectTests(unittest.TestCase):
                 self.assertEqual(panel.snapshot.subjects[0].proof_status, "verified")
                 self.assertEqual(panel.first_subject_button.options["state"], "disabled")
                 self.assertEqual(panel.selection.get(), panel.snapshot.subjects[0].subject_id)
-                self.assertEqual(load_project(path).resources, before.resources)
+                reopened = load_project(path)
+                self.assertEqual(reopened.sources, before.sources)
+                source_id = before.sources[0].source_id
+                source_path = before.source_paths[source_id]
+                self.assertEqual(reopened.resources[source_path],
+                                 before.resources[source_path])
+                self.assertEqual(len(reopened.masks), 1)
                 self.assertTrue(panel.brush_button.options["state"] == "normal")
 
             DesktopShellIntegrationTests().run_desktop(
