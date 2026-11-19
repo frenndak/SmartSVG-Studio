@@ -90,15 +90,30 @@ class NativeNotesPanel:
             return False
         if self.confirming_discard:
             return False
-        if self.revision is None or self._draft() == self.revision.notes:
+        revision = self.revision
+        if revision is None:
+            return True
+        draft = self._draft()
+        if draft == revision.notes:
             return True
         self.confirming_discard = True
         try:
-            return self.messagebox.askyesno('Notes non enregistrées',
+            confirmed = self.messagebox.askyesno('Notes non enregistrées',
                 'Abandonner les modifications apportées aux notes ?',
                 parent=self.root, default='no')
+        except Exception:
+            return False
         finally:
             self.confirming_discard = False
+        if confirmed is not True:
+            return False
+        try:
+            if self.busy or self.revision != revision or self._draft() != draft:
+                self.status.set('Notes modifiées pendant la confirmation : brouillon conservé.')
+                return False
+        except Exception:
+            return False
+        return True
 
     def save(self):
         if self.busy or self.confirming_discard or self.revision is None:
@@ -110,7 +125,9 @@ class NativeNotesPanel:
             except Exception:
                 allowed = False
             if not allowed:
-                self.status.set('Écriture du projet en cours ou à vérifier. Brouillon conservé.')
+                self.status.set(
+                    'Une retouche ou écriture du projet est en cours ou à vérifier. '
+                    'Terminez-la avant d’enregistrer les notes : les brouillons sont conservés.')
                 return
         draft = self._draft()
         revision = self.revision

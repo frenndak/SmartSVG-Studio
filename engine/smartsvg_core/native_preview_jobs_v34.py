@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Callable, Generic, TypeVar
-from threading import Lock
+from threading import Event, Lock
 
 T = TypeVar("T")
 
@@ -38,6 +38,7 @@ class LatestOnlyJob(Generic[T]):
                 raise RuntimeError("NATIVE_JOB_QUEUE_CLOSED")
             previous = self._future
             displaced = self._pending
+            previous_version = self._version
             self._version += 1
             version = self._version
             future: Future[T] = Future()
@@ -45,8 +46,29 @@ class LatestOnlyJob(Generic[T]):
             self._pending = (path, future)
             if not self._draining:
                 self._draining = True
-                # Queue one drain, not a WorkItem for each obsolete request.
-                self._pool.submit(self._drain)
+                # submit may enqueue a drain and still raise while starting a
+                # worker. Gate it so an abandoned attempt cannot steal a later
+                # selection, and roll back the unfinished generation.
+                launch_gate = Event()
+                authorized = [False]
+                def guarded_drain():
+                    launch_gate.wait()
+                    if authorized[0]:
+                        self._drain()
+                try:
+                    self._pool.submit(guarded_drain)
+                except Exception:
+                    launch_gate.set()
+                    self._draining = False
+                    self._future = previous
+                    self._pending = displaced
+                    self._version = previous_version
+                    self._pool.shutdown(wait=False, cancel_futures=True)
+                    self._pool = ThreadPoolExecutor(
+                        max_workers=1, thread_name_prefix="smartsvg-readonly")
+                    raise
+                authorized[0] = True
+                launch_gate.set()
         # Future.cancel invokes arbitrary callbacks synchronously. Publishing
         # the new state first, then cancelling outside the lock, also permits
         # callbacks to submit a newer selection without deadlock or overwrite.
