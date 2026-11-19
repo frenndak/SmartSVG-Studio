@@ -5,12 +5,13 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 ENGINE = Path(__file__).resolve().parents[1] / "engine"
 if str(ENGINE) not in sys.path:
     sys.path.insert(0, str(ENGINE))
 
-from native_first_subject_tk_v35 import NativeFirstSubjectFlow
+from native_first_subject_tk_v35 import NativeFirstSubjectFlow, show_first_subject_confirmation
 from smartsvg_core.native_first_subject_v35 import NativeFirstSubjectError
 from smartsvg_core.native_first_subject_v35 import (
     inspect_first_alpha_subject, confirm_first_alpha_subject,
@@ -103,10 +104,11 @@ class FirstSubjectTkFlowTests(unittest.TestCase):
             self.writes.append(kwargs)
             return self.receipt
         self.flow = NativeFirstSubjectFlow(
-            self.root, self.dialog,
+            self.root,
             guard=lambda path, sha: (self.state["guard"] and
                                      path == self.path and sha == self.sha),
             checkpoint=lambda: self.state["note"],
+            confirm_preview=self.dialog.askyesno,
             on_saved=self.saved.append, on_status=self.status.append,
             inspect_fn=inspect or (lambda **_: self.preview),
             confirm_fn=confirm or write,
@@ -252,7 +254,159 @@ class FirstSubjectTkFlowTests(unittest.TestCase):
             self.assertEqual(self.saved, [])
 
 
+class VisualFirstSubjectConfirmationTests(unittest.TestCase):
+    def test_preview_renders_before_cancel_or_explicit_confirmation(self):
+        import tkinter as tk
+        from tkinter import ttk
+
+        try:
+            root = tk.Tk()
+        except tk.TclError:
+            self.skipTest("No graphical Tk session available")
+        self.addCleanup(root.destroy)
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = ManagedWorkspace(directory)
+            created = workspace.create(
+                "mask-preview", png(), profile="Sticker - contour du sujet")
+            path = workspace.root / "mask-preview.smartsvg"
+            proposal = inspect_first_alpha_subject(
+                project_path=str(path), expected_sha256=created["sha256"])
+
+            def descendants(widget):
+                for child in widget.winfo_children():
+                    yield child
+                    yield from descendants(child)
+
+            for label, expected in (("Annuler", False), ("Créer le sujet", True)):
+                observed = []
+                deadline = time.monotonic() + 4
+
+                def click():
+                    window = root.grab_current()
+                    if window is None:
+                        if time.monotonic() < deadline:
+                            root.after(20, click)
+                        else:
+                            for child in root.winfo_children():
+                                child.destroy()
+                        return
+                    widgets = list(descendants(window))
+                    observed.append(any(isinstance(child, ttk.Label) and
+                                        child.cget("image") and child.winfo_viewable()
+                                        for child in widgets))
+                    for child in widgets:
+                        if isinstance(child, ttk.Button) and child.cget("text") == label:
+                            child.invoke()
+                            return
+                    window.destroy()
+
+                root.after(20, click)
+                self.assertIs(show_first_subject_confirmation(root, tk, ttk, proposal), expected)
+                self.assertEqual(observed, [True])
+            self.assertEqual(load_project(path).subjects, ())
+
+
 class RealDesktopFirstSubjectTests(unittest.TestCase):
+    def run_desktop(self, scenario, path):
+        with patch("standalone_desktop_v34.show_first_subject_confirmation",
+                   return_value=True) as confirmation:
+            DesktopShellIntegrationTests().run_desktop(
+                scenario, first_project=str(path), discard_notes=lambda **_: True)
+        self.assertGreaterEqual(confirmation.call_count, 1)
+        for call in confirmation.call_args_list:
+            self.assertTrue(call.args[3]["mask_preview_png_l8"].startswith(b"\x89PNG"))
+
+    def test_first_subject_write_can_recover_interrupted_backup_without_losing_notes(self):
+        from unittest.mock import patch
+        from smartsvg_core import project_recovery
+
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = ManagedWorkspace(directory)
+            workspace.create("alpha-interrupted", png(), profile="Sticker - contour du sujet")
+            path = workspace.root / "alpha-interrupted.smartsvg"
+            real_copy = project_recovery._atomic_copy
+
+            def fail_rotation(source, destination):
+                if destination == path.with_suffix(".previous.smartsvg"):
+                    raise OSError("synthetic backup rotation failure")
+                return real_copy(source, destination)
+
+            def scenario(root, state):
+                def pump_until(predicate):
+                    deadline = time.monotonic() + 10
+                    while not predicate():
+                        if time.monotonic() >= deadline:
+                            self.fail("desktop did not finish subject/recovery operation")
+                        if root.pending:
+                            root.pending.pop(0)()
+                        else:
+                            time.sleep(0.005)
+
+                state.jobs.futures[-1].result(timeout=10)
+                root.pending.pop(0)()
+                state.notes.editor.insert("1.0", "Note à préserver")
+                with patch.object(project_recovery, "_atomic_copy", side_effect=fail_rotation):
+                    self.assertTrue(state.atelier.create_first_subject())
+                    pump_until(lambda: "peut-être effectuée" in state.atelier.first_subject_status.get())
+                self.assertTrue(path.with_suffix(".pending-backup.smartsvg").is_file())
+                root.events["<F5>"](None)
+                pump_until(lambda: state.recovery.plan is not None)
+                self.assertEqual(state.notes.editor.get(), "Note à préserver")
+                state.recovery.start()
+                self.assertIsNotNone(state.recovery.future)
+                pump_until(lambda: state.atelier.snapshot is not None)
+                self.assertFalse(path.with_suffix(".pending-backup.smartsvg").exists())
+                self.assertEqual(state.notes.editor.get(), "Note à préserver")
+                self.assertTrue(state.atelier.create_first_subject())
+                pump_until(lambda: state.atelier.snapshot is not None and
+                           len(state.atelier.snapshot.subjects) == 1)
+                self.assertEqual(state.notes.editor.get(), "Note à préserver")
+
+            self.run_desktop(scenario, path)
+
+    def test_verified_first_subject_with_failed_host_reread_keeps_notes_and_reports_write(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = ManagedWorkspace(directory)
+            workspace.create("alpha-read-fail", png(), profile="Sticker - contour du sujet")
+            path = workspace.root / "alpha-read-fail.smartsvg"
+
+            def scenario(root, state):
+                state.jobs.futures[-1].result(timeout=10)
+                root.pending.pop(0)()
+                state.notes.editor.insert("1.0", "Note locale")
+                original_loader = state.jobs._read
+
+                def fail_read(_path):
+                    raise OSError("synthetic host read failure")
+
+                state.jobs._read = fail_read
+                self.assertTrue(state.atelier.create_first_subject())
+                deadline = time.monotonic() + 10
+                while time.monotonic() < deadline:
+                    if root.pending:
+                        root.pending.pop(0)()
+                    if len(state.jobs.futures) == 2 and not root.pending:
+                        break
+                    time.sleep(0.005)
+                self.assertEqual(len(load_project(path).subjects), 1)
+                self.assertIn("enregistré", state.atelier.first_subject_status.get())
+                self.assertIn("relecture", state.atelier.first_subject_status.get())
+                self.assertEqual(state.notes.editor.get(), "Note locale")
+                state.jobs._read = original_loader
+                root.events["<F5>"](None)
+                state.jobs.futures[-1].result(timeout=10)
+                root.pending.pop(0)()
+                self.assertEqual(state.notes.editor.get(), "Note locale")
+                state.notes.save()
+                self.assertIsNotNone(state.notes.future)
+                state.notes.future.result(timeout=10)
+                root.pending.pop(0)()
+                state.jobs.futures[-1].result(timeout=10)
+                root.pending.pop(0)()
+                self.assertEqual(load_project(path).document["notes"], "Note locale")
+
+            self.run_desktop(scenario, path)
+
     def test_real_png_creates_subject_from_atelier_button_and_reopens(self):
         with tempfile.TemporaryDirectory() as directory:
             workspace = ManagedWorkspace(directory)
@@ -296,9 +450,7 @@ class RealDesktopFirstSubjectTests(unittest.TestCase):
                 self.assertEqual(len(reopened.masks), 1)
                 self.assertTrue(panel.brush_button.options["state"] == "normal")
 
-            DesktopShellIntegrationTests().run_desktop(
-                scenario, first_project=str(path),
-                discard_notes=lambda **_: True)
+            self.run_desktop(scenario, path)
             self.assertEqual(len(load_project(path).subjects), 1)
 
 

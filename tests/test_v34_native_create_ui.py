@@ -134,7 +134,7 @@ class NativeCreateUITests(unittest.TestCase):
                 self.queued = lambda: callable_(*args, **kwargs)
                 raise RuntimeError('worker failed after enqueue')
 
-            def shutdown(self, *, wait=True):
+            def shutdown(self, *, wait=True, cancel_futures=False):
                 self.shutdown_called = True
 
         with tempfile.TemporaryDirectory() as directory:
@@ -166,6 +166,34 @@ class NativeCreateUITests(unittest.TestCase):
             self.assertIsNone(failed.queued())
             self.assertEqual(sorted(p.name for p in destination.glob('*.smartsvg')),
                              ['second-attempt.smartsvg'])
+
+    def test_creation_never_writes_if_completion_poll_could_not_be_installed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'image.png'
+            source.write_bytes(fixture_module.png())
+            self.dialog.source.set(str(source))
+            self.dialog.output.set(directory)
+            self.dialog.name.set('sans-suivi')
+
+            def unavailable(*_args):
+                raise RuntimeError('simulated Tk scheduling failure')
+
+            with patch.object(self.root, 'after', unavailable):
+                try:
+                    self.dialog.start()
+                except RuntimeError:
+                    # Allow the original code's writer to finish to prove the
+                    # unsafe publication, rather than failing on the exception.
+                    self.dialog.future.result(timeout=15)
+            destination = Path(directory) / 'SmartSVG_Managed_Projects'
+            self.assertFalse((destination / 'sans-suivi.smartsvg').exists())
+            self.assertIsNone(self.dialog.future)
+            self.assertFalse(self.dialog.busy)
+            self.dialog.name.set('suivi-actif')
+            self.dialog.start()
+            self.drain()
+            self.assertTrue((destination / 'suivi-actif.smartsvg').exists())
+            self.assertFalse((destination / 'sans-suivi.smartsvg').exists())
 
     def test_double_activation_does_not_queue_or_cancel_a_write_and_close_waits(self):
         from concurrent.futures import Future

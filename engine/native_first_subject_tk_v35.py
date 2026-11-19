@@ -5,12 +5,15 @@ A lost write receipt is *uncertain*, never a reason to retry automatically.
 """
 from __future__ import annotations
 
+import base64
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Event
 import re
+import struct
 
 from smartsvg_core.native_first_subject_v35 import (
+    MAX_MASK_PREVIEW_AXIS,
     NativeFirstSubjectError, inspect_first_alpha_subject,
     confirm_first_alpha_subject,
 )
@@ -31,6 +34,62 @@ _MESSAGES = {
 }
 
 
+def show_first_subject_confirmation(root, tk, ttk, proposal):
+    """Show the exact candidate's bounded mask before explicit confirmation."""
+    raw = proposal.get("mask_preview_png_l8")
+    if (type(raw) is not bytes or not 33 <= len(raw) <= 96 * 1024 or
+            raw[:16] != b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR"):
+        raise ValueError("invalid candidate preview")
+    width, height = struct.unpack_from(">II", raw, 16)
+    if (not 0 < width <= MAX_MASK_PREVIEW_AXIS or
+            not 0 < height <= MAX_MASK_PREVIEW_AXIS or
+            raw[24:29] != b"\x08\x00\x00\x00\x00"):
+        raise ValueError("invalid candidate preview bounds")
+    image = tk.PhotoImage(master=root, data=base64.b64encode(raw), format="png")
+    if (image.width(), image.height()) != (width, height):
+        raise ValueError("candidate preview size mismatch")
+    scale = max(1, 160 // max(width, height))
+    if scale > 1:
+        image = image.zoom(scale)
+
+    window = tk.Toplevel(root)
+    accepted = False
+
+    def finish(value=False):
+        nonlocal accepted
+        accepted = value
+        window.destroy()
+
+    try:
+        window.title("Vérifier le masque du premier sujet")
+        window.transient(root)
+        window.protocol("WM_DELETE_WINDOW", finish)
+        window.bind("<Escape>", lambda _event: finish())
+        content = ttk.Frame(window, padding=16)
+        content.pack(fill="both", expand=True)
+        source_width, source_height = proposal["dimensions_px"]
+        ttk.Label(content, text=f"Image {source_width} × {source_height} px").pack(anchor="w")
+        ttk.Label(content, image=image).pack(pady=8)
+        ttk.Label(content, wraplength=330, justify="left", text=(
+            "Blanc : conservé. Noir : transparent. Gris : partiellement transparent. "
+            "L’aperçu est adapté à la fenêtre.")).pack(anchor="w")
+        actions = ttk.Frame(content)
+        actions.pack(fill="x", pady=(12, 0))
+        cancel = ttk.Button(actions, text="Annuler", command=finish)
+        cancel.pack(side="left", padx=(0, 8))
+        label = ("Rattacher le masque" if proposal["status"] == "RESUME_MASK_BINDING"
+                 else "Créer le sujet")
+        ttk.Button(actions, text=label, command=lambda: finish(True)).pack(side="left")
+        window.wait_visibility()
+        window.grab_set()
+        cancel.focus_set()
+        window.wait_window()
+    finally:
+        if window.winfo_exists():
+            window.destroy()
+    return accepted
+
+
 class NativeFirstSubjectFlow:
     """One pending preview or confirmed write; caller supplies current UI guards.
 
@@ -39,18 +98,20 @@ class NativeFirstSubjectFlow:
     so a modal reentrant edit cannot authorize an old confirmation.
     """
 
-    def __init__(self, root, messagebox, *, guard, checkpoint, on_saved,
+    def __init__(self, root, *, guard, checkpoint, on_saved, confirm_preview,
                  on_status, inspect_fn=inspect_first_alpha_subject,
                  confirm_fn=confirm_first_alpha_subject,
                  executor_factory=ThreadPoolExecutor):
-        self.root, self.messagebox = root, messagebox
+        self.root = root
         self._guard, self._checkpoint = guard, checkpoint
         self._on_saved, self._on_status = on_saved, on_status
+        self._confirm_preview = confirm_preview
         self._inspect, self._confirm = inspect_fn, confirm_fn
         self._pool_factory = executor_factory
         self._pool = None
         self._future = None
-        self._closed = self._busy = self._needs_review = False
+        self._closed = self._busy = False
+        self._unreconciled_paths = set()
         self._generation = 0
         self._target = self._original_checkpoint = None
 
@@ -60,7 +121,10 @@ class NativeFirstSubjectFlow:
 
     @property
     def requires_review(self):
-        return self._needs_review
+        return self._target is not None and self.requires_review_for(self._target[0])
+
+    def requires_review_for(self, project_path):
+        return project_path in self._unreconciled_paths
 
     def _status(self, message):
         if not self._closed:
@@ -75,9 +139,10 @@ class NativeFirstSubjectFlow:
             return False
 
     def start(self, *, project_path, expected_sha256):
-        if (self._closed or self._busy or self._needs_review or
+        if (self._closed or self._busy or
                 type(project_path) is not str or
                 not Path(project_path).is_absolute() or
+                self.requires_review_for(project_path) or
                 type(expected_sha256) is not str or
                 not _SHA.fullmatch(expected_sha256)):
             return False
@@ -140,7 +205,7 @@ class NativeFirstSubjectFlow:
         except Exception as exc:
             self._busy = False
             if phase == "write":
-                self._needs_review = True
+                self._unreconciled_paths.add(self._target[0])
                 self._status("Écriture peut-être effectuée : réexaminer (F5) avant toute autre opération.")
             else:
                 code = exc.code if isinstance(exc, NativeFirstSubjectError) else ""
@@ -153,6 +218,7 @@ class NativeFirstSubjectFlow:
             return
 
         self._busy = False
+        self._unreconciled_paths.add(self._target[0])
         if (type(receipt) is not dict or
                 receipt.get("status") != "FIRST_SUBJECT_CREATED" or
                 receipt.get("persisted") is not True or
@@ -161,13 +227,11 @@ class NativeFirstSubjectFlow:
                 type(receipt.get("project_sha256")) is not str or
                 not _SHA.fullmatch(receipt["project_sha256"]) or
                 not self._context_valid()):
-            self._needs_review = True
             self._status("Résultat de sauvegarde non vérifiable : réexaminer (F5).")
             return
         try:
             self._on_saved(receipt)
         except Exception:
-            self._needs_review = True
             self._status("Sujet probablement créé, mais relecture non confirmée : réexaminer (F5).")
 
     def _handle_preview(self, proposal):
@@ -194,15 +258,7 @@ class NativeFirstSubjectFlow:
                 self._busy = False
                 self._status("Notes ou sélection modifiées : aucune sauvegarde lancée.")
                 return
-            width, height = proposal["dimensions_px"]
-            verb = ("Reprendre la liaison du masque déjà présent ?"
-                    if proposal["status"] == "RESUME_MASK_BINDING" else
-                    "Créer le premier sujet depuis la transparence du PNG ?")
-            accepted = self.messagebox.askyesno(
-                "Premier sujet · confirmation",
-                f"{verb}\nImage : {width} × {height} px.\n"
-                "La source PNG reste intacte. Le masque et le sujet seront enregistrés.",
-                parent=self.root, default="no")
+            accepted = self._confirm_preview(proposal)
             if (accepted is not True or not self._context_valid() or
                     self._checkpoint() != self._original_checkpoint):
                 self._busy = False
@@ -220,9 +276,8 @@ class NativeFirstSubjectFlow:
 
     def acknowledge_reinspection(self, project_path, *, healthy):
         """F5 clears an uncertain outcome only after an actual healthy reread."""
-        if (not self._busy and healthy is True and self._target is not None
-                and self._target[0] == project_path):
-            self._needs_review = False
+        if not self._busy and healthy is True:
+            self._unreconciled_paths.discard(project_path)
 
     def shutdown(self):
         if self._closed:

@@ -13,7 +13,7 @@ import struct
 import time
 import zlib
 
-from .mask_snapshot_g24 import SNAPSHOT_KEY, MAX_VALUES
+from .mask_snapshot_g24 import SNAPSHOT_KEY, MAX_VALUES, encode_preview_l8
 from .native_subject_preview_v34 import _workspace_from_path, NativeSubjectPreviewError
 from .project_archive import load_project, ProjectArchiveError
 from .project_workspace_g22 import WorkspaceError, _verify_png
@@ -21,6 +21,7 @@ from .project_workspace_g22 import WorkspaceError, _verify_png
 _SHA = re.compile(r"^[0-9a-f]{64}$")
 _PNG = b"\x89PNG\r\n\x1a\n"
 _MAX_PIXELS = min(MAX_VALUES, 5_000_000)
+MAX_MASK_PREVIEW_AXIS = 280
 
 
 class NativeFirstSubjectError(ValueError):
@@ -129,8 +130,25 @@ def _rgba_alpha_mask(png):
         previous = row
     if not transparent or not foreground:
         raise NativeFirstSubjectError("MANUAL_SELECTION_REQUIRED")
-    # G3.3e Subject bbox stores inclusive max coordinates, not half-open.
-    return bytes(packed), width, height, foreground, tuple(bbox)
+    left, top, right, bottom = bbox
+    return (bytes(packed), width, height, foreground,
+            (left, top, right - left + 1, bottom - top + 1))
+
+
+def _mask_preview_png(raw, width, height):
+    """Bound the thumbnail and retain isolated foreground pixels when reduced."""
+    step = (max(width, height) + MAX_MASK_PREVIEW_AXIS - 1) // MAX_MASK_PREVIEW_AXIS
+    if step == 1:
+        return encode_preview_l8(raw, width, height)
+    columns = (width + step - 1) // step
+    rows = (height + step - 1) // step
+    peaks = [0.] * (columns * rows)
+    for index, (opacity,) in enumerate(struct.iter_unpack("<f", raw)):
+        y, x = divmod(index, width)
+        cell = (y // step) * columns + x // step
+        if opacity > peaks[cell]:
+            peaks[cell] = opacity
+    return encode_preview_l8(struct.pack(f"<{len(peaks)}f", *peaks), columns, rows)
 
 
 def _candidate(project):
@@ -176,12 +194,13 @@ def _existing_snapshot(project, candidate):
 def inspect_first_alpha_subject(*, project_path, expected_sha256):
     """Return bounded evidence; never expose float32 data or write."""
     _workspace, _name, project = _pinned_project(project_path, expected_sha256)
-    _raw, candidate = _candidate(project)
+    raw, candidate = _candidate(project)
     resume = _existing_snapshot(project, candidate)
     return {
         "status": "RESUME_MASK_BINDING" if resume else "ALPHA_PREVIEW_READY",
         "project_sha256": expected_sha256,
         **candidate,
+        "mask_preview_png_l8": _mask_preview_png(raw, *candidate["dimensions_px"]),
         "preview_only": True, "persisted": False,
         "selection_kind": "whole_rgba_alpha",
         "manual_confirmation_required": True,
@@ -248,7 +267,8 @@ def confirm_first_alpha_subject(*, project_path, expected_sha256,
         raise NativeFirstSubjectError("SUBJECT_BINDING_OUTCOME_UNCERTAIN") from exc
     _workspace, _name, reopened = _pinned_project(project_path, bound["sha256"])
     if (len(reopened.subjects) != 1 or
-            reopened.subjects[0].subject_id != bound["subject_id"]):
+            reopened.subjects[0].subject_id != bound["subject_id"] or
+            list(reopened.subjects[0].bbox_px) != candidate["bbox_px"]):
         raise NativeFirstSubjectError("SUBJECT_BINDING_OUTCOME_UNCERTAIN")
     return {
         "status": "FIRST_SUBJECT_CREATED",
