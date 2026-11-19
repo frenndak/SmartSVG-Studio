@@ -151,6 +151,31 @@ class NativePreviewJobTests(unittest.TestCase):
         finally:
             release.set()
 
+    def test_worker_start_failure_does_not_strand_reader_or_steal_retry(self):
+        seen = []
+        jobs = LatestOnlyJob(lambda path: seen.append(path) or path)
+        self.addCleanup(jobs.close)
+        abandoned = []
+        def enqueue_then_raise(fn):
+            # Simulate a worker that may execute the enqueued callable later.
+            abandoned.append(fn)
+            raise RuntimeError('worker startup failed after enqueue')
+        with patch.object(jobs._pool, 'submit', side_effect=enqueue_then_raise):
+            with self.assertRaisesRegex(RuntimeError, 'worker startup failed'):
+                jobs.submit('stale')
+        self.assertFalse(jobs._draining)
+        self.assertIsNone(jobs._pending)
+        self.assertIsNone(jobs._future)
+        self.assertEqual(len(abandoned), 1)
+
+        version, future = jobs.submit('current')
+        # Even if an orphan executes after retry, it must not take the new
+        # pending job, publish a stale result or issue a second inspection.
+        abandoned[0]()
+        self.assertTrue(jobs.current(version))
+        self.assertEqual(future.result(timeout=5), 'current')
+        self.assertEqual(seen, ['current'])
+
     def test_reader_exception_does_not_strand_the_next_request(self):
         def read(value):
             if value == "bad": raise ValueError("reader failed")
