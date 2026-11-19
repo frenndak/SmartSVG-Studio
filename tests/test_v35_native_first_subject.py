@@ -181,6 +181,29 @@ class FirstAlphaSubjectTests(unittest.TestCase):
         self.assertEqual(snapshot_mask_bindings(load_project(self.path))
                          ["bindings"][0]["subject_proof_status"], "verified")
 
+    def test_lost_binding_ack_never_retries_a_committed_subject(self):
+        preview = self.inspect()
+        original = ManagedWorkspace.register_subject_identity
+        def bind_then_fail(workspace, *args, **kwargs):
+            original(workspace, *args, **kwargs)
+            raise WorkspaceError("ACK_LOST_AFTER_SUBJECT_COMMIT")
+
+        with patch.object(ManagedWorkspace, "register_subject_identity", bind_then_fail):
+            with self.assertRaises(first.NativeFirstSubjectError) as error:
+                self.confirm(preview)
+        self.assertEqual(error.exception.code, "SUBJECT_BINDING_OUTCOME_UNCERTAIN")
+        reopened = load_project(self.path)
+        self.assertEqual(len(reopened.subjects), 1)
+        self.assertEqual(len(reopened.masks), 1)
+        self.assertEqual(reopened.resources["sources/source-original.png"], self.source)
+        with self.assertRaises(first.NativeFirstSubjectError) as stale:
+            self.confirm(preview)
+        self.assertEqual(stale.exception.code, "PROJECT_CHANGED")
+        with self.assertRaises(first.NativeFirstSubjectError) as already:
+            self.inspect()
+        self.assertEqual(already.exception.code, "SUBJECT_ALREADY_PRESENT")
+        self.assertEqual(len(load_project(self.path).subjects), 1)
+
     def test_existing_different_mask_is_not_silently_replaced(self):
         raw = struct.pack("<30f", *([1.0] * 30))
         state = self.state()
