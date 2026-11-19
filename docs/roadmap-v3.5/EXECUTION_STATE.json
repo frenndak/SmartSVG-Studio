@@ -47,7 +47,7 @@
     "contract_digest_encoding": "UTF-8 text with LF newlines, not raw checkout CRLF bytes",
     "r13": {
       "revision": "R13",
-      "governance_status": "PROPOSED_PENDING_CI_REVIEW_MERGE_HANDOFF",
+      "governance_status": "AUTHORIZED_CONDITIONALLY_AFTER_OWNER_MERGE_AND_G0__SCHEDULER_HANDOFF_REQUIRED",
       "governance_source": "docs/roadmap-v3.5/DUAL_PRODUCER_R13_CONTRACT.md",
       "owner_authorization_date": "2026-11-19",
       "activation_requires": [
@@ -65,7 +65,9 @@
       "missing_handoff_policy": "DRAFT_ONLY",
       "legacy_r12_digest_note": "R12 pins still describe unmodified PRODUCER_TASK_V35.md; do not claim an R13 bootstrap digest until task prompts are actually read back",
       "observed_pr_at_planning": 174,
-      "measured_speedup": null
+      "measured_speedup": null,
+      "producer_b_id_source": "Discover via live Automations task read-back after B creation; null here records pre-activation proposal only and is not negative evidence of a subsequent task",
+      "activation_state_source": "Live main + two scheduler tasks readback, not static status or historical SHA pins"
     }
   },
   "proof_axes": "UNIT/CPU/WINDOWS/GPU/DESIGN_SPACE/PHYSICAL_CUT/ASSEMBLY separate; design adoption creates no product PASS",
