@@ -1,5 +1,7 @@
 # SmartSVG V3.5 — Plan de qualité, 437 scénarios hérités et chaîne de preuves
 
+> **Autorité actuelle — 18/11/2026 :** V3.5 est active ; consulter [EXECUTION_STATE.json](EXECUTION_STATE.json) et [MASTER_PRIORISE.md](MASTER_PRIORISE.md). Les mentions « candidate » et « V3.4 active » ci-dessous sont des photographies historiques. Les [reproductions et recettes F01–F12](CONTRE_EXPERTISE_FONCTIONNELLE_2026_11_18.md) ajoutent notamment les transitions entre retouche, notes, création et récupération ; elles distinguent l’essai Tk Linux, les doubles d’interface, les tests CI Windows et les tests encore à effectuer sur le matériel réel. Elles ne changent pas les 437 scénarios hérités et n’impliquent aucune qualification physique.
+
 > **Pilotage courant — 14/11/2026 :** lire [RUN_STATE.json](RUN_STATE.json) et [EXECUTION_PLAYBOOK.md](EXECUTION_PLAYBOOK.md). Leurs décisions/cursor remplacent les anciennes « prochaines actions » ci-dessous. [Arbitrages transversaux](DECISIONS_TRANSVERSALES.md), [composition persistante](ADR_COMPOSITION_PERSISTENCE.md), [contrat Smart Delivery](SMART_DELIVERY_EXECUTION_CONTRACT.md) et [rapport de campagne](CAMPAIGN_REVIEW_2026_11_14.md) complètent cette photographie. V3.4 reste active ; delta relu ; revue globale en attente.
 
 **Statut : V35-COV-13 / CONTRAT DE QUALIFICATION CANDIDAT, NON NORMATIF (13 novembre 2026).** Ce document décrit comment démontrer les critères et relever les défauts avant une promotion V3.5. Il **ne signifie pas** que les tests sont codés, exécutés ou PASS. La V3.4 reste active et les critères V3.3 complets sont conservés.
@@ -65,6 +67,8 @@ Pour chaque ID, imposer des champs **indépendants** :
 ### Complément E2E-UXI — interactions, états et graphisme vérifiables
 
 [Contre-expertise UX](UX_INTERACTION_AND_VISUAL_CONTRACT.md) :18recettes T-V35-UXI-01..18 proposées NOT_RUN produit, distinctes des437historiques/17SCN/14CST, à réutiliser dans les runners pertinents. Parcours sans enfermement, commandes contextuelles stables, focus/raccourcis en saisie, geste unique/Undo, groupes verrouillés, zoom vs mm, comparaison alignée, QA invalidée, perteACK/recovery, arrêt/publication, fenêtres clientes/DPI/multi-écran, lecteur d’écran/contraste élevé, recherche locale fermée, récents privés, scène et quatre sorties/lot partiel. Catalogue dix états et langage de sauvegarde/export/preuves séparées ; validation Windows réelle requise, aucune maquette ni contrôle documentaire ne suffit. Préserver les objectifs hérités et les protocoles humains (cinq novices, au moins quatre comprennent les états ; trois parcours/deux erreurs novices et réguliers), sans benchmark ni gain inventé.
+
+Les [recettes de fermeture de l’Atelier](ATELIER_PARCOURS_ET_RECETTES_UX.md#recettes-de-fermeture-à-reprendre-par-les-chantiers) précisent E2E-01/04/05 et les recettes UXI existantes. Elles exercent le premier sujet depuis un PNG neuf, l’interruption entre préparation du masque et rattachement, le brouillon avec navigation, l’écriture lente, la saisie FR, le premier export et le recalcul d’une planche verrouillée. Consigner test d’unité, interface Windows et preuves Design Space/coupe selon leurs axes propres.
 
 ### Complément E2E-CST — création continue et réglages rééditables
 

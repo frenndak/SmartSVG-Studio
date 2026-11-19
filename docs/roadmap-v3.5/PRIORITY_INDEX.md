@@ -1,5 +1,9 @@
 # Index priorisé des 80 capacités UX V3.5
 
+> La [contre-expertise fonctionnelle](CONTRE_EXPERTISE_FONCTIONNELLE_2026_11_18.md#9-grille-des-80-capacités-ux) distingue les capacités partielles, historiques et à qualifier ; chaque ligne propose une recette propre sans modifier la priorité d’origine.
+
+> Pour les critères observables et la recette de chaque capacité, voir la [matrice d’usage de l’Atelier](ATELIER_PARCOURS_ET_RECETTES_UX.md#critères-dusage-des-80-fonctions). Les priorités et unités ci-dessous restent les références d’attribution.
+
 > **Autorité actuelle — 18/11/2026 :** la V3.5 est **active** ; consulter [EXECUTION_STATE.json](EXECUTION_STATE.json) et [MASTER_PRIORISE.md](MASTER_PRIORISE.md). Les tableaux conservent les priorités sources et la conception datée 14/11, même si leur texte historique parle de « CANDIDAT ». **Attention :** le [registre `PRIORITY_REGISTER.json`](PRIORITY_REGISTER.json) reste un **snapshot** de la branche candidate avec `active_roadmap=3.4` ; ce champ n'est **pas** l'autorité actuelle et ne doit jamais provoquer un retour automatique à V3.4. Voir la [contre-expertise indépendante](INDEPENDENT_COUNTER_REVIEW_2026_11_18.md).
 
 > **Précisions du16novembre : [contre-expertise UX et décisions](UX_INTERACTION_AND_VISUAL_CONTRACT.md).** Les douze idées sont rattachées aux capacités existantes ; UXI0–3 précisent les interactions, états et composants, sans modifier les80lignes ni les priorités sources ci-dessous. Choix d’intention non exclusif, focus/clavier, unités, comparaison, états et DPI à qualifier dans les lots déjà attribués.
