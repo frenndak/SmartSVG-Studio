@@ -291,9 +291,16 @@ class VisualFirstSubjectConfirmationTests(unittest.TestCase):
                                 child.destroy()
                         return
                     widgets = list(descendants(window))
-                    observed.append(any(isinstance(child, ttk.Label) and
-                                        child.cget("image") and child.winfo_viewable()
-                                        for child in widgets))
+                    preview_visible = any(
+                        isinstance(child, ttk.Label) and child.cget("image") and
+                        child.winfo_viewable() for child in widgets)
+                    # A Tk grab can precede the first child-widget map on Windows.
+                    # Wait for the real preview to become viewable, not just the
+                    # top-level modal. A missing preview still fails after timeout.
+                    if not preview_visible and time.monotonic() < deadline:
+                        root.after(20, click)
+                        return
+                    observed.append(preview_visible)
                     for child in widgets:
                         if isinstance(child, ttk.Button) and child.cget("text") == label:
                             child.invoke()
