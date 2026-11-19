@@ -1,5 +1,7 @@
 # SmartSVG V3.5 — contre-expertise UX et décisions d'interaction
 
+> **Autorité actuelle — 19/11/2026 :** V3.5 est active ; suivre [EXECUTION_STATE.json](EXECUTION_STATE.json) et [MASTER_PRIORISE.md](MASTER_PRIORISE.md). Les mentions de V3.4 active, de candidature et de promotion ci-dessous décrivent le contexte historique du 16 novembre et ne sont pas le curseur courant. Les écrans, tests et capacités à réaliser ne deviennent pas livrés du seul fait de ce contrat.
+
 > **Raccord du 18/11 :** les [constats fonctionnels et recommandations d’interface](CONTRE_EXPERTISE_FONCTIONNELLE_2026_11_18.md#4-parcours-et-design-recommandés) complètent ce contrat. En particulier, conserver les gestes lors des transitions, montrer l’image et l’épaisseur réellement peinte, rendre les sujets lisibles et différencier aperçu, sauvegarde confirmée et résultat incertain. Les tests de fenêtre, DPI et accessibilité restent à exécuter.
 
 **16 novembre 2026 — conception candidate, à implémenter.** Base documentaire `dde08cc793bf0a810745b5991ad20462bc79c600`, main observé `0692f804ad21bd775cd0269dd92dc6e2b1cea01f`. Demande propriétaire : contre-expertiser les propositions d'outils, d'ergonomie et de graphisme, corriger et compléter ce qui aide réellement la création SVG/Cricut. Aucun écran produit ni essai utilisateur exécuté par ce document.
@@ -39,7 +41,7 @@ Barre persistante : nom du projet, sauvegarde, **Annuler / Rétablir**, accès i
 |---|---|---|
 | Premier lancement, aucun projet | Entrées UXI-01, import local et projet de démonstration clairement séparé | Pas de détection simulée, pas de modèle requis, pas de miniature privée préchargée. |
 | Import en cours ou rejeté | Nom du fichier, état réel, Arrêter ; erreur avec raison et **Choisir un autre fichier** | Pas de sujet ni sauvegarde de succès fictifs ; ancien projet conservé jusqu'à admission du nouveau. |
-| Projet ouvert, aucune sélection | S’il n’existe aucun sujet, **Sélectionner un sujet** avec aperçu alpha ou délimitation manuelle. Si le projet contient déjà des éléments, **Sélectionnez un élément pour le modifier**. | Ajuster reste disponible. Le pinceau attend une cible vérifiée. |
+| Projet ouvert, aucune sélection | S’il n’existe aucun sujet, **Sélectionner un sujet** avec aperçu alpha ou délimitation manuelle. Si le projet contient déjà des éléments, **Sélectionnez un élément pour le modifier**. | Ajuster reste disponible. Aucun outil de modification ne s’active sur une cible implicite ; le pinceau attend une cible vérifiée. |
 | Un élément sélectionné | Nom/type, outils autorisés et dimensions connues ; défaut localisable | Liste/canevas/propriétés suivent le même ID ; réordre ne change pas la cible. |
 | Sélection multiple ou groupe verrouillé | Nombre/type, champs communs et valeurs mixtes ; opérations compatibles explicites | Aucun champ mixte remplacé par zéro, aucun déverrouillage ni sous-ensemble modifié silencieusement. |
 | Geste local ou paramètre en aperçu | Effet avant/après, taille/paramètre, **Appliquer** et **Abandonner l'aperçu** si requis | Base préservée ; mode et portée expliqués ; navigation ne valide pas par accident. |
