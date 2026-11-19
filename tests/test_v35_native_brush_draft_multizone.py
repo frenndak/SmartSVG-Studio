@@ -111,8 +111,11 @@ class MultiZoneDraftTests(unittest.TestCase):
         try:
             import tkinter as tk
             from tkinter import ttk
+        except ImportError as exc:
+            self.skipTest(f"Tk unavailable: {type(exc).__name__}")
+        try:
             root = tk.Tk()
-        except (ImportError, tk.TclError) as exc:
+        except tk.TclError as exc:
             self.skipTest(f"Graphical Tk unavailable: {type(exc).__name__}")
         root.withdraw()
         panel = None

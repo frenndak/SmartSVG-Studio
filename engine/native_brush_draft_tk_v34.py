@@ -187,11 +187,11 @@ class NativeBrushDraftPanel:
             zone_actions, text='Ajouter cette zone', command=self.add_draft_zone)
         self.add_zone_button.pack(side='left', padx=(0, 4))
         self.remove_zone_button = ttk.Button(
-            zone_actions, text='Annuler la dernière zone tracée',
+            zone_actions, text='Retirer la dernière zone ajoutée',
             command=self.remove_last_draft_zone)
         self.remove_zone_button.pack(side='left', padx=4)
         self.restore_zone_button = ttk.Button(
-            zone_actions, text='Rétablir la zone tracée',
+            zone_actions, text='Rétablir la zone ajoutée',
             command=self.restore_last_draft_zone)
         self.restore_zone_button.pack(side='left', padx=4)
         ttk.Label(parent, textvariable=self.status,
