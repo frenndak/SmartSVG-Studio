@@ -325,18 +325,31 @@ class RealDesktopFirstSubjectTests(unittest.TestCase):
             workspace.create("alpha-interrupted", png(), profile="Sticker - contour du sujet")
             path = workspace.root / "alpha-interrupted.smartsvg"
             real_copy = project_recovery._atomic_copy
+            errors = []
+            receive = NativeFirstSubjectFlow._receive
 
-            def fail_rotation(source, destination):
+            def fail_rotation(source, destination, **checks):
                 if destination == path.with_suffix(".previous.smartsvg"):
                     raise OSError("synthetic backup rotation failure")
-                return real_copy(source, destination)
+                return real_copy(source, destination, **checks)
+
+            def record_result(flow, phase, generation, future):
+                if future.done() and (error := future.exception()) is not None:
+                    while error is not None:
+                        errors.append(repr(error))
+                        error = error.__cause__
+                receive(flow, phase, generation, future)
 
             def scenario(root, state):
                 def pump_until(predicate):
                     deadline = time.monotonic() + 10
                     while not predicate():
                         if time.monotonic() >= deadline:
-                            self.fail("desktop did not finish subject/recovery operation")
+                            self.fail(
+                                f"Subject: {state.atelier.first_subject_status.get()!r}. "
+                                f"Recovery: {state.recovery.status.get()!r}. "
+                                f"Atelier: {state.atelier.project.get()!r}. "
+                                f"Worker errors: {errors!r}.")
                         if root.pending:
                             root.pending.pop(0)()
                         else:
@@ -348,21 +361,30 @@ class RealDesktopFirstSubjectTests(unittest.TestCase):
                 with patch.object(project_recovery, "_atomic_copy", side_effect=fail_rotation):
                     self.assertTrue(state.atelier.create_first_subject())
                     pump_until(lambda: "peut-être effectuée" in state.atelier.first_subject_status.get())
-                self.assertTrue(path.with_suffix(".pending-backup.smartsvg").is_file())
+                pending = path.with_suffix(".pending-backup.smartsvg")
+                self.assertTrue(pending.is_file())
+                staged = pending.read_bytes()
+                partially_saved = path.read_bytes()
+                self.assertEqual(len(load_project(path).masks), 1)
+                self.assertEqual(load_project(path).subjects, ())
                 root.events["<F5>"](None)
                 pump_until(lambda: state.recovery.plan is not None)
+                self.assertEqual(state.recovery.plan.outcome, "pending_backup_finalized")
                 self.assertEqual(state.notes.editor.get(), "Note à préserver")
                 state.recovery.start()
                 self.assertIsNotNone(state.recovery.future)
                 pump_until(lambda: state.atelier.snapshot is not None)
-                self.assertFalse(path.with_suffix(".pending-backup.smartsvg").exists())
+                self.assertFalse(pending.exists())
+                self.assertEqual(path.read_bytes(), partially_saved)
+                self.assertEqual(path.with_suffix(".previous.smartsvg").read_bytes(), staged)
                 self.assertEqual(state.notes.editor.get(), "Note à préserver")
                 self.assertTrue(state.atelier.create_first_subject())
                 pump_until(lambda: state.atelier.snapshot is not None and
                            len(state.atelier.snapshot.subjects) == 1)
                 self.assertEqual(state.notes.editor.get(), "Note à préserver")
 
-            self.run_desktop(scenario, path)
+            with patch.object(NativeFirstSubjectFlow, "_receive", record_result):
+                self.run_desktop(scenario, path)
 
     def test_verified_first_subject_with_failed_host_reread_keeps_notes_and_reports_write(self):
         with tempfile.TemporaryDirectory() as directory:
