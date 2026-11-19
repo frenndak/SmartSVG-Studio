@@ -42,3 +42,12 @@ Sur 7 jours d'activité après activation, comparer baseline de 7 jours préacti
 Huit cas obligatoires: revendication simultanée d'un même lot; HEAD change après revue; main avance entre review et merge; post-merge G0 FAIL; B indisponible; review externe exigée; WIP code=3; A interrompu après commit. Documenter la prévention et le statut `VERIFIED / NOT_RUN` pour chacun. La recette contractuelle seule ne certifie pas le code ni les plateformes.
 
 **Plan de retour:** désactiver uniquement B via autorisation propriétaire si nécessaire, préserver les branches/PR, mettre à jour la gouvernance et le prompt A de façon cohérente. Ne jamais réactiver la conception, modifier TITAN ou revenir silencieusement à V3.4.
+
+## Reçu de mise en service (observation datée, non preuve future)
+
+La PR de gouvernance [#176](https://github.com/frenndak/SmartSVG-Studio/pull/176) a été intégrée hors automation par décision propriétaire sur `main` au SHA `83ce2068cd730c52ec78dc918e1ba4eb33cc0e9f`. Workflow G0 `push` [#44630615958](https://github.com/frenndak/SmartSVG-Studio/actions/runs/44630615958): `completed/success` sur ce même SHA, et CI de la PR exact HEAD PASS. Read-back Automations observé le 19 novembre 2026:
+- A `6ae27963fd848191a1053dfc486e8eb4`, `SMARTSVG_V3.5_R13_A`, activée, Europe/Paris :55, mutation merge explicitement interdite.
+- B `Automation_d020c270de78819198e9ab503ec7fb6e`, `SMARTSVG_V3.5_R13_B`, activée, Europe/Paris :25, fusionnaire unique après contrôles.
+- Ancienne tâche de conception SmartSVG `6af11763da8c8191ada586da08323e99` en pause; trois tâches TITAN actives inchangées.
+
+Ces résultats prouvent **configuration et activation**, pas une première exécution R13 ni un gain de développement déjà réalisé. Le contrôle de l'état scheduler, CI et GitHub actuel doit rester répété à chaque cycle avant mutation à risque; les reçus ci-dessus sont historiques. Le registre `EXECUTION_STATE.json` est mis à jour par la PR de gouvernance de reçu séparée, qui exige elle aussi CI exact-head et G0 push après fusion.
