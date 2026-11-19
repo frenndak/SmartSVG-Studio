@@ -3,6 +3,7 @@ from concurrent.futures import Future
 from pathlib import Path
 from threading import Event
 from types import SimpleNamespace
+import gc
 import math
 import struct
 import sys
@@ -70,6 +71,8 @@ class NativeBrushMappingTests(unittest.TestCase):
 
 class NativeBrushDraftTkTests(unittest.TestCase):
     def setUp(self):
+        # Collect orphaned Tk variable cycles on the interpreter owner thread.
+        gc.collect()
         try:
             import tkinter as tk
             from tkinter import ttk
