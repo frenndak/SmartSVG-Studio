@@ -44,7 +44,29 @@
       "expected_is_enabled": false,
       "lifecycle": "PAUSED_BY_OWNER_2026_11_16"
     },
-    "contract_digest_encoding": "UTF-8 text with LF newlines, not raw checkout CRLF bytes"
+    "contract_digest_encoding": "UTF-8 text with LF newlines, not raw checkout CRLF bytes",
+    "r13": {
+      "revision": "R13",
+      "governance_status": "PROPOSED_PENDING_CI_REVIEW_MERGE_HANDOFF",
+      "governance_source": "docs/roadmap-v3.5/DUAL_PRODUCER_R13_CONTRACT.md",
+      "owner_authorization_date": "2026-11-19",
+      "activation_requires": [
+        "separately reviewed and merged governance PR",
+        "G0 push completed/success on exact main SHA",
+        "A task prompt updated/read back at H:55 with R13; no merge authority",
+        "B task created and prompt read back at H:25",
+        "current main and scheduler authority concordant"
+      ],
+      "producer_a_task_id": "6ae27963fd848191a1053dfc486e8eb4",
+      "producer_b_task_id": null,
+      "initial_code_wip_max": 3,
+      "merge_executor": "B_ONLY_AFTER_VERIFIED_HANDOFF",
+      "merges_per_b_cycle_max": 1,
+      "missing_handoff_policy": "DRAFT_ONLY",
+      "legacy_r12_digest_note": "R12 pins still describe unmodified PRODUCER_TASK_V35.md; do not claim an R13 bootstrap digest until task prompts are actually read back",
+      "observed_pr_at_planning": 174,
+      "measured_speedup": null
+    }
   },
   "proof_axes": "UNIT/CPU/WINDOWS/GPU/DESIGN_SPACE/PHYSICAL_CUT/ASSEMBLY separate; design adoption creates no product PASS",
   "quality_owner": "single producer: implementation + verification + correction + self-audit, with mandatory later independent review cycle",
