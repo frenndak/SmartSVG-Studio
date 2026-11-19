@@ -44,6 +44,8 @@ def png(*, width=6, height=5, rgba=True, opacity="silhouette", filters=True):
                 alpha = 255
             elif opacity == "empty":
                 alpha = 0
+            elif opacity == "origin":
+                alpha = 255 if (x, y) == (0, 0) else 0
             pixel.extend((30 + x, 50 + y, 70, alpha) if rgba
                          else (30 + x, 50 + y, 70))
         kind = y % 5 if filters else 0
@@ -136,6 +138,43 @@ class FirstAlphaSubjectTests(unittest.TestCase):
         with self.assertRaises(first.NativeFirstSubjectError) as mismatch:
             self.confirm(preview)
         self.assertEqual(mismatch.exception.code, "PROJECT_CHANGED")
+
+    def test_origin_pixel_bounds_match_the_persisted_subject(self):
+        created = self.workspace.create(
+            "origin", png(opacity="origin"), profile="Sticker - contour du sujet")
+        path = self.workspace.root / "origin.smartsvg"
+        preview = first.inspect_first_alpha_subject(
+            project_path=str(path), expected_sha256=created["sha256"])
+        self.assertEqual(preview["bbox_px"], [0, 0, 1, 1])
+        receipt = first.confirm_first_alpha_subject(
+            project_path=str(path), expected_sha256=created["sha256"],
+            candidate_sha256=preview["candidate_sha256"], confirmed=True)
+        self.assertEqual(load_project(path, expected_sha256=receipt["project_sha256"])
+                         .subjects[0].bbox_px, (0, 0, 1, 1))
+
+    def test_preview_thumbnail_preserves_soft_alpha_and_a_thin_mark(self):
+        def decoded_l8(data):
+            width, height = struct.unpack_from(">II", data, 16)
+            size = struct.unpack_from(">I", data, 33)[0]
+            self.assertEqual(data[37:41], b"IDAT")
+            rows = zlib.decompress(data[41:41 + size])
+            return width, height, [rows[y * (width + 1) + 1:(y + 1) * (width + 1)]
+                                    for y in range(height)]
+
+        snapshot = self.files()
+        small = self.inspect()
+        w, h, rows = decoded_l8(small["mask_preview_png_l8"])
+        self.assertEqual((w, h), (6, 5))
+        self.assertEqual((rows[0][0], rows[1][1], rows[3][3]), (0, 255, 128))
+        self.assertEqual(self.files(), snapshot)
+
+        wide = first._mask_preview_png(
+            struct.pack("<600f", *([0.] * 599 + [1.])), 600, 1)
+        w, h, rows = decoded_l8(wide)
+        self.assertLessEqual(w, first.MAX_MASK_PREVIEW_AXIS)
+        self.assertEqual(h, 1)
+        self.assertEqual(rows[0][-1], 255)
+        self.assertEqual(sum(rows[0]), 255)
 
     def test_declined_or_stale_confirmation_has_no_side_effect(self):
         preview = self.inspect()
