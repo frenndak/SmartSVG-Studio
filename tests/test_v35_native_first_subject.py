@@ -203,6 +203,58 @@ class FirstAlphaSubjectTests(unittest.TestCase):
         self.assertIs(result["cricut_certified"], False)
         self.assertEqual(self.files(), before)
 
+    def test_first_alpha_subject_can_persist_a_real_confirmed_cpu_brush_edit(self):
+        # A fresh alpha-bound Subject must be usable by the existing V1
+        # writer, not merely loadable by the read-only preview.
+        import importlib.util
+        if not all(importlib.util.find_spec(name) is not None
+                   for name in ("numpy", "PIL")):
+            self.skipTest("NumPy/Pillow absent in G0; required in Windows CPU runner")
+        from smartsvg_core.native_subject_preview_v34 import (
+            NativeSubjectPreviewError, preview_native_subject_stroke)
+        from smartsvg_core.native_subject_save_v34 import save_native_subject_stroke
+
+        proposal = self.inspect()
+        subject = self.confirm(proposal)
+        revision = subject["project_sha256"]
+        original_project = load_project(self.path)
+        command = dict(
+            project_path=str(self.path), expected_sha256=revision,
+            subject_id=subject["subject_id"], mode="erase",
+            radius=0.12, points=[[0.5, 0.5]])
+        proof = preview_native_subject_stroke(**command)
+        before_write = self.path.read_bytes()
+        saved = save_native_subject_stroke(
+            **command,
+            expected_preview_mask_sha256_float32=proof[
+                "preview_mask_sha256_float32"],
+            command_id="native-alpha-first-subject-edit", confirmed=True)
+        self.assertEqual(saved["status"], "subject_brush_saved")
+        self.assertTrue(saved["persisted"])
+        self.assertFalse(saved["cricut_certified"])
+        self.assertNotEqual(saved["project_sha256"], revision)
+        self.assertNotEqual(self.path.read_bytes(), before_write)
+
+        reopened = load_project(self.path, expected_sha256=saved["project_sha256"])
+        self.assertEqual(reopened.resources, original_project.resources)
+        self.assertEqual(reopened.masks, original_project.masks)
+        self.assertEqual(reopened.subjects, original_project.subjects)
+        self.assertEqual(len(reopened.document["editor_v216"]["strokes"]), 1)
+        self.assertEqual(reopened.document["editor_v216"]["strokes"][0]["object"], 0)
+        self.assertEqual(
+            snapshot_mask_bindings(reopened)["bindings"][0]["subject_proof_status"],
+            "verified")
+        after = self.files()
+        with self.assertRaises(NativeSubjectPreviewError) as stale:
+            save_native_subject_stroke(
+                **command,
+                expected_preview_mask_sha256_float32=proof[
+                    "preview_mask_sha256_float32"],
+                command_id="native-alpha-first-subject-edit-retry",
+                confirmed=True)
+        self.assertEqual(stale.exception.code, "PROJECT_CHANGED")
+        self.assertEqual(self.files(), after)
+
     def test_lost_binding_ack_never_retries_a_committed_subject(self):
         preview = self.inspect()
         original = ManagedWorkspace.register_subject_identity
