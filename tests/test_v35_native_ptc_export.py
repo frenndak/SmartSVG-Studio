@@ -4,6 +4,8 @@ from __future__ import annotations
 from hashlib import sha256
 from io import BytesIO
 import importlib.util
+import os
+from unittest.mock import patch
 from pathlib import Path
 import sys
 import tempfile
@@ -144,6 +146,43 @@ class FirstNativePTCTests(unittest.TestCase):
         self.assertEqual(ctx.exception.code, "OUTPUT_REQUIRES_REVIEW")
         self.assertEqual(self.destination.read_bytes(),
                          b"Important user file: never overwrite")
+
+    @unittest.skipUnless(os.name == "posix", "Deterministic directory-swap test uses POSIX rename")
+    def test_directory_swap_during_link_never_publishes_in_replacement(self):
+        # Simulate an attacker replacing the verified parent after staging.
+        preview = self.preview()
+        safe = Path(self.tmp.name) / "safe"
+        replacement = Path(self.tmp.name) / "replacement"
+        parked = Path(self.tmp.name) / "parked"
+        safe.mkdir()
+        replacement.mkdir()
+        destination = safe / "export.png"
+        real_link = os.link
+        swapped = False
+
+        def swap_then_link(src, dst, *args, **kwargs):
+            nonlocal swapped
+            if not swapped:
+                swapped = True
+                # Give the replacement directory a matching staging name:
+                # a pathname-based link must not publish from this directory.
+                (replacement / Path(src).name).write_bytes(b"attacker bytes")
+                safe.rename(parked)
+                replacement.rename(safe)
+            return real_link(src, dst, *args, **kwargs)
+
+        try:
+            with patch("smartsvg_core.native_ptc_export_v35.os.link", side_effect=swap_then_link):
+                with self.assertRaises(NativePTCError):
+                    self.publish(preview, destination_path=str(destination))
+        finally:
+            if swapped:
+                safe.rename(replacement)
+                parked.rename(safe)
+        self.assertTrue(swapped)
+        self.assertFalse((replacement / "export.png").exists(),
+                         "Export escaped the verified directory during a parent swap")
+        self.assertFalse(destination.exists())
 
     def test_revision_stale_and_unmanaged_target_never_publish(self):
         preview = self.preview()
