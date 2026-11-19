@@ -493,7 +493,8 @@ def _start_gui(first_project: str | None) -> int:
                     'Formulaire ou projet modifié : vérifiez les choix avant de réessayer.')
             return False
 
-        if recovery.busy or atelier.busy or creation_busy() or not notes.can_leave():
+        if (recovery.busy or atelier.busy or creation_busy() or
+                subject_creation_busy() or not notes.can_leave()):
             return False
         if close_brush and not creation_context_valid():
             return creation_context_changed()
@@ -510,7 +511,7 @@ def _start_gui(first_project: str | None) -> int:
             if (notes.busy or notes.confirming_discard or
                     (notes.revision, notes._draft()) != notes_checkpoint or
                     current[0] != project_checkpoint or recovery.busy or
-                    atelier.busy or creation_busy()):
+                    atelier.busy or creation_busy() or subject_creation_busy()):
                 notes.status.set('Notes ou projet modifiés pendant la confirmation : '
                                  'brouillons conservés.')
                 return False
@@ -524,7 +525,7 @@ def _start_gui(first_project: str | None) -> int:
                 if (notes.busy or notes.confirming_discard or
                         (notes.revision, notes._draft()) != notes_checkpoint or
                         current[0] != project_checkpoint or recovery.busy or
-                        atelier.busy or creation_busy()):
+                        atelier.busy or creation_busy() or subject_creation_busy()):
                     notes.status.set('Notes ou projet modifiés pendant la fermeture : '
                                      'notes conservées.')
                     return False
@@ -539,6 +540,7 @@ def _start_gui(first_project: str | None) -> int:
             unchanged = (checkpoint is not None and not notes.busy and
                          not notes.confirming_discard and not recovery.busy and
                          not atelier.busy and not atelier.has_open_brush and
+                         not subject_creation_busy() and
                          (current[0], (notes.revision, notes._draft())) == checkpoint)
         except Exception:
             unchanged = False
@@ -557,7 +559,7 @@ def _start_gui(first_project: str | None) -> int:
         refresh()
 
     def reexamine():
-        if recovery.busy or atelier.busy:
+        if recovery.busy or atelier.busy or subject_creation_busy():
             return 'break'
         if creation_busy():
             return show_creator()
@@ -567,7 +569,7 @@ def _start_gui(first_project: str | None) -> int:
         return 'break'
 
     def show_creator(*_unused):
-        if recovery.busy or atelier.busy:
+        if recovery.busy or atelier.busy or subject_creation_busy():
             return 'break'
         if creation_busy():
             if creator[0].window.winfo_exists():
@@ -585,7 +587,7 @@ def _start_gui(first_project: str | None) -> int:
         return 'break'
 
     def select_project():
-        if recovery.busy or atelier.busy:
+        if recovery.busy or atelier.busy or subject_creation_busy():
             return
         if creation_busy():
             show_creator()
@@ -607,11 +609,18 @@ def _start_gui(first_project: str | None) -> int:
                 'Terminez ou fermez la retouche avant de récupérer le projet. '
                 'Le brouillon reste ouvert.')
             return False
-        return not atelier.busy and not creation_busy() and notes.can_leave()
+        return (not atelier.busy and not creation_busy() and
+                not subject_creation_busy() and not subject_requires_review() and
+                not project_read_pending[0] and notes.can_leave())
 
     recovery = NativeRecoveryPanel(root, recovery_slot, tk, ttk, messagebox,
                                    lambda: refresh(after_recovery=True),
                                    can_recover)
+    first_subject[0] = NativeFirstSubjectFlow(
+        root, messagebox, guard=first_subject_guard,
+        checkpoint=first_subject_checkpoint,
+        on_saved=lambda receipt: refresh(saved_first_subject=receipt),
+        on_status=atelier.first_subject_status.set)
 
     ttk.Button(buttons, text="Ouvrir un projet…", command=select_project).pack(side="left")
     ttk.Button(buttons, text="Créer depuis un PNG…", command=show_creator).pack(side="left", padx=12)
@@ -656,7 +665,7 @@ def _start_gui(first_project: str | None) -> int:
         file_name.set(Path(current[0]).name)
         refresh()
     def close_window():
-        if recovery.busy or atelier.busy:
+        if recovery.busy or atelier.busy or subject_creation_busy():
             return
         if creation_busy():
             creator[0].close()
@@ -669,6 +678,7 @@ def _start_gui(first_project: str | None) -> int:
         # Tcl callbacks must be cancelled while their commands still exist.
         theme_picker.shutdown()
         atelier.shutdown()
+        first_subject[0].shutdown()
         # A pending or obsolete generation is never allowed to update Tk.
         jobs.close()
         root.destroy()
@@ -677,6 +687,7 @@ def _start_gui(first_project: str | None) -> int:
     try:
         root.mainloop()
     finally:
+        first_subject[0].shutdown()
         atelier.shutdown()
         theme_picker.shutdown()
         if creator[0] is not None:
