@@ -6,11 +6,11 @@ retried automatically; closing waits for its outcome before destroying Tk.
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-from threading import Event
 import re
 import unicodedata
 
 from smartsvg_core.native_project_create_v34 import create_native_project, NativeCreateError
+from smartsvg_core.native_write_jobs_v35 import tracked_native_write
 from smartsvg_core.project_workspace_g22 import PROFILES
 
 
@@ -148,32 +148,18 @@ class NativeCreateDialog:
         self.busy = True
         for widget, _state in self.controls: widget.configure(state='disabled')
         self.status.set('Création et vérification de la sauvegarde en cours…')
-        # submit() can enqueue work and still raise while starting a worker.
-        # A queued callable must NEVER write until submit has returned its Future.
-        launch_gate = Event()
-        authorized = [False]
-        def guarded_create():
-            launch_gate.wait()
-            if not authorized[0]:
-                return None
-            return create_native_project(**args)
         try:
             if self.executor is None:
                 self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='smartsvg-create')
-            self.future = self.executor.submit(guarded_create)
+            with tracked_native_write(self.executor, create_native_project, **args) as future:
+                self.future = future
+                self.root.after(50, self._receive)
         except Exception:
-            # An orphaned queued item may run on a subsequent worker start.
-            # Unblock it in rejected mode; do not retain or retry this pool.
-            launch_gate.set()
             self.future = None
             if self.executor is not None:
-                self.executor.shutdown(wait=False)
+                self.executor.shutdown(wait=False, cancel_futures=True)
                 self.executor = None
             self._error(None)
-            return
-        authorized[0] = True
-        launch_gate.set()
-        self.root.after(50, self._receive)
 
     def _error(self, error):
         self.window.grab_release()
@@ -197,7 +183,7 @@ class NativeCreateDialog:
         self.status.set(message)
 
     def _receive(self):
-        if not self.window.winfo_exists(): return
+        if self.future is None or not self.window.winfo_exists(): return
         if not self.future.done():
             self.root.after(50, self._receive)
             return

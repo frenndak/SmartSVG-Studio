@@ -141,6 +141,131 @@ class AppShellTests(unittest.TestCase):
 
 
 class DesktopShellIntegrationTests(unittest.TestCase):
+    def failed_thread_start(self, prefix):
+        from threading import Thread
+
+        real_start = Thread.start
+
+        def start(thread):
+            if thread.name.startswith(prefix):
+                raise RuntimeError('simulated thread launch failure')
+            return real_start(thread)
+
+        return patch.object(Thread, 'start', start)
+
+    def test_failed_notes_start_cannot_save_an_abandoned_draft_on_another_project(self):
+        from smartsvg_core.project_archive import load_project
+
+        with tempfile.TemporaryDirectory() as directory:
+            left, right = Path(directory) / 'a', Path(directory) / 'b'
+            left.mkdir()
+            right.mkdir()
+            first, _ = create_atelier_project(left)
+            second, _ = create_atelier_project(right)
+            original = first.read_bytes()
+
+            def scenario(root, state):
+                def receive_read():
+                    state.jobs.futures[-1].result(timeout=15)
+                    root.pending.pop(0)()
+
+                receive_read()
+                state.notes.editor.insert('1.0', 'Brouillon abandonné')
+                launch_raised = False
+                with self.failed_thread_start('smartsvg-notes'):
+                    try:
+                        state.notes.save()
+                    except RuntimeError:
+                        launch_raised = True  # Exercise the retry on the baseline, too.
+                self.assertIsNone(state.notes.future)
+                self.assertEqual(state.notes.editor.get(), 'Brouillon abandonné')
+                root.events['<Control-o>'](None)
+                receive_read()
+                state.notes.editor.insert('1.0', 'Notes du second projet')
+                state.notes.save()
+                state.notes.future.result(timeout=15)
+                self.assertEqual(first.read_bytes(), original)
+                self.assertEqual(load_project(second).document['notes'], 'Notes du second projet')
+                self.assertFalse(launch_raised)
+                root.pending.pop(0)()
+                receive_read()
+
+            self.run_desktop(scenario, first_project=str(first), chosen=str(second),
+                             discard_notes=lambda **_kwargs: True)
+
+    @unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
+                         'Real desktop history requires NumPy/Pillow')
+    def test_failed_history_start_cannot_undo_another_project_later(self):
+        from smartsvg_core.project_archive import load_project
+
+        with tempfile.TemporaryDirectory() as directory:
+            left, right = Path(directory) / 'a', Path(directory) / 'b'
+            left.mkdir()
+            right.mkdir()
+            first, first_subject, _ = self.seed_history_project(left)
+            second, second_subject, _ = self.seed_history_project(right)
+            original = first.read_bytes()
+
+            def scenario(root, state):
+                def select_subject(subject):
+                    state.jobs.futures[-1].result(timeout=15)
+                    root.pending.pop(0)()
+                    state.atelier.selection.set(subject)
+                    state.atelier.render()
+
+                panel = state.atelier
+                panel.parent.after = root.after
+                panel._confirm_history_fn = lambda *_args: True
+                select_subject(first_subject)
+                with self.failed_thread_start('smartsvg-history'):
+                    self.assertFalse(panel.undo_brush())
+                self.assertFalse(panel.busy)
+                root.events['<Control-o>'](None)
+                select_subject(second_subject)
+                self.assertTrue(panel.undo_brush())
+                panel._history_future.result(timeout=15)
+                self.assertEqual(first.read_bytes(), original)
+                self.assertNotIn('editor_v216', load_project(second).document)
+                root.pending.pop(0)()
+                select_subject(second_subject)
+
+            self.run_desktop(scenario, first_project=str(first), chosen=str(second))
+
+    def test_failed_recovery_start_cannot_restore_another_project_later(self):
+        from smartsvg_core.project_archive import save_project
+        from test_v34_native_preview_jobs import fixture_module
+
+        with tempfile.TemporaryDirectory() as directory:
+            left, right = Path(directory) / 'a', Path(directory) / 'b'
+            left.mkdir()
+            right.mkdir()
+            first, second = (folder / 'project-test.smartsvg' for folder in (left, right))
+            for target in (first, second):
+                save_project(target.with_suffix('.previous.smartsvg'), fixture_module.fixture())
+
+            def scenario(root, state):
+                def receive_read():
+                    state.jobs.futures[-1].result(timeout=15)
+                    root.pending.pop(0)()
+
+                receive_read()
+                with self.failed_thread_start('smartsvg-recovery'):
+                    state.recovery.start()
+                self.assertIsNone(state.recovery.future)
+                self.assertFalse(first.exists())
+                root.events['<Control-o>'](None)
+                receive_read()
+                state.recovery.start()
+                state.recovery.future.result(timeout=15)
+                self.assertFalse(first.exists())
+                self.assertEqual(second.read_bytes(),
+                                 second.with_suffix('.previous.smartsvg').read_bytes())
+                root.pending.pop(0)()
+                receive_read()
+
+            self.run_desktop(scenario, first_project=str(first), chosen=str(second),
+                             discard_notes=lambda **_kwargs: True)
+
     def run_desktop(self, scenario, *, first_project=None, chosen='', source_choice='', output_choice='', discard_notes=lambda **_: False):
         import standalone_desktop_v34 as desktop
         from native_app_shell_v34 import NativeAppShell

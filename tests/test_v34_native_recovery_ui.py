@@ -63,7 +63,8 @@ class NativeRecoveryUITests(unittest.TestCase):
         self.panel.refresh = lambda: self.refreshed.append(True)
         self.panel.can_apply = lambda: True
         self.panel.worker = SimpleNamespace(
-            submit=lambda action, **kwargs: self.completed(action(**kwargs)))
+            submit=lambda *_args, **_kwargs: self.completed(
+                {'status': self.panel.plan.outcome, 'project_id': self.panel.plan.project_id}))
         self.panel.plan = None
         self.panel.future = None
         self.panel.confirming = False
@@ -116,7 +117,7 @@ class NativeRecoveryUITests(unittest.TestCase):
         def reject(*_args, **_kwargs):
             raise RuntimeError('executor shut down')
 
-        self.panel.worker = SimpleNamespace(submit=reject)
+        self.panel.worker = SimpleNamespace(submit=reject, shutdown=lambda **_kwargs: None)
         self.panel.load(plan())
         self.panel.start()
         self.assertEqual(self.panel.button.state, 'normal')
