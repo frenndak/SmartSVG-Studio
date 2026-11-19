@@ -96,9 +96,11 @@ class NativeAtelierPanel:
     def __init__(self, parent, tk, ttk, *, on_saved=None,
                  history_fn=inspect_native_brush_history,
                  history_change_fn=change_native_brush_history,
-                 confirm_history_fn=None, can_history=None):
+                 confirm_history_fn=None, can_history=None,
+                 on_create_first_subject=None):
         self.tk, self.ttk, self.parent = tk, ttk, parent
         self._on_saved = on_saved
+        self._on_create_first_subject = on_create_first_subject
         self._history_fn = history_fn
         self._history_change_fn = history_change_fn
         self._confirm_history_fn = confirm_history_fn
@@ -126,6 +128,7 @@ class NativeAtelierPanel:
         self.selection = tk.StringVar()
         self.details = tk.StringVar()
         self.history = tk.StringVar()
+        self.first_subject_status = tk.StringVar(value='')
         ttk.Label(parent, text='Atelier', font=('Segoe UI', 16, 'bold')).pack(anchor='w', pady=(0, 12))
         ttk.Label(parent, textvariable=self.project, wraplength=640).pack(anchor='w')
         ttk.Label(parent, textvariable=self.history, wraplength=640).pack(anchor='w', pady=(4, 0))
@@ -163,6 +166,12 @@ class NativeAtelierPanel:
             parent, text='Retoucher ce sujet (aperçu puis sauvegarde)',
             command=self.open_brush, state='disabled')
         self.brush_button.pack(anchor='w', pady=(0, 8))
+        self.first_subject_button = ttk.Button(
+            parent, text='Créer le premier sujet (PNG transparent)…',
+            command=self.create_first_subject, state='disabled')
+        self.first_subject_button.pack(anchor='w', pady=(0, 4))
+        ttk.Label(parent, textvariable=self.first_subject_status,
+                  wraplength=640).pack(anchor='w', pady=(0, 8))
         self.viewport = NativeImageViewport(parent, tk, ttk)
         parent.bind('<Map>', self._on_map)
         self.load(None)
@@ -186,10 +195,31 @@ class NativeAtelierPanel:
                            else next(iter(self.subjects), ''))
         self._project_label()
         self._refresh_history(invalid_catalog=invalid_catalog)
+        self._update_first_subject_button(invalid_catalog=invalid_catalog)
         self.render()
         if invalid_catalog:
             self.details.set('Liste des sujets invalide. Réexaminez le projet (F5). '
                              'Aucune retouche disponible ; archive inchangée.')
+
+    def _update_first_subject_button(self, *, invalid_catalog=False):
+        snapshot = self.snapshot
+        revision = getattr(snapshot, 'sha256', None)
+        available = (self._on_create_first_subject is not None and
+                     snapshot is not None and not invalid_catalog and
+                     not self.subjects and not self.busy and
+                     not self.history_requires_review and
+                     not self.has_open_brush and
+                     type(revision) is str and _REVISION.fullmatch(revision) and
+                     type(self._project_path) is str and
+                     Path(self._project_path).is_absolute())
+        self.first_subject_button.configure(
+            state='normal' if available else 'disabled')
+
+    def create_first_subject(self):
+        self._update_first_subject_button()
+        if str(self.first_subject_button.cget('state')) != 'normal':
+            return False
+        return self._on_create_first_subject(self.snapshot, self._project_path) is True
 
     def _refresh_history(self, *, invalid_catalog=False):
         """Present the existing V1 journal status without offering a fake action.
