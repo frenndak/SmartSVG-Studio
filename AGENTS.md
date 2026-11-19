@@ -29,5 +29,16 @@ The prior V34 delegation is historical and disabled: `.automation/READY` must co
 
 The existing design task becomes read-only improvement/quality review of the adopted reference. It must not write an old candidate branch as a second authority or act as a second producer. New normative changes require a separate reviewed live-owner decision. Historical criterion and pin registers retain their original snapshot statuses; execution status is tracked separately in EXECUTION_STATE.json and actual PR/CI receipts. Planned tests remain NOT_RUN until evidence exists for their own axis.
 
-## Owner amendment — 2026-11-16, producer R12
+## Historical owner amendment — 2026-11-16, producer R12
 Design task is PAUSED by owner instruction. Do not reactivate it or create a replacement scheduled task. The single producer keeps its cadence and now owns implementation, verification, correction and immediate self-audit; the later independent scheduled review cycle remains mandatory before any eligible merge. This owner-requested pause supersedes only the earlier live-design-task arrangement, never the review/CI gates or code-only exclusions. Read PRODUCER_TASK_V35.md and PRODUCER_R12_PLUGIN_AMENDMENT_2026_11_16.md on current main. Plugins are conditional helpers with existing permissions, not new mutation or publication authority.
+
+
+## Owner amendment — 2026-11-19, dual engineering producers R13
+
+**Live owner decision:** authorize a second autonomous SmartSVG V3.5 engineering producer. This amendment supersedes only the R12 clauses "single producer", "no new task" and "A sole merger"; the entire code-only scope, all forbidden paths, full review, checks, GitHub protections and post-merge guards remain binding.
+
+Read [R13](docs/roadmap-v3.5/DUAL_PRODUCER_R13_CONTRACT.md) and [integration policy](docs/AUTONOMOUS_INTEGRATION_POLICY_V35.md) from current main. Activation requires four literal READY markers (V34 DISABLED, V35 ENABLED, DUAL_PRODUCER_V35 AUTHORIZED, R13_MERGE_EXECUTOR AGENT_B), R13 governance merged by owner with exact-main G0 push PASS, and read-back of R13 prompts/cadence for both scheduled tasks. Missing evidence or discrepancy = DRAFT-only / NO_MERGE.
+
+A (existing task H:55) and B (new task H:25) may each develop, test, correct, review and propose PRs on separately allocated code branches. **Only B executes squash merges after verified handoff**, maximum one per B cycle, with exact-head CI, deferred adversarial review and required GitHub approval, then exact-main G0 push PASS. A must not merge after R13 handoff even if the connected GitHub identity technically permits it. Same-account cross-review is not independent GitHub APPROVED. B can develop an independent micro-lot whenever no qualifying PR action is available. WIP code maximum three globally, no concurrent writers of the same branch; documented writer handoff, fresh SHA checks, no fictional lock.
+
+The separate design/roadmap task stays paused; TITAN is out of scope. Scheduled agents still cannot mutate AGENTS, READY, workflows, normative docs, secrets, dependencies, packaging, project format, release/admission or main directly. Governance modifications require a separate owner-authorized reviewed live-session PR. If B is unavailable, no automatic reversion of merger authority to A; retain DRAFT-only until a consistent governance change.
