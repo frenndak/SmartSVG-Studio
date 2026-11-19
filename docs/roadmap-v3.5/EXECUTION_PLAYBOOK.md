@@ -1,6 +1,6 @@
 # Exécuter la V3.5 étape par étape sans recommencer la roadmap
 
-> **R12 :** la tâche séparée de conception/contre-expertise est arrêtée à la demande du propriétaire. Suivre [l’amendement R12](PRODUCER_R12_PLUGIN_AMENDMENT_2026_11_16.md) et EXECUTION_STATE ; qualité et auto-audit intégrés au producteur, cycle de revue ultérieur obligatoire inchangé. Aucun second producteur ni réactivation automatique.
+> **Historique R12 :** la tâche séparée de conception/contre-expertise est arrêtée à la demande du propriétaire. Suivre [l’amendement R12](PRODUCER_R12_PLUGIN_AMENDMENT_2026_11_16.md) et EXECUTION_STATE ; qualité et auto-audit intégrés au producteur, cycle de revue ultérieur obligatoire inchangé. Aucun second producteur ni réactivation automatique.
 
 > **Conduite après adoptionV3.5 :** [EXECUTION_STATE.json](EXECUTION_STATE.json) est le curseur courant, sous autorité AGENTS/main et [décision d’adoption](../ROADMAP_PROMOTION_v3_5.md). [Producteur R11](PRODUCER_TASK_V35.md) pour l’ingénierie, [contre-expertise R4](DESIGN_REVIEW_TASK_V35.md) en lecture seule. Les consignes de préparation/promotions et anciennes prochaines actions datées restent une archive de la campagne close, pas une mission de recommencer la conception. RUN_STATE est scellé comme photographie avant adoption, avec ses champs historiques3.4. La routine de production§3/4 et les critères complets continuent à s’appliquer.
 
@@ -70,3 +70,8 @@ python docs/roadmap-v3.5/verify_source_transfer.py --main-root . --id V34-033
 Lire l'entrée ciblée, les tickets liés, le contexte parent et la fiche candidate. Les liens historiques sont des renvois de planification, pas des propriétaires exclusifs. Les acteurs W10/W11/W16 sont distincts des gates CP4/CP6. Le SHA main du JSON est une observation datée ; vérifier HEAD réel avant d'en déduire la fraîcheur du code.
 
 Pour terminer SOURCE_CLOSURE, consommer SC-03B et REVIEW_SOURCE_TRANSFER_2026_11_15 : tableaux individuels transférés, erreurs d'oracles corrigées et limites de relecture déclarées. Il reste l'acceptation au contexte complet et les contradictions réellement restantes, pas une nouvelle série de dix intitulés ou de compteurs. Les tests de produit continuent à dépendre de leurs preuves propres après implémentation.
+
+
+## Mode R13 — production parallèle conditionnelle
+
+Après fusion de gouvernance, CI main PASS et read-back des deux prompts, charger [le contrat R13](DUAL_PRODUCER_R13_CONTRACT.md) en complément de tout R12. Le producteur A H:55 et le producteur B H:25 choisissent chacun un lot libre et utile, sans écriture concurrente sur la même branche; B est prioritaire pour contre-revue, réparation et fusion conditionnelle. Les mentions R12 de producteur unique ci-dessus sont **historiques** et cessent de s'appliquer seulement après activation R13; aucune ancienne création de roadmap n'est réactivée. Le prochain travail se déduit du WIP actuel (pas des snapshots historiques), maximum trois PR code ouvertes. Seul B peut fusionner, maximum une par cycle B, après revue différée et exact-HEAD CI, puis G0 push post-merge PASS; aucun signal inconnu n'est un PASS.
