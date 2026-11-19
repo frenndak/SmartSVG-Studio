@@ -51,6 +51,25 @@ class MultiZoneDraftTests(unittest.TestCase):
         panel._controls = lambda: None
         return panel
 
+    def test_changing_next_brush_style_keeps_undone_gesture_recoverable(self):
+        panel = self.make_panel()
+        panel._points = []
+        panel._stroke_style = None
+        panel._box = (0, 0, 100, 100)
+
+        panel._append(20, 30)
+        self.assertTrue(panel.undo_draft_point())
+        self.assertTrue(panel.has_draft)
+        panel.mode.set('Effacer')
+        panel.radius.set('0.10')
+        panel._parameter_changed()
+
+        self.assertTrue(panel.has_draft)
+        self.assertTrue(panel.redo_draft_point())
+        self.assertEqual(panel._draft_strokes(), [{
+            'mode': 'add', 'radius': 0.05, 'points': [[0.2, 0.3]],
+        }])
+
     def test_add_zone_freezes_mode_radius_and_points_then_opens_a_new_zone(self):
         panel = self.make_panel()
 

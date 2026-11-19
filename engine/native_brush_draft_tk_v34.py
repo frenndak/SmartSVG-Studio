@@ -435,7 +435,6 @@ class NativeBrushDraftPanel:
         self._token += 1  # ignore an in-flight result from the old settings
         self._busy = False
         self._result_images = None
-        self._redo_points = []
         self._variant = 'after'
         self.status.set(
             'Réglages appliqués au prochain geste. Recalculez l’aperçu.'

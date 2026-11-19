@@ -349,6 +349,42 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                 self.assertTrue(any(str(value).startswith('Projet créé, enregistré et relu') for value in notices))
             self.run_desktop(scenario, source_choice=str(source), output_choice=directory)
 
+    def test_new_project_does_not_displace_notes_edited_during_creation(self):
+        from test_v34_native_preview_jobs import fixture_module
+
+        for try_save in (False, True):
+            with self.subTest(try_save=try_save), tempfile.TemporaryDirectory() as directory:
+                path, _ = create_atelier_project(directory)
+                before = path.read_bytes()
+                source = Path(directory) / 'nouveau.png'
+                source.write_bytes(fixture_module.png())
+
+                def scenario(root, state):
+                    state.jobs.futures[0].result(timeout=15)
+                    root.pending.pop(0)()
+                    root.events['<Control-n>'](None)
+                    state.creator.choose_source()
+                    state.creator.choose_output()
+                    state.creator.start()
+                    self.assertTrue(state.creator.busy)
+                    # Model a callback already queued before the creation
+                    # dialog's grab, rather than ordinary pointer typing.
+                    state.notes.editor.insert('1.0', 'Note arrivée pendant la création')
+                    if try_save:
+                        state.notes.save()
+                        self.assertIsNone(state.notes.future)
+                    state.creator.future.result(timeout=15)
+                    root.pending.pop(0)()
+                    destination = Path(directory) / 'SmartSVG_Managed_Projects/nouveau.smartsvg'
+                    self.assertTrue(destination.exists())
+                    self.assertEqual(state.notes.editor.get(), 'Note arrivée pendant la création')
+                    self.assertEqual(state.notes.revision.path, path)
+                    self.assertEqual(len(state.jobs.futures), 1)
+                    self.assertEqual(path.read_bytes(), before)
+
+                self.run_desktop(scenario, first_project=str(path),
+                                 source_choice=str(source), output_choice=directory)
+
     def test_f5_keeps_notes_changed_during_discard_confirmation(self):
         with tempfile.TemporaryDirectory() as directory:
             path, _ = create_atelier_project(directory)
@@ -374,6 +410,70 @@ class DesktopShellIntegrationTests(unittest.TestCase):
 
             self.run_desktop(scenario, first_project=str(path),
                              discard_notes=confirm_after_edit)
+
+    def test_project_changes_preserve_notes_edited_during_brush_confirmation(self):
+        from test_v34_native_preview_jobs import fixture_module
+
+        for action in ('f5', 'switch', 'close', 'create'):
+            for initial_note in ('', 'Note initiale à abandonner'):
+                with self.subTest(action=action, initial_note=initial_note), \
+                        tempfile.TemporaryDirectory() as directory:
+                    path, _ = create_atelier_project(directory)
+                    before = path.read_bytes()
+                    source = Path(directory) / 'nouveau.png'
+                    source.write_bytes(fixture_module.png())
+                    notes = {}
+                    prompts = []
+
+                    def confirm(**kwargs):
+                        prompts.append(kwargs)
+                        # The first prompt belongs to the notes only when they
+                        # were already dirty. Change the text in the *second*
+                        # modal, after the earlier note decision has returned.
+                        if not initial_note or len(prompts) == 2:
+                            notes['panel'].editor.delete('1.0', 'end')
+                            notes['panel'].editor.insert('1.0', 'Nouvelle note à conserver')
+                        return True
+
+                    def scenario(root, state):
+                        state.jobs.futures[0].result(timeout=15)
+                        root.pending.pop(0)()
+                        notes['panel'] = state.notes
+                        if initial_note:
+                            state.notes.editor.insert('1.0', initial_note)
+                        panel = SimpleNamespace(
+                            has_draft=True, draft_checkpoint=lambda: ('unchanged',),
+                            shutdown=lambda: None)
+                        dialog = SimpleNamespace(lift=lambda: None, destroy=lambda: None)
+                        state.atelier._brush_panel = panel
+                        state.atelier._brush_dialog = dialog
+                        state.atelier._brush_key = (str(path), state.atelier.snapshot.sha256,
+                                                    state.atelier.selection.get())
+                        if action == 'f5':
+                            root.events['<F5>'](None)
+                        elif action == 'switch':
+                            root.events['<Control-o>'](None)
+                        elif action == 'close':
+                            root.protocols['WM_DELETE_WINDOW']()
+                        else:
+                            root.events['<Control-n>'](None)
+                            state.creator.choose_source()
+                            state.creator.choose_output()
+                            state.creator.start()
+                            self.assertIsNone(state.creator.future)
+                            self.assertFalse(state.creator.busy)
+                            self.assertFalse((Path(directory) /
+                                'SmartSVG_Managed_Projects/nouveau.smartsvg').exists())
+                        self.assertEqual(state.notes.editor.get(), 'Nouvelle note à conserver')
+                        self.assertIs(state.atelier._brush_panel, panel)
+                        self.assertEqual(len(state.jobs.futures), 1)
+                        self.assertTrue(root.exists)
+                        self.assertEqual(path.read_bytes(), before)
+
+                    self.run_desktop(scenario, first_project=str(path),
+                                     chosen=str(Path(directory) / 'other.smartsvg'),
+                                     source_choice=str(source), output_choice=directory,
+                                     discard_notes=confirm)
 
     def test_f5_preserves_brush_draft_when_discard_is_declined(self):
         with tempfile.TemporaryDirectory() as directory:

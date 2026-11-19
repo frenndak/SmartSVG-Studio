@@ -223,6 +223,7 @@ def _start_gui(first_project: str | None) -> int:
     preview_info = tk.StringVar(value="Aucun aperçu chargé.")
     current: list[str | None] = [None]
     creator = [None]
+    creation_checkpoint = [None]
     creation_info = tk.StringVar(value='')
     ttk.Label(frame, textvariable=creation_info, wraplength=640).pack(anchor='w')
 
@@ -237,7 +238,8 @@ def _start_gui(first_project: str | None) -> int:
                              can_save=lambda: (not atelier.busy
                                                and not atelier.history_requires_review
                                                and not atelier.has_open_brush
-                                               and not recovery.busy))
+                                               and not recovery.busy
+                                               and not creation_busy()))
     ttk.Label(frame, textvariable=preview_info, wraplength=640).pack(anchor="w", pady=(16, 5))
     preview_panel = NativeImageViewport(frame, tk, ttk)
 
@@ -388,7 +390,60 @@ def _start_gui(first_project: str | None) -> int:
     def creation_busy():
         return creator[0] is not None and creator[0].busy
 
+    def can_leave_project(*, close_brush=False):
+        # A Tk confirmation runs a nested event loop. Approval of the notes
+        # must still apply after the later brush confirmation, before either
+        # draft is destroyed or a new project writer starts.
+        if recovery.busy or atelier.busy or creation_busy() or not notes.can_leave():
+            return False
+        try:
+            notes_checkpoint = (notes.revision, notes._draft())
+            project_checkpoint = current[0]
+        except Exception:
+            return False
+        if not atelier.can_leave_brush():
+            return False
+        try:
+            if (notes.busy or notes.confirming_discard or
+                    (notes.revision, notes._draft()) != notes_checkpoint or
+                    current[0] != project_checkpoint or recovery.busy or
+                    atelier.busy or creation_busy()):
+                notes.status.set('Notes ou projet modifiés pendant la confirmation : '
+                                 'brouillons conservés.')
+                return False
+        except Exception:
+            return False
+        if close_brush:
+            atelier._close_brush()
+            try:
+                if (notes.busy or notes.confirming_discard or
+                        (notes.revision, notes._draft()) != notes_checkpoint or
+                        current[0] != project_checkpoint or recovery.busy or
+                        atelier.busy or creation_busy()):
+                    notes.status.set('Notes ou projet modifiés pendant la fermeture : '
+                                     'notes conservées.')
+                    return False
+            except Exception:
+                return False
+            creation_checkpoint[0] = (project_checkpoint, notes_checkpoint)
+        return True
+
     def open_created(receipt):
+        checkpoint, creation_checkpoint[0] = creation_checkpoint[0], None
+        try:
+            unchanged = (checkpoint is not None and not notes.busy and
+                         not notes.confirming_discard and not recovery.busy and
+                         not atelier.busy and not atelier.has_open_brush and
+                         (current[0], (notes.revision, notes._draft())) == checkpoint)
+        except Exception:
+            unchanged = False
+        if not unchanged:
+            creation_info.set(
+                'Projet ' + Path(receipt.path).name + ' créé et vérifié, mais non ouvert : '
+                'le projet ou les notes ont changé. Conservez vos notes, puis ouvrez '
+                'le nouveau projet depuis le dossier choisi.')
+            shell.show('project', focus=True)
+            return
         recovery.status.set('')
         current[0] = receipt.path
         file_name.set(Path(receipt.path).name)
@@ -401,7 +456,7 @@ def _start_gui(first_project: str | None) -> int:
             return 'break'
         if creation_busy():
             return show_creator()
-        if notes.can_leave() and atelier.can_leave_brush():
+        if can_leave_project():
             shell.show('project', focus=True)
             refresh()
         return 'break'
@@ -414,8 +469,7 @@ def _start_gui(first_project: str | None) -> int:
         else:
             creator[0] = NativeCreateDialog(
                 root, tk, ttk, filedialog, open_created,
-                can_create=lambda: (not recovery.busy and not atelier.busy
-                                    and notes.can_leave() and atelier._request_close_brush()))
+                can_create=lambda: can_leave_project(close_brush=True))
         return 'break'
 
     def select_project():
@@ -427,8 +481,7 @@ def _start_gui(first_project: str | None) -> int:
         chosen = filedialog.askopenfilename(
             parent=root, title="Ouvrir un projet SmartSVG",
             filetypes=[("Projets SmartSVG", "*.smartsvg")])
-        if (chosen and not recovery.busy and not atelier.busy
-                and notes.can_leave() and atelier.can_leave_brush()):
+        if chosen and can_leave_project():
             creation_info.set('')
             recovery.status.set('')
             shell.show('project', focus=True)
@@ -497,7 +550,7 @@ def _start_gui(first_project: str | None) -> int:
             creator[0].close()
             creator[0].window.lift()
             return
-        if not notes.can_leave() or not atelier.can_leave_brush():
+        if not can_leave_project():
             return
         if creator[0] is not None:
             creator[0].close()
