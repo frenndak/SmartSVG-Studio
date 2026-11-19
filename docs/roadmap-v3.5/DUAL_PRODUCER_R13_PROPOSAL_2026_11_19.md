@@ -37,3 +37,22 @@ Comparer à une base pré-activation les exigences/DoD effectivement intégrés,
 
 ## État à la rédaction
 Autorités R12 actuelles explicitement **un seul producteur**, et interdisent à la tâche horaire de modifier AGENTS/.automation/.github/politique. Cette proposition est donc une **étape documentaire préparatoire**, non une activation R13. PR de code #174 ouverte DRAFT au dernier relevé; re-vérifier HEAD/CI et blocage de concurrence avant toute intégration. Aucun test logiciel, matériel ou CI n'est revendiqué par ce document.
+
+## Contre-expertise de faisabilité — observations du 19 novembre 2026
+- GitHub confirme les droits du compte connecté sur le dépôt (admin/push), **mais cela ne prouve pas** que les branch protections, required reviews ou checks autorisent une fusion automatique. Ne pas déduire les règles de protection des permissions du compte.
+- Automations: quatre tâches actives au relevé (SmartSVG R12 + trois TITAN), onze en pause. L'ancienne tâche SmartSVG de conception n'a pas été réactivée. La création de B doit respecter le plafond réel des tâches et l'exécution horaire minimale; ne pas sacrifier un service TITAN ni créer un autre producteur de roadmap.
+- Main observé au moment de l'ouverture de #175: `10b25a9e03fc51b88744125902e92837e59f89fc`; proposition #175 HEAD initial `c6a03d41bf8fa5ed0f5d2578b7869236adccf85a`. La PR de code #174 est **toujours DRAFT** et son HEAD a progressé à `e2a1d43ae742c165ce3d7a22fe702891d38a620e` : les anciennes revues de `081208c` ne valent pas qualification de ce HEAD. La correction de concurrence et les CI doivent être réévaluées indépendamment avant fusion.
+- `EXECUTION_STATE.json` R12 contient des empreintes SHA256 du contrat et du bootstrap. Toute promotion R13 doit recalculer et vérifier les digests des **textes réellement déployés**, puis lire la tâche A et la tâche B après modification; ne jamais inventer ces preuves ni éditer l'état normatif depuis une tâche code-only.
+- `AGENTS.md`, `.automation/READY`, la politique V35 et le playbook R12 interdisent explicitement un second producteur en l'état. Le présent document ne saurait rendre B active par lui-même.
+
+## Critères d'acceptation R13 avant bascule
+1. Une PR documentaire de proposition (#175) relue, puis **une PR de gouvernance distincte** comprenant les amendements complets et cohérents; revue des exclusions et contrôle de tous les fichiers modifiés.
+2. Les contrats définissent clairement la tâche de coordination et le verrou de fusion. Option minimale sûre : **un seul merge executor** désigné, l'autre agent pouvant faire toutes les tâches de production et de revue, sans merger. Option double merge executor seulement après implémentation d'une file atomique et preuve de non-chevauchement.
+3. Un identifiant de cycle global non ambigu: une fenêtre de coordination commune (par exemple de H:25 à H+1:25), avec au plus une fusion dans cette fenêtre; une nouvelle fenêtre ne peut pas intégrer si le G0 post-merge de la précédente est absent ou échoué.
+4. Attribution des lots avec lease vérifiable; toute mutation de branche doit utiliser un état fraîchement relu et échouer en cas de divergence. La limite WIP code <=3 est **globale**; les PR de gouvernance restent séparées.
+5. Tests d'acceptation de la coordination: (a) deux agents revendiquent le même lot; (b) HEAD modifié après revue; (c) main avance entre qualification et fusion; (d) G0 post-merge échoue; (e) tâche B absente/désactivée; (f) GitHub exige un reviewer externe; (g) trois PR code déjà ouvertes; (h) tâche A interrompue après commit. Chaque cas doit avoir un résultat sûr et un point de reprise.
+6. G0/prévol et tests pertinents sur HEAD exact de gouvernance, puis squash **manuel/autorisé** de cette PR, puis G0 post-merge PASS. Aucune auto-fusion documentaire.
+7. Mise à jour de la tâche A après promotion, création de B ensuite seulement; vérification par lecture des prompts, horaires, activation, permissions et digest du contrat. Si une étape échoue, B reste désactivée et A conserve le mode R12 ou DRAFT-only selon l'autorité effective.
+
+## Risques résiduels explicitement non résolus
+La présence d'une GitHub Action de file atomique, les règles de protection exactes, le coût/quotas de la tâche supplémentaire et la disponibilité de vrais environnements Windows/GPU/Design Space n'ont pas été démontrés. Aucun statut de test de coordination n'est revendiqué. **Ne pas déclarer R13 ACTIVE avant ces preuves.**
