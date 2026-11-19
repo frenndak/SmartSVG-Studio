@@ -129,8 +129,8 @@ def _rgba_alpha_mask(png):
         previous = row
     if not transparent or not foreground:
         raise NativeFirstSubjectError("MANUAL_SELECTION_REQUIRED")
-    return bytes(packed), width, height, foreground, (
-        bbox[0], bbox[1], bbox[2] + 1, bbox[3] + 1)
+    # G3.3e Subject bbox stores inclusive max coordinates, not half-open.
+    return bytes(packed), width, height, foreground, tuple(bbox)
 
 
 def _candidate(project):
