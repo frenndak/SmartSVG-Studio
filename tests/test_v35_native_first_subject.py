@@ -181,6 +181,28 @@ class FirstAlphaSubjectTests(unittest.TestCase):
         self.assertEqual(snapshot_mask_bindings(load_project(self.path))
                          ["bindings"][0]["subject_proof_status"], "verified")
 
+    def test_new_alpha_subject_runs_real_cpu_brush_preview_when_available(self):
+        # G0 deliberately has no third-party CPU packages; the Windows
+        # stability runner installs them and must execute this test.
+        import importlib.util
+        if not all(importlib.util.find_spec(name) is not None
+                   for name in ("numpy", "PIL", "cv2")):
+            self.skipTest("Native CPU brush dependencies unavailable in G0")
+        from smartsvg_core.native_subject_preview_v34 import preview_native_subject_stroke
+        preview = self.inspect()
+        receipt = self.confirm(preview)
+        before = self.files()
+        result = preview_native_subject_stroke(
+            project_path=str(self.path),
+            expected_sha256=receipt["project_sha256"],
+            subject_id=receipt["subject_id"],
+            mode="add", radius=0.05, points=[[0.5, 0.5]])
+        self.assertIs(result["persisted"], False)
+        self.assertEqual(result["subject_id"], receipt["subject_id"])
+        self.assertEqual(result["project_sha256"], receipt["project_sha256"])
+        self.assertIs(result["cricut_certified"], False)
+        self.assertEqual(self.files(), before)
+
     def test_lost_binding_ack_never_retries_a_committed_subject(self):
         preview = self.inspect()
         original = ManagedWorkspace.register_subject_identity
