@@ -100,6 +100,101 @@ class NativeCreateUITests(unittest.TestCase):
             self.assertEqual(project.sources[0].provenance, 'manual_native_png_import')
             self.assertFalse(self.dialog.window.winfo_exists())
 
+    def test_changed_form_during_confirmation_does_not_create_a_stale_project(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'image.png'
+            source.write_bytes(fixture_module.png())
+            self.dialog.source.set(str(source))
+            self.dialog.output.set(directory)
+            self.dialog.name.set('premier')
+
+            def change_name():
+                self.dialog.name.set('second')
+                return True
+
+            self.dialog.can_create = change_name
+            self.dialog.start()
+            premature = self.dialog.future
+            if premature is not None:
+                self.drain()
+            self.assertIsNone(premature)
+            self.assertFalse(self.dialog.busy)
+            self.assertEqual(self.dialog.name.get(), 'second')
+            self.assertFalse(list(Path(directory).rglob('*.smartsvg')))
+
+    def test_failed_worker_start_cannot_write_stale_queued_project_after_retry(self):
+        # ThreadPoolExecutor.submit may put the Future into its queue and
+        # *then* raise while starting a new worker. Model that ordering and
+        # execute the orphan after a successful user-controlled retry.
+        class FailedStartupExecutor:
+            queued = None
+            shutdown_called = False
+
+            def submit(self, callable_, *args, **kwargs):
+                self.queued = lambda: callable_(*args, **kwargs)
+                raise RuntimeError('worker failed after enqueue')
+
+            def shutdown(self, *, wait=True, cancel_futures=False):
+                self.shutdown_called = True
+
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'source.png'
+            source.write_bytes(fixture_module.png())
+            self.dialog.source.set(str(source))
+            self.dialog.output.set(directory)
+            self.dialog.name.set('first-attempt')
+            failed = FailedStartupExecutor()
+            with patch.object(self.module, 'ThreadPoolExecutor', return_value=failed):
+                self.dialog.start()
+
+            self.assertIsNotNone(failed.queued)
+            self.assertTrue(failed.shutdown_called)
+            self.assertIsNone(self.dialog.future)
+            self.assertIsNone(self.dialog.executor)
+            self.assertFalse(self.dialog.busy)
+            self.assertFalse(list(Path(directory).rglob('*.smartsvg')))
+
+            # The user may change the form and retry. Only that second
+            # explicitly authorized request is permitted to reach the writer.
+            self.dialog.name.set('second-attempt')
+            self.dialog.start()
+            self.drain()
+            self.assertEqual(len(self.receipts), 1)
+            destination = Path(directory) / 'SmartSVG_Managed_Projects'
+            self.assertEqual(sorted(p.name for p in destination.glob('*.smartsvg')),
+                             ['second-attempt.smartsvg'])
+            self.assertIsNone(failed.queued())
+            self.assertEqual(sorted(p.name for p in destination.glob('*.smartsvg')),
+                             ['second-attempt.smartsvg'])
+
+    def test_creation_never_writes_if_completion_poll_could_not_be_installed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'image.png'
+            source.write_bytes(fixture_module.png())
+            self.dialog.source.set(str(source))
+            self.dialog.output.set(directory)
+            self.dialog.name.set('sans-suivi')
+
+            def unavailable(*_args):
+                raise RuntimeError('simulated Tk scheduling failure')
+
+            with patch.object(self.root, 'after', unavailable):
+                try:
+                    self.dialog.start()
+                except RuntimeError:
+                    # Allow the original code's writer to finish to prove the
+                    # unsafe publication, rather than failing on the exception.
+                    self.dialog.future.result(timeout=15)
+            destination = Path(directory) / 'SmartSVG_Managed_Projects'
+            self.assertFalse((destination / 'sans-suivi.smartsvg').exists())
+            self.assertIsNone(self.dialog.future)
+            self.assertFalse(self.dialog.busy)
+            self.dialog.name.set('suivi-actif')
+            self.dialog.start()
+            self.drain()
+            self.assertTrue((destination / 'suivi-actif.smartsvg').exists())
+            self.assertFalse((destination / 'sans-suivi.smartsvg').exists())
+
     def test_double_activation_does_not_queue_or_cancel_a_write_and_close_waits(self):
         from concurrent.futures import Future
         executor = SimpleNamespace(submit=lambda *args, **kwargs: pending,

@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ENGINE = Path(__file__).resolve().parents[1] / 'engine'
 if str(ENGINE) not in sys.path:
@@ -86,6 +86,14 @@ class AppShellTests(unittest.TestCase):
             self.shell.add_page(key, label)
         self.shell.show('home')
 
+    def test_capability_notice_distinguishes_brush_from_unavailable_export(self):
+        labels = [widget.options.get('text', '') for widget in LayoutWidget.all_widgets]
+        notice = next(text for text in labels if 'Création PNG' in text)
+        self.assertIn('retouche', notice.lower())
+        self.assertIn('sujets vérifiés', notice.lower())
+        self.assertIn('exports', notice.lower())
+        self.assertNotIn('Retouche, exports et installation Windows : intégration à venir', notice)
+
     def test_only_selected_page_is_visible_with_textual_active_marker(self):
         self.assertEqual(self.shell.active_page, 'home')
         self.shell.buttons['factory'].options['command']()
@@ -133,6 +141,131 @@ class AppShellTests(unittest.TestCase):
 
 
 class DesktopShellIntegrationTests(unittest.TestCase):
+    def failed_thread_start(self, prefix):
+        from threading import Thread
+
+        real_start = Thread.start
+
+        def start(thread):
+            if thread.name.startswith(prefix):
+                raise RuntimeError('simulated thread launch failure')
+            return real_start(thread)
+
+        return patch.object(Thread, 'start', start)
+
+    def test_failed_notes_start_cannot_save_an_abandoned_draft_on_another_project(self):
+        from smartsvg_core.project_archive import load_project
+
+        with tempfile.TemporaryDirectory() as directory:
+            left, right = Path(directory) / 'a', Path(directory) / 'b'
+            left.mkdir()
+            right.mkdir()
+            first, _ = create_atelier_project(left)
+            second, _ = create_atelier_project(right)
+            original = first.read_bytes()
+
+            def scenario(root, state):
+                def receive_read():
+                    state.jobs.futures[-1].result(timeout=15)
+                    root.pending.pop(0)()
+
+                receive_read()
+                state.notes.editor.insert('1.0', 'Brouillon abandonné')
+                launch_raised = False
+                with self.failed_thread_start('smartsvg-notes'):
+                    try:
+                        state.notes.save()
+                    except RuntimeError:
+                        launch_raised = True  # Exercise the retry on the baseline, too.
+                self.assertIsNone(state.notes.future)
+                self.assertEqual(state.notes.editor.get(), 'Brouillon abandonné')
+                root.events['<Control-o>'](None)
+                receive_read()
+                state.notes.editor.insert('1.0', 'Notes du second projet')
+                state.notes.save()
+                state.notes.future.result(timeout=15)
+                self.assertEqual(first.read_bytes(), original)
+                self.assertEqual(load_project(second).document['notes'], 'Notes du second projet')
+                self.assertFalse(launch_raised)
+                root.pending.pop(0)()
+                receive_read()
+
+            self.run_desktop(scenario, first_project=str(first), chosen=str(second),
+                             discard_notes=lambda **_kwargs: True)
+
+    @unittest.skipUnless(importlib.util.find_spec('numpy') and importlib.util.find_spec('PIL'),
+                         'Real desktop history requires NumPy/Pillow')
+    def test_failed_history_start_cannot_undo_another_project_later(self):
+        from smartsvg_core.project_archive import load_project
+
+        with tempfile.TemporaryDirectory() as directory:
+            left, right = Path(directory) / 'a', Path(directory) / 'b'
+            left.mkdir()
+            right.mkdir()
+            first, first_subject, _ = self.seed_history_project(left)
+            second, second_subject, _ = self.seed_history_project(right)
+            original = first.read_bytes()
+
+            def scenario(root, state):
+                def select_subject(subject):
+                    state.jobs.futures[-1].result(timeout=15)
+                    root.pending.pop(0)()
+                    state.atelier.selection.set(subject)
+                    state.atelier.render()
+
+                panel = state.atelier
+                panel.parent.after = root.after
+                panel._confirm_history_fn = lambda *_args: True
+                select_subject(first_subject)
+                with self.failed_thread_start('smartsvg-history'):
+                    self.assertFalse(panel.undo_brush())
+                self.assertFalse(panel.busy)
+                root.events['<Control-o>'](None)
+                select_subject(second_subject)
+                self.assertTrue(panel.undo_brush())
+                panel._history_future.result(timeout=15)
+                self.assertEqual(first.read_bytes(), original)
+                self.assertNotIn('editor_v216', load_project(second).document)
+                root.pending.pop(0)()
+                select_subject(second_subject)
+
+            self.run_desktop(scenario, first_project=str(first), chosen=str(second))
+
+    def test_failed_recovery_start_cannot_restore_another_project_later(self):
+        from smartsvg_core.project_archive import save_project
+        from test_v34_native_preview_jobs import fixture_module
+
+        with tempfile.TemporaryDirectory() as directory:
+            left, right = Path(directory) / 'a', Path(directory) / 'b'
+            left.mkdir()
+            right.mkdir()
+            first, second = (folder / 'project-test.smartsvg' for folder in (left, right))
+            for target in (first, second):
+                save_project(target.with_suffix('.previous.smartsvg'), fixture_module.fixture())
+
+            def scenario(root, state):
+                def receive_read():
+                    state.jobs.futures[-1].result(timeout=15)
+                    root.pending.pop(0)()
+
+                receive_read()
+                with self.failed_thread_start('smartsvg-recovery'):
+                    state.recovery.start()
+                self.assertIsNone(state.recovery.future)
+                self.assertFalse(first.exists())
+                root.events['<Control-o>'](None)
+                receive_read()
+                state.recovery.start()
+                state.recovery.future.result(timeout=15)
+                self.assertFalse(first.exists())
+                self.assertEqual(second.read_bytes(),
+                                 second.with_suffix('.previous.smartsvg').read_bytes())
+                root.pending.pop(0)()
+                receive_read()
+
+            self.run_desktop(scenario, first_project=str(first), chosen=str(second),
+                             discard_notes=lambda **_kwargs: True)
+
     def run_desktop(self, scenario, *, first_project=None, chosen='', source_choice='', output_choice='', discard_notes=lambda **_: False):
         import standalone_desktop_v34 as desktop
         from native_app_shell_v34 import NativeAppShell
@@ -141,7 +274,7 @@ class DesktopShellIntegrationTests(unittest.TestCase):
         LayoutWidget.all_widgets = []
         captured = SimpleNamespace(
             shell=None, jobs=None, template=None, creator=None, notes=None,
-            atelier=None, theme=None, lifecycle=[])
+            atelier=None, recovery=None, theme=None, lifecycle=[])
         class Root(LayoutWidget):
             def __init__(self):
                 super().__init__()
@@ -193,6 +326,10 @@ class DesktopShellIntegrationTests(unittest.TestCase):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
                 captured.atelier = self
+        class Recovery(desktop.NativeRecoveryPanel):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                captured.recovery = self
         class Photo:
             def __init__(self, **kwargs): self.data = kwargs.get('data')
             def subsample(self, _factor): return self
@@ -214,6 +351,7 @@ class DesktopShellIntegrationTests(unittest.TestCase):
              patch.object(desktop, 'LatestOnlyJob', Jobs), \
              patch.object(desktop, 'TemplatePreviewContent', Template), \
              patch.object(desktop, 'NativeAtelierPanel', Atelier), \
+             patch.object(desktop, 'NativeRecoveryPanel', Recovery), \
              patch.object(desktop, 'NativeNotesPanel', Notes), \
              patch.object(desktop, 'NativeCreateDialog', Creator):
             self.assertEqual(desktop._start_gui(first_project), 0)
@@ -335,6 +473,580 @@ class DesktopShellIntegrationTests(unittest.TestCase):
                            if 'textvariable' in widget.options]
                 self.assertTrue(any(str(value).startswith('Projet créé, enregistré et relu') for value in notices))
             self.run_desktop(scenario, source_choice=str(source), output_choice=directory)
+
+    def test_creation_waits_until_initial_project_inspection_is_applied(self):
+        from test_v34_native_preview_jobs import fixture_module
+
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            source = Path(directory) / 'nouveau.png'
+            source.write_bytes(fixture_module.png())
+
+            def scenario(root, state):
+                # The read can be finished in its worker, but its Tk callback
+                # has not yet installed the project and notes revision.
+                state.jobs.futures[0].result(timeout=15)
+                root.events['<Control-n>'](None)
+                creator = state.creator
+                creator.choose_source()
+                creator.choose_output()
+                creator.start()
+                premature = creator.future
+                if premature is not None:
+                    premature.result(timeout=15)
+                self.assertIsNone(premature)
+                self.assertFalse(creator.busy)
+                self.assertIn('vérification', creator.status.get().lower())
+
+                root.pending.pop(0)()
+                creator.start()
+                self.assertTrue(creator.busy)
+                creator.future.result(timeout=15)
+                root.pending.pop(0)()
+                state.jobs.futures[-1].result(timeout=15)
+                root.pending.pop(0)()
+                self.assertEqual(state.notes.revision.path.name, 'nouveau.smartsvg')
+
+            self.run_desktop(scenario, first_project=str(path),
+                             source_choice=str(source), output_choice=directory)
+
+    def test_creation_form_changed_during_brush_confirmation_keeps_draft(self):
+        from test_v34_native_preview_jobs import fixture_module
+
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            source = Path(directory) / 'nouveau.png'
+            source.write_bytes(fixture_module.png())
+            active = {}
+
+            def change_name(**_kwargs):
+                active['creator'].name.set('nouveau-nom')
+                return True
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                panel = SimpleNamespace(has_draft=True,
+                    draft_checkpoint=lambda: ('unchanged',), shutdown=lambda: None)
+                dialog = SimpleNamespace(lift=lambda: None, destroy=lambda: None)
+                state.atelier._brush_panel, state.atelier._brush_dialog = panel, dialog
+                state.atelier._brush_key = (str(path), state.atelier.snapshot.sha256,
+                                            state.atelier.selection.get())
+                root.events['<Control-n>'](None)
+                creator = state.creator
+                active['creator'] = creator
+                creator.choose_source()
+                creator.choose_output()
+                creator.start()
+                premature = creator.future
+                if premature is not None:
+                    premature.result(timeout=15)
+                self.assertIsNone(premature)
+                self.assertIs(state.atelier._brush_panel, panel)
+                self.assertEqual(creator.name.get(), 'nouveau-nom')
+                self.assertFalse(list((Path(directory) / 'SmartSVG_Managed_Projects')
+                                      .glob('nouveau*.smartsvg')))
+
+            self.run_desktop(scenario, first_project=str(path),
+                             source_choice=str(source), output_choice=directory,
+                             discard_notes=change_name)
+
+    def test_replaced_creation_dialog_keeps_existing_brush_draft(self):
+        from test_v34_native_preview_jobs import fixture_module
+
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            before = path.read_bytes()
+            source = Path(directory) / 'nouveau.png'
+            source.write_bytes(fixture_module.png())
+            active = {}
+
+            def replace_creator(**_kwargs):
+                active['creator'].close()
+                active['root'].events['<Control-n>'](None)
+                return True
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                panel = SimpleNamespace(has_draft=True,
+                    draft_checkpoint=lambda: ('unchanged',), shutdown=lambda: None)
+                dialog = SimpleNamespace(lift=lambda: None, destroy=lambda: None)
+                state.atelier._brush_panel, state.atelier._brush_dialog = panel, dialog
+                state.atelier._brush_key = (str(path), state.atelier.snapshot.sha256,
+                                            state.atelier.selection.get())
+                root.events['<Control-n>'](None)
+                creator = state.creator
+                active.update(root=root, creator=creator)
+                creator.choose_source()
+                creator.choose_output()
+                creator.start()
+                # An unfixed implementation may have launched a writer on
+                # the destroyed dialog; let it finish before temp cleanup.
+                if creator.future is not None:
+                    creator.future.result(timeout=15)
+                self.assertFalse(creator.window.winfo_exists())
+                self.assertIsNot(state.creator, creator)
+                self.assertIs(state.atelier._brush_panel, panel)
+                self.assertIsNone(creator.future)
+                self.assertFalse((Path(directory) /
+                    'SmartSVG_Managed_Projects/nouveau.smartsvg').exists())
+                self.assertEqual(path.read_bytes(), before)
+
+            self.run_desktop(scenario, first_project=str(path),
+                             source_choice=str(source), output_choice=directory,
+                             discard_notes=replace_creator)
+
+    def test_new_project_does_not_displace_notes_edited_during_creation(self):
+        from test_v34_native_preview_jobs import fixture_module
+
+        for try_save in (False, True):
+            with self.subTest(try_save=try_save), tempfile.TemporaryDirectory() as directory:
+                path, _ = create_atelier_project(directory)
+                before = path.read_bytes()
+                source = Path(directory) / 'nouveau.png'
+                source.write_bytes(fixture_module.png())
+
+                def scenario(root, state):
+                    state.jobs.futures[0].result(timeout=15)
+                    root.pending.pop(0)()
+                    root.events['<Control-n>'](None)
+                    state.creator.choose_source()
+                    state.creator.choose_output()
+                    state.creator.start()
+                    self.assertTrue(state.creator.busy)
+                    # Model a callback already queued before the creation
+                    # dialog's grab, rather than ordinary pointer typing.
+                    state.notes.editor.insert('1.0', 'Note arrivée pendant la création')
+                    if try_save:
+                        state.notes.save()
+                        self.assertIsNone(state.notes.future)
+                    state.creator.future.result(timeout=15)
+                    root.pending.pop(0)()
+                    destination = Path(directory) / 'SmartSVG_Managed_Projects/nouveau.smartsvg'
+                    self.assertTrue(destination.exists())
+                    self.assertEqual(state.notes.editor.get(), 'Note arrivée pendant la création')
+                    self.assertEqual(state.notes.revision.path, path)
+                    self.assertEqual(len(state.jobs.futures), 1)
+                    self.assertEqual(path.read_bytes(), before)
+
+                self.run_desktop(scenario, first_project=str(path),
+                                 source_choice=str(source), output_choice=directory)
+
+    def test_f5_keeps_notes_changed_during_discard_confirmation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            before = path.read_bytes()
+            current_notes = {}
+
+            def confirm_after_edit(**_kwargs):
+                editor = current_notes['panel'].editor
+                editor.delete('1.0', 'end')
+                editor.insert('1.0', 'Note modifiée pendant le dialogue')
+                return True
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                current_notes['panel'] = state.notes
+                state.notes.editor.insert('1.0', 'Première note')
+                root.events['<F5>'](None)
+                self.assertEqual(state.notes.editor.get(), 'Note modifiée pendant le dialogue')
+                self.assertEqual(len(state.jobs.futures), 1)
+                self.assertEqual(path.read_bytes(), before)
+                root.protocols['WM_DELETE_WINDOW']()
+
+            self.run_desktop(scenario, first_project=str(path),
+                             discard_notes=confirm_after_edit)
+
+    def test_project_changes_preserve_notes_edited_during_brush_confirmation(self):
+        from test_v34_native_preview_jobs import fixture_module
+
+        for action in ('f5', 'switch', 'close', 'create'):
+            for initial_note in ('', 'Note initiale à abandonner'):
+                with self.subTest(action=action, initial_note=initial_note), \
+                        tempfile.TemporaryDirectory() as directory:
+                    path, _ = create_atelier_project(directory)
+                    before = path.read_bytes()
+                    source = Path(directory) / 'nouveau.png'
+                    source.write_bytes(fixture_module.png())
+                    notes = {}
+                    prompts = []
+
+                    def confirm(**kwargs):
+                        prompts.append(kwargs)
+                        # The first prompt belongs to the notes only when they
+                        # were already dirty. Change the text in the *second*
+                        # modal, after the earlier note decision has returned.
+                        if not initial_note or len(prompts) == 2:
+                            notes['panel'].editor.delete('1.0', 'end')
+                            notes['panel'].editor.insert('1.0', 'Nouvelle note à conserver')
+                        return True
+
+                    def scenario(root, state):
+                        state.jobs.futures[0].result(timeout=15)
+                        root.pending.pop(0)()
+                        notes['panel'] = state.notes
+                        if initial_note:
+                            state.notes.editor.insert('1.0', initial_note)
+                        panel = SimpleNamespace(
+                            has_draft=True, draft_checkpoint=lambda: ('unchanged',),
+                            shutdown=lambda: None)
+                        dialog = SimpleNamespace(lift=lambda: None, destroy=lambda: None)
+                        state.atelier._brush_panel = panel
+                        state.atelier._brush_dialog = dialog
+                        state.atelier._brush_key = (str(path), state.atelier.snapshot.sha256,
+                                                    state.atelier.selection.get())
+                        if action == 'f5':
+                            root.events['<F5>'](None)
+                        elif action == 'switch':
+                            root.events['<Control-o>'](None)
+                        elif action == 'close':
+                            root.protocols['WM_DELETE_WINDOW']()
+                        else:
+                            root.events['<Control-n>'](None)
+                            state.creator.choose_source()
+                            state.creator.choose_output()
+                            state.creator.start()
+                            self.assertIsNone(state.creator.future)
+                            self.assertFalse(state.creator.busy)
+                            self.assertFalse((Path(directory) /
+                                'SmartSVG_Managed_Projects/nouveau.smartsvg').exists())
+                        self.assertEqual(state.notes.editor.get(), 'Nouvelle note à conserver')
+                        self.assertIs(state.atelier._brush_panel, panel)
+                        self.assertEqual(len(state.jobs.futures), 1)
+                        self.assertTrue(root.exists)
+                        self.assertEqual(path.read_bytes(), before)
+
+                    self.run_desktop(scenario, first_project=str(path),
+                                     chosen=str(Path(directory) / 'other.smartsvg'),
+                                     source_choice=str(source), output_choice=directory,
+                                     discard_notes=confirm)
+
+    def test_f5_preserves_brush_draft_when_discard_is_declined(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            before = path.read_bytes()
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                atelier = state.atelier
+                panel = SimpleNamespace(has_draft=True, draft_checkpoint=lambda: ('unchanged',),
+                                        shutdown=lambda: None)
+                dialog = SimpleNamespace(lift=lambda: None, destroy=lambda: None)
+                atelier._brush_panel, atelier._brush_dialog = panel, dialog
+                subject = atelier.selection.get()
+                atelier._brush_key = (str(path), atelier.snapshot.sha256, subject)
+                root.events['<F5>'](None)
+                self.assertEqual(len(state.jobs.futures), 1)
+                self.assertEqual(atelier.selection.get(), subject)
+                self.assertIs(atelier._brush_panel, panel)
+                self.assertEqual(path.read_bytes(), before)
+
+            self.run_desktop(scenario, first_project=str(path))
+
+    def test_notes_wait_for_brush_draft_and_preserve_both_edits(self):
+        from smartsvg_core.project_archive import load_project
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            before = path.read_bytes()
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                atelier = state.atelier
+                closed = []
+                panel = SimpleNamespace(has_draft=True, draft_checkpoint=lambda: ('unchanged',),
+                                        shutdown=lambda: closed.append('panel'))
+                dialog = SimpleNamespace(lift=lambda: None, destroy=lambda: closed.append('window'))
+                atelier._brush_panel, atelier._brush_dialog = panel, dialog
+                atelier._brush_key = (str(path), atelier.snapshot.sha256, atelier.selection.get())
+                state.notes.editor.insert('1.0', 'Notes à conserver')
+
+                state.notes.save()
+                self.assertIsNone(state.notes.future)
+                self.assertIs(atelier._brush_panel, panel)
+                self.assertEqual(state.notes.editor.get(), 'Notes à conserver')
+                self.assertIn('retouche', state.notes.status.get().lower())
+                self.assertEqual(path.read_bytes(), before)
+                self.assertEqual(closed, [])
+
+                # Explicitly abandoning the brush then permits the notes write.
+                self.assertTrue(atelier._request_close_brush())
+                state.notes.save()
+                state.notes.future.result(timeout=15)
+                root.pending.pop(0)()
+                self.assertEqual(load_project(path).document['notes'], 'Notes à conserver')
+                self.assertEqual(closed, ['panel', 'window'])
+                # Let the host's asynchronous post-save inspection release
+                # its archive handle before the temporary directory is removed.
+                state.jobs.futures[-1].result(timeout=15)
+                root.pending.pop(0)()
+
+            self.run_desktop(scenario, first_project=str(path), discard_notes=lambda **_: True)
+
+    def test_recovery_cannot_start_while_a_brush_draft_is_open(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            before = path.read_bytes()
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                brush = SimpleNamespace(has_draft=True,
+                                        draft_checkpoint=lambda: ('unchanged',), shutdown=Mock())
+                dialog = SimpleNamespace(lift=Mock(), destroy=Mock())
+                state.atelier._brush_panel, state.atelier._brush_dialog = brush, dialog
+                apply = Mock(return_value={'status': 'restored_from_previous',
+                                           'project_id': path.stem})
+                plan = SimpleNamespace(outcome='restored_from_previous',
+                                       pending_sha256='missing', previous_sha256='a' * 64,
+                                       project_id=path.stem, apply=apply)
+                state.recovery.load(plan)
+                state.recovery.start()
+                self.assertIsNone(state.recovery.future)
+                apply.assert_not_called()
+                self.assertIn('retouche', state.recovery.status.get().lower())
+                self.assertIs(state.atelier._brush_panel, brush)
+                self.assertEqual(path.read_bytes(), before)
+                self.assertTrue(state.atelier._request_close_brush())
+                brush.shutdown.assert_called_once()
+                state.recovery.start()
+                self.assertIsNotNone(state.recovery.future)
+                state.recovery.future.result(timeout=15)
+                state.recovery.receive()
+                apply.assert_called_once_with(confirmed=True)
+                state.jobs.futures[-1].result(timeout=15)
+                while root.pending:
+                    root.pending.pop(0)()
+                root.protocols['WM_DELETE_WINDOW']()
+
+            self.run_desktop(scenario, first_project=str(path),
+                             discard_notes=lambda **_: True)
+
+    def test_notes_typed_during_recovery_survive_its_refresh(self):
+        from threading import Event
+        from smartsvg_core.project_archive import load_project
+        from smartsvg_core.project_workspace_g22 import WorkspaceError, save_project_notes
+
+        for external_notes in (None, 'Notes restaurées ailleurs'):
+            with self.subTest(external_notes=external_notes), tempfile.TemporaryDirectory() as directory:
+                path, _ = create_atelier_project(directory)
+                release = Event()
+
+                def scenario(root, state):
+                    state.jobs.futures[0].result(timeout=15)
+                    root.pending.pop(0)()
+                    initial_sha = state.notes.revision.sha256
+
+                    def apply(*, confirmed):
+                        self.assertIs(confirmed, True)
+                        self.assertTrue(release.wait(timeout=15))
+                        if external_notes is not None:
+                            save_project_notes(path, path.stem, notes=external_notes,
+                                               expected_sha256=initial_sha)
+                        return {'status': 'restored_from_previous', 'project_id': path.stem}
+
+                    plan = SimpleNamespace(outcome='restored_from_previous',
+                                           pending_sha256='missing', previous_sha256='a' * 64,
+                                           project_id=path.stem, apply=apply)
+                    state.recovery.load(plan)
+                    state.recovery.start()
+                    self.assertIsNotNone(state.recovery.future)
+                    state.notes.editor.insert('1.0', 'Note saisie pendant la récupération')
+                    release.set()
+                    state.recovery.future.result(timeout=15)
+                    state.recovery.receive()
+                    self.assertEqual(state.notes.editor.get(), 'Note saisie pendant la récupération')
+                    # Reinspection is asynchronous: a later edit must survive it too.
+                    state.notes.editor.delete('1.0', 'end')
+                    state.notes.editor.insert('1.0', 'Note modifiée pendant la relecture')
+                    state.jobs.futures[-1].result(timeout=15)
+                    while root.pending:
+                        root.pending.pop(0)()
+                    self.assertEqual(state.notes.editor.get(), 'Note modifiée pendant la relecture')
+                    if external_notes is None:
+                        state.notes.save()
+                        state.notes.future.result(timeout=15)
+                        root.pending.pop(0)()
+                        state.jobs.futures[-1].result(timeout=15)
+                        root.pending.pop(0)()
+                        self.assertEqual(load_project(path).document['notes'],
+                                         'Note modifiée pendant la relecture')
+                    else:
+                        self.assertEqual(load_project(path).document['notes'], external_notes)
+                        self.assertIn('non synchronisée', state.notes.status.get())
+                        state.notes.save()
+                        with self.assertRaises(WorkspaceError) as failure:
+                            state.notes.future.result(timeout=15)
+                        self.assertEqual(failure.exception.code, 'PROJECT_CHANGED')
+                        root.pending.pop(0)()
+                        self.assertEqual(state.notes.editor.get(), 'Note modifiée pendant la relecture')
+                        self.assertEqual(load_project(path).document['notes'], external_notes)
+                    root.protocols['WM_DELETE_WINDOW']()
+
+                self.run_desktop(scenario, first_project=str(path),
+                                 discard_notes=lambda **_: True)
+
+    def test_notes_survive_failed_reinspection_after_recovery(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                plan = SimpleNamespace(
+                    outcome='restored_from_previous', pending_sha256='missing',
+                    previous_sha256='a' * 64, project_id=path.stem,
+                    apply=lambda **_kw: {'status': 'restored_from_previous',
+                                         'project_id': path.stem})
+                state.recovery.load(plan)
+                state.recovery.start()
+                state.notes.editor.insert('1.0', 'Brouillon à conserver')
+                state.recovery.future.result(timeout=15)
+                def failed_read(_path):
+                    raise OSError('synthetic read failure')
+                state.jobs._read = failed_read
+                state.recovery.receive()
+                with self.assertRaises(OSError):
+                    state.jobs.futures[-1].result(timeout=15)
+                while root.pending:
+                    root.pending.pop(0)()
+                self.assertEqual(state.notes.editor.get(), 'Brouillon à conserver')
+                self.assertIsNotNone(state.notes.revision)
+                root.protocols['WM_DELETE_WINDOW']()
+
+            self.run_desktop(scenario, first_project=str(path),
+                             discard_notes=lambda **_: True)
+
+    def test_new_project_creation_asks_before_discarding_brush_draft(self):
+        from test_v34_native_preview_jobs import fixture_module
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            before = path.read_bytes()
+            source = Path(directory) / 'nouveau.png'
+            source.write_bytes(fixture_module.png())
+            choices = iter((False, True))
+            prompts = []
+
+            def choose(**kwargs):
+                prompts.append(kwargs)
+                return next(choices)
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                atelier = state.atelier
+                closed = []
+                panel = SimpleNamespace(has_draft=True, draft_checkpoint=lambda: ('unchanged',),
+                                        shutdown=lambda: closed.append('panel'))
+                dialog = SimpleNamespace(lift=lambda: None, destroy=lambda: closed.append('window'))
+                atelier._brush_panel, atelier._brush_dialog = panel, dialog
+                atelier._brush_key = (str(path), atelier.snapshot.sha256, atelier.selection.get())
+                root.events['<Control-n>'](None)
+                creator = state.creator
+                creator.choose_source()
+                creator.choose_output()
+                creator.start()
+                destination = Path(directory) / 'SmartSVG_Managed_Projects/nouveau.smartsvg'
+                self.assertIsNone(creator.future)
+                self.assertFalse(destination.exists())
+                self.assertIs(atelier._brush_panel, panel)
+                self.assertEqual(path.read_bytes(), before)
+                self.assertEqual(closed, [])
+
+                creator.start()
+                self.assertTrue(creator.busy)
+                creator.future.result(timeout=15)
+                root.pending.pop(0)()
+                self.assertTrue(destination.exists())
+                self.assertEqual(closed, ['panel', 'window'])
+                self.assertEqual(path.read_bytes(), before)
+                self.assertEqual(len(prompts), 2)
+                state.jobs.futures[-1].result(timeout=15)
+                root.pending.pop(0)()
+
+            self.run_desktop(scenario, first_project=str(path), source_choice=str(source),
+                             output_choice=directory, discard_notes=choose)
+
+    def test_brush_cannot_open_while_notes_write_is_in_flight(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                state.notes.editor.insert('1.0', 'Notes en cours')
+                state.notes.save()
+                self.assertTrue(state.notes.busy)
+                atelier = state.atelier
+                # A usable brush implementation must not be instantiated against
+                # the revision that the notes writer is about to replace.
+                with patch.object(atelier, '_brush_class', side_effect=AssertionError('stale brush opened')):
+                    self.assertFalse(atelier.open_brush())
+                self.assertIsNone(atelier._brush_dialog)
+                state.notes.future.result(timeout=15)
+                root.pending.pop(0)()
+                state.jobs.futures[-1].result(timeout=15)
+                root.pending.pop(0)()
+
+            self.run_desktop(scenario, first_project=str(path))
+
+    def test_empty_brush_window_blocks_notes_write_until_it_is_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            before = path.read_bytes()
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                atelier = state.atelier
+                panel = SimpleNamespace(has_draft=False, shutdown=lambda: None)
+                dialog = SimpleNamespace(lift=lambda: None, destroy=lambda: None)
+                atelier._brush_panel, atelier._brush_dialog = panel, dialog
+                state.notes.editor.insert('1.0', 'Notes conservées')
+                state.notes.save()
+                self.assertIsNone(state.notes.future)
+                self.assertIs(atelier._brush_panel, panel)
+                self.assertEqual(state.notes.editor.get(), 'Notes conservées')
+                self.assertEqual(path.read_bytes(), before)
+
+            self.run_desktop(scenario, first_project=str(path))
+
+    def test_creation_closes_empty_brush_before_starting_writer(self):
+        from test_v34_native_preview_jobs import fixture_module
+        with tempfile.TemporaryDirectory() as directory:
+            path, _ = create_atelier_project(directory)
+            source = Path(directory) / 'nouveau.png'
+            source.write_bytes(fixture_module.png())
+
+            def scenario(root, state):
+                state.jobs.futures[0].result(timeout=15)
+                root.pending.pop(0)()
+                atelier = state.atelier
+                closed = []
+                atelier._brush_panel = SimpleNamespace(
+                    has_draft=False, shutdown=lambda: closed.append('panel'))
+                atelier._brush_dialog = SimpleNamespace(
+                    lift=lambda: None, destroy=lambda: closed.append('window'))
+                root.events['<Control-n>'](None)
+                creator = state.creator
+                creator.choose_source()
+                creator.choose_output()
+                creator.start()
+                self.assertTrue(creator.busy)
+                self.assertIsNone(atelier._brush_panel)
+                self.assertEqual(closed, ['panel', 'window'])
+                with patch.object(atelier, '_brush_class', side_effect=AssertionError('brush reopened')):
+                    self.assertFalse(atelier.open_brush())
+                creator.future.result(timeout=15)
+                root.pending.pop(0)()
+                state.jobs.futures[-1].result(timeout=15)
+                root.pending.pop(0)()
+
+            self.run_desktop(scenario, first_project=str(path), source_choice=str(source),
+                             output_choice=directory)
 
     def test_notes_save_twice_preserves_sources_and_rotates_backup(self):
         from hashlib import sha256

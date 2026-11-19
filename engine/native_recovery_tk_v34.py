@@ -1,6 +1,7 @@
 """Explicit, single-flight recovery of the project selected in the desktop."""
 from concurrent.futures import ThreadPoolExecutor
 
+from smartsvg_core.native_write_jobs_v35 import tracked_native_write
 from smartsvg_core.project_recovery import RecoveryError, recovery_message
 
 
@@ -31,7 +32,7 @@ class NativeRecoveryPanel:
         self.plan, self.future, self.confirming = None, None, False
         self._running_plan = None
         self._closed = False
-        self.worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix='smartsvg-recovery')
+        self.worker = None
         self.button = ttk.Button(parent, text='Récupérer le projet', command=self.start)
         self.status = tk.StringVar()
         self.label = ttk.Label(parent, textvariable=self.status, wraplength=620)
@@ -91,14 +92,19 @@ class NativeRecoveryPanel:
         self.button.configure(state='disabled')
         self.status.set('Récupération du projet en cours…')
         try:
-            future = self.worker.submit(plan.apply, confirmed=True)
-        except RuntimeError:
+            if self.worker is None:
+                self.worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix='smartsvg-recovery')
+            with tracked_native_write(self.worker, plan.apply, confirmed=True) as future:
+                self.future = future
+                self._running_plan = plan
+                self.root.after(50, self.receive)
+        except Exception:
+            self.future = self._running_plan = None
+            worker, self.worker = self.worker, None
+            if worker is not None:
+                worker.shutdown(wait=False, cancel_futures=True)
             self.button.configure(state='normal')
             self.status.set('Récupération indisponible. Réexaminez le projet avant un nouvel essai.')
-            return
-        self.future = future
-        self._running_plan = plan
-        self.root.after(50, self.receive)
 
     def receive(self):
         # Tk may still dispatch an already queued callback during teardown.
@@ -132,4 +138,5 @@ class NativeRecoveryPanel:
 
     def shutdown(self):
         self._closed = True
-        self.worker.shutdown(wait=True)
+        if self.worker is not None:
+            self.worker.shutdown(wait=True)

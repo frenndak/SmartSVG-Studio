@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
+from smartsvg_core.native_write_jobs_v35 import tracked_native_write
 from smartsvg_core.project_workspace_g22 import MAX_NOTE_LENGTH, save_project_notes
 
 
@@ -26,7 +27,7 @@ class NativeNotesPanel:
         self.revision = None
         self.future = None
         self.confirming_discard = False
-        self.worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix='smartsvg-notes')
+        self.worker = None
         self.status = tk.StringVar()
         ttk.Label(parent, text=f'Notes du projet · {MAX_NOTE_LENGTH} caractères max.').pack(anchor='w')
         self.editor = tk.Text(parent, height=3, width=40, wrap='word', undo=True,
@@ -90,15 +91,30 @@ class NativeNotesPanel:
             return False
         if self.confirming_discard:
             return False
-        if self.revision is None or self._draft() == self.revision.notes:
+        revision = self.revision
+        if revision is None:
+            return True
+        draft = self._draft()
+        if draft == revision.notes:
             return True
         self.confirming_discard = True
         try:
-            return self.messagebox.askyesno('Notes non enregistrées',
+            confirmed = self.messagebox.askyesno('Notes non enregistrées',
                 'Abandonner les modifications apportées aux notes ?',
                 parent=self.root, default='no')
+        except Exception:
+            return False
         finally:
             self.confirming_discard = False
+        if confirmed is not True:
+            return False
+        try:
+            if self.busy or self.revision != revision or self._draft() != draft:
+                self.status.set('Notes modifiées pendant la confirmation : brouillon conservé.')
+                return False
+        except Exception:
+            return False
+        return True
 
     def save(self):
         if self.busy or self.confirming_discard or self.revision is None:
@@ -110,7 +126,9 @@ class NativeNotesPanel:
             except Exception:
                 allowed = False
             if not allowed:
-                self.status.set('Écriture du projet en cours ou à vérifier. Brouillon conservé.')
+                self.status.set(
+                    'Une retouche ou écriture du projet est en cours ou à vérifier. '
+                    'Terminez-la avant d’enregistrer les notes : les brouillons sont conservés.')
                 return
         draft = self._draft()
         revision = self.revision
@@ -122,11 +140,25 @@ class NativeNotesPanel:
             return
         self._enable(False)
         self.status.set('Enregistrement en cours…')
-        self.future = self.worker.submit(save_project_notes, revision.path, revision.project_id,
-                                         notes=draft, expected_sha256=revision.sha256)
-        self.root.after(50, lambda: self._receive(revision, draft))
+        try:
+            if self.worker is None:
+                self.worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix='smartsvg-notes')
+            with tracked_native_write(
+                    self.worker, save_project_notes, revision.path, revision.project_id,
+                    notes=draft, expected_sha256=revision.sha256) as future:
+                self.future = future
+                self.root.after(50, lambda: self._receive(revision, draft))
+        except Exception:
+            self.future = None
+            worker, self.worker = self.worker, None
+            if worker is not None:
+                worker.shutdown(wait=False, cancel_futures=True)
+            self._enable(True)
+            self.status.set('Enregistrement indisponible. Brouillon conservé ; vous pouvez réessayer.')
 
     def _receive(self, revision, draft):
+        if self.future is None:
+            return
         if not self.future.done():
             self.root.after(50, lambda: self._receive(revision, draft))
             return
@@ -153,4 +185,5 @@ class NativeNotesPanel:
             self.on_saved(self.revision)
 
     def shutdown(self):
-        self.worker.shutdown(wait=True)
+        if self.worker is not None:
+            self.worker.shutdown(wait=True)

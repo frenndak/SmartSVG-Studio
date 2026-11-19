@@ -10,6 +10,7 @@ import re
 import unicodedata
 
 from smartsvg_core.native_project_create_v34 import create_native_project, NativeCreateError
+from smartsvg_core.native_write_jobs_v35 import tracked_native_write
 from smartsvg_core.project_workspace_g22 import PROFILES
 
 
@@ -113,21 +114,35 @@ class NativeCreateDialog:
             title='Dossier qui contiendra vos projets', mustexist=True)
         if chosen: self.output.set(chosen)
 
+    def form_checkpoint(self):
+        return tuple(field.get() for field in (
+            self.source, self.output, self.name, self.profile, self.width, self.dpi))
+
     def start(self):
         if self.busy: return
-        if not self.source.get() or not self.output.get():
+        form = self.form_checkpoint()
+        source, output, name, profile, raw_width, raw_dpi = form
+        if not source or not output:
             self.status.set('Choisir un PNG et un dossier de projets avant de continuer.')
             return
         try:
-            width = self.width.get().strip().replace(',', '.')
-            if len(width) > 64 or self.dpi.get() not in ('300', '450'):
+            width = raw_width.strip().replace(',', '.')
+            if len(width) > 64 or raw_dpi not in ('300', '450'):
                 raise ValueError('invalid dimensions')
-            args = dict(source_path=self.source.get(), output_root=self.output.get(),
-                name=self.name.get(), profile=self.profile.get(), width_mm=width, dpi=int(self.dpi.get()))
+            args = dict(source_path=source, output_root=output,
+                name=name, profile=profile, width_mm=width, dpi=int(raw_dpi))
         except (ValueError, TypeError):
             self.status.set('Vérifier la largeur en mm et la résolution (300 ou 450 DPI).')
             return
         if self.can_create is not None and not self.can_create():
+            return
+        try:
+            if not self.window.winfo_exists():
+                return
+            if self.form_checkpoint() != form:
+                self.status.set('Formulaire modifié : vérifiez les choix avant de réessayer.')
+                return
+        except self._tcl_error:
             return
         self.window.grab_set()
         self.busy = True
@@ -136,11 +151,15 @@ class NativeCreateDialog:
         try:
             if self.executor is None:
                 self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='smartsvg-create')
-            self.future = self.executor.submit(create_native_project, **args)
-        except RuntimeError:
+            with tracked_native_write(self.executor, create_native_project, **args) as future:
+                self.future = future
+                self.root.after(50, self._receive)
+        except Exception:
+            self.future = None
+            if self.executor is not None:
+                self.executor.shutdown(wait=False, cancel_futures=True)
+                self.executor = None
             self._error(None)
-            return
-        self.root.after(50, self._receive)
 
     def _error(self, error):
         self.window.grab_release()
@@ -164,7 +183,7 @@ class NativeCreateDialog:
         self.status.set(message)
 
     def _receive(self):
-        if not self.window.winfo_exists(): return
+        if self.future is None or not self.window.winfo_exists(): return
         if not self.future.done():
             self.root.after(50, self._receive)
             return

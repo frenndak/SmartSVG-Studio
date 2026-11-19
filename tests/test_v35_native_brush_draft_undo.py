@@ -178,6 +178,7 @@ class BrushDraftUndoTests(unittest.TestCase):
         for attribute in ("_save_pending", "_closed"):
             with self.subTest(attribute=attribute):
                 panel = self.make_panel()
+                panel._drag_active = True
                 setattr(panel, attribute, True)
                 before = [point[:] for point in panel._points]
                 self.assertIsNone(panel._discard_draft_key())
@@ -185,6 +186,15 @@ class BrushDraftUndoTests(unittest.TestCase):
                 self.assertEqual(panel._token, 7)
                 self.assertEqual(panel._draw_calls, 0)
                 self.assertEqual(panel._control_calls, 0)
+
+    def test_escape_after_mouse_release_keeps_the_completed_gesture(self):
+        panel = self.make_panel()
+        panel._drag_active = False
+        before = [point[:] for point in panel._points]
+
+        self.assertIsNone(panel._discard_draft_key())
+        self.assertEqual(panel._points, before)
+        self.assertEqual(panel._token, 7)
 
     def test_discard_returns_success_only_when_permitted(self):
         panel = self.make_panel()
@@ -195,6 +205,7 @@ class BrushDraftUndoTests(unittest.TestCase):
 
     def test_escape_discards_only_the_local_draft_and_consumes_the_key(self):
         panel = self.make_panel()
+        panel._drag_active = True
         panel._redo_points = [[0.5, 0.6]]
         panel._result_images = {"after": object()}
 
@@ -208,6 +219,24 @@ class BrushDraftUndoTests(unittest.TestCase):
         self.assertEqual(panel._token, 8)
         self.assertEqual(panel._draw_calls, 1)
         self.assertEqual(panel._control_calls, 1)
+
+    def test_escape_keeps_earlier_zones_and_zone_redo(self):
+        panel = self.make_panel()
+        panel._drag_active = True
+        first = {"mode": "add", "radius": 0.05, "points": [[0.2, 0.3]]}
+        undone = {"mode": "erase", "radius": 0.02, "points": [[0.5, 0.6]]}
+        panel._strokes = [first]
+        panel._redo_strokes = [undone]
+        panel._redo_points = [[0.5, 0.6]]
+        panel._result_images = {"after": object()}
+
+        self.assertEqual(panel._discard_draft_key(), "break")
+        self.assertEqual(panel._strokes, [first])
+        self.assertEqual(panel._redo_strokes, [undone])
+        self.assertEqual(panel._points, [])
+        self.assertEqual(panel._redo_points, [])
+        self.assertIsNone(panel._result_images)
+        self.assertIsNone(panel._verified_save_request)
 
 
 class BrushDraftUndoTkTests(unittest.TestCase):
@@ -274,6 +303,11 @@ class BrushDraftUndoTkTests(unittest.TestCase):
         self.assertEqual(panel._points, [[0.1, 0.2], [0.3, 0.4]])
         self.assertEqual(str(panel.redo_button.cget("state")), "disabled")
 
+        panel.canvas.event_generate("<Escape>")
+        root.update()
+
+        self.assertEqual(panel._points, [[0.1, 0.2], [0.3, 0.4]])
+        panel._drag_active = True
         panel.canvas.event_generate("<Escape>")
         root.update()
 

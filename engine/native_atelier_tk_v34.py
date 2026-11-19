@@ -10,6 +10,7 @@ from uuid import uuid4
 from native_image_viewport_v34 import NativeImageViewport
 from smartsvg_core.native_brush_history_v34 import inspect_native_brush_history
 from smartsvg_core.native_brush_history_command_v34 import change_native_brush_history
+from smartsvg_core.native_write_jobs_v35 import tracked_native_write
 from smartsvg_core.source_preview_v34 import MAX_ENCODED_BYTES
 
 
@@ -108,12 +109,12 @@ class NativeAtelierPanel:
         self._history_generation = 0
         # One outstanding confirmed command, using the existing writer only.
         # Unlike read-only previews, a running mutation is never cancelled as stale.
-        self._history_worker = ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix='smartsvg-history')
+        self._history_worker = None
         self.snapshot = None
         self.subjects = {}
         self._project_path = None
         self._brush_dialog = self._brush_panel = self._brush_key = None
+        self._brush_close_confirming = False
         # The G3.3e brush is delivered separately; no duplicated engine.
         try:
             from native_brush_draft_tk_v34 import NativeBrushDraftPanel
@@ -147,7 +148,7 @@ class NativeAtelierPanel:
         self.picker = ttk.Combobox(
             navigation, textvariable=self.selection, state='disabled', width=38)
         self.picker.pack(side='left', fill='x', expand=True)
-        self.picker.bind('<<ComboboxSelected>>', self.render)
+        self.picker.bind('<<ComboboxSelected>>', self._pick_subject)
         # Scoped to the subject picker: do not steal shortcuts from brush editing.
         self.picker.bind('<Alt-Left>', self._previous_subject_key)
         self.picker.bind('<Alt-Right>', self._next_subject_key)
@@ -248,6 +249,12 @@ class NativeAtelierPanel:
     def history_requires_review(self):
         return getattr(self, '_history_needs_review', False)
 
+    @property
+    def has_open_brush(self):
+        """Even an empty panel could receive a gesture during a notes write."""
+        return (getattr(self, '_brush_panel', None) is not None or
+                getattr(self, '_brush_dialog', None) is not None)
+
     def _history_request(self, action):
         if (action not in ('undo', 'redo') or getattr(self, '_closed', False)
                 or self.history_requires_review or self.busy
@@ -339,17 +346,25 @@ class NativeAtelierPanel:
         command = dict(request, command_id='native-history-' + uuid4().hex,
                        confirmed=True)
         try:
-            future = self._history_worker.submit(self._history_change_fn, **command)
-        except RuntimeError:
+            if self._history_worker is None:
+                self._history_worker = ThreadPoolExecutor(
+                    max_workers=1, thread_name_prefix='smartsvg-history')
+            with tracked_native_write(self._history_worker, self._history_change_fn,
+                                      **command) as future:
+                self._history_future = future
+                self._history_pending = (generation, request, command['command_id'])
+                self.parent.after(50, self._receive_history)
+        except Exception:
+            self._history_future = self._history_pending = None
+            worker, self._history_worker = self._history_worker, None
+            if worker is not None:
+                worker.shutdown(wait=False, cancel_futures=True)
             self.history.set('Commande indisponible. Réexaminez le projet (F5).')
             self._update_history_controls()
             return False
-        self._history_future = future
-        self._history_pending = (generation, request, command['command_id'])
         self.history.set('Modification du pinceau en cours…')
         self._update_history_controls()
         self._update_navigation()
-        self.parent.after(50, self._receive_history)
         return True
 
     def _receive_history(self):
@@ -435,8 +450,20 @@ class NativeAtelierPanel:
         index = keys.index(selected) + offset
         if not 0 <= index < len(keys):
             return False
-        self.selection.set(keys[index])
-        # Same render path as the combobox: closes any stale brush preview.
+        return self._select_subject(keys[index])
+
+    def _pick_subject(self, _event=None):
+        return self._select_subject(self.selection.get())
+
+    def _select_subject(self, subject_id):
+        brush_key = getattr(self, '_brush_key', None)
+        if brush_key is not None and subject_id != brush_key[2]:
+            # The picker updates its variable before dispatching the event.
+            # Restore the active target before the modal confirmation.
+            self.selection.set(brush_key[2])
+            if not self._request_close_brush():
+                return False
+        self.selection.set(subject_id)
         self.render()
         return True
 
@@ -506,9 +533,9 @@ class NativeAtelierPanel:
             self.details.set('Métadonnées du sujet incomplètes. Réexaminez le projet (F5).')
             return
         x, y, width, height = bbox
-        info = (f'Sujet {subject.subject_id}\\n'
-                f'Source {subject.source_id} · Masque {subject.mask_id}\\n'
-                f'Zone dans la source : ({x}, {y}), {width} × {height} px\\n'
+        info = (f'Sujet {subject.subject_id}\n'
+                f'Source {subject.source_id} · Masque {subject.mask_id}\n'
+                f'Zone dans la source : ({x}, {y}), {width} × {height} px\n'
                 f'{PROOF_LABELS.get(getattr(subject, "proof_status", None), "Liaison de masque non vérifiée")}. ')
         if preview.status != 'READY_PNG':
             reason = MASK_PREVIEW_ERRORS.get(
@@ -563,6 +590,9 @@ class NativeAtelierPanel:
         """Open a verified V1 Subject draft with an explicit save path."""
         if self._closed or self.busy or self.history_requires_review:
             return False
+        if not self._history_allowed():
+            self.details.set('Terminez l’écriture du projet avant d’ouvrir une retouche.')
+            return False
         request = brush_preview_request(
             self.snapshot, self.subjects.get(self.selection.get()),
             self._project_path)
@@ -573,7 +603,8 @@ class NativeAtelierPanel:
         if self._brush_dialog is not None and self._brush_key == key:
             self._brush_dialog.lift()
             return True
-        self._close_brush()
+        if not self._request_close_brush():
+            return False
         dialog = None
         panel = None
         try:
@@ -597,7 +628,51 @@ class NativeAtelierPanel:
             return False
         self._brush_dialog, self._brush_panel, self._brush_key = dialog, panel, key
         self._update_history_controls()
-        dialog.protocol('WM_DELETE_WINDOW', self._close_brush)
+        dialog.protocol('WM_DELETE_WINDOW', self._request_close_brush)
+        return True
+
+    def can_leave_brush(self):
+        """Ask before discarding work, without closing the active panel."""
+        if getattr(self, '_brush_close_confirming', False):
+            return False
+        panel = getattr(self, '_brush_panel', None)
+        if panel is None or not panel.has_draft:
+            return True
+        from tkinter import messagebox
+
+        try:
+            checkpoint = panel.draft_checkpoint()
+        except Exception:
+            # Without a snapshot the confirmation cannot be tied to the work
+            # that will be discarded, so keep the panel open.
+            return False
+        dialog = self._brush_dialog
+        self._brush_close_confirming = True
+        try:
+            confirmed = messagebox.askyesno(
+                'Retouche non enregistrée',
+                'Abandonner le brouillon du sujet actif ?',
+                detail='Choisissez Non pour revenir à la retouche.',
+                parent=dialog, default='no')
+            if self._brush_panel is not panel:
+                return False
+            if confirmed is True and checkpoint != panel.draft_checkpoint():
+                panel.status.set(
+                    'Brouillon modifié pendant la confirmation : rien n’a été effacé.')
+                dialog.lift()
+                return False
+            if not confirmed:
+                dialog.lift()
+            return confirmed is True
+        except Exception:
+            return False
+        finally:
+            self._brush_close_confirming = False
+
+    def _request_close_brush(self):
+        if not self.can_leave_brush():
+            return False
+        self._close_brush()
         return True
 
     def _close_brush(self):
@@ -622,4 +697,5 @@ class NativeAtelierPanel:
         # A confirmed writer must finish, but closing Tk must not wait for disk I/O.
         # cancel_futures only cancels work that has not started; running work
         # keeps its own request and cannot update a closed panel.
-        self._history_worker.shutdown(wait=False, cancel_futures=True)
+        if self._history_worker is not None:
+            self._history_worker.shutdown(wait=False, cancel_futures=True)
