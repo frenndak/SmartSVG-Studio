@@ -10,6 +10,7 @@ from uuid import uuid4
 from native_image_viewport_v34 import NativeImageViewport
 from smartsvg_core.native_brush_history_v34 import inspect_native_brush_history
 from smartsvg_core.native_brush_history_command_v34 import change_native_brush_history
+from smartsvg_core.native_write_jobs_v35 import tracked_native_write
 from smartsvg_core.source_preview_v34 import MAX_ENCODED_BYTES
 
 
@@ -108,8 +109,7 @@ class NativeAtelierPanel:
         self._history_generation = 0
         # One outstanding confirmed command, using the existing writer only.
         # Unlike read-only previews, a running mutation is never cancelled as stale.
-        self._history_worker = ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix='smartsvg-history')
+        self._history_worker = None
         self.snapshot = None
         self.subjects = {}
         self._project_path = None
@@ -346,17 +346,25 @@ class NativeAtelierPanel:
         command = dict(request, command_id='native-history-' + uuid4().hex,
                        confirmed=True)
         try:
-            future = self._history_worker.submit(self._history_change_fn, **command)
-        except RuntimeError:
+            if self._history_worker is None:
+                self._history_worker = ThreadPoolExecutor(
+                    max_workers=1, thread_name_prefix='smartsvg-history')
+            with tracked_native_write(self._history_worker, self._history_change_fn,
+                                      **command) as future:
+                self._history_future = future
+                self._history_pending = (generation, request, command['command_id'])
+                self.parent.after(50, self._receive_history)
+        except Exception:
+            self._history_future = self._history_pending = None
+            worker, self._history_worker = self._history_worker, None
+            if worker is not None:
+                worker.shutdown(wait=False, cancel_futures=True)
             self.history.set('Commande indisponible. Réexaminez le projet (F5).')
             self._update_history_controls()
             return False
-        self._history_future = future
-        self._history_pending = (generation, request, command['command_id'])
         self.history.set('Modification du pinceau en cours…')
         self._update_history_controls()
         self._update_navigation()
-        self.parent.after(50, self._receive_history)
         return True
 
     def _receive_history(self):
@@ -689,4 +697,5 @@ class NativeAtelierPanel:
         # A confirmed writer must finish, but closing Tk must not wait for disk I/O.
         # cancel_futures only cancels work that has not started; running work
         # keeps its own request and cannot update a closed panel.
-        self._history_worker.shutdown(wait=False, cancel_futures=True)
+        if self._history_worker is not None:
+            self._history_worker.shutdown(wait=False, cancel_futures=True)
