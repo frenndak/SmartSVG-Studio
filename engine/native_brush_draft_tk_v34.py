@@ -35,7 +35,9 @@ _SHA = re.compile(r"^[0-9a-f]{64}$")
 _SUBJECT = re.compile(r"^subject-[0-9a-f]{32}$")
 MAX_GESTURE_POINTS = MAX_DRAFT_POINTS_TOTAL
 MAX_DRAFT_STROKES = 16
-_MODES = {"Ajouter": "add", "Effacer": "erase"}
+_MODES = {"Garder (masque)": "add", "Masquer (masque)": "erase",
+          "Ajouter": "add", "Effacer": "erase"}
+_VISIBLE_MODES = ("Garder (masque)", "Masquer (masque)")
 _RADII = ("0.02", "0.05", "0.10")
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -131,17 +133,17 @@ class NativeBrushDraftPanel:
         self._busy = False
         self._drag_active = False
         self._variant = 'after'
-        self.mode = tk.StringVar(value='Ajouter')
+        self.mode = tk.StringVar(value='Garder (masque)')
         self.radius = tk.StringVar(value='0.05')
         self.status = tk.StringVar(value='Choisissez un sujet float32 vérifié.')
         ttk.Label(parent, text='Retouche · brouillon non enregistré',
                   font=('Segoe UI', 12, 'bold')).pack(anchor='w', pady=(8, 4))
         controls = ttk.Frame(parent)
         controls.pack(fill='x', pady=(0, 4))
-        ttk.Label(controls, text='Pinceau :').pack(side='left')
+        ttk.Label(controls, text='Pinceau sur le masque :').pack(side='left')
         self.mode_picker = ttk.Combobox(
             controls, textvariable=self.mode, state='readonly',
-            values=tuple(_MODES), width=10)
+            values=_VISIBLE_MODES, width=19)
         self.mode_picker.pack(side='left', padx=(4, 8))
         self.mode_picker.bind('<<ComboboxSelected>>', self._parameter_changed)
         ttk.Label(controls, text='Rayon :').pack(side='left')
@@ -153,7 +155,6 @@ class NativeBrushDraftPanel:
         self.canvas = tk.Canvas(
             parent, width=480, height=260, highlightthickness=1,
             takefocus=True)
-        self.canvas.pack(fill='both', expand=True, pady=(4, 6))
         self.canvas.bind('<Configure>', self._draw)
         self.canvas.bind('<ButtonPress-1>', self._press)
         self.canvas.bind('<B1-Motion>', self._drag)
@@ -161,14 +162,21 @@ class NativeBrushDraftPanel:
         self.canvas.bind('<Control-z>', self._undo_draft_key)
         self.canvas.bind('<Control-y>', self._redo_draft_key)
         self.canvas.bind('<Escape>', self._discard_draft_key)
-        actions = ttk.Frame(parent)
+        # Reserve safe actions before allocating the remaining canvas height.
+        footer = ttk.Frame(parent)
+        footer.pack(side='bottom', fill='x')
+        actions = ttk.Frame(footer)
         actions.pack(fill='x')
         preview_actions = ttk.Frame(actions)
         preview_actions.pack(fill='x')
         draft_actions = ttk.Frame(actions)
         draft_actions.pack(fill='x', pady=(4, 0))
+        persist_actions = ttk.Frame(actions)
+        persist_actions.pack(fill='x', pady=(4, 0))
         zone_actions = ttk.Frame(actions)
         zone_actions.pack(fill='x', pady=(4, 0))
+        zone_history = ttk.Frame(actions)
+        zone_history.pack(fill='x', pady=(4, 0))
         self.preview_button = ttk.Button(
             preview_actions, text='Calculer avant/après', command=self.preview)
         self.preview_button.pack(side='left', padx=(0, 4))
@@ -185,24 +193,25 @@ class NativeBrushDraftPanel:
             draft_actions, text='Rétablir le point', command=self.redo_draft_point)
         self.redo_button.pack(side='left', padx=4)
         self.discard_button = ttk.Button(
-            draft_actions, text='Effacer le brouillon', command=self.request_discard)
+            persist_actions, text='Effacer le brouillon', command=self.request_discard)
         self.discard_button.pack(side='left', padx=4)
         self.save_button = ttk.Button(
-            draft_actions, text='Enregistrer…', command=self.save)
+            persist_actions, text='Enregistrer…', command=self.save)
         self.save_button.pack(side='left', padx=4)
         self.add_zone_button = ttk.Button(
             zone_actions, text='Ajouter cette zone', command=self.add_draft_zone)
         self.add_zone_button.pack(side='left', padx=(0, 4))
         self.remove_zone_button = ttk.Button(
-            zone_actions, text='Retirer la derniere zone',
+            zone_history, text='Retirer la zone ajoutée',
             command=self.remove_last_draft_zone)
         self.remove_zone_button.pack(side='left', padx=4)
         self.restore_zone_button = ttk.Button(
-            zone_actions, text='Retablir la zone',
+            zone_history, text='Rétablir la zone ajoutée',
             command=self.restore_last_draft_zone)
         self.restore_zone_button.pack(side='left', padx=4)
-        ttk.Label(parent, textvariable=self.status,
+        ttk.Label(footer, textvariable=self.status,
                   wraplength=530).pack(anchor='w', pady=(5, 0))
+        self.canvas.pack(fill='both', expand=True, pady=(4, 6))
         self._controls()
 
     def _controls(self):
