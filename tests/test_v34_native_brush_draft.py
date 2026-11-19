@@ -3,6 +3,7 @@ from concurrent.futures import Future
 from pathlib import Path
 from threading import Event
 from types import SimpleNamespace
+import gc
 import math
 import struct
 import sys
@@ -70,6 +71,8 @@ class NativeBrushMappingTests(unittest.TestCase):
 
 class NativeBrushDraftTkTests(unittest.TestCase):
     def setUp(self):
+        # Collect orphaned Tk variable cycles on the interpreter owner thread.
+        gc.collect()
         try:
             import tkinter as tk
             from tkinter import ttk
@@ -143,6 +146,32 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.assertIsNone(self.panel._result_images)
         self.assertEqual(self.project.read_bytes(), self.before)
 
+    def test_real_tk_long_gesture_reaches_bounded_group_preview(self):
+        # Exercise actual Tk widgets and their canvas geometry; the preview
+        # callable remains read-only and the archive is a synthetic fixture.
+        self.panel.shutdown()
+        self.panel = NativeBrushDraftPanel(
+            self.root, self.root, self.tk, self.ttk,
+            preview_fn=self._fn, preview_many_fn=self._fn)
+        self.addCleanup(self.panel.shutdown)
+        self.load()
+        left, top, width, height = self.panel._box
+        self.assertGreaterEqual(width, 2)
+        self.assertGreaterEqual(height, 2)
+        self.panel._press(SimpleNamespace(x=left, y=top))
+        for i in range(1, 130):
+            self.panel._drag(SimpleNamespace(
+                x=left + (i % width), y=top + ((i // width) % height)))
+        self.panel._release(None)
+        self.assertEqual(len(self.panel._points), 130)
+        self.assertFalse(self.panel._overflow)
+        self.assertTrue(self.panel.preview())
+        self.receive()
+        request = self.preview_calls[-1]
+        self.assertEqual([len(s['points']) for s in request['strokes']], [64, 64, 4])
+        self.assertIsNotNone(self.panel._result_images)
+        self.assertEqual(self.project.read_bytes(), self.before)
+
     def test_cpu_digest_is_pinned_and_discard_invalidates_save_signature(self):
         self.load()
         self.stroke()
@@ -152,6 +181,41 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.assertEqual(self.panel._verified_save_request[0], 'c' * 64)
         self.panel.discard()
         self.assertIsNone(self.panel._verified_save_request)
+        self.assertEqual(self.project.read_bytes(), self.before)
+
+    def test_real_discard_button_confirms_before_erasing(self):
+        from unittest.mock import patch
+        self.load()
+        self.stroke()
+        points = [point[:] for point in self.panel._points]
+        with patch('tkinter.messagebox.askyesno', return_value=False) as confirm:
+            self.panel.discard_button.invoke()
+        confirm.assert_called_once()
+        self.assertEqual(self.panel._points, points)
+        with patch('tkinter.messagebox.askyesno', return_value=True):
+            self.panel.discard_button.invoke()
+        self.assertFalse(self.panel.has_draft)
+        self.assertEqual(self.project.read_bytes(), self.before)
+
+    def test_escape_keeps_a_released_gesture_and_cancels_only_a_live_one(self):
+        self.load()
+        self.stroke()
+        finished = [point[:] for point in self.panel._points]
+        self.panel.canvas.focus_force()
+        self.root.update()
+        self.panel.canvas.event_generate('<Escape>')
+        self.root.update()
+        self.assertEqual(self.panel._points, finished)
+
+        left, top, width, height = self.panel._box
+        self.panel.canvas.event_generate(
+            '<ButtonPress-1>', x=left + width // 2, y=top + height // 2)
+        self.root.update()
+        self.assertTrue(self.panel._drag_active)
+        self.panel.canvas.event_generate('<Escape>')
+        self.root.update()
+        self.assertEqual(self.panel._points, [])
+        self.assertEqual(self.panel._strokes[0]['points'], finished)
         self.assertEqual(self.project.read_bytes(), self.before)
 
     def test_missing_cpu_digest_refuses_preview_without_writing(self):
@@ -187,6 +251,11 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.assertEqual(self.project.read_bytes(), self.before)
 
     def test_mode_and_radius_changes_invalidate_stale_comparison(self):
+        self.panel.shutdown()
+        self.panel = NativeBrushDraftPanel(
+            self.root, self.root, self.tk, self.ttk,
+            preview_fn=self._fn, preview_many_fn=self._fn)
+        self.addCleanup(self.panel.shutdown)
         self.load()
         self.stroke()
         points = [p[:] for p in self.panel._points]
@@ -200,7 +269,7 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.assertEqual(self.panel._points, points)
         self.assertTrue(self.panel.preview())
         self.receive()
-        self.assertEqual(self.preview_calls[-1]['mode'], 'erase')
+        self.assertEqual(self.preview_calls[-1]['mode'], 'add')
         self.assertIsNotNone(self.panel._result_images)
         self.panel.radius.set('0.10')
         self.panel.radius_picker.event_generate('<<ComboboxSelected>>')
@@ -208,7 +277,14 @@ class NativeBrushDraftTkTests(unittest.TestCase):
         self.assertIsNone(self.panel._result_images)
         self.assertTrue(self.panel.preview())
         self.receive()
-        self.assertEqual(self.preview_calls[-1]['radius'], 0.10)
+        self.assertEqual(self.preview_calls[-1]['radius'], 0.05)
+        # New settings apply only to the next completed gesture.
+        self.stroke()
+        self.assertTrue(self.panel.preview())
+        self.receive()
+        strokes = self.preview_calls[-1]['strokes']
+        self.assertEqual([(s['mode'], s['radius']) for s in strokes],
+                         [('add', 0.05), ('erase', 0.10)])
         self.assertEqual(self.project.read_bytes(), self.before)
 
     def test_malformed_or_huge_png_never_reaches_tk_decoder(self):

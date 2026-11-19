@@ -30,8 +30,8 @@ class NativeAppShell:
         footer.pack(side='bottom', fill='x', pady=(10, 0))
         ttk.Separator(footer).pack(fill='x', pady=(0, 6))
         ttk.Label(footer, text=(
-            'Création PNG · notes de projet · inspection des sujets · gabarits sans export\n'
-            'Retouche, exports et installation Windows : intégration à venir.'),
+            'Création PNG · notes de projet · retouche des sujets vérifiés · gabarits sans export\n'
+            'Exports natifs et installateur Windows : en cours de développement.'),
             wraplength=820).pack(anchor='w')
         body = ttk.Frame(frame)
         body.pack(fill='both', expand=True)
