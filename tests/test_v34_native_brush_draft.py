@@ -3,6 +3,7 @@ from concurrent.futures import Future
 from pathlib import Path
 from threading import Event
 from types import SimpleNamespace
+import gc
 import math
 import struct
 import sys
@@ -70,6 +71,10 @@ class NativeBrushMappingTests(unittest.TestCase):
 
 class NativeBrushDraftTkTests(unittest.TestCase):
     def setUp(self):
+        # Tcl interpreters belong to the creating thread. Reap any cycles
+        # left by previous GUI tests *before* starting a preview worker,
+        # otherwise worker-triggered GC may destroy Tcl from that thread.
+        gc.collect()
         try:
             import tkinter as tk
             from tkinter import ttk
