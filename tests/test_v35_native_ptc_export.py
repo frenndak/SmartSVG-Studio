@@ -24,7 +24,7 @@ from test_v34_native_subject_preview import NativeSubjectPreviewTests
 from smartsvg_core.native_subject_preview_v34 import preview_native_subject_stroke
 from smartsvg_core.native_subject_save_v34 import save_native_subject_stroke
 
-HAS_CPU = all(importlib.util.find_spec(lib) for lib in ("numpy", "PIL", "cv2"))
+HAS_CPU = all(importlib.util.find_spec(lib) for lib in ("numpy", "PIL"))
 
 
 class PTCValidationTests(unittest.TestCase):
@@ -47,7 +47,7 @@ class PTCValidationTests(unittest.TestCase):
                 self.assertEqual(ctx.exception.code, "INVALID_PHYSICAL_WIDTH")
 
 
-@unittest.skipUnless(HAS_CPU, "Full real PNG export needs existing NumPy/Pillow/cv2 runtime")
+@unittest.skipUnless(HAS_CPU, "Full real PNG export needs existing NumPy/Pillow runtime")
 class FirstNativePTCTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -156,7 +156,7 @@ class FirstNativePTCTests(unittest.TestCase):
                          "Une note concurrente")
 
 
-@unittest.skipUnless(HAS_CPU, "Existing real brush replay needs NumPy/Pillow/cv2")
+@unittest.skipUnless(HAS_CPU, "Existing real brush replay needs NumPy/Pillow")
 class PersistedBrushPTCTests(unittest.TestCase):
     def setUp(self):
         fixture = NativeSubjectPreviewTests()
