@@ -32,6 +32,7 @@ def _rgba_png(compressed):
 
 
 # Two 2-pixel RGBA scanlines: 255,0 and 128,255 alpha, with filter 0.
+# Foreground counts alpha >= 128, so this fixture contains three foreground pixels.
 _ROWS = (b"\x00" + bytes((12, 34, 56, 255, 12, 34, 56, 0)) +
          b"\x00" + bytes((12, 34, 56, 128, 12, 34, 56, 255)))
 
@@ -47,7 +48,7 @@ class NativeAlphaDecoderFailClosedTests(unittest.TestCase):
     def test_valid_rgba_keeps_soft_alpha_and_exact_bbox(self):
         raw, width, height, foreground, bbox = self.decode(zlib.compress(_ROWS))
         self.assertEqual((width, height, foreground, bbox),
-                         (2, 2, 2, (0, 0, 2, 2)))
+                         (2, 2, 3, (0, 0, 2, 2)))
         values = struct.unpack("<4f", raw)
         self.assertEqual(values[0:2], (1.0, 0.0))
         self.assertEqual(values[2], struct.unpack("<f", struct.pack("<f", 128 / 255))[0])
@@ -58,7 +59,7 @@ class NativeAlphaDecoderFailClosedTests(unittest.TestCase):
         with self.assertRaises(first.NativeFirstSubjectError) as ctx:
             self.decode(zlib.compress(corrupted))
         self.assertEqual(ctx.exception.code, "INVALID_ARCHIVED_SOURCE")
-        self.assertEqual(self.decode(zlib.compress(_ROWS))[3], 2)
+        self.assertEqual(self.decode(zlib.compress(_ROWS))[3], 3)
 
     def test_truncated_compressed_stream_is_rejected(self):
         with self.assertRaises(first.NativeFirstSubjectError) as ctx:
