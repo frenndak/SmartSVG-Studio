@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import secrets
+import sys
 import stat
 from hashlib import sha256
 from io import BytesIO
@@ -226,9 +227,8 @@ def _verify_posix_entry(dir_fd, name, expected_sha256):
 def _publish_posix_pinned(dest, data, digest, initial_parent):
     """Pin each path component, stage and link with directory FDs.
 
-    An attacker can rename the visible parent, but cannot redirect a dir_fd-
-    relative link to a replacement directory. A changed name invalidates the
-    receipt and rolls back only our own newly linked inode in the old parent.
+    An attacker cannot redirect a dir_fd-relative publication to a replacement
+    directory. Linux anonymous staging leaves no named temporary to clean.
     """
     flags = (os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW |
              getattr(os, "O_CLOEXEC", 0))
@@ -261,32 +261,40 @@ def _publish_posix_pinned(dest, data, digest, initial_parent):
             check_parent()
             return
 
-        stage = ".smartsvg_ptc_stage_" + secrets.token_hex(16) + ".png"
-        stage_fd = os.open(
-            stage, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW |
-            getattr(os, "O_CLOEXEC", 0), 0o600, dir_fd=parent_fd)
-        # Record ownership before writes, including errors and disk-full.
-        opened_stage = os.fstat(stage_fd)
-        stage_identity = (opened_stage.st_dev, opened_stage.st_ino)
-        with os.fdopen(stage_fd, "wb") as stream:
-            stream.write(data)
-            stream.flush()
-            os.fsync(stream.fileno())
-        stage_stat = os.stat(stage, dir_fd=parent_fd, follow_symlinks=False)
-        if (stage_stat.st_dev, stage_stat.st_ino) != stage_identity:
-            raise NativePTCError("STAGING_VERIFICATION_FAILED")
-        if not _verify_posix_entry(parent_fd, stage, digest):
-            raise NativePTCError("STAGING_VERIFICATION_FAILED")
-        check_parent()
+        # Linux anonymous staging avoids a named temporary entry entirely.
+        # The file is published only after its bytes are fsync'd and hashed.
+        # /proc/self/fd requires a procfs mount; unsupported filesystems or
+        # environments fail closed rather than falling back to unsafe cleanup.
+        if not (sys.platform.startswith("linux") and
+                hasattr(os, "O_TMPFILE") and
+                os.path.isdir("/proc/self/fd")):
+            raise NativePTCError("ATOMIC_PUBLICATION_UNAVAILABLE")
         try:
-            os.link(stage, dest.name, src_dir_fd=parent_fd,
-                    dst_dir_fd=parent_fd, follow_symlinks=False)
-            created = True
-        except FileExistsError:
-            if not _verify_posix_entry(parent_fd, dest.name, digest):
-                raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
+            stage_fd = os.open(
+                ".", os.O_TMPFILE | os.O_RDWR | getattr(os, "O_CLOEXEC", 0),
+                0o600, dir_fd=parent_fd)
         except OSError as exc:
             raise NativePTCError("ATOMIC_PUBLICATION_UNAVAILABLE") from exc
+        try:
+            with os.fdopen(stage_fd, "r+b", closefd=False) as stream:
+                stream.write(data)
+                stream.flush()
+                os.fsync(stream.fileno())
+                stream.seek(0)
+                if sha256(stream.read()).hexdigest() != digest:
+                    raise NativePTCError("STAGING_VERIFICATION_FAILED")
+            check_parent()
+            try:
+                os.link("/proc/self/fd/" + str(stage_fd), dest.name,
+                        dst_dir_fd=parent_fd, follow_symlinks=True)
+                created = True
+            except FileExistsError:
+                if not _verify_posix_entry(parent_fd, dest.name, digest):
+                    raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
+            except OSError as exc:
+                raise NativePTCError("ATOMIC_PUBLICATION_UNAVAILABLE") from exc
+        finally:
+            os.close(stage_fd)
         check_parent()  # Detect even a swap performed inside os.link itself.
         if not _verify_posix_entry(parent_fd, dest.name, digest):
             raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
@@ -303,17 +311,9 @@ def _publish_posix_pinned(dest, data, digest, initial_parent):
         raise NativePTCError("ATOMIC_PUBLICATION_UNAVAILABLE") from exc
     finally:
         if parent_fd is not None:
-            # Do not unlink either pathname here. stat(entry) followed by
-            # unlink(entry) is NOT an atomic identity-checked removal: a
-            # concurrent writer can replace the entry between those calls,
-            # causing deletion of a user-owned file. This includes the
-            # staging name, even when its original inode was ours.
-            #
-            # Fail closed: retain uncertain staging / output entries rather
-            # than risk data loss. These private-prefix staging files are
-            # intentionally left for explicit, user-reviewed housekeeping.
-            # A future cleanup needs a platform-specific atomic ownership
-            # primitive and its own adversarial regression tests.
+            # The O_TMPFILE staging inode has no directory entry; closing its
+            # descriptor above is safe even under concurrent replacement.
+            # Never unlink the published output here.
             os.close(parent_fd)
 
 
