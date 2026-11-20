@@ -73,7 +73,7 @@ class PinnedPublisherSafetyTests(unittest.TestCase):
         self.publish()
         self.publish()
         self.assertEqual(self.dest.read_bytes(), self.payload)
-        self.assertEqual(list(self.parent.glob(".smartsvg_ptc_stage_*")), [])
+        self.assertEqual(len(list(self.parent.glob(".smartsvg_ptc_stage_*"))), 1)
 
     def test_concurrent_different_output_is_never_overwritten(self):
         real_link = os.link
@@ -87,7 +87,7 @@ class PinnedPublisherSafetyTests(unittest.TestCase):
                 self.publish()
         self.assertEqual(ctx.exception.code, "OUTPUT_REQUIRES_REVIEW")
         self.assertEqual(self.dest.read_bytes(), rival)
-        self.assertEqual(list(self.parent.glob(".smartsvg_ptc_stage_*")), [])
+        self.assertEqual(len(list(self.parent.glob(".smartsvg_ptc_stage_*"))), 1)
 
     def test_parent_swap_during_link_never_writes_replacement(self):
         parked = Path(self.tmp.name) / "parked"
@@ -120,7 +120,27 @@ class PinnedPublisherSafetyTests(unittest.TestCase):
         self.assertTrue(swapped)
         self.assertFalse((replacement / "export.png").exists())
         self.assertFalse(self.dest.exists())
-        self.assertEqual(list(self.parent.glob(".smartsvg_ptc_stage_*")), [])
+        self.assertEqual(len(list(self.parent.glob(".smartsvg_ptc_stage_*"))), 1)
+
+    def test_no_identity_checked_path_unlink_even_on_failed_publication(self):
+        # A stat/unlink pair is racy even when the stat matches our inode:
+        # a rival can replace the entry before unlink and lose user data.
+        # POSIX publisher must not invoke unlink on either output or stage.
+        real_link = os.link
+        rival = b"rival output must survive"
+        def concurrent_output(src, dst, *args, **kwargs):
+            self.dest.write_bytes(rival)
+            return real_link(src, dst, *args, **kwargs)
+        with patch("smartsvg_core.native_ptc_export_v35.os.unlink",
+                   side_effect=AssertionError("unsafe pathname cleanup")):
+            with patch("smartsvg_core.native_ptc_export_v35.os.link",
+                       side_effect=concurrent_output):
+                with self.assertRaises(NativePTCError):
+                    self.publish()
+        self.assertEqual(self.dest.read_bytes(), rival)
+        retained = list(self.parent.glob(".smartsvg_ptc_stage_*"))
+        self.assertEqual(len(retained), 1)
+        self.assertEqual(retained[0].read_bytes(), self.payload)
 
     def test_parent_changed_before_open_is_rejected(self):
         from smartsvg_core.native_ptc_export_v35 import _publish_posix_pinned
