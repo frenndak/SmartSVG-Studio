@@ -431,8 +431,12 @@ def _publish_windows_locked(dest, data, digest, initial_parent):
         except (OSError, ValueError) as exc:
             raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from exc
         finally:
-            if staged is not None:
-                staged.unlink(missing_ok=True)
+            # SECURITY: a named stage can be replaced after its descriptor is
+            # closed. Pathname unlink could then destroy another user's file.
+            # Retain the entry until handle-scoped deletion is implemented;
+            # never perform a stat-then-unlink cleanup on a writable directory.
+            # This is a conservative interim mitigation, not cleanup completion.
+            pass
 
 
 def publish_native_ptc_png(*, project_path, expected_sha256, subject_id,
