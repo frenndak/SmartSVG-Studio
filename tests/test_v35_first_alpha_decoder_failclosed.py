@@ -54,6 +54,38 @@ class NativeAlphaDecoderFailClosedTests(unittest.TestCase):
         self.assertEqual(values[2], struct.unpack("<f", struct.pack("<f", 128 / 255))[0])
         self.assertEqual(values[3], 1.0)
 
+    def test_all_png_predictors_reconstruct_alpha_without_pixel_drift(self):
+        # Independently encode the second scanline with each PNG predictor.
+        first_row, second_row = _ROWS[1:9], _ROWS[10:18]
+        expected = self.decode(zlib.compress(_ROWS))[0]
+        for predictor in range(5):
+            encoded = bytearray()
+            for i, value in enumerate(second_row):
+                left = second_row[i - 4] if i >= 4 else 0
+                above = first_row[i]
+                upper_left = first_row[i - 4] if i >= 4 else 0
+                if predictor == 0:
+                    predicted = 0
+                elif predictor == 1:
+                    predicted = left
+                elif predictor == 2:
+                    predicted = above
+                elif predictor == 3:
+                    predicted = (left + above) // 2
+                else:
+                    p = left + above - upper_left
+                    da, db, dc = abs(p - left), abs(p - above), abs(p - upper_left)
+                    predicted = (left if da <= db and da <= dc
+                                 else above if db <= dc else upper_left)
+                encoded.append((value - predicted) & 255)
+            scanlines = b"\x00" + first_row + bytes([predictor]) + bytes(encoded)
+            with self.subTest(predictor=predictor):
+                raw, width, height, foreground, bbox = self.decode(
+                    zlib.compress(scanlines))
+                self.assertEqual((width, height, foreground, bbox),
+                                 (2, 2, 3, (0, 0, 2, 2)))
+                self.assertEqual(raw, expected)
+
     def test_invalid_filter_is_rejected_without_reusing_previous_scanline(self):
         corrupted = b"\x05" + _ROWS[1:]
         with self.assertRaises(first.NativeFirstSubjectError) as ctx:
