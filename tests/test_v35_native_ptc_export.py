@@ -224,6 +224,36 @@ class WindowsPinnedPublisherTests(unittest.TestCase):
             self.assertEqual(ctx.exception.code, "OUTPUT_REQUIRES_REVIEW")
             self.assertEqual(dest.read_bytes(), b"user-owned content")
 
+    def test_multichunk_stage_roundtrip_and_cleanup(self):
+        # Cross the Win32 WriteFile/ReadFile 1 MiB chunk boundary and
+        # verify the last partial chunk is not truncated or duplicated.
+        from smartsvg_core.native_ptc_export_v35 import _publish_windows_locked
+        with tempfile.TemporaryDirectory() as root:
+            parent = Path(root) / "safe"
+            parent.mkdir()
+            dest = parent / "export.png"
+            payload = bytes(range(256)) * 4096 + b"last-partial-chunk"
+            digest = sha256(payload).hexdigest()
+            _publish_windows_locked(
+                dest, payload, digest, os.stat(parent, follow_symlinks=False))
+            self.assertEqual(dest.read_bytes(), payload)
+            self.assertEqual(sha256(dest.read_bytes()).hexdigest(), digest)
+            self.assertEqual(list(parent.glob(".smartsvg_ptc_stage_*")), [])
+
+    def test_empty_stage_roundtrip_and_cleanup(self):
+        # Even an empty staged payload must be verified and disposed
+        # through its pinned handle, without a pathname unlink fallback.
+        from smartsvg_core.native_ptc_export_v35 import _publish_windows_locked
+        with tempfile.TemporaryDirectory() as root:
+            parent = Path(root) / "safe"
+            parent.mkdir()
+            dest = parent / "export.png"
+            _publish_windows_locked(
+                dest, b"", sha256(b"").hexdigest(),
+                os.stat(parent, follow_symlinks=False))
+            self.assertEqual(dest.read_bytes(), b"")
+            self.assertEqual(list(parent.glob(".smartsvg_ptc_stage_*")), [])
+
     def test_pinned_stage_verification_never_reopens_stage_path(self):
         # A Windows handle denying DELETE/WRITE sharing can reject a second
         # pathlib open; verify via the original handle, not by reopening.
