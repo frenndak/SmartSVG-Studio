@@ -224,6 +224,29 @@ class WindowsPinnedPublisherTests(unittest.TestCase):
             self.assertEqual(ctx.exception.code, "OUTPUT_REQUIRES_REVIEW")
             self.assertEqual(dest.read_bytes(), b"user-owned content")
 
+    def test_pinned_stage_verification_never_reopens_stage_path(self):
+        # A Windows handle denying DELETE/WRITE sharing can reject a second
+        # pathlib open; verify via the original handle, not by reopening.
+        from smartsvg_core.native_ptc_export_v35 import _publish_windows_locked
+        with tempfile.TemporaryDirectory() as root:
+            parent = Path(root) / "safe"
+            parent.mkdir()
+            dest = parent / "export.png"
+            payload = b"verified stage bytes"
+            real_read = Path.read_bytes
+
+            def reject_stage_reopen(path):
+                if path.name.startswith(".smartsvg_ptc_stage_"):
+                    raise AssertionError("stage path reopened while pinned")
+                return real_read(path)
+
+            with patch.object(Path, "read_bytes", reject_stage_reopen):
+                _publish_windows_locked(
+                    dest, payload, sha256(payload).hexdigest(),
+                    os.stat(parent, follow_symlinks=False))
+            self.assertEqual(dest.read_bytes(), payload)
+            self.assertEqual(list(parent.glob(".smartsvg_ptc_stage_*")), [])
+
     def test_stage_substitution_is_blocked_while_publishing(self):
         from smartsvg_core.native_ptc_export_v35 import _publish_windows_locked
         with tempfile.TemporaryDirectory() as root:
