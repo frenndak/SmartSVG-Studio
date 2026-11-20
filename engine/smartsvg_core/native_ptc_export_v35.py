@@ -397,8 +397,9 @@ def _pin_windows_stage(path):
     api.CreateFileW.restype = wintypes.HANDLE
     api.CloseHandle.argtypes = [wintypes.HANDLE]
     api.CloseHandle.restype = wintypes.BOOL
-    # Read content and attributes; deny WRITE and DELETE sharing.
-    handle = api.CreateFileW(str(path), 0x80000000 | 0x80,
+    # DELETE access permits handle-scoped disposal of only this opened link.
+    # Deny WRITE and DELETE sharing to other processes while publishing.
+    handle = api.CreateFileW(str(path), 0x80000000 | 0x80 | 0x00010000,
                              0x1, None, 3, 0x00200000, None)
     if handle in (None, ctypes.c_void_p(-1).value):
         raise NativePTCError("ATOMIC_PUBLICATION_UNAVAILABLE")
@@ -411,7 +412,21 @@ def _pin_windows_stage(path):
         if not _same_directory_identity(before, after):
             raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
     finally:
+        # FileDispositionInfoEx with POSIX semantics removes the link opened
+        # by THIS handle, not a path re-resolved after releasing the pin.
+        # Other hard links (the exported destination) remain intact.
+        # On unsupported Windows/filesystems fail closed; never path-unlink.
+        class _Disposition(ctypes.Structure):
+            _fields_ = [("flags", wintypes.DWORD)]
+        api.SetFileInformationByHandle.argtypes = [
+            wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+        api.SetFileInformationByHandle.restype = wintypes.BOOL
+        info = _Disposition(0x1 | 0x2)  # DELETE | POSIX_SEMANTICS
+        cleaned = api.SetFileInformationByHandle(
+            handle, 21, ctypes.byref(info), ctypes.sizeof(info))
         api.CloseHandle(handle)
+        if not cleaned:
+            raise NativePTCError("ATOMIC_STAGE_CLEANUP_UNAVAILABLE")
 
 
 def _publish_windows_locked(dest, data, digest, initial_parent):
