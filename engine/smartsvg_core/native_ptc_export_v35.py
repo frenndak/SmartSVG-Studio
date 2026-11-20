@@ -303,29 +303,18 @@ def _publish_posix_pinned(dest, data, digest, initial_parent):
         raise NativePTCError("ATOMIC_PUBLICATION_UNAVAILABLE") from exc
     finally:
         if parent_fd is not None:
-            try:
-                if created and not accepted and stage_identity is not None:
-                    # Never unlink a user's file that replaced our output.
-                    try:
-                        output_stat = os.stat(
-                            dest.name, dir_fd=parent_fd, follow_symlinks=False)
-                        if ((output_stat.st_dev, output_stat.st_ino) ==
-                                stage_identity):
-                            os.unlink(dest.name, dir_fd=parent_fd)
-                    except FileNotFoundError:
-                        pass
-                if stage is not None:
-                    try:
-                        stage_stat = os.stat(
-                            stage, dir_fd=parent_fd, follow_symlinks=False)
-                        if (stage_identity is not None and
-                                (stage_stat.st_dev, stage_stat.st_ino) ==
-                                stage_identity):
-                            os.unlink(stage, dir_fd=parent_fd)
-                    except FileNotFoundError:
-                        pass
-            finally:
-                os.close(parent_fd)
+            # Do not unlink either pathname here. stat(entry) followed by
+            # unlink(entry) is NOT an atomic identity-checked removal: a
+            # concurrent writer can replace the entry between those calls,
+            # causing deletion of a user-owned file. This includes the
+            # staging name, even when its original inode was ours.
+            #
+            # Fail closed: retain uncertain staging / output entries rather
+            # than risk data loss. These private-prefix staging files are
+            # intentionally left for explicit, user-reviewed housekeeping.
+            # A future cleanup needs a platform-specific atomic ownership
+            # primitive and its own adversarial regression tests.
+            os.close(parent_fd)
 
 
 @contextmanager
