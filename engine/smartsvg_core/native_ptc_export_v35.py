@@ -366,8 +366,14 @@ def _pin_windows_directory_chain(parent, initial_parent):
     handles = []
     try:
         for folder in (*reversed(parent.parents), parent):
+            # FILE_READ_ATTRIBUTES alone (0x80) is metadata-only and does
+            # NOT enforce FILE_SHARE_DELETE against renames. Request actual
+            # FILE_LIST_DIRECTORY (0x1) plus SYNCHRONIZE/READ_ATTRIBUTES.
+            # Without FILE_SHARE_DELETE, Windows must refuse directory
+            # rename/delete while this handle is held; our CI exercises it.
+            directory_access = 0x00100000 | 0x00000080 | 0x00000001
             handle = api.CreateFileW(
-                str(folder), 0x80, 0x1 | 0x2, None, 3,
+                str(folder), directory_access, 0x1 | 0x2, None, 3,
                 0x02000000 | 0x00200000, None)
             if handle in (None, ctypes.c_void_p(-1).value):
                 raise NativePTCError("ATOMIC_PUBLICATION_UNAVAILABLE")
