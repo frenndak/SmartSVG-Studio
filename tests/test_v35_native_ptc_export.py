@@ -248,7 +248,44 @@ class WindowsPinnedPublisherTests(unittest.TestCase):
                     dest, payload, sha256(payload).hexdigest(),
                     os.stat(parent, follow_symlinks=False))
             self.assertEqual(dest.read_bytes(), payload)
-            self.assertEqual(stage_reads, [1])
+            self.assertEqual(stage_reads, [0],
+                             "Pinned CREATE_NEW stage must never be reopened by path")
+            self.assertEqual(list(parent.glob(".smartsvg_ptc_stage_*")), [])
+
+    def test_failure_after_atomic_stage_creation_cleans_pinned_entry(self):
+        # Regression: a failure after CREATE_NEW must dispose the entry
+        # through its still-open handle, without stat/unlink pathname races.
+        from smartsvg_core.native_ptc_export_v35 import _publish_windows_locked
+        with tempfile.TemporaryDirectory() as root:
+            parent = Path(root) / "safe"
+            parent.mkdir()
+            dest = parent / "export.png"
+            payload = b"verified stage bytes"
+            with patch(
+                "smartsvg_core.native_ptc_export_v35._verify_windows_stage_handle",
+                side_effect=NativePTCError("STAGING_VERIFICATION_FAILED")
+            ):
+                with self.assertRaises(NativePTCError) as ctx:
+                    _publish_windows_locked(
+                        dest, payload, sha256(payload).hexdigest(),
+                        os.stat(parent, follow_symlinks=False))
+            self.assertEqual(ctx.exception.code, "STAGING_VERIFICATION_FAILED")
+            self.assertFalse(dest.exists())
+            self.assertEqual(list(parent.glob(".smartsvg_ptc_stage_*")), [])
+
+    def test_windows_atomic_stage_does_not_use_mkstemp(self):
+        from smartsvg_core.native_ptc_export_v35 import _publish_windows_locked
+        with tempfile.TemporaryDirectory() as root:
+            parent = Path(root) / "safe"
+            parent.mkdir()
+            dest = parent / "export.png"
+            payload = b"private pinned bytes"
+            with patch("smartsvg_core.native_ptc_export_v35.tempfile.mkstemp",
+                       side_effect=AssertionError("unprotected stage creation")):
+                _publish_windows_locked(
+                    dest, payload, sha256(payload).hexdigest(),
+                    os.stat(parent, follow_symlinks=False))
+            self.assertEqual(dest.read_bytes(), payload)
             self.assertEqual(list(parent.glob(".smartsvg_ptc_stage_*")), [])
 
     def test_stage_substitution_is_blocked_while_publishing(self):
