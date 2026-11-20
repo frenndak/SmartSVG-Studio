@@ -429,6 +429,70 @@ def _pin_windows_stage(path):
             raise NativePTCError("ATOMIC_STAGE_CLEANUP_UNAVAILABLE")
 
 
+
+@contextmanager
+def _create_windows_stage(parent, data, digest):
+    """Create and pin a private staging entry in one Win32 operation.
+
+    CREATE_NEW + no WRITE/DELETE sharing eliminates the mkstemp-close-reopen
+    gap. Every successful creation owns a handle for identity-safe disposal,
+    including failures during writing, flushing, verification or linking.
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    api = ctypes.WinDLL("kernel32", use_last_error=True)
+    api.CreateFileW.argtypes = [
+        wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+        wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    api.CreateFileW.restype = wintypes.HANDLE
+    api.WriteFile.argtypes = [
+        wintypes.HANDLE, ctypes.c_void_p, wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD), wintypes.LPVOID]
+    api.WriteFile.restype = wintypes.BOOL
+    api.FlushFileBuffers.argtypes = [wintypes.HANDLE]
+    api.FlushFileBuffers.restype = wintypes.BOOL
+    api.SetFileInformationByHandle.argtypes = [
+        wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+    api.SetFileInformationByHandle.restype = wintypes.BOOL
+    api.CloseHandle.argtypes = [wintypes.HANDLE]
+    api.CloseHandle.restype = wintypes.BOOL
+
+    # A cryptographically unpredictable name is not the security boundary:
+    # the exclusive Win32 handle is. Collisions fail closed, without retrying
+    # through a pathname-based cleanup.
+    staged = parent / (".smartsvg_ptc_stage_" + secrets.token_hex(16) + ".png")
+    handle = api.CreateFileW(
+        str(staged), 0x80000000 | 0x40000000 | 0x00010000,
+        0x1, None, 1, 0x00000080 | 0x00200000, None)
+    if handle in (None, ctypes.c_void_p(-1).value):
+        raise NativePTCError("ATOMIC_PUBLICATION_UNAVAILABLE")
+    try:
+        offset = 0
+        while offset < len(data):
+            chunk = data[offset:offset + 1024 * 1024]
+            buffer = ctypes.create_string_buffer(chunk)
+            written = wintypes.DWORD()
+            if (not api.WriteFile(handle, buffer, len(chunk),
+                                  ctypes.byref(written), None) or
+                    written.value != len(chunk)):
+                raise NativePTCError("STAGING_VERIFICATION_FAILED")
+            offset += written.value
+        if not api.FlushFileBuffers(handle):
+            raise NativePTCError("STAGING_VERIFICATION_FAILED")
+        _verify_windows_stage_handle(handle, data, digest)
+        yield staged, handle
+    finally:
+        class _Disposition(ctypes.Structure):
+            _fields_ = [("flags", wintypes.DWORD)]
+        disposition = _Disposition(0x1 | 0x2)
+        cleaned = api.SetFileInformationByHandle(
+            handle, 21, ctypes.byref(disposition), ctypes.sizeof(disposition))
+        api.CloseHandle(handle)
+        if not cleaned:
+            raise NativePTCError("ATOMIC_STAGE_CLEANUP_UNAVAILABLE")
+
+
 def _verify_windows_stage_handle(handle, expected_data, digest):
     """Verify the pinned inode, not a second pathname open.
 
@@ -470,31 +534,23 @@ def _verify_windows_stage_handle(handle, expected_data, digest):
 def _publish_windows_locked(dest, data, digest, initial_parent):
     """Full staging + exclusive publication while ancestor renames are blocked."""
     with _pin_windows_directory_chain(dest.parent, initial_parent):
-        staged = None
         try:
             if dest.is_symlink() or (dest.exists() and
                     (not dest.is_file() or
                      sha256(dest.read_bytes()).hexdigest() != digest)):
                 raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
             if not dest.exists():
-                fd, raw_path = tempfile.mkstemp(
-                    prefix=".smartsvg_ptc_stage_", suffix=".png",
-                    dir=str(dest.parent))
-                staged = Path(raw_path)
-                with os.fdopen(fd, "wb") as stream:
-                    stream.write(data)
-                    stream.flush()
-                    os.fsync(stream.fileno())
-                if sha256(staged.read_bytes()).hexdigest() != digest:
-                    raise NativePTCError("STAGING_VERIFICATION_FAILED")
-                # Pin the staged inode across the link. Without this handle,
-                # an attacker can replace the named stage after verification.
-                with _pin_windows_stage(staged) as pinned_stage:
-                    _verify_windows_stage_handle(pinned_stage, data, digest)
+                with _create_windows_stage(dest.parent, data, digest) as (staged, pinned_stage):
                     try:
                         os.link(staged, dest)
                     except FileExistsError:
                         if (dest.is_symlink() or not dest.is_file() or
+                                sha256(dest.read_bytes()).hexdigest() != digest):
+                            raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from None
+                    except OSError as exc:
+                        raise NativePTCError(
+                            "ATOMIC_PUBLICATION_UNAVAILABLE") from exc
+            if (dest.is_symlink() or not dest.is_file() or
                                 sha256(dest.read_bytes()).hexdigest() != digest):
                             raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from None
                     except OSError as exc:
@@ -509,13 +565,6 @@ def _publish_windows_locked(dest, data, digest, initial_parent):
             raise
         except (OSError, ValueError) as exc:
             raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from exc
-        finally:
-            # SECURITY: a named stage can be replaced after its descriptor is
-            # closed. Pathname unlink could then destroy another user's file.
-            # Retain the entry until handle-scoped deletion is implemented;
-            # never perform a stat-then-unlink cleanup on a writable directory.
-            # This is a conservative interim mitigation, not cleanup completion.
-            pass
 
 
 def publish_native_ptc_png(*, project_path, expected_sha256, subject_id,
