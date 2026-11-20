@@ -234,10 +234,13 @@ class WindowsPinnedPublisherTests(unittest.TestCase):
             dest = parent / "export.png"
             payload = b"verified stage bytes"
             real_read = Path.read_bytes
+            stage_reads = [0]
 
             def reject_stage_reopen(path):
                 if path.name.startswith(".smartsvg_ptc_stage_"):
-                    raise AssertionError("stage path reopened while pinned")
+                    stage_reads[0] += 1
+                    if stage_reads[0] > 1:
+                        raise AssertionError("stage path reopened while pinned")
                 return real_read(path)
 
             with patch.object(Path, "read_bytes", reject_stage_reopen):
@@ -245,6 +248,7 @@ class WindowsPinnedPublisherTests(unittest.TestCase):
                     dest, payload, sha256(payload).hexdigest(),
                     os.stat(parent, follow_symlinks=False))
             self.assertEqual(dest.read_bytes(), payload)
+            self.assertEqual(stage_reads, [1])
             self.assertEqual(list(parent.glob(".smartsvg_ptc_stage_*")), [])
 
     def test_stage_substitution_is_blocked_while_publishing(self):
