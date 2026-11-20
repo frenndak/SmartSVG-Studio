@@ -491,6 +491,12 @@ class NativeAtelierPanel:
 
     def _select_subject(self, subject_id):
         brush_key = getattr(self, '_brush_key', None)
+        # A stale/foreign combobox value is never a valid selection. Keep an
+        # open draft on its original subject without prompting to discard it.
+        if subject_id not in self.subjects:
+            if brush_key is not None and brush_key[2] in self.subjects:
+                self.selection.set(brush_key[2])
+            return False
         if brush_key is not None and subject_id != brush_key[2]:
             # The picker updates its variable before dispatching the event.
             # Restore the active target before the modal confirmation.
