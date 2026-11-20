@@ -122,6 +122,24 @@ class PinnedPublisherSafetyTests(unittest.TestCase):
         self.assertFalse(self.dest.exists())
         self.assertEqual(list(self.parent.glob(".smartsvg_ptc_stage_*")), [])
 
+    def test_parent_changed_before_open_is_rejected(self):
+        from smartsvg_core.native_ptc_export_v35 import _publish_posix_pinned
+        original = os.stat(self.parent, follow_symlinks=False)
+        parked = Path(self.tmp.name) / "parked"
+        replacement = Path(self.tmp.name) / "replacement"
+        replacement.mkdir()
+        self.parent.rename(parked)
+        replacement.rename(self.parent)
+        try:
+            with self.assertRaises(NativePTCError) as ctx:
+                _publish_posix_pinned(self.dest, self.payload, self.digest, original)
+            self.assertEqual(ctx.exception.code, "UNSAFE_EXPORT_PATH")
+            self.assertFalse(self.dest.exists())
+        finally:
+            self.parent.rename(replacement)
+            parked.rename(self.parent)
+        self.assertFalse(self.dest.exists())
+
     def test_symlinked_parent_rejected(self):
         redirected = Path(self.tmp.name) / "redirected"
         redirected.mkdir()
@@ -153,6 +171,37 @@ class WindowsPinnedPublisherTests(unittest.TestCase):
                 _publish_windows_locked(dest, payload, digest, saved)
             self.assertEqual(ctx.exception.code, "OUTPUT_REQUIRES_REVIEW")
             self.assertEqual(dest.read_bytes(), b"user-owned content")
+
+    def test_parent_rename_is_blocked_during_exclusive_link(self):
+        from smartsvg_core.native_ptc_export_v35 import _publish_windows_locked
+        with tempfile.TemporaryDirectory() as root:
+            parent = Path(root) / "safe"
+            parent.mkdir()
+            parked = Path(root) / "parked"
+            dest = parent / "export.png"
+            payload = b"Windows atomically staged bytes"
+            digest = sha256(payload).hexdigest()
+            real_link = os.link
+            blocked = False
+
+            def try_rename_then_link(src, dst, *args, **kwargs):
+                nonlocal blocked
+                try:
+                    parent.rename(parked)
+                except OSError:
+                    blocked = True
+                else:
+                    raise AssertionError("Directory was replaceable despite held handles")
+                return real_link(src, dst, *args, **kwargs)
+
+            with patch("smartsvg_core.native_ptc_export_v35.os.link",
+                       side_effect=try_rename_then_link):
+                _publish_windows_locked(
+                    dest, payload, digest,
+                    os.stat(parent, follow_symlinks=False))
+            self.assertTrue(blocked)
+            self.assertEqual(dest.read_bytes(), payload)
+            self.assertFalse(parked.exists())
 
 
 @unittest.skipUnless(HAS_CPU, "Full real PNG export needs existing NumPy/Pillow runtime")
