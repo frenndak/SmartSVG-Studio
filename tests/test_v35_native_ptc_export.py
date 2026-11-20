@@ -145,6 +145,33 @@ class PinnedPublisherSafetyTests(unittest.TestCase):
         retained = list(self.parent.glob(".smartsvg_ptc_stage_*"))
         self.assertEqual(retained, [], "Anonymous staging must leave no named file")
 
+    def test_unsupported_anonymous_stage_fails_closed_without_named_files(self):
+        # An unsupported filesystem must not fall back to a racy named
+        # staging file or publish partially written output.
+        real_open = os.open
+        def reject_anonymous_stage(path, flags, *args, **kwargs):
+            if flags & os.O_TMPFILE == os.O_TMPFILE:
+                raise OSError(95, "Operation not supported")
+            return real_open(path, flags, *args, **kwargs)
+        with patch("smartsvg_core.native_ptc_export_v35.os.open",
+                   side_effect=reject_anonymous_stage):
+            with self.assertRaises(NativePTCError) as ctx:
+                self.publish()
+        self.assertEqual(ctx.exception.code, "ATOMIC_PUBLICATION_UNAVAILABLE")
+        self.assertFalse(self.dest.exists())
+        self.assertEqual(list(self.parent.iterdir()), [])
+
+    def test_anonymous_stage_link_failure_leaves_no_named_temporary(self):
+        # Publication failure must close the anonymous inode, without
+        # pathname-based unlink that could erase a rival user's file.
+        with patch("smartsvg_core.native_ptc_export_v35.os.link",
+                   side_effect=OSError(18, "Cross-device link")):
+            with self.assertRaises(NativePTCError) as ctx:
+                self.publish()
+        self.assertEqual(ctx.exception.code, "ATOMIC_PUBLICATION_UNAVAILABLE")
+        self.assertFalse(self.dest.exists())
+        self.assertEqual(list(self.parent.iterdir()), [])
+
     def test_parent_changed_before_open_is_rejected(self):
         from smartsvg_core.native_ptc_export_v35 import _publish_posix_pinned
         original = os.stat(self.parent, follow_symlinks=False)
