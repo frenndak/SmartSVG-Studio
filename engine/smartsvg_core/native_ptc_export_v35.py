@@ -6,6 +6,9 @@ The saved G2.3 editor session is replayed, never silently omitted.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
+import secrets
+import stat
 from hashlib import sha256
 from io import BytesIO
 import json
@@ -194,6 +197,245 @@ def _destination(value):
     return path
 
 
+
+def _same_directory_identity(first, second):
+    return ((first.st_dev, first.st_ino) ==
+            (second.st_dev, second.st_ino))
+
+
+def _verify_posix_entry(dir_fd, name, expected_sha256):
+    """Read only a regular inode in the already opened parent directory."""
+    try:
+        flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+        fd = os.open(name, flags, dir_fd=dir_fd)
+    except FileNotFoundError:
+        return False
+    except OSError as exc:
+        raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from exc
+    with os.fdopen(fd, "rb") as stream:
+        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+            raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
+        digest = sha256()
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+        if digest.hexdigest() != expected_sha256:
+            raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
+    return True
+
+
+def _publish_posix_pinned(dest, data, digest, initial_parent):
+    """Pin each path component, stage and link with directory FDs.
+
+    An attacker can rename the visible parent, but cannot redirect a dir_fd-
+    relative link to a replacement directory. A changed name invalidates the
+    receipt and rolls back only our own newly linked inode in the old parent.
+    """
+    flags = (os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW |
+             getattr(os, "O_CLOEXEC", 0))
+    parent_fd = None
+    stage = None
+    created = False
+    accepted = False
+    stage_identity = None
+    try:
+        parent_fd = os.open(dest.anchor, flags)
+        for component in dest.parent.parts[1:]:
+            new_fd = os.open(component, flags, dir_fd=parent_fd)
+            os.close(parent_fd)
+            parent_fd = new_fd
+        pinned = os.fstat(parent_fd)
+        if not _same_directory_identity(initial_parent, pinned):
+            raise NativePTCError("UNSAFE_EXPORT_PATH")
+
+        def check_parent():
+            try:
+                current = os.stat(dest.parent, follow_symlinks=False)
+            except OSError as exc:
+                raise NativePTCError("UNSAFE_EXPORT_PATH") from exc
+            if (not stat.S_ISDIR(current.st_mode) or
+                    not _same_directory_identity(current, pinned)):
+                raise NativePTCError("UNSAFE_EXPORT_PATH")
+
+        check_parent()
+        if _verify_posix_entry(parent_fd, dest.name, digest):
+            check_parent()
+            return
+
+        stage = ".smartsvg_ptc_stage_" + secrets.token_hex(16) + ".png"
+        stage_fd = os.open(
+            stage, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW |
+            getattr(os, "O_CLOEXEC", 0), 0o600, dir_fd=parent_fd)
+        with os.fdopen(stage_fd, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        stage_stat = os.stat(stage, dir_fd=parent_fd, follow_symlinks=False)
+        stage_identity = (stage_stat.st_dev, stage_stat.st_ino)
+        if not _verify_posix_entry(parent_fd, stage, digest):
+            raise NativePTCError("STAGING_VERIFICATION_FAILED")
+        check_parent()
+        try:
+            os.link(stage, dest.name, src_dir_fd=parent_fd,
+                    dst_dir_fd=parent_fd, follow_symlinks=False)
+            created = True
+        except FileExistsError:
+            if not _verify_posix_entry(parent_fd, dest.name, digest):
+                raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
+        except OSError as exc:
+            raise NativePTCError("ATOMIC_PUBLICATION_UNAVAILABLE") from exc
+        check_parent()  # Detect even a swap performed inside os.link itself.
+        if not _verify_posix_entry(parent_fd, dest.name, digest):
+            raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
+        if created:
+            try:
+                os.fsync(parent_fd)
+            except OSError as exc:
+                raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from exc
+        check_parent()
+        accepted = True
+    except NativePTCError:
+        raise
+    except (OSError, ValueError, NotImplementedError) as exc:
+        raise NativePTCError("ATOMIC_PUBLICATION_UNAVAILABLE") from exc
+    finally:
+        if parent_fd is not None:
+            try:
+                if created and not accepted and stage_identity is not None:
+                    # Never unlink a user's file that replaced our output.
+                    try:
+                        output_stat = os.stat(
+                            dest.name, dir_fd=parent_fd, follow_symlinks=False)
+                        if ((output_stat.st_dev, output_stat.st_ino) ==
+                                stage_identity):
+                            os.unlink(dest.name, dir_fd=parent_fd)
+                    except FileNotFoundError:
+                        pass
+                if stage is not None:
+                    try:
+                        stage_stat = os.stat(
+                            stage, dir_fd=parent_fd, follow_symlinks=False)
+                        if (stage_identity is not None and
+                                (stage_stat.st_dev, stage_stat.st_ino) ==
+                                stage_identity):
+                            os.unlink(stage, dir_fd=parent_fd)
+                    except FileNotFoundError:
+                        pass
+            finally:
+                os.close(parent_fd)
+
+
+@contextmanager
+def _pin_windows_directory_chain(parent, initial_parent):
+    """Keep every directory component open without FILE_SHARE_DELETE.
+
+    Windows otherwise lacks the POSIX dir_fd APIs. Opened directory handles
+    prevent rename/delete through supported Win32 sharing semantics; reject
+    junctions/reparse points. Refuse publication if any handle cannot be held.
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    class _FileInfo(ctypes.Structure):
+        _fields_ = [
+            ("dwFileAttributes", wintypes.DWORD),
+            ("ftCreationTime", wintypes.FILETIME),
+            ("ftLastAccessTime", wintypes.FILETIME),
+            ("ftLastWriteTime", wintypes.FILETIME),
+            ("dwVolumeSerialNumber", wintypes.DWORD),
+            ("nFileSizeHigh", wintypes.DWORD),
+            ("nFileSizeLow", wintypes.DWORD),
+            ("nNumberOfLinks", wintypes.DWORD),
+            ("nFileIndexHigh", wintypes.DWORD),
+            ("nFileIndexLow", wintypes.DWORD),
+        ]
+
+    api = ctypes.WinDLL("kernel32", use_last_error=True)
+    api.CreateFileW.argtypes = [
+        wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+        wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    api.CreateFileW.restype = wintypes.HANDLE
+    api.GetFileInformationByHandle.argtypes = [
+        wintypes.HANDLE, ctypes.POINTER(_FileInfo)]
+    api.GetFileInformationByHandle.restype = wintypes.BOOL
+    api.CloseHandle.argtypes = [wintypes.HANDLE]
+    api.CloseHandle.restype = wintypes.BOOL
+    handles = []
+    try:
+        for folder in (*reversed(parent.parents), parent):
+            handle = api.CreateFileW(
+                str(folder), 0x80, 0x1 | 0x2, None, 3,
+                0x02000000 | 0x00200000, None)
+            if handle in (None, ctypes.c_void_p(-1).value):
+                raise NativePTCError("ATOMIC_PUBLICATION_UNAVAILABLE")
+            handles.append(handle)
+            info = _FileInfo()
+            if not api.GetFileInformationByHandle(handle, ctypes.byref(info)):
+                raise NativePTCError("ATOMIC_PUBLICATION_UNAVAILABLE")
+            if (info.dwFileAttributes & 0x00000400 or  # reparse/junction
+                    not info.dwFileAttributes & 0x00000010):
+                raise NativePTCError("UNSAFE_EXPORT_PATH")
+        current = os.stat(parent, follow_symlinks=False)
+        if not _same_directory_identity(initial_parent, current):
+            raise NativePTCError("UNSAFE_EXPORT_PATH")
+        yield
+        current = os.stat(parent, follow_symlinks=False)
+        if not _same_directory_identity(initial_parent, current):
+            raise NativePTCError("UNSAFE_EXPORT_PATH")
+    finally:
+        for handle in reversed(handles):
+            api.CloseHandle(handle)
+
+
+def _publish_windows_locked(dest, data, digest, initial_parent):
+    """Full staging + exclusive publication while ancestor renames are blocked."""
+    with _pin_windows_directory_chain(dest.parent, initial_parent):
+        staged = None
+        try:
+            if dest.is_symlink() or (dest.exists() and
+                    (not dest.is_file() or
+                     sha256(dest.read_bytes()).hexdigest() != digest)):
+                raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
+            if not dest.exists():
+                fd, raw_path = tempfile.mkstemp(
+                    prefix=".smartsvg_ptc_stage_", suffix=".png",
+                    dir=str(dest.parent))
+                staged = Path(raw_path)
+                with os.fdopen(fd, "wb") as stream:
+                    stream.write(data)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                if sha256(staged.read_bytes()).hexdigest() != digest:
+                    raise NativePTCError("STAGING_VERIFICATION_FAILED")
+                try:
+                    os.link(staged, dest)
+                except FileExistsError:
+                    if (dest.is_symlink() or not dest.is_file() or
+                            sha256(dest.read_bytes()).hexdigest() != digest):
+                        raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from None
+                except OSError as exc:
+                    # Windows rename is non-overwriting; POSIX uses dir_fd.
+                    try:
+                        os.rename(staged, dest)
+                        staged = None
+                    except FileExistsError:
+                        if (dest.is_symlink() or not dest.is_file() or
+                                sha256(dest.read_bytes()).hexdigest() != digest):
+                            raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from None
+                    except OSError as rename_exc:
+                        raise NativePTCError(
+                            "ATOMIC_PUBLICATION_UNAVAILABLE") from rename_exc
+            if (dest.is_symlink() or not dest.is_file() or
+                    sha256(dest.read_bytes()).hexdigest() != digest):
+                raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
+        except NativePTCError:
+            raise
+        except (OSError, ValueError) as exc:
+            raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from exc
+        finally:
+            if staged is not None:
+                staged.unlink(missing_ok=True)
+
+
 def publish_native_ptc_png(*, project_path, expected_sha256, subject_id,
                            width_mm, destination_path, expected_output_sha256,
                            confirmed=False):
@@ -219,56 +461,22 @@ def publish_native_ptc_png(*, project_path, expected_sha256, subject_id,
     except NativeFirstSubjectError as exc:
         raise NativePTCError("PROJECT_CHANGED") from exc
 
-    staged = None
     try:
-        # The historical direct_import_v218._copy_atomic uses this same
-        # completed-file / exclusive-link publication policy, but importing
-        # its module eagerly requires cv2 (not needed to export a PNG here).
-        # Publish the already-verified sibling staging inode directly.
-        if dest.is_symlink() or (dest.exists() and
-                (not dest.is_file() or
-                 sha256(dest.read_bytes()).hexdigest() != expected_output_sha256)):
-            raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
-        if not dest.exists():
-            fd, raw_path = tempfile.mkstemp(
-                prefix=".smartsvg_ptc_stage_", suffix=".png", dir=str(dest.parent))
-            staged = Path(raw_path)
-            with os.fdopen(fd, "wb") as stream:
-                stream.write(result["png"])
-                stream.flush()
-                os.fsync(stream.fileno())
-            if sha256(staged.read_bytes()).hexdigest() != expected_output_sha256:
-                raise NativePTCError("STAGING_VERIFICATION_FAILED")
-            try:
-                os.link(staged, dest)
-            except FileExistsError:
-                if (dest.is_symlink() or not dest.is_file() or
-                        sha256(dest.read_bytes()).hexdigest() != expected_output_sha256):
-                    raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from None
-            except OSError as exc:
-                # Windows rename is non-overwriting when destination exists;
-                # POSIX rename would replace an existing file. Fail closed
-                # without hard links on POSIX.
-                if os.name != "nt":
-                    raise NativePTCError("ATOMIC_PUBLICATION_UNAVAILABLE") from exc
-                try:
-                    os.rename(staged, dest)
-                    staged = None
-                except FileExistsError:
-                    if (dest.is_symlink() or not dest.is_file() or
-                            sha256(dest.read_bytes()).hexdigest() != expected_output_sha256):
-                        raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from None
-        if (not dest.is_file() or dest.is_symlink() or
-                sha256(dest.read_bytes()).hexdigest() != expected_output_sha256):
-            raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
+        initial_parent = os.stat(dest.parent, follow_symlinks=False)
+        if not stat.S_ISDIR(initial_parent.st_mode):
+            raise NativePTCError("UNSAFE_EXPORT_PATH")
+        if os.name == "posix":
+            _publish_posix_pinned(
+                dest, result["png"], expected_output_sha256, initial_parent)
+        elif os.name == "nt":
+            _publish_windows_locked(
+                dest, result["png"], expected_output_sha256, initial_parent)
+        else:
+            raise NativePTCError("ATOMIC_PUBLICATION_UNAVAILABLE")
     except NativePTCError:
         raise
-    except (OSError, ValueError) as exc:
-        # A failed publication may have happened: do not claim rollback.
-        raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from exc
-    finally:
-        if staged is not None:
-            staged.unlink(missing_ok=True)
+    except OSError as exc:
+        raise NativePTCError("UNSAFE_EXPORT_PATH") from exc
     try:
         _pinned_project(project_path, expected_sha256)
         still_current = True
