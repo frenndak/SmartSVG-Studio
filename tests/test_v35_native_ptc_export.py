@@ -49,6 +49,112 @@ class PTCValidationTests(unittest.TestCase):
                 self.assertEqual(ctx.exception.code, "INVALID_PHYSICAL_WIDTH")
 
 
+
+@unittest.skipUnless(os.name == "posix", "POSIX dir_fd semantics required")
+class PinnedPublisherSafetyTests(unittest.TestCase):
+    """Dependency-free Linux gate for W03 TOCTOU, even without NumPy/Pillow."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.parent = Path(self.tmp.name) / "safe"
+        self.parent.mkdir()
+        self.dest = self.parent / "export.png"
+        self.payload = b"complete staged export bytes"
+        self.digest = sha256(self.payload).hexdigest()
+
+    def publish(self):
+        from smartsvg_core.native_ptc_export_v35 import _publish_posix_pinned
+        return _publish_posix_pinned(
+            self.dest, self.payload, self.digest,
+            os.stat(self.parent, follow_symlinks=False))
+
+    def test_existing_identical_output_is_idempotent_without_stage(self):
+        self.publish()
+        self.publish()
+        self.assertEqual(self.dest.read_bytes(), self.payload)
+        self.assertEqual(list(self.parent.glob(".smartsvg_ptc_stage_*")), [])
+
+    def test_concurrent_different_output_is_never_overwritten(self):
+        real_link = os.link
+        rival = b"valuable competing user file"
+        def compete(src, dst, *args, **kwargs):
+            self.dest.write_bytes(rival)
+            return real_link(src, dst, *args, **kwargs)
+        with patch("smartsvg_core.native_ptc_export_v35.os.link",
+                   side_effect=compete):
+            with self.assertRaises(NativePTCError) as ctx:
+                self.publish()
+        self.assertEqual(ctx.exception.code, "OUTPUT_REQUIRES_REVIEW")
+        self.assertEqual(self.dest.read_bytes(), rival)
+        self.assertEqual(list(self.parent.glob(".smartsvg_ptc_stage_*")), [])
+
+    def test_parent_swap_during_link_never_writes_replacement(self):
+        parked = Path(self.tmp.name) / "parked"
+        replacement = Path(self.tmp.name) / "replacement"
+        replacement.mkdir()
+        swapped = False
+        real_link = os.link
+
+        def swap_during_link(src, dst, *args, **kwargs):
+            nonlocal swapped
+            if not swapped:
+                swapped = True
+                # Attacker-controlled parent contains a same-named stage.
+                (replacement / Path(src).name).write_bytes(b"attacker-controlled")
+                self.parent.rename(parked)
+                replacement.rename(self.parent)
+            return real_link(src, dst, *args, **kwargs)
+
+        try:
+            with patch("smartsvg_core.native_ptc_export_v35.os.link",
+                       side_effect=swap_during_link):
+                with self.assertRaises(NativePTCError) as ctx:
+                    self.publish()
+            self.assertEqual(ctx.exception.code, "UNSAFE_EXPORT_PATH")
+            self.assertFalse(self.dest.exists(), "Published into replacement parent")
+        finally:
+            if swapped:
+                self.parent.rename(replacement)
+                parked.rename(self.parent)
+        self.assertTrue(swapped)
+        self.assertFalse((replacement / "export.png").exists())
+        self.assertFalse(self.dest.exists())
+        self.assertEqual(list(self.parent.glob(".smartsvg_ptc_stage_*")), [])
+
+    def test_symlinked_parent_rejected(self):
+        redirected = Path(self.tmp.name) / "redirected"
+        redirected.mkdir()
+        alias = Path(self.tmp.name) / "link-parent"
+        alias.symlink_to(redirected, target_is_directory=True)
+        self.dest = alias / "export.png"
+        with self.assertRaises(NativePTCError):
+            self.publish()
+        self.assertFalse((redirected / "export.png").exists())
+
+
+@unittest.skipUnless(os.name == "nt", "Windows handle-pinning semantics required")
+class WindowsPinnedPublisherTests(unittest.TestCase):
+    def test_complete_nonclobber_publication_and_idempotent_rerun(self):
+        from smartsvg_core.native_ptc_export_v35 import _publish_windows_locked
+        with tempfile.TemporaryDirectory() as root:
+            parent = Path(root) / "safe"
+            parent.mkdir()
+            dest = parent / "export.png"
+            payload = b"complete PNG bytes"
+            digest = sha256(payload).hexdigest()
+            saved = os.stat(parent, follow_symlinks=False)
+            _publish_windows_locked(dest, payload, digest, saved)
+            self.assertEqual(dest.read_bytes(), payload)
+            _publish_windows_locked(dest, payload, digest, saved)
+            self.assertEqual(dest.read_bytes(), payload)
+            dest.write_bytes(b"user-owned content")
+            with self.assertRaises(NativePTCError) as ctx:
+                _publish_windows_locked(dest, payload, digest, saved)
+            self.assertEqual(ctx.exception.code, "OUTPUT_REQUIRES_REVIEW")
+            self.assertEqual(dest.read_bytes(), b"user-owned content")
+
+
 @unittest.skipUnless(HAS_CPU, "Full real PNG export needs existing NumPy/Pillow runtime")
 class FirstNativePTCTests(unittest.TestCase):
     def setUp(self):
