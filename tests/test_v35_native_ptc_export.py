@@ -222,37 +222,51 @@ class WindowsPinnedPublisherTests(unittest.TestCase):
             self.assertEqual(ctx.exception.code, "OUTPUT_REQUIRES_REVIEW")
             self.assertEqual(dest.read_bytes(), b"user-owned content")
 
-    def test_replaced_stage_is_never_deleted_during_failure_cleanup(self):
+    def test_stage_substitution_is_blocked_while_publishing(self):
         from smartsvg_core.native_ptc_export_v35 import _publish_windows_locked
         with tempfile.TemporaryDirectory() as root:
             parent = Path(root) / "safe"
             parent.mkdir()
             dest = parent / "export.png"
             payload = b"verified PNG payload"
-            rival = b"rival user file must survive"
+            parked = parent / "original-stage-parked"
             real_link = os.link
-            swapped = []
+            blocked = []
 
-            def replace_stage_before_link(src, dst, *args, **kwargs):
-                staged = Path(src)
-                parked = parent / "original-stage-parked"
-                staged.rename(parked)
-                staged.write_bytes(rival)
-                swapped.append(staged)
+            def attempt_stage_swap(src, dst, *args, **kwargs):
+                try:
+                    Path(src).rename(parked)
+                except OSError:
+                    blocked.append(True)
+                else:
+                    raise AssertionError("Stage rename succeeded despite pin")
                 return real_link(src, dst, *args, **kwargs)
 
             with patch("smartsvg_core.native_ptc_export_v35.os.link",
-                       side_effect=replace_stage_before_link):
-                with self.assertRaises(NativePTCError) as ctx:
-                    _publish_windows_locked(
-                        dest, payload, sha256(payload).hexdigest(),
-                        os.stat(parent, follow_symlinks=False))
-            self.assertEqual(ctx.exception.code, "OUTPUT_REQUIRES_REVIEW")
-            self.assertEqual(len(swapped), 1)
-            self.assertEqual(swapped[0].read_bytes(), rival)
-            # A race may have linked rival bytes, but must never overwrite
-            # the rival's staged entry or report a verified publication.
-            self.assertEqual(dest.read_bytes(), rival)
+                       side_effect=attempt_stage_swap):
+                _publish_windows_locked(
+                    dest, payload, sha256(payload).hexdigest(),
+                    os.stat(parent, follow_symlinks=False))
+            self.assertEqual(blocked, [True])
+            self.assertEqual(dest.read_bytes(), payload)
+            self.assertFalse(parked.exists())
+
+    def test_windows_link_failure_never_uses_rename_fallback(self):
+        from smartsvg_core.native_ptc_export_v35 import _publish_windows_locked
+        with tempfile.TemporaryDirectory() as root:
+            parent = Path(root) / "safe"
+            parent.mkdir()
+            dest = parent / "export.png"
+            with patch("smartsvg_core.native_ptc_export_v35.os.link",
+                       side_effect=OSError(1, "link unavailable")):
+                with patch("smartsvg_core.native_ptc_export_v35.os.rename",
+                           side_effect=AssertionError("unsafe rename fallback")):
+                    with self.assertRaises(NativePTCError) as ctx:
+                        _publish_windows_locked(
+                            dest, b"payload", sha256(b"payload").hexdigest(),
+                            os.stat(parent, follow_symlinks=False))
+            self.assertEqual(ctx.exception.code, "ATOMIC_PUBLICATION_UNAVAILABLE")
+            self.assertFalse(dest.exists())
 
     def test_parent_rename_is_blocked_during_exclusive_link(self):
         from smartsvg_core.native_ptc_export_v35 import _publish_windows_locked
