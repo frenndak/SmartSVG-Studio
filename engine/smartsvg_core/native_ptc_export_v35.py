@@ -265,12 +265,16 @@ def _publish_posix_pinned(dest, data, digest, initial_parent):
         stage_fd = os.open(
             stage, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW |
             getattr(os, "O_CLOEXEC", 0), 0o600, dir_fd=parent_fd)
+        # Record ownership before writes, including errors and disk-full.
+        opened_stage = os.fstat(stage_fd)
+        stage_identity = (opened_stage.st_dev, opened_stage.st_ino)
         with os.fdopen(stage_fd, "wb") as stream:
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
         stage_stat = os.stat(stage, dir_fd=parent_fd, follow_symlinks=False)
-        stage_identity = (stage_stat.st_dev, stage_stat.st_ino)
+        if (stage_stat.st_dev, stage_stat.st_ino) != stage_identity:
+            raise NativePTCError("STAGING_VERIFICATION_FAILED")
         if not _verify_posix_entry(parent_fd, stage, digest):
             raise NativePTCError("STAGING_VERIFICATION_FAILED")
         check_parent()
@@ -450,6 +454,14 @@ def publish_native_ptc_png(*, project_path, expected_sha256, subject_id,
             not _SHA.fullmatch(expected_output_sha256)):
         raise NativePTCError("EXPECTED_PREVIEW_REQUIRED")
     dest = _destination(destination_path)
+    # Pin the originally selected directory BEFORE potentially lengthy render.
+    # A swap during rendering must never silently select a different parent.
+    try:
+        initial_parent = os.stat(dest.parent, follow_symlinks=False)
+    except OSError as exc:
+        raise NativePTCError("UNSAFE_EXPORT_PATH") from exc
+    if not stat.S_ISDIR(initial_parent.st_mode):
+        raise NativePTCError("UNSAFE_EXPORT_PATH")
     result = _render(project_path=project_path, expected_sha256=expected_sha256,
                      subject_id=subject_id, width_mm=width_mm)
     if result["output_sha256"] != expected_output_sha256:
@@ -462,9 +474,6 @@ def publish_native_ptc_png(*, project_path, expected_sha256, subject_id,
         raise NativePTCError("PROJECT_CHANGED") from exc
 
     try:
-        initial_parent = os.stat(dest.parent, follow_symlinks=False)
-        if not stat.S_ISDIR(initial_parent.st_mode):
-            raise NativePTCError("UNSAFE_EXPORT_PATH")
         if os.name == "posix":
             _publish_posix_pinned(
                 dest, result["png"], expected_output_sha256, initial_parent)
