@@ -50,7 +50,7 @@ class PTCValidationTests(unittest.TestCase):
 
 
 
-@unittest.skipUnless(os.name == "posix", "POSIX dir_fd semantics required")
+@unittest.skipUnless(sys.platform.startswith("linux"), "Linux O_TMPFILE required")
 class PinnedPublisherSafetyTests(unittest.TestCase):
     """Dependency-free Linux gate for W03 TOCTOU, even without NumPy/Pillow."""
 
@@ -73,7 +73,7 @@ class PinnedPublisherSafetyTests(unittest.TestCase):
         self.publish()
         self.publish()
         self.assertEqual(self.dest.read_bytes(), self.payload)
-        self.assertEqual(len(list(self.parent.glob(".smartsvg_ptc_stage_*"))), 1)
+        self.assertEqual(len(list(self.parent.glob(".smartsvg_ptc_stage_*"))), 0)
 
     def test_concurrent_different_output_is_never_overwritten(self):
         real_link = os.link
@@ -87,7 +87,7 @@ class PinnedPublisherSafetyTests(unittest.TestCase):
                 self.publish()
         self.assertEqual(ctx.exception.code, "OUTPUT_REQUIRES_REVIEW")
         self.assertEqual(self.dest.read_bytes(), rival)
-        self.assertEqual(len(list(self.parent.glob(".smartsvg_ptc_stage_*"))), 1)
+        self.assertEqual(len(list(self.parent.glob(".smartsvg_ptc_stage_*"))), 0)
 
     def test_parent_swap_during_link_never_writes_replacement(self):
         parked = Path(self.tmp.name) / "parked"
@@ -124,7 +124,7 @@ class PinnedPublisherSafetyTests(unittest.TestCase):
         # entry would risk removing a concurrently substituted user file.
         # The output is retained only in the original, verified directory.
         self.assertEqual(self.dest.read_bytes(), self.payload)
-        self.assertEqual(len(list(self.parent.glob(".smartsvg_ptc_stage_*"))), 1)
+        self.assertEqual(len(list(self.parent.glob(".smartsvg_ptc_stage_*"))), 0)
 
     def test_no_identity_checked_path_unlink_even_on_failed_publication(self):
         # A stat/unlink pair is racy even when the stat matches our inode:
@@ -143,8 +143,7 @@ class PinnedPublisherSafetyTests(unittest.TestCase):
                     self.publish()
         self.assertEqual(self.dest.read_bytes(), rival)
         retained = list(self.parent.glob(".smartsvg_ptc_stage_*"))
-        self.assertEqual(len(retained), 1)
-        self.assertEqual(retained[0].read_bytes(), self.payload)
+        self.assertEqual(retained, [], "Anonymous staging must leave no named file")
 
     def test_parent_changed_before_open_is_rejected(self):
         from smartsvg_core.native_ptc_export_v35 import _publish_posix_pinned
@@ -326,7 +325,7 @@ class FirstNativePTCTests(unittest.TestCase):
         self.assertEqual(self.destination.read_bytes(),
                          b"Important user file: never overwrite")
 
-    @unittest.skipUnless(os.name == "posix", "Deterministic directory-swap test uses POSIX rename")
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Linux O_TMPFILE required")
     def test_directory_swap_during_link_never_publishes_in_replacement(self):
         # Simulate an attacker replacing the verified parent after staging.
         preview = self.preview()
