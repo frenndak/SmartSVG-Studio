@@ -551,14 +551,6 @@ def _publish_windows_locked(dest, data, digest, initial_parent):
                         raise NativePTCError(
                             "ATOMIC_PUBLICATION_UNAVAILABLE") from exc
             if (dest.is_symlink() or not dest.is_file() or
-                                sha256(dest.read_bytes()).hexdigest() != digest):
-                            raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from None
-                    except OSError as exc:
-                        # No pathname rename fallback: it is not pinned and
-                        # can violate non-overwrite guarantees on Windows.
-                        raise NativePTCError(
-                            "ATOMIC_PUBLICATION_UNAVAILABLE") from exc
-            if (dest.is_symlink() or not dest.is_file() or
                     sha256(dest.read_bytes()).hexdigest() != digest):
                 raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
         except NativePTCError:
