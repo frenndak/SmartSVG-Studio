@@ -407,7 +407,7 @@ def _pin_windows_stage(path):
         before = os.stat(path, follow_symlinks=False)
         if not stat.S_ISREG(before.st_mode):
             raise NativePTCError("UNSAFE_EXPORT_PATH")
-        yield
+        yield handle
         after = os.stat(path, follow_symlinks=False)
         if not _same_directory_identity(before, after):
             raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
@@ -427,6 +427,44 @@ def _pin_windows_stage(path):
         api.CloseHandle(handle)
         if not cleaned:
             raise NativePTCError("ATOMIC_STAGE_CLEANUP_UNAVAILABLE")
+
+
+def _verify_windows_stage_handle(handle, expected_data, digest):
+    """Verify the pinned inode, not a second pathname open.
+
+    The exclusive handle denies concurrent writes and deletion. A separate
+    Path.read_bytes() can fail with sharing violations on native Windows.
+    """
+    import ctypes
+    from ctypes import wintypes
+    api = ctypes.WinDLL("kernel32", use_last_error=True)
+    api.SetFilePointerEx.argtypes = [
+        wintypes.HANDLE, ctypes.c_longlong,
+        ctypes.POINTER(ctypes.c_longlong), wintypes.DWORD]
+    api.SetFilePointerEx.restype = wintypes.BOOL
+    api.ReadFile.argtypes = [
+        wintypes.HANDLE, ctypes.c_void_p, wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD), wintypes.LPVOID]
+    api.ReadFile.restype = wintypes.BOOL
+    if not api.SetFilePointerEx(handle, 0, None, 0):
+        raise NativePTCError("STAGING_VERIFICATION_FAILED")
+    checksum = sha256()
+    remaining = len(expected_data)
+    while remaining:
+        chunk = ctypes.create_string_buffer(min(remaining, 1024 * 1024))
+        count = wintypes.DWORD()
+        if not api.ReadFile(handle, chunk, len(chunk), ctypes.byref(count), None):
+            raise NativePTCError("STAGING_VERIFICATION_FAILED")
+        if not count.value:
+            raise NativePTCError("STAGING_VERIFICATION_FAILED")
+        checksum.update(chunk.raw[:count.value])
+        remaining -= count.value
+    extra = ctypes.create_string_buffer(1)
+    count = wintypes.DWORD()
+    if not api.ReadFile(handle, extra, 1, ctypes.byref(count), None) or count.value:
+        raise NativePTCError("STAGING_VERIFICATION_FAILED")
+    if checksum.hexdigest() != digest:
+        raise NativePTCError("STAGING_VERIFICATION_FAILED")
 
 
 def _publish_windows_locked(dest, data, digest, initial_parent):
@@ -451,9 +489,8 @@ def _publish_windows_locked(dest, data, digest, initial_parent):
                     raise NativePTCError("STAGING_VERIFICATION_FAILED")
                 # Pin the staged inode across the link. Without this handle,
                 # an attacker can replace the named stage after verification.
-                with _pin_windows_stage(staged):
-                    if sha256(staged.read_bytes()).hexdigest() != digest:
-                        raise NativePTCError("STAGING_VERIFICATION_FAILED")
+                with _pin_windows_stage(staged) as pinned_stage:
+                    _verify_windows_stage_handle(pinned_stage, data, digest)
                     try:
                         os.link(staged, dest)
                     except FileExistsError:
