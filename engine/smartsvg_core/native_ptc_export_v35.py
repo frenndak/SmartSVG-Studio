@@ -397,9 +397,9 @@ def _pin_windows_stage(path):
     api.CreateFileW.restype = wintypes.HANDLE
     api.CloseHandle.argtypes = [wintypes.HANDLE]
     api.CloseHandle.restype = wintypes.BOOL
-    # Read content and attributes; allow other readers/writers, not DELETE.
+    # Read content and attributes; deny WRITE and DELETE sharing.
     handle = api.CreateFileW(str(path), 0x80000000 | 0x80,
-                             0x1 | 0x2, None, 3, 0x00200000, None)
+                             0x1, None, 3, 0x00200000, None)
     if handle in (None, ctypes.c_void_p(-1).value):
         raise NativePTCError("ATOMIC_PUBLICATION_UNAVAILABLE")
     try:
