@@ -299,6 +299,38 @@ class WindowsPinnedPublisherTests(unittest.TestCase):
             self.assertEqual(list(parent.glob(".smartsvg_ptc_stage_*")), [],
                              "Failed Windows link must dispose its pinned stage")
 
+    def test_concurrent_destination_creation_preserves_rival_and_cleans_stage(self):
+        # A different process can create the destination between the initial
+        # existence check and the exclusive hard-link operation. Never overwrite
+        # that user's file, and dispose only our pinned staging link.
+        from smartsvg_core.native_ptc_export_v35 import _publish_windows_locked
+        with tempfile.TemporaryDirectory() as root:
+            parent = Path(root) / "safe"
+            parent.mkdir()
+            dest = parent / "export.png"
+            payload = b"verified PNG payload"
+            rival = b"another process owns this destination"
+            real_link = os.link
+            injected = []
+
+            def rival_wins(src, dst, *args, **kwargs):
+                if not injected:
+                    dest.write_bytes(rival)
+                    injected.append(True)
+                return real_link(src, dst, *args, **kwargs)
+
+            with patch("smartsvg_core.native_ptc_export_v35.os.link",
+                       side_effect=rival_wins):
+                with self.assertRaises(NativePTCError) as ctx:
+                    _publish_windows_locked(
+                        dest, payload, sha256(payload).hexdigest(),
+                        os.stat(parent, follow_symlinks=False))
+            self.assertEqual(injected, [True])
+            self.assertEqual(ctx.exception.code, "OUTPUT_REQUIRES_REVIEW")
+            self.assertEqual(dest.read_bytes(), rival)
+            self.assertEqual(list(parent.glob(".smartsvg_ptc_stage_*")), [],
+                             "Only the pinned staging link may be disposed")
+
     def test_parent_rename_is_blocked_during_exclusive_link(self):
         from smartsvg_core.native_ptc_export_v35 import _publish_windows_locked
         with tempfile.TemporaryDirectory() as root:
