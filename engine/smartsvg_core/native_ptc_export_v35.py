@@ -385,6 +385,35 @@ def _pin_windows_directory_chain(parent, initial_parent):
             api.CloseHandle(handle)
 
 
+@contextmanager
+def _pin_windows_stage(path):
+    """Deny DELETE sharing so a stage cannot be renamed or substituted."""
+    import ctypes
+    from ctypes import wintypes
+    api = ctypes.WinDLL("kernel32", use_last_error=True)
+    api.CreateFileW.argtypes = [
+        wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+        wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    api.CreateFileW.restype = wintypes.HANDLE
+    api.CloseHandle.argtypes = [wintypes.HANDLE]
+    api.CloseHandle.restype = wintypes.BOOL
+    # Read content and attributes; allow other readers/writers, not DELETE.
+    handle = api.CreateFileW(str(path), 0x80000000 | 0x80,
+                             0x1 | 0x2, None, 3, 0x00200000, None)
+    if handle in (None, ctypes.c_void_p(-1).value):
+        raise NativePTCError("ATOMIC_PUBLICATION_UNAVAILABLE")
+    try:
+        before = os.stat(path, follow_symlinks=False)
+        if not stat.S_ISREG(before.st_mode):
+            raise NativePTCError("UNSAFE_EXPORT_PATH")
+        yield
+        after = os.stat(path, follow_symlinks=False)
+        if not _same_directory_identity(before, after):
+            raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
+    finally:
+        api.CloseHandle(handle)
+
+
 def _publish_windows_locked(dest, data, digest, initial_parent):
     """Full staging + exclusive publication while ancestor renames are blocked."""
     with _pin_windows_directory_chain(dest.parent, initial_parent):
@@ -405,24 +434,22 @@ def _publish_windows_locked(dest, data, digest, initial_parent):
                     os.fsync(stream.fileno())
                 if sha256(staged.read_bytes()).hexdigest() != digest:
                     raise NativePTCError("STAGING_VERIFICATION_FAILED")
-                try:
-                    os.link(staged, dest)
-                except FileExistsError:
-                    if (dest.is_symlink() or not dest.is_file() or
-                            sha256(dest.read_bytes()).hexdigest() != digest):
-                        raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from None
-                except OSError as exc:
-                    # Windows rename is non-overwriting; POSIX uses dir_fd.
+                # Pin the staged inode across the link. Without this handle,
+                # an attacker can replace the named stage after verification.
+                with _pin_windows_stage(staged):
+                    if sha256(staged.read_bytes()).hexdigest() != digest:
+                        raise NativePTCError("STAGING_VERIFICATION_FAILED")
                     try:
-                        os.rename(staged, dest)
-                        staged = None
+                        os.link(staged, dest)
                     except FileExistsError:
                         if (dest.is_symlink() or not dest.is_file() or
                                 sha256(dest.read_bytes()).hexdigest() != digest):
                             raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from None
-                    except OSError as rename_exc:
+                    except OSError as exc:
+                        # No pathname rename fallback: it is not pinned and
+                        # can violate non-overwrite guarantees on Windows.
                         raise NativePTCError(
-                            "ATOMIC_PUBLICATION_UNAVAILABLE") from rename_exc
+                            "ATOMIC_PUBLICATION_UNAVAILABLE") from exc
             if (dest.is_symlink() or not dest.is_file() or
                     sha256(dest.read_bytes()).hexdigest() != digest):
                 raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
