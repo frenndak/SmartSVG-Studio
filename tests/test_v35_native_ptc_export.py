@@ -214,6 +214,8 @@ class WindowsPinnedPublisherTests(unittest.TestCase):
             saved = os.stat(parent, follow_symlinks=False)
             _publish_windows_locked(dest, payload, digest, saved)
             self.assertEqual(dest.read_bytes(), payload)
+            self.assertEqual(list(parent.glob(".smartsvg_ptc_stage_*")), [],
+                             "Windows handle-scoped cleanup must leave no stage")
             _publish_windows_locked(dest, payload, digest, saved)
             self.assertEqual(dest.read_bytes(), payload)
             dest.write_bytes(b"user-owned content")
@@ -267,6 +269,8 @@ class WindowsPinnedPublisherTests(unittest.TestCase):
                             os.stat(parent, follow_symlinks=False))
             self.assertEqual(ctx.exception.code, "ATOMIC_PUBLICATION_UNAVAILABLE")
             self.assertFalse(dest.exists())
+            self.assertEqual(list(parent.glob(".smartsvg_ptc_stage_*")), [],
+                             "Failed Windows link must dispose its pinned stage")
 
     def test_parent_rename_is_blocked_during_exclusive_link(self):
         from smartsvg_core.native_ptc_export_v35 import _publish_windows_locked
