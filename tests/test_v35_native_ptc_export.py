@@ -119,7 +119,11 @@ class PinnedPublisherSafetyTests(unittest.TestCase):
                 parked.rename(self.parent)
         self.assertTrue(swapped)
         self.assertFalse((replacement / "export.png").exists())
-        self.assertFalse(self.dest.exists())
+        # The pinned original directory may contain a completed hard-link:
+        # detection after link returns UNSAFE_EXPORT_PATH, but deleting that
+        # entry would risk removing a concurrently substituted user file.
+        # The output is retained only in the original, verified directory.
+        self.assertEqual(self.dest.read_bytes(), self.payload)
         self.assertEqual(len(list(self.parent.glob(".smartsvg_ptc_stage_*"))), 1)
 
     def test_no_identity_checked_path_unlink_even_on_failed_publication(self):
