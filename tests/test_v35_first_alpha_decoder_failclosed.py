@@ -93,6 +93,19 @@ class NativeAlphaDecoderFailClosedTests(unittest.TestCase):
         self.assertEqual(ctx.exception.code, "INVALID_ARCHIVED_SOURCE")
         self.assertEqual(self.decode(zlib.compress(_ROWS))[3], 3)
 
+    def test_invalid_second_row_filter_rejects_after_valid_first_row(self):
+        # The first scanline is valid: a late bad predictor must fail closed
+        # instead of returning the first row or a partially decoded mask.
+        corrupted = _ROWS[:9] + b"\x05" + _ROWS[10:]
+        with self.assertRaises(first.NativeFirstSubjectError) as ctx:
+            self.decode(zlib.compress(corrupted))
+        self.assertEqual(ctx.exception.code, "INVALID_ARCHIVED_SOURCE")
+        # A subsequent clean decode must not inherit partial decoder state.
+        raw, width, height, foreground, bbox = self.decode(zlib.compress(_ROWS))
+        self.assertEqual((width, height, foreground, bbox),
+                         (2, 2, 3, (0, 0, 2, 2)))
+        self.assertEqual(len(raw), 16)
+
     def test_truncated_compressed_stream_is_rejected(self):
         with self.assertRaises(first.NativeFirstSubjectError) as ctx:
             self.decode(zlib.compress(_ROWS)[:-2])
