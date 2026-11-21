@@ -47,3 +47,23 @@ class BasicCutTests(unittest.TestCase):
         self.assertIn("1.0000000000000001e-05",data)
         self.assertNotIn("M 0 0",data)
         self.assertEqual(hashlib.sha256(result.svg).hexdigest(),result.sha256)
+
+    def test_close_vertices_preserved_without_rounding_collapse(self):
+        """A valid narrow cut must not collapse during SVG serialization."""
+        ring=((1,1),(1.00002,1),(1.00002,2),(1,2))
+        result=preview_basic_cut(rings=(ring,),width_mm=20,height_mm=10)
+        path=ET.fromstring(result.svg).find("{http://www.w3.org/2000/svg}path")
+        self.assertIn("1.00002",path.get("d"))
+        self.assertEqual(path.get("d").count(" L "),3)
+        self.assertTrue(result.verified_readback)
+
+    def test_tiny_but_nonzero_hole_and_recovery_after_boundary_contact(self):
+        """Preserve a thin disjoint hole; reject a touching hole fail-closed."""
+        thin=((5,2),(5.00002,2),(5.00002,4),(5,4))
+        valid=preview_basic_cut(rings=(OUTER,thin),width_mm=20,height_mm=10)
+        self.assertEqual(valid.ring_count,2)
+        self.assertIn("5.00002",ET.fromstring(valid.svg).find("{http://www.w3.org/2000/svg}path").get("d"))
+        touching=((0,2),(1,2),(1,4),(0,4))
+        with self.assertRaises(BasicCutError):
+            preview_basic_cut(rings=(OUTER,touching),width_mm=20,height_mm=10)
+        self.assertEqual(preview_basic_cut(rings=(OUTER,HOLE),width_mm=20,height_mm=10).ring_count,2)
