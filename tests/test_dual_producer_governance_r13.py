@@ -71,5 +71,30 @@ class DualProducerR13OwnerGovernanceTests(unittest.TestCase):
         })
 
 
+    def test_protection_403_fallback_requires_positive_independent_github_signals(self):
+        # Owner-reviewed governance correction: 403 is a token-scope error,
+        # never proof of either protection state or permission to bypass.
+        policy = POLICY
+        contract = CONTRACT
+        for fragment in (
+            "### 3 bis.",
+            "protected === false",
+            "rulesets?includes_parents=true&per_page=100",
+            "liste **complète** vide",
+            "NO_MERGE",
+            "BLOCKED_GITHUB_PROTECTION",
+            "merge_pull_request(expected_head_sha=HEAD)",
+            "B uniquement",
+            "Toute réponse GitHub refusant la fusion",
+            "Aucun contrôle métier",
+        ):
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, policy)
+        self.assertIn("**jamais** par le 403", policy)
+        self.assertIn("§3 bis", contract)
+        self.assertIn("sans lever ni contourner", contract)
+        self.assertIn("l'unique exécuteur B", contract)
+        self.assertIn("le G0 post-merge", contract)
+
 if __name__ == "__main__":
     unittest.main()
