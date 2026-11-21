@@ -181,6 +181,17 @@ class NativeAlphaDecoderFailClosedTests(unittest.TestCase):
             self.decode(zlib.compress(_ROWS) + zlib.compress(_ROWS))
         self.assertEqual(ctx.exception.code, "INVALID_ARCHIVED_SOURCE")
 
+    def test_corrupted_adler32_checksum_fails_closed_then_recovers(self):
+        # Preserve the compressed payload and corrupt only the zlib trailer.
+        # A decoder that stops at the expected byte count must still verify
+        # the checksum rather than silently accepting a plausible alpha mask.
+        valid = zlib.compress(_ROWS)
+        corrupted = valid[:-1] + bytes((valid[-1] ^ 0x01,))
+        with self.assertRaises(first.NativeFirstSubjectError) as ctx:
+            self.decode(corrupted)
+        self.assertEqual(ctx.exception.code, "INVALID_ARCHIVED_SOURCE")
+        self.assertEqual(self.decode(valid)[3], 3)
+
     def test_invalid_zlib_header_is_rejected(self):
         with self.assertRaises(first.NativeFirstSubjectError) as ctx:
             self.decode(b"not a zlib stream")
