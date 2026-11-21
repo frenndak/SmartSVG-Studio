@@ -112,7 +112,7 @@ class NativeAlphaDecoderFailClosedTests(unittest.TestCase):
                     predicted = 0
                 out.append((value - predicted) & 255)
             return bytes((predictor,)) + bytes(out)
-        baseline = b"".join(b"\\x00" + row for row in rows)
+        baseline = b"".join(bytes((0,)) + row for row in rows)
         filtered = (encode(rows[0], bytes(8), 0) +
                     encode(rows[1], rows[0], 4) +
                     encode(rows[2], rows[1], 3))
