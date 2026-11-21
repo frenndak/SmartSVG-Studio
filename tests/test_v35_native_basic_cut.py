@@ -36,3 +36,14 @@ class BasicCutTests(unittest.TestCase):
         for width in (True,float("nan"),float("inf"),0,-1,10001,19):
             with self.subTest(width=width),self.assertRaises(BasicCutError):
                 preview_basic_cut(rings=(OUTER,),width_mm=width,height_mm=10)
+
+    def test_fractional_coordinates_survive_svg_readback(self):
+        """SVG serialization must not silently quantize sub-0.1 mm contours."""
+        contour=((0.00001,0.00001),(19.99999,0.00001),(19.99999,9.99999),(0.00001,9.99999))
+        result=preview_basic_cut(rings=(contour,),width_mm=20,height_mm=10)
+        root=ET.fromstring(result.svg)
+        path=root.find("{http://www.w3.org/2000/svg}path")
+        data=path.get("d")
+        self.assertIn("1.0000000000000001e-05",data)
+        self.assertNotIn("M 0 0",data)
+        self.assertEqual(hashlib.sha256(result.svg).hexdigest(),result.sha256)
