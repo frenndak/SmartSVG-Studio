@@ -577,30 +577,42 @@ class FirstNativePTCTests(unittest.TestCase):
         destination = safe / "export.png"
         real_link = os.link
         swapped = False
+        injected_name = None
 
         def swap_then_link(src, dst, *args, **kwargs):
-            nonlocal swapped
+            nonlocal swapped, injected_name
             if not swapped:
                 swapped = True
                 # Give the replacement directory a matching staging name:
                 # a pathname-based link must not publish from this directory.
-                (replacement / Path(src).name).write_bytes(b"attacker bytes")
+                injected_name = Path(src).name
+                (replacement / injected_name).write_bytes(b"attacker bytes")
                 safe.rename(parked)
                 replacement.rename(safe)
             return real_link(src, dst, *args, **kwargs)
 
         try:
             with patch("smartsvg_core.native_ptc_export_v35.os.link", side_effect=swap_then_link):
-                with self.assertRaises(NativePTCError):
+                with self.assertRaises(NativePTCError) as error:
                     self.publish(preview, destination_path=str(destination))
         finally:
             if swapped:
                 safe.rename(replacement)
                 parked.rename(safe)
         self.assertTrue(swapped)
+        self.assertEqual(error.exception.code, "OUTPUT_REQUIRES_REVIEW",
+                         "A link may have committed before the parent was swapped")
         self.assertFalse((replacement / "export.png").exists(),
                          "Export escaped the verified directory during a parent swap")
-        self.assertFalse(destination.exists())
+        self.assertEqual((replacement / injected_name).read_bytes(), b"attacker bytes",
+                         "The replacement directory's user bytes must be untouched")
+        # POSIX dir_fd pins the ORIGINAL directory inode. A completed link
+        # legitimately survives there even after the pathname is restored.
+        # It is unsafe to remove it after the rename race: another actor may
+        # already have replaced that name. Require the exact verified bytes
+        # and an honest OUTPUT_REQUIRES_REVIEW, not a false rollback claim.
+        self.assertEqual(sha256(destination.read_bytes()).hexdigest(),
+                         preview["output_sha256"])
 
     def test_revision_stale_and_unmanaged_target_never_publish(self):
         preview = self.preview()
