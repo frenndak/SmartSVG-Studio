@@ -30,6 +30,12 @@
 4. Après chaque fusion vérifier SHA main et workflow G0 push sur exactement ce SHA en `completed/success`; tant que pending/unknown/fail, toutes les autres fusions sont gelées. Un échec entraîne diagnostic, PR de correctif ou de revert revue, sans restauration aveugle.
 5. Pas de fusion de PR de gouvernance ou de docs par ces tâches; même si GitHub les permet. Le propriétaire reste décideur des promotions normatives.
 
+## Lecture des protections GitHub — clarification propriétaire du 21/11/2026
+
+Le refus `403 Resource not accessible by integration` de l'endpoint détaillé `branches/main/protection` signifie une lecture inaccessible avec le jeton courant, **pas** que la branche est protégée ni non protégée. Suivre **§3 bis** de `docs/AUTONOMOUS_INTEGRATION_POLICY_V35.md` : une lecture fraîche `branches/main` avec `protected:false` et SHA exact, **plus** une réponse complète `rulesets?includes_parents=true&per_page=100` égale `[]`, peut démontrer l'absence actuelle de règles applicables **sans lever ni contourner de protection**. Une seule preuve ou un résultat ambigu ne suffit jamais. Une vraie règle exigeant un `APPROVED` ne peut être remplacée par la revue technique du même compte.
+
+Cette clarification ne modifie **ni** l'unique exécuteur B, **ni** les chemins autorisés, **ni** la revue adverse sur un cycle distinct, les CI exact HEAD, la limite d'une fusion par cycle B et le G0 post-merge. Aucun agent n'a le droit de modifier une protection, changer d'identité ou forcer l'API GitHub. Toute fusion refusée reste **NO_MERGE** jusqu'à résolution autorisée.
+
 ## Exigences produit et preuves
 - Un writer applicatif de projets, SHA/CAS, masques float32, 4 sorties distinctes (PNG Print Then Cut, SVG Basic Cut, SVG multicouche, SVG d'édition), consentements, non-écrasement, Undo/recovery, vérification unités/mm/viewBox et qualité; conserver les contrats existants.
 - Pour une modification: test reproduisant le défaut quand pertinent, au moins trois cas négatifs pertinents, annulation/reprise/concurrence, performance mesurée si impact, tests G0/CPU/Windows nécessaires et rollback. `NOT_RUN` n'est pas PASS.
