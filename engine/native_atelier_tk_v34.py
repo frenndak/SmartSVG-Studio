@@ -162,18 +162,22 @@ class NativeAtelierPanel:
         self.subject_position = tk.StringVar(value='')
         ttk.Label(parent, textvariable=self.subject_position).pack(anchor='w')
         ttk.Label(parent, textvariable=self.details, wraplength=640).pack(anchor='w', pady=(0, 8))
+        # Keep both subject actions on one row: an extra full-height button
+        # can push the actual mask canvas below the visible Windows pane.
+        subject_actions = ttk.Frame(parent)
+        subject_actions.pack(fill='x', pady=(0, 4))
         self.brush_button = ttk.Button(
-            parent, text='Retoucher ce sujet (aperçu puis sauvegarde)',
+            subject_actions, text='Retoucher ce sujet (aperçu puis sauvegarde)',
             command=self.open_brush, state='disabled')
-        self.brush_button.pack(anchor='w', pady=(0, 8))
+        self.brush_button.pack(side='left', padx=(0, 6))
+        self.ptc_button = ttk.Button(
+            subject_actions, text='Exporter ce sujet · PNG Print Then Cut…',
+            command=self.open_ptc, state='disabled')
+        self.ptc_button.pack(side='left')
         self.first_subject_button = ttk.Button(
             parent, text='Créer le premier sujet (PNG transparent)…',
             command=self.create_first_subject, state='disabled')
         self.first_subject_button.pack(anchor='w', pady=(0, 4))
-        self.ptc_button = ttk.Button(
-            parent, text='Exporter ce sujet · PNG Print Then Cut…',
-            command=self.open_ptc, state='disabled')
-        self.ptc_button.pack(anchor='w', pady=(0, 4))
         ttk.Label(parent, textvariable=self.first_subject_status,
                   wraplength=640).pack(anchor='w', pady=(0, 8))
         self.viewport = NativeImageViewport(parent, tk, ttk)
