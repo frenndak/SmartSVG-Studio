@@ -6,6 +6,7 @@ inflation/filter guard with otherwise valid dimensions.
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import struct
 import sys
 from pathlib import Path
@@ -142,6 +143,28 @@ class NativeAlphaDecoderFailClosedTests(unittest.TestCase):
         self.assertEqual((width, height, foreground, bbox),
                          (2, 2, 3, (0, 0, 2, 2)))
         self.assertEqual(len(raw), 16)
+
+    def test_parallel_valid_and_invalid_decodes_do_not_share_state(self):
+        # Patch admission once outside worker threads: per-thread mock patching
+        # would itself introduce shared mutable state into this regression.
+        valid = _rgba_png(zlib.compress(_ROWS))
+        invalid = _rgba_png(zlib.compress(_ROWS[:9] + bytes((5,)) + _ROWS[10:]))
+        with patch.object(first, "_verify_png", return_value=(2, 2, "RGBA")):
+            def run(index):
+                try:
+                    result = first._rgba_alpha_mask(valid if index % 2 == 0 else invalid)
+                except first.NativeFirstSubjectError as exc:
+                    return ("error", exc.code)
+                return ("ok", result)
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                results = list(pool.map(run, range(32)))
+        expected = self.decode(zlib.compress(_ROWS))
+        for index, result in enumerate(results):
+            with self.subTest(index=index):
+                if index % 2:
+                    self.assertEqual(result, ("error", "INVALID_ARCHIVED_SOURCE"))
+                else:
+                    self.assertEqual(result, ("ok", expected))
 
     def test_truncated_compressed_stream_is_rejected(self):
         with self.assertRaises(first.NativeFirstSubjectError) as ctx:
