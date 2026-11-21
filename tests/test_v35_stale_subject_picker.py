@@ -46,7 +46,8 @@ class StalePickerTests(unittest.TestCase):
         panel.subjects = {"first": object(), "second": object()}
         panel.selection = Variable("second")
         panel._brush_key = ("project", "revision", "first")
-        panel.busy = True
+        panel._history_confirming = True
+        self.assertTrue(panel.busy)
         panel._request_close_brush = Mock(return_value=True)
         panel.render = Mock()
         self.assertFalse(panel._pick_subject())
@@ -59,7 +60,8 @@ class StalePickerTests(unittest.TestCase):
         panel.subjects = {"first": object(), "second": object()}
         panel.selection = Variable("first")
         panel._brush_key = None
-        panel.busy = True
+        panel._history_confirming = True
+        self.assertTrue(panel.busy)
         panel.render = Mock()
         self.assertFalse(panel._select_subject("second"))
         self.assertEqual(panel.selection.get(), "first")
