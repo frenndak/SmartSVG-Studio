@@ -490,7 +490,20 @@ class NativeAtelierPanel:
         return self._select_subject(self.selection.get())
 
     def _select_subject(self, subject_id):
+        # A queued Tk event must not navigate while a background operation
+        # has disabled the picker; preserve the current draft and selection.
+        if getattr(self, 'busy', False):
+            brush_key = getattr(self, '_brush_key', None)
+            if brush_key is not None and brush_key[2] in self.subjects:
+                self.selection.set(brush_key[2])
+            return False
         brush_key = getattr(self, '_brush_key', None)
+        # A stale/foreign combobox value is never a valid selection. Keep an
+        # open draft on its original subject without prompting to discard it.
+        if subject_id not in self.subjects:
+            if brush_key is not None and brush_key[2] in self.subjects:
+                self.selection.set(brush_key[2])
+            return False
         if brush_key is not None and subject_id != brush_key[2]:
             # The picker updates its variable before dispatching the event.
             # Restore the active target before the modal confirmation.
