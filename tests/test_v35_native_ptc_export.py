@@ -111,7 +111,7 @@ class PinnedPublisherSafetyTests(unittest.TestCase):
                        side_effect=swap_during_link):
                 with self.assertRaises(NativePTCError) as ctx:
                     self.publish()
-            self.assertEqual(ctx.exception.code, "UNSAFE_EXPORT_PATH")
+            self.assertEqual(ctx.exception.code, "OUTPUT_REQUIRES_REVIEW")
             self.assertFalse(self.dest.exists(), "Published into replacement parent")
         finally:
             if swapped:
@@ -120,7 +120,7 @@ class PinnedPublisherSafetyTests(unittest.TestCase):
         self.assertTrue(swapped)
         self.assertFalse((replacement / "export.png").exists())
         # The pinned original directory may contain a completed hard-link:
-        # detection after link returns UNSAFE_EXPORT_PATH, but deleting that
+        # detection after link returns OUTPUT_REQUIRES_REVIEW, because deleting that
         # entry would risk removing a concurrently substituted user file.
         # The output is retained only in the original, verified directory.
         self.assertEqual(self.dest.read_bytes(), self.payload)
