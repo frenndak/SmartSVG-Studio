@@ -323,5 +323,47 @@ class LivePNGDensitySmoke(unittest.TestCase):
             self.assertEqual(sheet.read_bytes(), original)
 
 
+
+class LiveNativePTCLinuxPublicationSmoke(unittest.TestCase):
+    """Run the *actual* W03 PNG directory-swap regression on CPU Linux.
+
+    G0 intentionally lacks NumPy/Pillow, and Windows cannot exercise POSIX
+    O_TMPFILE. The existing CPU smoke workflow already installs both libs.
+    Import and run the original test without duplicating or weakening it;
+    fail if that test is skipped or if its assertions fail.
+    """
+
+    @unittest.skipUnless(sys.platform.startswith("linux"),
+                         "POSIX O_TMPFILE requires a Linux runner")
+    def test_real_native_ptc_directory_swap_is_executed_without_skip(self):
+        import importlib
+        import importlib.util
+
+        self.assertIsNotNone(importlib.util.find_spec("numpy"),
+                             "CPU runtime must include NumPy for real W03 PNG")
+        self.assertIsNotNone(importlib.util.find_spec("PIL"),
+                             "CPU runtime must include Pillow for real W03 PNG")
+        test_root = ROOT / "tests"
+        self.assertTrue((test_root / "test_v35_native_ptc_export.py").is_file())
+        sys.path.insert(0, str(test_root))
+        try:
+            suite_module = importlib.import_module("test_v35_native_ptc_export")
+            # This is an original end-to-end test of the current source,
+            # preserved under its real name for inspectable CI evidence.
+            actual = suite_module.FirstNativePTCTests(
+                "test_directory_swap_during_link_never_publishes_in_replacement")
+            verdict = unittest.TextTestRunner(
+                stream=sys.stdout, verbosity=2).run(
+                    unittest.TestSuite([actual]))
+            self.assertEqual(verdict.testsRun, 1, "W03 test did not execute")
+            self.assertEqual(verdict.skipped, [], "W03 Linux test was SKIPPED")
+            self.assertEqual(verdict.failures, [], "W03 assertions FAILED")
+            self.assertEqual(verdict.errors, [], "W03 execution ERROR")
+            self.assertTrue(verdict.wasSuccessful())
+        finally:
+            sys.path.remove(str(test_root))
+
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
