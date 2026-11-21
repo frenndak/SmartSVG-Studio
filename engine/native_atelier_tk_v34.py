@@ -170,6 +170,10 @@ class NativeAtelierPanel:
             parent, text='Créer le premier sujet (PNG transparent)…',
             command=self.create_first_subject, state='disabled')
         self.first_subject_button.pack(anchor='w', pady=(0, 4))
+        self.ptc_button = ttk.Button(
+            parent, text='Exporter ce sujet · PNG Print Then Cut…',
+            command=self.open_ptc, state='disabled')
+        self.ptc_button.pack(anchor='w', pady=(0, 4))
         ttk.Label(parent, textvariable=self.first_subject_status,
                   wraplength=640).pack(anchor='w', pady=(0, 8))
         self.viewport = NativeImageViewport(parent, tk, ttk)
@@ -563,6 +567,12 @@ class NativeAtelierPanel:
         if button is not None:
             button.configure(state='normal' if not self.busy and request is not None
                              and self._brush_class is not None else 'disabled')
+        ptc_button = getattr(self, 'ptc_button', None)
+        if ptc_button is not None:
+            ptc_button.configure(
+                state='normal' if not self.busy and not self.has_open_brush
+                and not self.history_requires_review and request is not None
+                else 'disabled')
         self.viewport.load(None)
         if subject is None:
             self.details.set('Aucun sujet enregistré dans ce projet.' if self.snapshot else '')
@@ -632,6 +642,11 @@ class NativeAtelierPanel:
                 not _REVISION.fullmatch(receipt['project_sha256'])):
             return
         self._on_saved(receipt)
+
+    def open_ptc(self):
+        """Open a separate explicit-export dialog; never save the V1 project."""
+        from native_ptc_dialog_tk_v35 import show_ptc_dialog
+        return show_ptc_dialog(self)
 
     def open_brush(self):
         """Open a verified V1 Subject draft with an explicit save path."""
