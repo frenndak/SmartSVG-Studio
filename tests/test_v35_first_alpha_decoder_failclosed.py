@@ -210,6 +210,21 @@ class NativeAlphaDecoderFailClosedTests(unittest.TestCase):
         self.assertEqual((width, height, count, bbox), (1, 1, 1, (0, 0, 1, 1)))
         self.assertEqual(raw, struct.pack("<f", 128 / 255))
 
+    def test_foreground_threshold_127_128_preserves_soft_alpha(self):
+        # Threshold applies to eligibility/bbox, not the stored opacity.
+        # The sub-threshold pixel remains in the float32 mask even when it
+        # must not count as foreground.
+        raw_pixels = bytes((0, 9, 8, 7, 127, 6, 5, 4, 128))
+        raw, width, height, count, bbox = self.decode(
+            zlib.compress(raw_pixels), width=2, height=1)
+        self.assertEqual((width, height, count, bbox), (2, 1, 1, (1, 0, 1, 1)))
+        self.assertEqual(raw, struct.pack("<2f", 127 / 255, 128 / 255))
+        # An image with only a 127-alpha pixel must not produce a subject.
+        with self.assertRaises(first.NativeFirstSubjectError) as ctx:
+            self.decode(zlib.compress(raw_pixels[:5]), width=1, height=1)
+        self.assertEqual(ctx.exception.code, "MANUAL_SELECTION_REQUIRED")
+        self.assertEqual(self.decode(zlib.compress(raw_pixels), width=2, height=1)[3], 1)
+
     def test_invalid_zlib_header_is_rejected(self):
         with self.assertRaises(first.NativeFirstSubjectError) as ctx:
             self.decode(b"not a zlib stream")
