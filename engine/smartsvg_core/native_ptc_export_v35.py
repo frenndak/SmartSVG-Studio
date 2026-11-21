@@ -256,6 +256,17 @@ def _publish_posix_pinned(dest, data, digest, initial_parent):
                     not _same_directory_identity(current, pinned)):
                 raise NativePTCError("UNSAFE_EXPORT_PATH")
 
+        # Once an exclusive link may have committed, a later parent swap
+        # makes the output outcome uncertain, not merely an invalid pathname.
+        # Never blindly unlink: a concurrent actor may replace the name.
+        def check_published_parent():
+            try:
+                check_parent()
+            except NativePTCError as exc:
+                if created:
+                    raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from exc
+                raise
+
         check_parent()
         if _verify_posix_entry(parent_fd, dest.name, digest):
             check_parent()
@@ -295,7 +306,7 @@ def _publish_posix_pinned(dest, data, digest, initial_parent):
                 raise NativePTCError("ATOMIC_PUBLICATION_UNAVAILABLE") from exc
         finally:
             os.close(stage_fd)
-        check_parent()  # Detect even a swap performed inside os.link itself.
+        check_published_parent()  # A link may have committed in the pinned directory.
         if not _verify_posix_entry(parent_fd, dest.name, digest):
             raise NativePTCError("OUTPUT_REQUIRES_REVIEW")
         if created:
@@ -303,7 +314,7 @@ def _publish_posix_pinned(dest, data, digest, initial_parent):
                 os.fsync(parent_fd)
             except OSError as exc:
                 raise NativePTCError("OUTPUT_REQUIRES_REVIEW") from exc
-        check_parent()
+        check_published_parent()
         accepted = True
     except NativePTCError:
         raise
