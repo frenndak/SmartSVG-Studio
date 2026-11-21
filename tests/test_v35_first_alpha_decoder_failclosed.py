@@ -225,6 +225,29 @@ class NativeAlphaDecoderFailClosedTests(unittest.TestCase):
         self.assertEqual(ctx.exception.code, "MANUAL_SELECTION_REQUIRED")
         self.assertEqual(self.decode(zlib.compress(raw_pixels), width=2, height=1)[3], 1)
 
+    def test_inflated_row_length_mismatch_and_recovery(self):
+        # An otherwise valid zlib stream with too few or too many decoded
+        # bytes must never yield a partial alpha mask or ignore an extra byte.
+        expected = self.decode(zlib.compress(_ROWS))
+        malformed = (
+            _ROWS[:-1],       # last alpha byte missing
+            _ROWS + b"\\x00",  # trailing byte not a complete scanline
+            _ROWS[:9],        # entire second row missing
+        )
+        for scanlines in malformed:
+            with self.subTest(decoded_bytes=len(scanlines)):
+                with self.assertRaises(first.NativeFirstSubjectError) as ctx:
+                    self.decode(zlib.compress(scanlines))
+                self.assertEqual(ctx.exception.code, "INVALID_ARCHIVED_SOURCE")
+                self.assertEqual(self.decode(zlib.compress(_ROWS)), expected)
+
+    def test_trailing_non_zlib_bytes_rejected_then_valid_recovers(self):
+        valid = zlib.compress(_ROWS)
+        with self.assertRaises(first.NativeFirstSubjectError) as ctx:
+            self.decode(valid + b"TRAILING")
+        self.assertEqual(ctx.exception.code, "INVALID_ARCHIVED_SOURCE")
+        self.assertEqual(self.decode(valid)[3], 3)
+
     def test_invalid_zlib_header_is_rejected(self):
         with self.assertRaises(first.NativeFirstSubjectError) as ctx:
             self.decode(b"not a zlib stream")
