@@ -27,7 +27,7 @@ def _num(value):
     return float(value)
 
 def _fmt(n):
-    return (f"{n:.4f}".rstrip("0").rstrip(".") or "0") if n else "0"
+    return format(n, ".17g") if n else "0"
 
 def _cross(a,b,c):
     return (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])
