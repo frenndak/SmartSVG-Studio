@@ -41,6 +41,30 @@ class StalePickerTests(unittest.TestCase):
         self.assertFalse(panel._pick_subject())
         panel.render.assert_not_called()
 
+    def test_queued_picker_event_while_busy_keeps_open_brush(self):
+        panel = NativeAtelierPanel.__new__(NativeAtelierPanel)
+        panel.subjects = {"first": object(), "second": object()}
+        panel.selection = Variable("second")
+        panel._brush_key = ("project", "revision", "first")
+        panel.busy = True
+        panel._request_close_brush = Mock(return_value=True)
+        panel.render = Mock()
+        self.assertFalse(panel._pick_subject())
+        self.assertEqual(panel.selection.get(), "first")
+        panel._request_close_brush.assert_not_called()
+        panel.render.assert_not_called()
+
+    def test_queued_picker_event_while_busy_without_brush_is_ignored(self):
+        panel = NativeAtelierPanel.__new__(NativeAtelierPanel)
+        panel.subjects = {"first": object(), "second": object()}
+        panel.selection = Variable("first")
+        panel._brush_key = None
+        panel.busy = True
+        panel.render = Mock()
+        self.assertFalse(panel._select_subject("second"))
+        self.assertEqual(panel.selection.get(), "first")
+        panel.render.assert_not_called()
+
     def test_valid_selection_still_renders(self):
         panel = NativeAtelierPanel.__new__(NativeAtelierPanel)
         panel.subjects = {"first": object(), "second": object()}
