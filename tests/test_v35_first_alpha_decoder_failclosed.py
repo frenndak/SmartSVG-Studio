@@ -231,7 +231,7 @@ class NativeAlphaDecoderFailClosedTests(unittest.TestCase):
         expected = self.decode(zlib.compress(_ROWS))
         malformed = (
             _ROWS[:-1],       # last alpha byte missing
-            _ROWS + b"\\x00",  # trailing byte not a complete scanline
+            _ROWS + bytes((0,)),  # exactly one extra decoded byte
             _ROWS[:9],        # entire second row missing
         )
         for scanlines in malformed:
