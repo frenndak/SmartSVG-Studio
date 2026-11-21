@@ -53,7 +53,10 @@ class BasicCutTests(unittest.TestCase):
         ring=((1,1),(1.00002,1),(1.00002,2),(1,2))
         result=preview_basic_cut(rings=(ring,),width_mm=20,height_mm=10)
         path=ET.fromstring(result.svg).find("{http://www.w3.org/2000/svg}path")
-        self.assertIn("1.00002",path.get("d"))
+        # Float serialization may use an equivalent long decimal spelling.
+        coords = path.get("d").replace("M ", "").replace(" L ", " ").replace(" Z", "").split()
+        self.assertAlmostEqual(float(coords[2]), 1.00002, places=12)
+        self.assertGreater(float(coords[2]) - float(coords[0]), 0.0000199999)
         self.assertEqual(path.get("d").count(" L "),3)
         self.assertTrue(result.verified_readback)
 
