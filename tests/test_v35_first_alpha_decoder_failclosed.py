@@ -25,8 +25,8 @@ def _chunk(kind, data):
             struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff))
 
 
-def _rgba_png(compressed):
-    header = struct.pack(">IIBBBBB", 2, 2, 8, 6, 0, 0, 0)
+def _rgba_png(compressed, *, width=2, height=2):
+    header = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
     return (b"\x89PNG\r\n\x1a\n" + _chunk(b"IHDR", header) +
             _chunk(b"IDAT", compressed) + _chunk(b"IEND", b""))
 
@@ -38,12 +38,12 @@ _ROWS = (b"\x00" + bytes((12, 34, 56, 255, 12, 34, 56, 0)) +
 
 
 class NativeAlphaDecoderFailClosedTests(unittest.TestCase):
-    def decode(self, compressed):
+    def decode(self, compressed, *, width=2, height=2):
         # _verify_png is independently tested in the workspace suite. Pin its
         # result here to exercise decompression guards even when archive
         # admission would reject malformed IDAT before reaching this decoder.
-        with patch.object(first, "_verify_png", return_value=(2, 2, "RGBA")):
-            return first._rgba_alpha_mask(_rgba_png(compressed))
+        with patch.object(first, "_verify_png", return_value=(width, height, "RGBA")):
+            return first._rgba_alpha_mask(_rgba_png(compressed, width=width, height=height))
 
     def test_valid_rgba_keeps_soft_alpha_and_exact_bbox(self):
         raw, width, height, foreground, bbox = self.decode(zlib.compress(_ROWS))
@@ -85,6 +85,43 @@ class NativeAlphaDecoderFailClosedTests(unittest.TestCase):
                 self.assertEqual((width, height, foreground, bbox),
                                  (2, 2, 3, (0, 0, 2, 2)))
                 self.assertEqual(raw, expected)
+
+
+    def test_chained_predictors_three_rows_preserve_soft_alpha_and_bbox(self):
+        # Each predictor must use the *reconstructed* previous scanline,
+        # not the prior compressed residuals. RGB differs to catch byte
+        # alignment errors even though only alpha is returned.
+        rows = [
+            bytes((10, 20, 30, 0, 40, 50, 60, 255)),
+            bytes((70, 80, 90, 127, 100, 110, 120, 128)),
+            bytes((130, 140, 150, 200, 160, 170, 180, 0)),
+        ]
+        def encode(row, above, predictor):
+            out = bytearray()
+            for i, value in enumerate(row):
+                left = row[i - 4] if i >= 4 else 0
+                up = above[i]
+                corner = above[i - 4] if i >= 4 else 0
+                if predictor == 4:
+                    p = left + up - corner
+                    distances = (abs(p - left), abs(p - up), abs(p - corner))
+                    predicted = (left, up, corner)[distances.index(min(distances))]
+                elif predictor == 3:
+                    predicted = (left + up) // 2
+                else:
+                    predicted = 0
+                out.append((value - predicted) & 255)
+            return bytes((predictor,)) + bytes(out)
+        baseline = b"".join(b"\\x00" + row for row in rows)
+        filtered = (encode(rows[0], bytes(8), 0) +
+                    encode(rows[1], rows[0], 4) +
+                    encode(rows[2], rows[1], 3))
+        expected = self.decode(zlib.compress(baseline), height=3)
+        actual = self.decode(zlib.compress(filtered), height=3)
+        self.assertEqual(actual, expected)
+        self.assertEqual(actual[1:], (2, 3, 3, (0, 0, 2, 3)))
+        self.assertEqual(struct.unpack("<6f", actual[0])[3],
+                         struct.unpack("<f", struct.pack("<f", 128 / 255))[0])
 
     def test_invalid_filter_is_rejected_without_reusing_previous_scanline(self):
         corrupted = b"\x05" + _ROWS[1:]
