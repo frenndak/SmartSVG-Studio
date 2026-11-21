@@ -43,3 +43,29 @@ def ptc_preview_request(snapshot, subject, project_path, width_text):
         "subject_id": subject.subject_id,
         "width_mm": width,
     }
+
+
+def ptc_physical_feedback(request, width_px, height_px):
+    """Preflight the native renderer's physical bounds without writing.
+
+    Returns an actionable French message, or None if the geometry is eligible.
+    The native renderer remains authoritative for source and mask validation.
+    """
+    if (type(request) is not dict or
+            type(request.get("width_mm")) is not float or
+            type(width_px) is not int or type(height_px) is not int or
+            width_px <= 0 or height_px <= 0 or
+            width_px * height_px > 5_000_000):
+        return "Dimensions de source indisponibles ou trop grandes : réexaminer le projet (F5)."
+    width_mm = request["width_mm"]
+    if not math.isfinite(width_mm) or not 0.01 <= width_mm <= 10000:
+        return "Largeur physique invalide : saisir une valeur entre 0,01 et 10 000 mm."
+    ppi = width_px * 25.4 / width_mm
+    height_mm = height_px * width_mm / width_px
+    if ppi > 2400:
+        return "Largeur trop petite pour cette image (plus de 2 400 ppp). Augmenter les millimètres."
+    if ppi < 1:
+        return "Largeur trop grande pour cette image (moins de 1 ppp). Réduire les millimètres."
+    if height_mm < 0.01 or height_mm > 10000:
+        return "Hauteur calculée hors limites (0,01 à 10 000 mm). Adapter la largeur."
+    return None
