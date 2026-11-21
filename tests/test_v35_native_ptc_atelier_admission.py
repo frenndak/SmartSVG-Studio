@@ -7,7 +7,7 @@ import unittest
 ENGINE = Path(__file__).resolve().parents[1] / "engine"
 if str(ENGINE) not in sys.path:
     sys.path.insert(0, str(ENGINE))
-from native_ptc_atelier_tk_v35 import ptc_preview_request
+from native_ptc_atelier_tk_v35 import ptc_preview_request, ptc_physical_feedback
 
 
 class PTCAtelierAdmissionTests(unittest.TestCase):
@@ -43,6 +43,15 @@ class PTCAtelierAdmissionTests(unittest.TestCase):
         self.snapshot.sha256 = "a" * 64
         self.subject.subject_id = "subject-invalid"
         self.assertIsNone(self.request())
+
+    def test_physical_limits_before_publish(self):
+        request = self.request("50")
+        self.assertIsNone(ptc_physical_feedback(request, 1000, 1000))
+        self.assertIn("2 400 ppp", ptc_physical_feedback(self.request("0,01"), 1000, 1000))
+        self.assertIn("moins de 1 ppp", ptc_physical_feedback(self.request("10000"), 100, 100))
+        self.assertIn("Hauteur", ptc_physical_feedback(self.request("1000"), 100, 2000))
+        self.assertIn("réexaminer", ptc_physical_feedback(request, True, 100))
+        self.assertIn("réexaminer", ptc_physical_feedback(request, 5000, 5000))
 
     def test_relative_project_path_rejected(self):
         self.assertIsNone(ptc_preview_request(
