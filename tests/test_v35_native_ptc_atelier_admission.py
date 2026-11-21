@@ -58,5 +58,26 @@ class PTCAtelierAdmissionTests(unittest.TestCase):
             self.snapshot, self.subject, "relative.smartsvg", "30"))
 
 
+    def test_dialog_preview_admission_is_read_only(self):
+        from native_ptc_dialog_tk_v35 import preview_identity
+        self.subject.preview = SimpleNamespace(width_px=1000, height_px=1000)
+        request, issue = preview_identity(self.snapshot, self.subject, self.path, "50,25")
+        self.assertIsNone(issue)
+        self.assertEqual(request["width_mm"], 50.25)
+        request, issue = preview_identity(self.snapshot, self.subject, self.path, "0,01")
+        self.assertIsNone(request)
+        self.assertIn("2 400", issue)
+
+    def test_dialog_rejects_stale_or_missing_preview(self):
+        from native_ptc_dialog_tk_v35 import preview_identity
+        self.assertIsNone(preview_identity(self.snapshot, self.subject, self.path, "50")[0])
+        self.subject.preview = SimpleNamespace(width_px=100, height_px=100)
+        self.snapshot.sha256 = "invalid"
+        request, issue = preview_identity(self.snapshot, self.subject, self.path, "50")
+        self.assertIsNone(request)
+        self.assertIn("non vérifié", issue)
+
+
+
 if __name__ == "__main__":
     unittest.main()
