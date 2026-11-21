@@ -192,6 +192,24 @@ class NativeAlphaDecoderFailClosedTests(unittest.TestCase):
         self.assertEqual(ctx.exception.code, "INVALID_ARCHIVED_SOURCE")
         self.assertEqual(self.decode(valid)[3], 3)
 
+    def test_alpha_eligibility_boundaries_fail_closed_and_recover(self):
+        # A mask with no transparent pixel or no foreground cannot create
+        # a native Subject. A soft-alpha singleton is eligible and must keep
+        # its precise float32 opacity and 1x1 bounding box.
+        cases = (
+            (bytes((0, 12, 34, 56, 255)), "MANUAL_SELECTION_REQUIRED"),
+            (bytes((0, 12, 34, 56, 0)), "MANUAL_SELECTION_REQUIRED"),
+        )
+        for scanline, code in cases:
+            with self.subTest(alpha=scanline[-1]):
+                with self.assertRaises(first.NativeFirstSubjectError) as ctx:
+                    self.decode(zlib.compress(scanline), width=1, height=1)
+                self.assertEqual(ctx.exception.code, code)
+        raw, width, height, count, bbox = self.decode(
+            zlib.compress(bytes((0, 12, 34, 56, 128))), width=1, height=1)
+        self.assertEqual((width, height, count, bbox), (1, 1, 1, (0, 0, 1, 1)))
+        self.assertEqual(raw, struct.pack("<f", 128 / 255))
+
     def test_invalid_zlib_header_is_rejected(self):
         with self.assertRaises(first.NativeFirstSubjectError) as ctx:
             self.decode(b"not a zlib stream")
