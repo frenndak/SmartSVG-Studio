@@ -111,6 +111,13 @@ class NativeBasicCutSubjectTests(unittest.TestCase):
         with self.assertRaisesRegex(BasicCutError, "SILHOUETTE_TOO_COMPLEX"):
             self.inspect(rows)
 
+    def test_noisy_mask_fails_before_allocating_edge_coordinate_arrays(self):
+        rows = [[255 if (x + y) % 2 else 0 for x in range(128)]
+                for y in range(128)]
+        with patch("numpy.argwhere", side_effect=AssertionError("unbounded allocation")):
+            with self.assertRaisesRegex(BasicCutError, "SILHOUETTE_TOO_COMPLEX"):
+                self.inspect(rows)
+
     def test_opaque_large_rectangle_simplifies_to_four_vertices(self):
         rows = [[255] * 140 for _ in range(100)]
         preview = self.inspect(rows)
