@@ -21,6 +21,7 @@ class PickerJumpTests(unittest.TestCase):
             busy=busy, subjects={"a": object(), "b": object(), "c": object()},
             selection=selection, _brush_key=draft, _request_close_brush=Mock(return_value=True),
             render=Mock())
+        panel._jump_subject = lambda last=False: NativeAtelierPanel._jump_subject(panel, last=last)
         return panel
 
     def test_home_end_select_boundaries_and_render(self):
