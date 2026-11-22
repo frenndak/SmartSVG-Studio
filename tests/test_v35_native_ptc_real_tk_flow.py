@@ -155,5 +155,57 @@ class RealTkPTCFlow(TestCase):
             self.assertEqual(str(self.buttons()["Ouvrir le dossier"].cget("state")),
                              "disabled")
 
+
+    def test_real_widgets_successful_publication_requires_readback(self):
+        inspection = self._valid_inspection()
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "published.png"
+            def publish(**kwargs):
+                self.assertTrue(kwargs["confirmed"])
+                self.assertEqual(kwargs["expected_output_sha256"], inspection["output_sha256"])
+                target.write_bytes(inspection["preview_png_rgba"])
+                return dict(persisted=True, project_revision_still_current=True,
+                            status="LOCAL_PNG_PUBLISHED")
+            with (patch.object(ptc, "inspect_native_ptc_png", return_value=inspection),
+                  patch.object(ptc, "publish_native_ptc_png", side_effect=publish) as publisher,
+                  patch.object(ptc.filedialog, "asksaveasfilename", return_value=str(target)),
+                  patch.object(ptc.messagebox, "askyesno", return_value=True)):
+                self.assertTrue(ptc.show_ptc_dialog(self.panel))
+                self.root.update()
+                self.assertFalse(target.exists())
+                self.buttons()["Examiner"].invoke()
+                self.root.update()
+                self.assertFalse(target.exists())
+                self.buttons()["Choisir et publier…"].invoke()
+                self.root.update()
+                publisher.assert_called_once()
+                self.assertEqual(hashlib.sha256(target.read_bytes()).hexdigest(),
+                                 inspection["output_sha256"])
+                self.assertEqual(str(self.buttons()["Ouvrir le dossier"].cget("state")),
+                                 "normal")
+
+    def test_real_widgets_mismatched_readback_blocks_folder(self):
+        inspection = self._valid_inspection()
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "changed.png"
+            def publish(**_kwargs):
+                target.write_bytes(b"unexpected content after native publication")
+                return dict(persisted=True, project_revision_still_current=True,
+                            status="LOCAL_PNG_PUBLISHED")
+            with (patch.object(ptc, "inspect_native_ptc_png", return_value=inspection),
+                  patch.object(ptc, "publish_native_ptc_png", side_effect=publish) as publisher,
+                  patch.object(ptc.filedialog, "asksaveasfilename", return_value=str(target)),
+                  patch.object(ptc.messagebox, "askyesno", return_value=True)):
+                self.assertTrue(ptc.show_ptc_dialog(self.panel))
+                self.root.update()
+                self.buttons()["Examiner"].invoke()
+                self.root.update()
+                self.buttons()["Choisir et publier…"].invoke()
+                self.root.update()
+                publisher.assert_called_once()
+                self.assertTrue(target.exists())
+                self.assertEqual(str(self.buttons()["Ouvrir le dossier"].cget("state")),
+                                 "disabled")
+
 if __name__ == "__main__":
     main()
