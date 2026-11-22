@@ -53,6 +53,58 @@ class RealTkPTCFlow(TestCase):
         return {w.cget("text"): w for w in descendants(self.root)
                 if isinstance(w, ttk.Button)}
 
+
+    def test_real_atelier_action_allows_large_ptc_without_brush(self):
+        """Actual Tk action state: PTC >2048px works, brush stays disabled."""
+        import struct
+        import zlib
+        from native_atelier_tk_v34 import NativeAtelierPanel
+
+        width_px = 2049
+        def chunk(tag, data):
+            return (struct.pack(">I", len(data)) + tag + data +
+                    struct.pack(">I", zlib.crc32(tag + data) & 0xffffffff))
+        png = (bytes.fromhex("89504e470d0a1a0a") +
+               chunk(b"IHDR", struct.pack(">IIBBBBB", width_px, 1, 8, 6, 0, 0, 0)) +
+               chunk(b"IDAT", zlib.compress(b"\\x00" + b"\\x00\\x00\\x00\\xff" * width_px)) +
+               chunk(b"IEND", b""))
+        sid = "subject-" + "b" * 32
+        subject = SimpleNamespace(
+            subject_id=sid, source_id="source-1", mask_id="mask-1",
+            proof_status="verified", bbox_px=(0, 0, width_px, 1),
+            preview=SimpleNamespace(status="READY_PNG", png=png,
+                                    width_px=width_px, height_px=1))
+        panel = NativeAtelierPanel.__new__(NativeAtelierPanel)
+        panel.tk, panel.ttk = tk, ttk
+        panel.parent = ttk.Frame(self.root)  # Unmapped: no heavyweight canvas draw.
+        panel.snapshot = SimpleNamespace(sha256="a" * 64)
+        panel.subjects = {sid: subject}
+        panel.selection = tk.StringVar(value=sid)
+        panel._project_path = str(Path.cwd().resolve() / "synthetic.smartsvg")
+        panel._brush_key = panel._brush_dialog = panel._brush_panel = None
+        panel._brush_class = object()
+        panel.viewport = SimpleNamespace(load=lambda *_args: None)
+        panel.details = tk.StringVar()
+        panel._closed = False
+        panel._update_navigation = lambda: None
+        panel._update_history_controls = lambda: None
+        panel.brush_button = ttk.Button(self.root, state="disabled")
+        panel.ptc_button = ttk.Button(self.root, state="disabled")
+        with patch.object(ptc, "publish_native_ptc_png") as publish:
+            panel.render()
+            self.assertEqual(str(panel.brush_button.cget("state")), "disabled")
+            self.assertEqual(str(panel.ptc_button.cget("state")), "normal")
+            publish.assert_not_called()
+            self.assertTrue(panel.open_ptc())
+            self.root.update()
+            publish.assert_not_called()
+            buttons = self.buttons()
+            self.assertEqual(str(buttons["Choisir et publier…"].cget("state")),
+                             "disabled")
+            buttons["Fermer"].invoke()
+            self.root.update()
+            publish.assert_not_called()
+
     def test_real_widgets_no_implicit_export_and_cancel(self):
         with patch.object(ptc, "publish_native_ptc_png") as publish:
             self.assertTrue(ptc.show_ptc_dialog(self.panel))
