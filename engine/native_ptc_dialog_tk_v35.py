@@ -82,6 +82,7 @@ def show_ptc_dialog(panel):
     request = None
     busy = False
     closed = False
+    close_requested = False
     published_target = None
 
     def open_folder():
@@ -114,9 +115,10 @@ def show_ptc_dialog(panel):
                 and panel.subjects.get(original[2]) is subject)
 
     def close():
-        nonlocal closed
+        nonlocal closed, close_requested
         if busy:
-            status.set("Export en cours : attendre le résultat avant de fermer.")
+            close_requested = True
+            status.set("Fermeture demandée : terminer la fenêtre en cours sans publier.")
             return
         closed = True
         dialog.destroy()
@@ -178,7 +180,7 @@ def show_ptc_dialog(panel):
                                                    filetypes=[("Image PNG", "*.png")])
         finally:
             busy = False
-        if closed or not target:
+        if closed or close_requested or not target:
             return
         if not current() or Path(target).suffix.lower() != ".png":
             status.set("Destination ou sélection invalide.")
@@ -194,7 +196,7 @@ def show_ptc_dialog(panel):
                 parent=dialog, default="no")
         finally:
             busy = False
-        if closed or not confirmed:
+        if closed or close_requested or not confirmed:
             return
         if (not current() or preview is None or request is None or
                 ptc_preview_request(panel.snapshot, subject, path, width.get()) != request):
