@@ -8,7 +8,7 @@ from tkinter import filedialog, messagebox
 from smartsvg_core.native_ptc_export_v35 import (
     inspect_native_ptc_png, publish_native_ptc_png, NativePTCError,
 )
-from native_ptc_atelier_tk_v35 import ptc_preview_request, ptc_physical_feedback
+from native_ptc_atelier_tk_v35 import ptc_preview_request
 
 _ERRORS = {
     "PROJECT_CHANGED": "Le projet a changé. Réexaminer (F5), puis recommencer.",
@@ -28,10 +28,12 @@ def preview_identity(snapshot, subject, project_path, width_text):
     preview = getattr(subject, "preview", None)
     if req is None or preview is None:
         return None, "Sujet non vérifié : réexaminer le projet (F5)."
-    width = getattr(preview, "width_px", None)
-    height = getattr(preview, "height_px", None)
-    issue = ptc_physical_feedback(req, width, height)
-    return (req, None) if issue is None else (None, issue)
+    # Inspector previews can be downsampled. Their dimensions are not the
+    # archived source dimensions used by the native renderer to calculate PPI
+    # and physical height. Rejecting here would incorrectly block valid exports.
+    # inspect_native_ptc_png is read-only and performs the authoritative source
+    # geometry and float32-mask validation before enabling publication.
+    return req, None
 
 
 def show_ptc_dialog(panel):
