@@ -64,9 +64,18 @@ class PTCAtelierAdmissionTests(unittest.TestCase):
         request, issue = preview_identity(self.snapshot, self.subject, self.path, "50,25")
         self.assertIsNone(issue)
         self.assertEqual(request["width_mm"], 50.25)
+        # The inspector's 1000px thumbnail is not the full-resolution
+        # source. The read-only native inspect must decide physical eligibility.
         request, issue = preview_identity(self.snapshot, self.subject, self.path, "0,01")
-        self.assertIsNone(request)
-        self.assertIn("2 400", issue)
+        self.assertIsNone(issue)
+        self.assertEqual(request["width_mm"], 0.01)
+
+    def test_dialog_does_not_infer_source_geometry_from_thumbnail(self):
+        from native_ptc_dialog_tk_v35 import preview_identity
+        self.subject.preview = SimpleNamespace(width_px=1, height_px=1)
+        request, issue = preview_identity(self.snapshot, self.subject, self.path, "100")
+        self.assertIsNone(issue)
+        self.assertEqual(request["subject_id"], self.subject.subject_id)
 
     def test_dialog_rejects_stale_or_missing_preview(self):
         from native_ptc_dialog_tk_v35 import preview_identity
