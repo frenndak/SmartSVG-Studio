@@ -8,6 +8,7 @@ import re
 from uuid import uuid4
 
 from native_image_viewport_v34 import NativeImageViewport
+from native_ptc_atelier_tk_v35 import ptc_atelier_action_ready
 from smartsvg_core.native_brush_history_v34 import inspect_native_brush_history
 from smartsvg_core.native_brush_history_command_v34 import change_native_brush_history
 from smartsvg_core.native_write_jobs_v35 import tracked_native_write
@@ -162,10 +163,18 @@ class NativeAtelierPanel:
         self.subject_position = tk.StringVar(value='')
         ttk.Label(parent, textvariable=self.subject_position).pack(anchor='w')
         ttk.Label(parent, textvariable=self.details, wraplength=640).pack(anchor='w', pady=(0, 8))
+        # Keep both subject actions on one row: an extra full-height button
+        # can push the actual mask canvas below the visible Windows pane.
+        subject_actions = ttk.Frame(parent)
+        subject_actions.pack(fill='x', pady=(0, 4))
         self.brush_button = ttk.Button(
-            parent, text='Retoucher ce sujet (aperçu puis sauvegarde)',
+            subject_actions, text='Retoucher ce sujet (aperçu puis sauvegarde)',
             command=self.open_brush, state='disabled')
-        self.brush_button.pack(anchor='w', pady=(0, 8))
+        self.brush_button.pack(side='left', padx=(0, 6))
+        self.ptc_button = ttk.Button(
+            subject_actions, text='Exporter ce sujet · PNG Print Then Cut…',
+            command=self.open_ptc, state='disabled')
+        self.ptc_button.pack(side='left')
         self.first_subject_button = ttk.Button(
             parent, text='Créer le premier sujet (PNG transparent)…',
             command=self.create_first_subject, state='disabled')
@@ -563,6 +572,13 @@ class NativeAtelierPanel:
         if button is not None:
             button.configure(state='normal' if not self.busy and request is not None
                              and self._brush_class is not None else 'disabled')
+        ptc_button = getattr(self, 'ptc_button', None)
+        if ptc_button is not None:
+            ptc_button.configure(
+                state='normal' if not self.busy and not self.has_open_brush
+                and not self.history_requires_review and ptc_atelier_action_ready(
+                    self.snapshot, subject, getattr(self, '_project_path', None))
+                else 'disabled')
         self.viewport.load(None)
         if subject is None:
             self.details.set('Aucun sujet enregistré dans ce projet.' if self.snapshot else '')
@@ -632,6 +648,11 @@ class NativeAtelierPanel:
                 not _REVISION.fullmatch(receipt['project_sha256'])):
             return
         self._on_saved(receipt)
+
+    def open_ptc(self):
+        """Open a separate explicit-export dialog; never save the V1 project."""
+        from native_ptc_dialog_tk_v35 import show_ptc_dialog
+        return show_ptc_dialog(self)
 
     def open_brush(self):
         """Open a verified V1 Subject draft with an explicit save path."""

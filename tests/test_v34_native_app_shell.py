@@ -1773,6 +1773,10 @@ class ActualTkShellSmokeTests(unittest.TestCase):
                 root.event_generate('<Control-Key-5>')
                 root.update()
                 self.assertTrue(atelier.picker.winfo_viewable())
+                # W03 action must share a row with brush, not displace the
+                # mask canvas below the visible 900x650 Windows viewport.
+                self.assertEqual(atelier.ptc_button.master, atelier.brush_button.master)
+                self.assertTrue(atelier.ptc_button.winfo_viewable())
                 self.assertIsNotNone(atelier.viewport.original)
                 for subject, mask in ids.items():
                     atelier.picker.set(subject)
