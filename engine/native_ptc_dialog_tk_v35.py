@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import os
 from hashlib import sha256
 from pathlib import Path
 from tkinter import filedialog, messagebox
@@ -36,6 +37,20 @@ def preview_identity(snapshot, subject, project_path, width_text):
     return req, None
 
 
+def open_export_folder(target, opener=None):
+    """Open only the directory of an existing, verified PNG export."""
+    path = Path(target)
+    if (not path.is_absolute() or path.suffix.lower() != ".png"
+            or not path.is_file() or not path.parent.is_dir()):
+        return False
+    if opener is None:
+        opener = getattr(os, "startfile", None)
+    if opener is None:
+        return False
+    opener(str(path.parent))
+    return True
+
+
 def show_ptc_dialog(panel):
     """Modal Tk flow; no project write, no implicit export on open or cancel."""
     tk, ttk = panel.tk, panel.ttk
@@ -49,6 +64,7 @@ def show_ptc_dialog(panel):
     dialog = tk.Toplevel(panel.parent)
     dialog.title("Exporter le sujet · PNG Print Then Cut")
     dialog.transient(panel.parent)
+    dialog.grab_set()
     dialog.geometry("520x450")
     frame = ttk.Frame(dialog, padding=12)
     frame.pack(fill="both", expand=True)
@@ -67,6 +83,17 @@ def show_ptc_dialog(panel):
     request = None
     busy = False
     closed = False
+    published_target = None
+
+    def open_folder():
+        if published_target is None or not current():
+            status.set("Dossier indisponible : réexaminer le projet ou republier.")
+            return
+        try:
+            if not open_export_folder(published_target):
+                status.set("Ouverture du dossier indisponible sur ce système.")
+        except OSError:
+            status.set("Impossible d’ouvrir le dossier : utiliser le chemin affiché.")
 
     def invalidate_preview(*_args):
         nonlocal preview, request
@@ -120,7 +147,7 @@ def show_ptc_dialog(panel):
             status.set(_ERRORS.get(getattr(exc, "code", ""), "Aperçu impossible : réexaminer (F5)."))
 
     def export():
-        nonlocal busy
+        nonlocal busy, published_target
         if preview is None or request is None or not current():
             status.set("Aperçu périmé : recommencer.")
             return
@@ -149,6 +176,8 @@ def show_ptc_dialog(panel):
             status.set("Le fichier vient d’apparaître : choisir une autre destination.")
             return
         busy = True
+        published_target = None
+        folder_button.configure(state="disabled")
         export_button.configure(state="disabled")
         try:
             receipt = publish_native_ptc_png(**request, destination_path=target,
@@ -161,6 +190,8 @@ def show_ptc_dialog(panel):
                 if digest != preview["output_sha256"]:
                     status.set("Relecture différente : vérifier le fichier, ne pas réessayer.")
                 else:
+                    published_target = target
+                    folder_button.configure(state="normal")
                     status.set("PNG enregistré et relu · SHA " + digest[:12]
                                + " · dossier : " + str(Path(target).parent))
         except (NativePTCError, OSError) as exc:
@@ -172,6 +203,8 @@ def show_ptc_dialog(panel):
     ttk.Button(actions, text="Examiner", command=inspect).pack(side="left")
     export_button = ttk.Button(actions, text="Choisir et publier…", command=export, state="disabled")
     export_button.pack(side="left", padx=6)
+    folder_button = ttk.Button(actions, text="Ouvrir le dossier", command=open_folder, state="disabled")
+    folder_button.pack(side="left", padx=6)
     width.trace_add("write", invalidate_preview)
     ttk.Button(actions, text="Fermer", command=close).pack(side="left")
     dialog.protocol("WM_DELETE_WINDOW", close)
