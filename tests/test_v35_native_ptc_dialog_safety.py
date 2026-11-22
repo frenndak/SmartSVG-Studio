@@ -33,10 +33,12 @@ class Variable:
 
 class Widget:
     buttons = {}
+    windows = []
     def __init__(self, *_args, **kwargs):
         self.command = kwargs.get("command")
         self.state = kwargs.get("state")
         self.destroyed = False
+        Widget.windows.append(self)
         if self.command is not None:
             Widget.buttons[kwargs.get("text")] = self
     def pack(self, **_kwargs):
@@ -59,6 +61,7 @@ class DialogSafetyTests(unittest.TestCase):
     def setUp(self):
         Variable.created.clear()
         Widget.buttons.clear()
+        Widget.windows.clear()
         tk = SimpleNamespace(Toplevel=Widget, StringVar=Variable,
                              PhotoImage=Widget, TclError=RuntimeError)
         ttk = SimpleNamespace(Frame=Widget, Label=Widget, Entry=Widget, Button=Widget)
@@ -198,6 +201,7 @@ class DialogSafetyTests(unittest.TestCase):
                 Widget.buttons["Choisir et publier…"].command()
             publisher.assert_not_called()
             self.assertFalse((Path(folder) / "new.png").exists())
+            self.assertTrue(any(w.destroyed for w in Widget.windows))
 
     def test_close_during_confirmation_never_publishes(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -213,6 +217,7 @@ class DialogSafetyTests(unittest.TestCase):
                 Widget.buttons["Choisir et publier…"].command()
                 publisher.assert_not_called()
                 self.assertFalse(Path(target).exists())
+                self.assertTrue(any(w.destroyed for w in Widget.windows))
 
     def test_persisted_native_stale_revision_preserves_file_without_folder_action(self):
         with tempfile.TemporaryDirectory() as folder:
