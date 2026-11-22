@@ -174,6 +174,18 @@ class DialogSafetyTests(unittest.TestCase):
                 opener.assert_not_called()
                 self.assertEqual(target.read_bytes(), self.payload)
 
+    def test_close_during_inspection_never_enables_export(self):
+        def inspector_with_close(**_kwargs):
+            Widget.buttons["Fermer"].command()
+            return self.inspector()
+        with (patch.object(module, "inspect_native_ptc_png", side_effect=inspector_with_close),
+              patch.object(module, "publish_native_ptc_png") as publisher):
+            self.assertTrue(module.show_ptc_dialog(self.panel))
+            Widget.buttons["Examiner"].command()
+            self.assertEqual(Widget.buttons["Choisir et publier…"].state, "disabled")
+            Widget.buttons["Choisir et publier…"].command()
+            publisher.assert_not_called()
+
     def test_close_during_destination_modal_is_deferred(self):
         with (tempfile.TemporaryDirectory() as folder,
               patch.object(module, "inspect_native_ptc_png", side_effect=self.inspector),
