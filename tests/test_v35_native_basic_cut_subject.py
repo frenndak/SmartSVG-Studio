@@ -2,6 +2,7 @@
 from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
+import importlib.util
 import sys
 import unittest
 import xml.etree.ElementTree as ET
@@ -11,13 +12,19 @@ ENGINE = Path(__file__).resolve().parents[1] / "engine"
 if str(ENGINE) not in sys.path:
     sys.path.insert(0, str(ENGINE))
 
-from PIL import Image
+HAS_CPU = all(importlib.util.find_spec(name) for name in ("numpy", "PIL"))
+if HAS_CPU:
+    from PIL import Image
+else:
+    Image = None
+
 from smartsvg_core.native_basic_cut_v35 import BasicCutError
 from smartsvg_core.native_basic_cut_subject_v35 import (
     inspect_native_basic_cut_subject, _mask_rings,
 )
 
 
+@unittest.skipUnless(HAS_CPU, "NumPy/Pillow required; run on CPU/Windows job")
 class NativeBasicCutSubjectTests(unittest.TestCase):
     def setUp(self):
         self.project = dict(project_path="/synthetic/v1.smartsvg",
