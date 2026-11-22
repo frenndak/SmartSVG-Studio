@@ -66,7 +66,7 @@ class RealTkPTCFlow(TestCase):
                     struct.pack(">I", zlib.crc32(tag + data) & 0xffffffff))
         png = (bytes.fromhex("89504e470d0a1a0a") +
                chunk(b"IHDR", struct.pack(">IIBBBBB", width_px, 1, 8, 6, 0, 0, 0)) +
-               chunk(b"IDAT", zlib.compress(b"\\x00" + b"\\x00\\x00\\x00\\xff" * width_px)) +
+               chunk(b"IDAT", zlib.compress(b"\x00" + b"\x00\x00\x00\xff" * width_px)) +
                chunk(b"IEND", b""))
         sid = "subject-" + "b" * 32
         subject = SimpleNamespace(
