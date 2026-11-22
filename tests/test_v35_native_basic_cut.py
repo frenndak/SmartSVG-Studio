@@ -114,3 +114,17 @@ class BasicCutTests(unittest.TestCase):
                 preview_basic_cut(rings=(OUTER,left,second),width_mm=20,height_mm=10)
             self.assertTrue(preview_basic_cut(
                 rings=(OUTER,left,right),width_mm=20,height_mm=10).verified_readback)
+
+    def test_concave_outer_rejects_hole_edges_crossing_open_notch(self):
+        """All hole vertices may be inside while an edge crosses outside."""
+        outer = ((0, 0), (20, 0), (20, 20), (14, 20),
+                 (14, 6), (6, 6), (6, 20), (0, 20))
+        valid = ((1, 10), (3, 10), (3, 12), (1, 12))
+        crossing = ((4, 12), (16, 12), (16, 14), (4, 14))
+        self.assertTrue(preview_basic_cut(
+            rings=(outer, valid), width_mm=20, height_mm=20).verified_readback)
+        with self.assertRaisesRegex(BasicCutError, "RINGS_INTERSECT"):
+            preview_basic_cut(rings=(outer, crossing), width_mm=20, height_mm=20)
+        recovered = preview_basic_cut(
+            rings=(outer, valid), width_mm=20, height_mm=20)
+        self.assertEqual(hashlib.sha256(recovered.svg).hexdigest(), recovered.sha256)
