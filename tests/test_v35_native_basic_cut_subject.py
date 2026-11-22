@@ -144,6 +144,47 @@ class NativeBasicCutSubjectTests(unittest.TestCase):
         self.assertEqual(preview.width_mm, width)
         self.assertEqual(preview.height_mm, width)
 
+    def test_real_managed_v1_subject_alpha_to_svg_is_read_only(self):
+        # Unlike mocked-alpha tests, exercises the real V1 project, verified
+        # Subject binding, float32 alpha and pinned source renderer end-to-end.
+        import tempfile
+        from smartsvg_core.native_first_subject_v35 import (
+            inspect_first_alpha_subject, confirm_first_alpha_subject)
+        from smartsvg_core.project_workspace_g22 import ManagedWorkspace
+        from test_v35_native_first_subject import png as synthetic_png
+
+        with tempfile.TemporaryDirectory() as root:
+            workspace = ManagedWorkspace(root)
+            original = synthetic_png()
+            created = workspace.create(
+                "native-basic-cut", original,
+                profile="Sticker - contour du sujet",
+                source_provenance="manual_native_png_import")
+            project = workspace.root / "native-basic-cut.smartsvg"
+            alpha = inspect_first_alpha_subject(
+                project_path=str(project), expected_sha256=created["sha256"])
+            committed = confirm_first_alpha_subject(
+                project_path=str(project), expected_sha256=created["sha256"],
+                candidate_sha256=alpha["candidate_sha256"], confirmed=True)
+            before = project.read_bytes()
+            inputs = dict(project_path=str(project),
+                          expected_sha256=committed["project_sha256"],
+                          subject_id=committed["subject_id"], width_mm=1.0)
+            result = inspect_native_basic_cut_subject(**inputs)
+            self.assertEqual(result.status, "BASIC_CUT_PREVIEW_READY")
+            self.assertEqual(result.ring_count, 1)
+            self.assertEqual(result.width_mm, 1.0)
+            self.assertAlmostEqual(result.height_mm, 5 / 6)
+            self.assertEqual(result.svg_sha256, sha256(result.svg).hexdigest())
+            self.assertFalse(result.persisted)
+            self.assertEqual(project.read_bytes(), before)
+            self.assertEqual(list(workspace.root.glob("*.svg")), [])
+            from smartsvg_core.native_ptc_export_v35 import NativePTCError
+            with self.assertRaises(NativePTCError):
+                inspect_native_basic_cut_subject(
+                    **{**inputs, "expected_sha256": "0" * 64})
+            self.assertEqual(project.read_bytes(), before)
+
     def test_real_pinned_native_renderer_error_propagates_no_fallback(self):
         from smartsvg_core.native_ptc_export_v35 import NativePTCError
         with patch("smartsvg_core.native_basic_cut_subject_v35._render",
