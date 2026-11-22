@@ -142,7 +142,7 @@ class DialogSafetyTests(unittest.TestCase):
                 self.assertTrue(kwargs["confirmed"])
                 self.assertEqual(kwargs["expected_output_sha256"], self.digest)
                 target.write_bytes(self.payload)
-                return {"persisted": True}
+                return {"persisted": True, "project_revision_still_current": True}
             with (patch.object(module, "inspect_native_ptc_png", side_effect=self.inspector),
                   patch.object(module, "publish_native_ptc_png", side_effect=publisher),
                   patch.object(module.filedialog, "asksaveasfilename", return_value=str(target)),
@@ -157,7 +157,7 @@ class DialogSafetyTests(unittest.TestCase):
             target = Path(folder) / "new.png"
             def publisher(**_kwargs):
                 target.write_bytes(self.payload)
-                return {"persisted": True}
+                return {"persisted": True, "project_revision_still_current": True}
             with (patch.object(module, "inspect_native_ptc_png", side_effect=self.inspector),
                   patch.object(module, "publish_native_ptc_png", side_effect=publisher),
                   patch.object(module.filedialog, "asksaveasfilename", return_value=str(target)),
@@ -202,12 +202,48 @@ class DialogSafetyTests(unittest.TestCase):
                 publisher.assert_not_called()
                 self.assertFalse(Path(target).exists())
 
+    def test_persisted_native_stale_revision_preserves_file_without_folder_action(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / "new.png"
+            def publisher(**_kwargs):
+                target.write_bytes(self.payload)
+                return {"persisted": True, "project_revision_still_current": False,
+                        "status": "LOCAL_PNG_REVISION_CHANGED"}
+            with (patch.object(module, "inspect_native_ptc_png", side_effect=self.inspector),
+                  patch.object(module, "publish_native_ptc_png", side_effect=publisher),
+                  patch.object(module.filedialog, "asksaveasfilename", return_value=str(target)),
+                  patch.object(module.messagebox, "askyesno", return_value=True),
+                  patch.object(module, "open_export_folder") as opener):
+                self.open_and_inspect()
+                Widget.buttons["Choisir et publier…"].command()
+                self.assertEqual(target.read_bytes(), self.payload)
+                self.assertEqual(Widget.buttons["Ouvrir le dossier"].state, "disabled")
+                self.assertIn("révision du projet modifiée", Variable.created[-2].get())
+                Widget.buttons["Ouvrir le dossier"].command()
+                opener.assert_not_called()
+
+    def test_persisted_missing_revision_receipt_fails_closed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / "new.png"
+            def publisher(**_kwargs):
+                target.write_bytes(self.payload)
+                return {"persisted": True}
+            with (patch.object(module, "inspect_native_ptc_png", side_effect=self.inspector),
+                  patch.object(module, "publish_native_ptc_png", side_effect=publisher),
+                  patch.object(module.filedialog, "asksaveasfilename", return_value=str(target)),
+                  patch.object(module.messagebox, "askyesno", return_value=True)):
+                self.open_and_inspect()
+                Widget.buttons["Choisir et publier…"].command()
+                self.assertEqual(target.read_bytes(), self.payload)
+                self.assertEqual(Widget.buttons["Ouvrir le dossier"].state, "disabled")
+                self.assertIn("non confirmée", Variable.created[-2].get())
+
     def test_bad_readback_never_enables_folder(self):
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / "new.png"
             def publisher(**_kwargs):
                 target.write_bytes(b"corrupt")
-                return {"persisted": True}
+                return {"persisted": True, "project_revision_still_current": True}
             with (patch.object(module, "inspect_native_ptc_png", side_effect=self.inspector),
                   patch.object(module, "publish_native_ptc_png", side_effect=publisher),
                   patch.object(module.filedialog, "asksaveasfilename", return_value=str(target)),
