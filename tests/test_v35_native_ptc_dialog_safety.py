@@ -152,6 +152,28 @@ class DialogSafetyTests(unittest.TestCase):
                 self.assertEqual(target.read_bytes(), self.payload)
                 self.assertEqual(Widget.buttons["Ouvrir le dossier"].state, "normal")
 
+    def test_width_change_after_success_revokes_folder_action(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / "new.png"
+            def publisher(**_kwargs):
+                target.write_bytes(self.payload)
+                return {"persisted": True}
+            with (patch.object(module, "inspect_native_ptc_png", side_effect=self.inspector),
+                  patch.object(module, "publish_native_ptc_png", side_effect=publisher),
+                  patch.object(module.filedialog, "asksaveasfilename", return_value=str(target)),
+                  patch.object(module.messagebox, "askyesno", return_value=True),
+                  patch.object(module, "open_export_folder") as opener):
+                self.open_and_inspect()
+                Widget.buttons["Choisir et publier…"].command()
+                self.assertEqual(Widget.buttons["Ouvrir le dossier"].state, "normal")
+                # The first StringVar is the width, initialized to 100.
+                width = next(v for v in Variable.created if v.get() == "100")
+                width.set("125")
+                self.assertEqual(Widget.buttons["Ouvrir le dossier"].state, "disabled")
+                Widget.buttons["Ouvrir le dossier"].command()
+                opener.assert_not_called()
+                self.assertEqual(target.read_bytes(), self.payload)
+
     def test_bad_readback_never_enables_folder(self):
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / "new.png"
