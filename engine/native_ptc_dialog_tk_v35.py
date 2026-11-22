@@ -64,7 +64,6 @@ def show_ptc_dialog(panel):
     dialog = tk.Toplevel(panel.parent)
     dialog.title("Exporter le sujet · PNG Print Then Cut")
     dialog.transient(panel.parent)
-    dialog.grab_set()
     dialog.geometry("520x450")
     frame = ttk.Frame(dialog, padding=12)
     frame.pack(fill="both", expand=True)
