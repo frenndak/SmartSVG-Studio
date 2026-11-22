@@ -98,7 +98,11 @@ def show_ptc_dialog(panel):
         nonlocal preview, request
         preview = request = None
         export_button.configure(state="disabled")
-        status.set("Largeur modifiée : examiner à nouveau avant toute publication.")
+        # A modal callback can modify the width while an inspection or a
+        # publication is running. Never let its stale completion re-enable
+        # export for a different physical size.
+        if not busy and not closed:
+            status.set("Largeur modifiée : examiner à nouveau avant toute publication.")
 
     def current():
         return (not closed and not panel._closed and not panel.busy
@@ -116,7 +120,9 @@ def show_ptc_dialog(panel):
         dialog.destroy()
 
     def inspect():
-        nonlocal preview, request
+        nonlocal preview, request, busy
+        if busy or closed:
+            return
         preview = request = None
         export_button.configure(state="disabled")
         if not current():
@@ -126,9 +132,12 @@ def show_ptc_dialog(panel):
         if issue:
             status.set(issue)
             return
+        busy = True
         try:
             result = inspect_native_ptc_png(**req)
-            if not current() or result.get("status") != "PTC_PREVIEW_READY":
+            if (not current() or
+                    ptc_preview_request(panel.snapshot, subject, path, width.get()) != req or
+                    result.get("status") != "PTC_PREVIEW_READY"):
                 status.set("Aperçu périmé : recommencer.")
                 return
             raw = result["preview_png_rgba"]
@@ -143,10 +152,15 @@ def show_ptc_dialog(panel):
                        + (" · résolution faible" if result["low_resolution_warning"] else ""))
             export_button.configure(state="normal")
         except (NativePTCError, ValueError, OSError, tk.TclError) as exc:
-            status.set(_ERRORS.get(getattr(exc, "code", ""), "Aperçu impossible : réexaminer (F5)."))
+            if not closed:
+                status.set(_ERRORS.get(getattr(exc, "code", ""), "Aperçu impossible : réexaminer (F5)."))
+        finally:
+            busy = False
 
     def export():
         nonlocal busy, published_target
+        if busy or closed:
+            return
         if preview is None or request is None or not current():
             status.set("Aperçu périmé : recommencer.")
             return
@@ -168,8 +182,10 @@ def show_ptc_dialog(panel):
         if not messagebox.askyesno("Confirmer l'export", "Publier ce PNG sans écraser de fichier existant ?",
                                    parent=dialog, default="no"):
             return
-        if not current() or ptc_preview_request(panel.snapshot, subject, path, width.get()) != request:
-            status.set("Révision ou largeur modifiée : refaire l'aperçu.")
+        if (not current() or preview is None or request is None or
+                ptc_preview_request(panel.snapshot, subject, path, width.get()) != request):
+            if not closed:
+                status.set("Révision ou largeur modifiée : refaire l'aperçu.")
             return
         if Path(target).exists():
             status.set("Le fichier vient d’apparaître : choisir une autre destination.")
