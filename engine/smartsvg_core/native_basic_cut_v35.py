@@ -77,6 +77,12 @@ def preview_basic_cut(*, rings, width_mm, height_mm):
         raise BasicCutError("INVALID_SIZE")
     if type(rings) not in (tuple,list) or not 1 <= len(rings) <= 32:
         raise BasicCutError("INVALID_RING_COUNT")
+    # Topology checks are quadratic in total edges. Bound work before parsing
+    # or performing any intersections, including many individually small holes.
+    if any(type(r) not in (tuple, list) for r in rings):
+        raise BasicCutError("INVALID_RING")
+    if sum(len(r) for r in rings) > 512:
+        raise BasicCutError("GEOMETRY_TOO_COMPLEX")
     paths=[_ring(r) for r in rings]
     for ring in paths:
         if any(x<0 or y<0 or x>width or y>height for x,y in ring):
