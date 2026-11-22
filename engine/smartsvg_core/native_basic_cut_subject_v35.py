@@ -137,8 +137,11 @@ def inspect_native_basic_cut_subject(*, project_path, expected_sha256,
     # the supplied width or silently changing the mask coordinates.
     height = width * height_px / width_px
     scale = width / width_px
-    polygons = [tuple((x * scale, y * scale) for x, y in ring)
-                for ring in rings]
+    # Map the terminal pixel border exactly to the physical viewBox edge.
+    # Otherwise width_px * (width / width_px) can exceed width by one ULP.
+    polygons = [tuple((width if x == width_px else x * scale,
+                       height if y == height_px else y * scale)
+                      for x, y in ring) for ring in rings]
     result = preview_basic_cut(rings=polygons, width_mm=width,
                                height_mm=height)
     return NativeBasicCutSubjectPreview(
