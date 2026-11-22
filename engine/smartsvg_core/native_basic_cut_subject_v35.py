@@ -47,13 +47,15 @@ def _mask_rings(alpha):
     if not bool(filled.any()):
         raise BasicCutError("EMPTY_CUT_SILHOUETTE")
     pad = np.pad(filled, ((1, 1), (1, 1)), constant_values=False)
-    top = np.argwhere(filled & ~pad[:-2, 1:-1])
-    right = np.argwhere(filled & ~pad[1:-1, 2:])
-    bottom = np.argwhere(filled & ~pad[2:, 1:-1])
-    left = np.argwhere(filled & ~pad[1:-1, :-2])
-    total = sum(len(a) for a in (top, right, bottom, left))
-    if total > _MAX_BOUNDARY_EDGES:
+    # Check a small memory budget before materializing Python edge coordinates.
+    # A noisy 5-Mpx mask can otherwise allocate millions of vertices first.
+    boundaries = (filled & ~pad[:-2, 1:-1],
+                  filled & ~pad[1:-1, 2:],
+                  filled & ~pad[2:, 1:-1],
+                  filled & ~pad[1:-1, :-2])
+    if sum(int(np.count_nonzero(edge)) for edge in boundaries) > _MAX_BOUNDARY_EDGES:
         raise BasicCutError("SILHOUETTE_TOO_COMPLEX")
+    top, right, bottom, left = (np.argwhere(edge) for edge in boundaries)
     following = {}
 
     def add(start, end):
