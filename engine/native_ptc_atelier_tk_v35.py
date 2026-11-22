@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 import math
 import re
+from smartsvg_core.source_preview_v34 import MAX_ENCODED_BYTES
 
 _SHA = re.compile(r"^[0-9a-f]{64}$")
 _SUBJECT = re.compile(r"^subject-[0-9a-f]{32}$")
@@ -43,6 +44,28 @@ def ptc_preview_request(snapshot, subject, project_path, width_text):
         "subject_id": subject.subject_id,
         "width_mm": width,
     }
+
+
+def ptc_atelier_action_ready(snapshot, subject, project_path):
+    """Enable native PTC inspection independently of the brush's 2048px cap.
+
+    A verified subject must have a usable inspector preview, but the preview
+    may be downsampled and is never the source of physical/PPI validation.
+    The native read-only inspect rechecks the full V1 archive before export.
+    """
+    if ptc_preview_request(snapshot, subject, project_path, "100") is None:
+        return False
+    preview = getattr(subject, "preview", None)
+    if preview is None or getattr(preview, "status", None) != "READY_PNG":
+        return False
+    png = getattr(preview, "png", None)
+    return (
+        type(png) is bytes
+        and 33 <= len(png) <= MAX_ENCODED_BYTES
+        and type(getattr(preview, "width_px", None)) is int
+        and type(getattr(preview, "height_px", None)) is int
+        and preview.width_px > 0 and preview.height_px > 0
+    )
 
 
 def ptc_physical_feedback(request, width_px, height_px):
