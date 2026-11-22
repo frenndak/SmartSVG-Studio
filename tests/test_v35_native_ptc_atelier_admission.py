@@ -3,6 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import sys
 import unittest
+import tempfile
 
 ENGINE = Path(__file__).resolve().parents[1] / "engine"
 if str(ENGINE) not in sys.path:
@@ -52,6 +53,21 @@ class PTCAtelierAdmissionTests(unittest.TestCase):
         self.assertIn("Hauteur", ptc_physical_feedback(self.request("1000"), 100, 2000))
         self.assertIn("réexaminer", ptc_physical_feedback(request, True, 100))
         self.assertIn("réexaminer", ptc_physical_feedback(request, 5000, 5000))
+
+    def test_open_folder_requires_existing_png_and_explicit_opener(self):
+        from native_ptc_dialog_tk_v35 import open_export_folder
+        opened = []
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            png = root / "export.png"
+            self.assertFalse(open_export_folder(str(png), opened.append))
+            self.assertEqual(opened, [])
+            png.write_bytes(b"synthetic")
+            self.assertTrue(open_export_folder(str(png), opened.append))
+            self.assertEqual(opened, [str(root)])
+            self.assertFalse(open_export_folder(str(root / "other.svg"), opened.append))
+            self.assertFalse(open_export_folder("relative.png", opened.append))
+            self.assertEqual(opened, [str(root)])
 
     def test_relative_project_path_rejected(self):
         self.assertIsNone(ptc_preview_request(
