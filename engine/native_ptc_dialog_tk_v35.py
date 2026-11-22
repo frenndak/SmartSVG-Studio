@@ -204,6 +204,13 @@ def show_ptc_dialog(panel):
                     digest = sha256(stream.read()).hexdigest()
                 if digest != preview["output_sha256"]:
                     status.set("Relecture différente : vérifier le fichier, ne pas réessayer.")
+                elif (not current() or
+                      ptc_preview_request(panel.snapshot, subject, path, width.get()) != request):
+                    # A queued Tk callback can change selection/revision/width
+                    # during the synchronous publisher. The file is already
+                    # committed: report it without authorizing stale actions.
+                    status.set("PNG enregistré et relu, mais sélection ou largeur modifiée : "
+                               "vérifier le fichier manuellement, puis réexaminer (F5).")
                 else:
                     published_target = target
                     folder_button.configure(state="normal")
