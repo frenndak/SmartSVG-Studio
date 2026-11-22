@@ -133,6 +133,17 @@ class NativeBasicCutSubjectTests(unittest.TestCase):
         self.assertEqual(d.count(" L "), 3)
         self.assertEqual(preview.ring_count, 1)
 
+    def test_physical_viewbox_edge_is_exact_despite_float_rounding(self):
+        # 3 * (width / 3) is one ULP larger than width for this value.
+        width = 942.8761315751289
+        self.assertGreater(3 * (width / 3), width)
+        preview = self.inspect([[255] * 3 for _ in range(3)], width_mm=width)
+        root = ET.fromstring(preview.svg)
+        d = root.find("{http://www.w3.org/2000/svg}path").attrib["d"]
+        self.assertIn(format(width, ".17g"), d)
+        self.assertEqual(preview.width_mm, width)
+        self.assertEqual(preview.height_mm, width)
+
     def test_real_pinned_native_renderer_error_propagates_no_fallback(self):
         from smartsvg_core.native_ptc_export_v35 import NativePTCError
         with patch("smartsvg_core.native_basic_cut_subject_v35._render",
