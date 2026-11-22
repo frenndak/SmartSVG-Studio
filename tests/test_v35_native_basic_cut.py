@@ -128,3 +128,29 @@ class BasicCutTests(unittest.TestCase):
         recovered = preview_basic_cut(
             rings=(outer, valid), width_mm=20, height_mm=20)
         self.assertEqual(hashlib.sha256(recovered.svg).hexdigest(), recovered.sha256)
+
+    def test_deterministic_readback_does_not_mutate_input_rings(self):
+        """Repeated previews preserve caller geometry and stable SVG/SHA."""
+        outer = [[0, 0], [20, 0], [20, 10], [0, 10]]
+        hole = [[5, 2], [10, 2], [10, 6], [5, 6]]
+        rings = [outer, hole]
+        before = [list(map(list, ring)) for ring in rings]
+        first = preview_basic_cut(rings=rings, width_mm=20, height_mm=10)
+        second = preview_basic_cut(rings=rings, width_mm=20, height_mm=10)
+        self.assertEqual(rings, before)
+        self.assertEqual(first.svg, second.svg)
+        self.assertEqual(first.sha256, second.sha256)
+        self.assertEqual(hashlib.sha256(first.svg).hexdigest(), first.sha256)
+        self.assertTrue(first.verified_readback)
+        self.assertFalse(first.physical_cut_tested)
+
+    def test_disjoint_holes_with_narrow_gap_remain_distinct(self):
+        """A narrow positive gap is not an edge touch or nested hole."""
+        left = ((2, 2), (5, 2), (5, 5), (2, 5))
+        right = ((5.001, 2), (8, 2), (8, 5), (5.001, 5))
+        result = preview_basic_cut(rings=(OUTER, left, right),
+                                   width_mm=20, height_mm=10)
+        path = ET.fromstring(result.svg).find("{http://www.w3.org/2000/svg}path")
+        self.assertEqual(path.get("d").count(" Z"), 3)
+        self.assertEqual(result.ring_count, 3)
+        self.assertEqual(hashlib.sha256(result.svg).hexdigest(), result.sha256)
