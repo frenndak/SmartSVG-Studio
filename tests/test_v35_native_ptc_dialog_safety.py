@@ -175,7 +175,8 @@ class DialogSafetyTests(unittest.TestCase):
                 self.assertEqual(target.read_bytes(), self.payload)
 
     def test_close_during_destination_modal_is_deferred(self):
-        with (tempfile.TemporaryDirectory() as folder,\n              patch.object(module, "inspect_native_ptc_png", side_effect=self.inspector),
+        with (tempfile.TemporaryDirectory() as folder,
+              patch.object(module, "inspect_native_ptc_png", side_effect=self.inspector),
               patch.object(module, "publish_native_ptc_png") as publisher):
             self.open_and_inspect()
             def destination_modal(**_kwargs):
