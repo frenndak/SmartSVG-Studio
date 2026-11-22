@@ -95,3 +95,22 @@ class BasicCutTests(unittest.TestCase):
         with self.assertRaises(BasicCutError):
             preview_basic_cut(rings=(OUTER,touching),width_mm=20,height_mm=10)
         self.assertEqual(preview_basic_cut(rings=(OUTER,HOLE),width_mm=20,height_mm=10).ring_count,2)
+
+
+    def test_multiple_disjoint_holes_and_touching_holes_rejected(self):
+        """Independent cutouts are valid; shared vertex/edge must fail closed."""
+        left=((2,2),(5,2),(5,5),(2,5))
+        right=((12,2),(15,2),(15,5),(12,5))
+        result=preview_basic_cut(rings=(OUTER,left,right),width_mm=20,height_mm=10)
+        self.assertEqual(result.ring_count,3)
+        self.assertEqual(ET.fromstring(result.svg).find(
+            "{http://www.w3.org/2000/svg}path").get("d").count(" Z"),3)
+        self.assertEqual(hashlib.sha256(result.svg).hexdigest(),result.sha256)
+        touching_vertex=((5,5),(8,5),(8,8),(5,8))
+        touching_edge=((5,2),(8,2),(8,5),(5,5))
+        for second in (touching_vertex,touching_edge):
+            with self.subTest(second=second),self.assertRaisesRegex(
+                    BasicCutError,"RINGS_INTERSECT"):
+                preview_basic_cut(rings=(OUTER,left,second),width_mm=20,height_mm=10)
+            self.assertTrue(preview_basic_cut(
+                rings=(OUTER,left,right),width_mm=20,height_mm=10).verified_readback)
