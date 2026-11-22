@@ -67,13 +67,18 @@ class RealTkPTCFlow(TestCase):
             publish.assert_not_called()
 
     def test_real_widgets_inspect_then_cancel_destination(self):
-        payload = b"synthetic png bytes"
-        digest = hashlib.sha256(payload).hexdigest()
-        # A real Tk PhotoImage needs a valid PNG; use a tiny image created by Tk
-        # and avoid any filesystem or export operation during inspection.
-        import base64
-        png = base64.b64decode(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lXcAAAAASUVORK5CYII=")
+        # Generate a CRC-correct 1x1 RGBA PNG accepted by native Windows Tk.
+        # The preview digest must describe the actual preview payload.
+        import struct
+        import zlib
+        def chunk(tag, data):
+            return (struct.pack(">I", len(data)) + tag + data +
+                    struct.pack(">I", zlib.crc32(tag + data) & 0xffffffff))
+        png = (b"\\x89PNG\\r\\n\\x1a\\n" +
+               chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 6, 0, 0, 0)) +
+               chunk(b"IDAT", zlib.compress(b"\\x00\\xff\\x00\\x00\\xff")) +
+               chunk(b"IEND", b""))
+        digest = hashlib.sha256(png).hexdigest()
         def inspect(**_kwargs):
             return dict(status="PTC_PREVIEW_READY", preview_png_rgba=png,
                         output_sha256=digest, width_mm=100, height_mm=100,
