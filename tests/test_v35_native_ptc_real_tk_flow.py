@@ -97,5 +97,63 @@ class RealTkPTCFlow(TestCase):
             self.assertEqual(str(self.buttons()["Ouvrir le dossier"].cget("state")), "disabled")
 
 
+    def _valid_inspection(self):
+        import struct
+        import zlib
+        def chunk(tag, data):
+            return (struct.pack(">I", len(data)) + tag + data +
+                    struct.pack(">I", zlib.crc32(tag + data) & 0xffffffff))
+        png = (bytes.fromhex("89504e470d0a1a0a") +
+               chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 6, 0, 0, 0)) +
+               chunk(b"IDAT", zlib.compress(bytes.fromhex("00ff0000ff"))) +
+               chunk(b"IEND", b""))
+        return dict(status="PTC_PREVIEW_READY", preview_png_rgba=png,
+                    output_sha256=hashlib.sha256(png).hexdigest(),
+                    width_mm=100, height_mm=100, low_resolution_warning=False)
+
+    def test_real_widgets_existing_destination_never_publishes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "existing.png"
+            target.write_bytes(b"original must survive")
+            with (patch.object(ptc, "inspect_native_ptc_png",
+                               return_value=self._valid_inspection()),
+                  patch.object(ptc, "publish_native_ptc_png") as publish,
+                  patch.object(ptc.filedialog, "asksaveasfilename",
+                               return_value=str(target)),
+                  patch.object(ptc.messagebox, "askyesno") as confirm):
+                self.assertTrue(ptc.show_ptc_dialog(self.panel))
+                self.root.update()
+                self.buttons()["Examiner"].invoke()
+                self.root.update()
+                self.buttons()["Choisir et publier…"].invoke()
+                self.root.update()
+                self.assertEqual(target.read_bytes(), b"original must survive")
+                confirm.assert_not_called()
+                publish.assert_not_called()
+                self.assertEqual(str(self.buttons()["Ouvrir le dossier"].cget("state")),
+                                 "disabled")
+
+    def test_real_widgets_stale_selection_after_confirmation_never_publishes(self):
+        def change_selection(*_args, **_kwargs):
+            self.panel.selection.set("subject-" + "c" * 32)
+            return True
+        with (patch.object(ptc, "inspect_native_ptc_png",
+                           return_value=self._valid_inspection()),
+              patch.object(ptc, "publish_native_ptc_png") as publish,
+              patch.object(ptc.filedialog, "asksaveasfilename",
+                           return_value=str(Path(tempfile.gettempdir()) /
+                                            "smartsvg-w03-stale-test.png")),
+              patch.object(ptc.messagebox, "askyesno",
+                           side_effect=change_selection)):
+            self.assertTrue(ptc.show_ptc_dialog(self.panel))
+            self.root.update()
+            self.buttons()["Examiner"].invoke()
+            self.root.update()
+            self.buttons()["Choisir et publier…"].invoke()
+            self.root.update()
+            publish.assert_not_called()
+            self.assertEqual(str(self.buttons()["Ouvrir le dossier"].cget("state")),
+                             "disabled")
+
 if __name__ == "__main__":
     main()
