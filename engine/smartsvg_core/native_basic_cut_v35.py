@@ -22,7 +22,10 @@ class BasicCutPreview:
     physical_cut_tested: bool = False
 
 def _num(value):
-    if type(value) not in (int, float) or not math.isfinite(value) or abs(value) > 10000:
+    if type(value) not in (int, float):
+        raise BasicCutError("INVALID_NUMBER")
+    # Reject huge integers before float conversion (which can overflow).
+    if not -10000 <= value <= 10000 or not math.isfinite(value):
         raise BasicCutError("INVALID_NUMBER")
     return float(value)
 
