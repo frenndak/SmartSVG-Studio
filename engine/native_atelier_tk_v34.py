@@ -8,6 +8,7 @@ import re
 from uuid import uuid4
 
 from native_image_viewport_v34 import NativeImageViewport
+from native_ptc_atelier_tk_v35 import ptc_atelier_action_ready
 from smartsvg_core.native_brush_history_v34 import inspect_native_brush_history
 from smartsvg_core.native_brush_history_command_v34 import change_native_brush_history
 from smartsvg_core.native_write_jobs_v35 import tracked_native_write
@@ -575,7 +576,8 @@ class NativeAtelierPanel:
         if ptc_button is not None:
             ptc_button.configure(
                 state='normal' if not self.busy and not self.has_open_brush
-                and not self.history_requires_review and request is not None
+                and not self.history_requires_review and ptc_atelier_action_ready(
+                    self.snapshot, subject, getattr(self, '_project_path', None))
                 else 'disabled')
         self.viewport.load(None)
         if subject is None:
