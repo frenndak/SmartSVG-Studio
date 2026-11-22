@@ -38,11 +38,12 @@ class Widget:
         self.command = kwargs.get("command")
         self.state = kwargs.get("state")
         self.destroyed = False
+        self.pack_options = {}
         Widget.windows.append(self)
         if self.command is not None:
             Widget.buttons[kwargs.get("text")] = self
-    def pack(self, **_kwargs):
-        pass
+    def pack(self, **kwargs):
+        self.pack_options = kwargs
     def configure(self, **kwargs):
         self.state = kwargs.get("state", self.state)
     def title(self, *_args):
@@ -87,6 +88,13 @@ class DialogSafetyTests(unittest.TestCase):
         return dict(status="PTC_PREVIEW_READY", preview_png_rgba=self.payload,
                     output_sha256=self.digest, width_mm=100,
                     height_mm=100, low_resolution_warning=False)
+
+    def test_action_row_reserved_at_bottom_before_preview(self):
+        self.assertTrue(module.show_ptc_dialog(self.panel))
+        action = Widget.buttons["Choisir et publier…"]
+        self.assertEqual(action.state, "disabled")
+        # The action row is packed bottom, not after variable-height preview.
+        self.assertTrue(any(w.pack_options.get("side") == "bottom" for w in Widget.windows))
 
     def test_cancel_destination_never_publishes(self):
         with (patch.object(module, "inspect_native_ptc_png", side_effect=self.inspector),
