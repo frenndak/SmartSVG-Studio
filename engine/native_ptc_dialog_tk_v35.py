@@ -95,9 +95,11 @@ def show_ptc_dialog(panel):
             status.set("Impossible d’ouvrir le dossier : utiliser le chemin affiché.")
 
     def invalidate_preview(*_args):
-        nonlocal preview, request
+        nonlocal preview, request, published_target
         preview = request = None
+        published_target = None
         export_button.configure(state="disabled")
+        folder_button.configure(state="disabled")
         # A modal callback can modify the width while an inspection or a
         # publication is running. Never let its stale completion re-enable
         # export for a different physical size.
