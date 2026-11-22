@@ -169,10 +169,16 @@ def show_ptc_dialog(panel):
         if ptc_preview_request(panel.snapshot, subject, path, width.get()) != request:
             status.set("Largeur modifiée : refaire l'aperçu.")
             return
-        target = filedialog.asksaveasfilename(parent=dialog, title="Destination PNG",
-                                               defaultextension=".png",
-                                               filetypes=[("Image PNG", "*.png")])
-        if not target:
+        # File dialogs and confirmations run nested Tk event loops. A queued
+        # WM_DELETE_WINDOW must not destroy the parent while either is active.
+        busy = True
+        try:
+            target = filedialog.asksaveasfilename(parent=dialog, title="Destination PNG",
+                                                   defaultextension=".png",
+                                                   filetypes=[("Image PNG", "*.png")])
+        finally:
+            busy = False
+        if closed or not target:
             return
         if not current() or Path(target).suffix.lower() != ".png":
             status.set("Destination ou sélection invalide.")
@@ -181,8 +187,14 @@ def show_ptc_dialog(panel):
             status.set("Ce fichier existe déjà : choisir un autre nom, sans écrasement.")
             return
         destination.set(target)
-        if not messagebox.askyesno("Confirmer l'export", "Publier ce PNG sans écraser de fichier existant ?",
-                                   parent=dialog, default="no"):
+        busy = True
+        try:
+            confirmed = messagebox.askyesno(
+                "Confirmer l'export", "Publier ce PNG sans écraser de fichier existant ?",
+                parent=dialog, default="no")
+        finally:
+            busy = False
+        if closed or not confirmed:
             return
         if (not current() or preview is None or request is None or
                 ptc_preview_request(panel.snapshot, subject, path, width.get()) != request):
