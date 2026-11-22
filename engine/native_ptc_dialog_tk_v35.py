@@ -224,6 +224,14 @@ def show_ptc_dialog(panel):
                     digest = sha256(stream.read()).hexdigest()
                 if digest != expected_digest:
                     status.set("Relecture différente : vérifier le fichier, ne pas réessayer.")
+                elif (receipt.get("project_revision_still_current") is not True or
+                      receipt.get("status") == "LOCAL_PNG_REVISION_CHANGED"):
+                    # The publisher owns the authoritative project-revision CAS.
+                    # A persisted PNG can still be stale even if the Tk panel
+                    # has not observed the external concurrent modification.
+                    status.set("PNG enregistré et relu, mais révision du projet modifiée "
+                               "ou non confirmée : vérifier le fichier manuellement, "
+                               "puis réexaminer (F5). Aucun nouvel export automatique.")
                 elif (not current() or
                       ptc_preview_request(panel.snapshot, subject, path, width.get()) != publish_request):
                     # A queued Tk callback can change selection/revision/width
