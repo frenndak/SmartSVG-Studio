@@ -16,6 +16,8 @@ _ERRORS = {
     "PHYSICAL_SIZE_NOT_SUPPORTED": "Dimensions physiques incompatibles : adapter la largeur en mm.",
     "OUTPUT_REQUIRES_REVIEW": "Écriture incertaine : vérifier le fichier manuellement, sans réessayer.",
     "EXPORT_DIRECTORY_NOT_FOUND": "Dossier introuvable : choisir un dossier existant.",
+    "EXPORT_ALREADY_EXISTS": "Ce fichier existe déjà : choisir un autre nom, sans écrasement.",
+    "OUTPUT_ALREADY_EXISTS": "Ce fichier existe déjà : choisir un autre nom, sans écrasement.",
     "UNSAFE_EXPORT_PATH": "Destination non sûre : choisir un autre dossier.",
     "EXPORT_PREPARATION_UNAVAILABLE": "Préparation impossible : réexaminer le projet (F5).",
 }
@@ -63,6 +65,12 @@ def show_ptc_dialog(panel):
     request = None
     busy = False
     closed = False
+
+    def invalidate_preview(*_args):
+        nonlocal preview, request
+        preview = request = None
+        export_button.configure(state="disabled")
+        status.set("Largeur modifiée : examiner à nouveau avant toute publication.")
 
     def current():
         return (not closed and not panel._closed and not panel.busy
@@ -125,12 +133,18 @@ def show_ptc_dialog(panel):
         if not current() or Path(target).suffix.lower() != ".png":
             status.set("Destination ou sélection invalide.")
             return
+        if Path(target).exists():
+            status.set("Ce fichier existe déjà : choisir un autre nom, sans écrasement.")
+            return
         destination.set(target)
         if not messagebox.askyesno("Confirmer l'export", "Publier ce PNG sans écraser de fichier existant ?",
                                    parent=dialog, default="no"):
             return
         if not current() or ptc_preview_request(panel.snapshot, subject, path, width.get()) != request:
             status.set("Révision ou largeur modifiée : refaire l'aperçu.")
+            return
+        if Path(target).exists():
+            status.set("Le fichier vient d’apparaître : choisir une autre destination.")
             return
         busy = True
         export_button.configure(state="disabled")
@@ -156,6 +170,7 @@ def show_ptc_dialog(panel):
     ttk.Button(actions, text="Examiner", command=inspect).pack(side="left")
     export_button = ttk.Button(actions, text="Choisir et publier…", command=export, state="disabled")
     export_button.pack(side="left", padx=6)
+    width.trace_add("write", invalidate_preview)
     ttk.Button(actions, text="Fermer", command=close).pack(side="left")
     dialog.protocol("WM_DELETE_WINDOW", close)
     return True
