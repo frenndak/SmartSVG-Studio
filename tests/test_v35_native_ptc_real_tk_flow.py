@@ -74,9 +74,9 @@ class RealTkPTCFlow(TestCase):
         def chunk(tag, data):
             return (struct.pack(">I", len(data)) + tag + data +
                     struct.pack(">I", zlib.crc32(tag + data) & 0xffffffff))
-        png = (b"\\x89PNG\\r\\n\\x1a\\n" +
+        png = (b"\x89PNG\r\n\x1a\n" +
                chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 6, 0, 0, 0)) +
-               chunk(b"IDAT", zlib.compress(b"\\x00\\xff\\x00\\x00\\xff")) +
+               chunk(b"IDAT", zlib.compress(b"\x00\xff\x00\x00\xff")) +
                chunk(b"IEND", b""))
         digest = hashlib.sha256(png).hexdigest()
         def inspect(**_kwargs):
