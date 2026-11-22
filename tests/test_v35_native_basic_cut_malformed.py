@@ -44,5 +44,21 @@ class BasicCutMalformedInputTests(unittest.TestCase):
                 preview_basic_cut(rings=VALID, width_mm=20, height_mm=size)
 
 
+    def test_unbounded_integers_fail_closed_and_recover(self):
+        huge = 10 ** 1000
+        baseline = preview_basic_cut(rings=VALID, width_mm=20, height_mm=10)
+        for kwargs in (
+            {"rings": VALID, "width_mm": huge, "height_mm": 10},
+            {"rings": VALID, "width_mm": 20, "height_mm": -huge},
+            {"rings": (((0, 0), (huge, 0), (20, 10), (0, 10)),),
+             "width_mm": 20, "height_mm": 10},
+        ):
+            with self.subTest(kind="unbounded"):
+                with self.assertRaises(BasicCutError):
+                    preview_basic_cut(**kwargs)
+                recovered = preview_basic_cut(rings=VALID, width_mm=20, height_mm=10)
+                self.assertEqual(recovered.svg, baseline.svg)
+                self.assertEqual(recovered.sha256, baseline.sha256)
+
 if __name__ == "__main__":
     unittest.main()
