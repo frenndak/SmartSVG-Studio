@@ -65,6 +65,26 @@ class BasicCutTests(unittest.TestCase):
         self.assertEqual(path.get("d").count(" L "),3)
         self.assertTrue(result.verified_readback)
 
+    def test_total_topology_budget_rejects_large_ring_before_quadratic_scan(self):
+        """An oversized yet finite contour must fail fast and not poison later work."""
+        import math
+        huge = tuple((10 + 9 * math.cos(2 * math.pi * i / 513),
+                      5 + 4 * math.sin(2 * math.pi * i / 513))
+                     for i in range(513))
+        with self.assertRaisesRegex(BasicCutError, "GEOMETRY_TOO_COMPLEX"):
+            preview_basic_cut(rings=(huge,), width_mm=20, height_mm=10)
+        self.assertTrue(preview_basic_cut(
+            rings=(OUTER, HOLE), width_mm=20, height_mm=10).verified_readback)
+
+    def test_many_rings_share_one_global_budget(self):
+        """Small individual rings must not bypass the aggregate edge ceiling."""
+        outer = tuple((10 + 9 * __import__("math").cos(2 * __import__("math").pi * i / 500),
+                       5 + 4 * __import__("math").sin(2 * __import__("math").pi * i / 500))
+                      for i in range(500))
+        with self.assertRaisesRegex(BasicCutError, "GEOMETRY_TOO_COMPLEX"):
+            preview_basic_cut(rings=(outer, HOLE, HOLE, HOLE, HOLE),
+                              width_mm=20, height_mm=10)
+
     def test_tiny_but_nonzero_hole_and_recovery_after_boundary_contact(self):
         """Preserve a thin disjoint hole; reject a touching hole fail-closed."""
         thin=((5,2),(5.00002,2),(5.00002,4),(5,4))
