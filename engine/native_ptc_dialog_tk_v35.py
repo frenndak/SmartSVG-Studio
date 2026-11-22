@@ -86,7 +86,7 @@ def show_ptc_dialog(panel):
     published_target = None
 
     def open_folder():
-        if published_target is None or not current():
+        if close_requested or busy or published_target is None or not current():
             status.set("Dossier indisponible : réexaminer le projet ou republier.")
             return
         try:
@@ -125,7 +125,7 @@ def show_ptc_dialog(panel):
 
     def inspect():
         nonlocal preview, request, busy
-        if busy or closed:
+        if busy or closed or close_requested:
             return
         preview = request = None
         export_button.configure(state="disabled")
@@ -139,7 +139,7 @@ def show_ptc_dialog(panel):
         busy = True
         try:
             result = inspect_native_ptc_png(**req)
-            if (not current() or
+            if (close_requested or not current() or
                     ptc_preview_request(panel.snapshot, subject, path, width.get()) != req or
                     result.get("status") != "PTC_PREVIEW_READY"):
                 status.set("Aperçu périmé : recommencer.")
@@ -160,10 +160,12 @@ def show_ptc_dialog(panel):
                 status.set(_ERRORS.get(getattr(exc, "code", ""), "Aperçu impossible : réexaminer (F5)."))
         finally:
             busy = False
+            if close_requested:
+                close()
 
     def export():
         nonlocal busy, published_target
-        if busy or closed:
+        if busy or closed or close_requested:
             return
         if preview is None or request is None or not current():
             status.set("Aperçu périmé : recommencer.")
@@ -180,7 +182,10 @@ def show_ptc_dialog(panel):
                                                    filetypes=[("Image PNG", "*.png")])
         finally:
             busy = False
-        if closed or close_requested or not target:
+        if close_requested:
+            close()
+            return
+        if closed or not target:
             return
         if not current() or Path(target).suffix.lower() != ".png":
             status.set("Destination ou sélection invalide.")
@@ -196,7 +201,10 @@ def show_ptc_dialog(panel):
                 parent=dialog, default="no")
         finally:
             busy = False
-        if closed or close_requested or not confirmed:
+        if close_requested:
+            close()
+            return
+        if closed or not confirmed:
             return
         if (not current() or preview is None or request is None or
                 ptc_preview_request(panel.snapshot, subject, path, width.get()) != request):
@@ -249,6 +257,8 @@ def show_ptc_dialog(panel):
                                    "Export incertain : vérifier le fichier avant de réessayer."))
         finally:
             busy = False
+            if close_requested:
+                close()
 
     ttk.Button(actions, text="Examiner", command=inspect).pack(side="left")
     export_button = ttk.Button(actions, text="Choisir et publier…", command=export, state="disabled")
