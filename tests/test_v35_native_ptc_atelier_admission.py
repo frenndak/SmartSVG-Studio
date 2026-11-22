@@ -104,5 +104,81 @@ class PTCAtelierAdmissionTests(unittest.TestCase):
 
 
 
+
+class PTCDialogTkFlowTests(unittest.TestCase):
+    """Exercise real dialog callbacks with a deterministic headless Tk facade."""
+
+    def test_inspect_width_change_during_backend_call_never_enables_publish(self):
+        from unittest.mock import patch
+        import native_ptc_dialog_tk_v35 as module
+
+        class Variable:
+            instances = []
+            def __init__(self, value=""):
+                self.value = value
+                self.traces = []
+                Variable.instances.append(self)
+            def get(self):
+                return self.value
+            def set(self, value):
+                self.value = value
+                for callback in self.traces:
+                    callback()
+            def trace_add(self, _mode, callback):
+                self.traces.append(callback)
+
+        class Widget:
+            buttons = {}
+            def __init__(self, *_args, **kwargs):
+                self.command = kwargs.get("command")
+                self.state = kwargs.get("state")
+                if "text" in kwargs and self.command:
+                    Widget.buttons[kwargs["text"]] = self
+            def pack(self, **_kwargs):
+                pass
+            def configure(self, **kwargs):
+                if "state" in kwargs:
+                    self.state = kwargs["state"]
+            def title(self, *_args):
+                pass
+            def transient(self, *_args):
+                pass
+            def geometry(self, *_args):
+                pass
+            def protocol(self, *_args):
+                pass
+            def destroy(self):
+                self.destroyed = True
+
+        tk = SimpleNamespace(Toplevel=Widget, StringVar=Variable,
+                             PhotoImage=Widget, TclError=RuntimeError)
+        ttk = SimpleNamespace(Frame=Widget, Label=Widget, Entry=Widget, Button=Widget)
+        subject = SimpleNamespace(subject_id="subject-" + "b" * 32,
+                                  proof_status="verified",
+                                  preview=SimpleNamespace(width_px=10, height_px=10))
+        snapshot = SimpleNamespace(sha256="a" * 64)
+        panel = SimpleNamespace(
+            tk=tk, ttk=ttk, _closed=False, busy=False,
+            history_requires_review=False, has_open_brush=False,
+            parent=Widget(), subjects={subject.subject_id: subject},
+            selection=Variable(subject.subject_id),
+            _project_path=str(Path.cwd().resolve() / "synthetic.smartsvg"),
+            snapshot=snapshot,
+        )
+        def changing_inspect(**_kwargs):
+            Variable.instances[-3].set("200")
+            return {"status": "PTC_PREVIEW_READY", "preview_png_rgba": b"png",
+                    "output_sha256": "c" * 64, "width_mm": 100,
+                    "height_mm": 100, "low_resolution_warning": False}
+
+        # width, status, destination are the last three variables created.
+        with patch.object(module, "inspect_native_ptc_png", side_effect=changing_inspect):
+            self.assertTrue(module.show_ptc_dialog(panel))
+            Widget.buttons["Examiner"].command()
+        self.assertEqual(Widget.buttons["Choisir et publier…"].state, "disabled")
+        self.assertIn("périmé", Variable.instances[-2].get())
+        Widget.buttons["Fermer"].command()
+        self.assertEqual(Widget.buttons["Choisir et publier…"].state, "disabled")
+
 if __name__ == "__main__":
     unittest.main()
