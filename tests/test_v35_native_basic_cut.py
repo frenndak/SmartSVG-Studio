@@ -44,8 +44,13 @@ class BasicCutTests(unittest.TestCase):
         root=ET.fromstring(result.svg)
         path=root.find("{http://www.w3.org/2000/svg}path")
         data=path.get("d")
-        self.assertIn("1.0000000000000001e-05",data)
-        self.assertNotIn("M 0 0",data)
+        coords = data.replace("M ", "").replace(" L ", " ").replace(" Z", "").split()
+        self.assertEqual(len(coords), 8)
+        self.assertEqual(float(coords[0]), contour[0][0])
+        self.assertEqual(float(coords[1]), contour[0][1])
+        self.assertEqual(float(coords[2]), contour[1][0])
+        self.assertNotEqual(float(coords[0]), 0.0)
+        self.assertNotEqual(float(coords[2]), float(coords[0]))
         self.assertEqual(hashlib.sha256(result.svg).hexdigest(),result.sha256)
 
     def test_close_vertices_preserved_without_rounding_collapse(self):
