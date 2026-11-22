@@ -174,6 +174,33 @@ class DialogSafetyTests(unittest.TestCase):
                 opener.assert_not_called()
                 self.assertEqual(target.read_bytes(), self.payload)
 
+    def test_close_during_destination_modal_is_deferred(self):
+        with (patch.object(module, "inspect_native_ptc_png", side_effect=self.inspector),
+              patch.object(module, "publish_native_ptc_png") as publisher):
+            self.open_and_inspect()
+            def destination_modal(**_kwargs):
+                Widget.buttons["Fermer"].command()
+                return ""
+            with patch.object(module.filedialog, "asksaveasfilename", side_effect=destination_modal):
+                Widget.buttons["Choisir et publier…"].command()
+            publisher.assert_not_called()
+            self.assertEqual(Widget.buttons["Choisir et publier…"].state, "normal")
+
+    def test_close_during_confirmation_never_publishes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = str(Path(folder) / "new.png")
+            def confirmation_modal(*_args, **_kwargs):
+                Widget.buttons["Fermer"].command()
+                return False
+            with (patch.object(module, "inspect_native_ptc_png", side_effect=self.inspector),
+                  patch.object(module, "publish_native_ptc_png") as publisher,
+                  patch.object(module.filedialog, "asksaveasfilename", return_value=target),
+                  patch.object(module.messagebox, "askyesno", side_effect=confirmation_modal)):
+                self.open_and_inspect()
+                Widget.buttons["Choisir et publier…"].command()
+                publisher.assert_not_called()
+                self.assertFalse(Path(target).exists())
+
     def test_bad_readback_never_enables_folder(self):
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / "new.png"
