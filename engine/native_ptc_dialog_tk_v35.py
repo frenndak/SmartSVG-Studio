@@ -190,22 +190,26 @@ def show_ptc_dialog(panel):
         if Path(target).exists():
             status.set("Le fichier vient d’apparaître : choisir une autre destination.")
             return
+        # Pin the inspected digest before entering the publisher. Queued Tk
+        # width-change callbacks may invalidate `preview` while it runs.
+        expected_digest = preview["output_sha256"]
+        publish_request = request
         busy = True
         published_target = None
         folder_button.configure(state="disabled")
         export_button.configure(state="disabled")
         try:
-            receipt = publish_native_ptc_png(**request, destination_path=target,
-                       expected_output_sha256=preview["output_sha256"], confirmed=True)
+            receipt = publish_native_ptc_png(**publish_request, destination_path=target,
+                       expected_output_sha256=expected_digest, confirmed=True)
             if receipt.get("persisted") is not True:
                 status.set("Résultat incertain : vérifier le fichier avant tout nouvel essai.")
             else:
                 with open(target, "rb") as stream:
                     digest = sha256(stream.read()).hexdigest()
-                if digest != preview["output_sha256"]:
+                if digest != expected_digest:
                     status.set("Relecture différente : vérifier le fichier, ne pas réessayer.")
                 elif (not current() or
-                      ptc_preview_request(panel.snapshot, subject, path, width.get()) != request):
+                      ptc_preview_request(panel.snapshot, subject, path, width.get()) != publish_request):
                     # A queued Tk callback can change selection/revision/width
                     # during the synchronous publisher. The file is already
                     # committed: report it without authorizing stale actions.
