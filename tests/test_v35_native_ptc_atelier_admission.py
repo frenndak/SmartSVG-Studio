@@ -8,7 +8,7 @@ import tempfile
 ENGINE = Path(__file__).resolve().parents[1] / "engine"
 if str(ENGINE) not in sys.path:
     sys.path.insert(0, str(ENGINE))
-from native_ptc_atelier_tk_v35 import ptc_preview_request, ptc_physical_feedback
+from native_ptc_atelier_tk_v35 import ptc_preview_request, ptc_physical_feedback, ptc_atelier_action_ready
 
 
 class PTCAtelierAdmissionTests(unittest.TestCase):
@@ -44,6 +44,46 @@ class PTCAtelierAdmissionTests(unittest.TestCase):
         self.snapshot.sha256 = "a" * 64
         self.subject.subject_id = "subject-invalid"
         self.assertIsNone(self.request())
+
+
+    def test_ptc_action_ready_large_verified_preview(self):
+        # PTC is not a brush operation. At 2049 px, the brush gate rejects
+        # the thumbnail, but the native PTC inspector can inspect the source.
+        from native_atelier_tk_v34 import brush_preview_request
+        self.subject.preview = SimpleNamespace(status="READY_PNG",
+                                               png=b"p" * 40,
+                                               width_px=2049, height_px=1)
+        self.assertIsNone(brush_preview_request(
+            self.snapshot, self.subject, self.path))
+        self.assertTrue(ptc_atelier_action_ready(
+            self.snapshot, self.subject, self.path))
+
+    def test_ptc_action_ready_fails_closed_without_verified_preview(self):
+        self.subject.preview = SimpleNamespace(status="READY_PNG",
+                                               png=b"p" * 40,
+                                               width_px=2049, height_px=1)
+        self.assertTrue(ptc_atelier_action_ready(
+            self.snapshot, self.subject, self.path))
+        self.subject.proof_status = "unverified"
+        self.assertFalse(ptc_atelier_action_ready(
+            self.snapshot, self.subject, self.path))
+        self.subject.proof_status = "verified"
+        self.snapshot.sha256 = "invalid"
+        self.assertFalse(ptc_atelier_action_ready(
+            self.snapshot, self.subject, self.path))
+        self.snapshot.sha256 = "a" * 64
+        self.subject.preview.status = "SOURCE_CHANGED"
+        self.assertFalse(ptc_atelier_action_ready(
+            self.snapshot, self.subject, self.path))
+        self.subject.preview.status = "READY_PNG"
+        self.subject.preview.png = b"tiny"
+        self.assertFalse(ptc_atelier_action_ready(
+            self.snapshot, self.subject, self.path))
+        self.subject.preview.png = b"p" * 40
+        self.subject.preview.width_px = True
+        self.assertFalse(ptc_atelier_action_ready(
+            self.snapshot, self.subject, self.path))
+
 
     def test_physical_limits_before_publish(self):
         request = self.request("50")
