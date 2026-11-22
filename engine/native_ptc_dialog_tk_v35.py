@@ -74,10 +74,12 @@ def show_ptc_dialog(panel):
     ttk.Entry(frame, textvariable=width).pack(fill="x")
     ttk.Label(frame, textvariable=status, wraplength=470).pack(anchor="w", pady=8)
     ttk.Label(frame, textvariable=destination, wraplength=470).pack(anchor="w")
+    # Reserve the bottom action row before placing variable-height preview text/image.
+    # The export and close controls must remain reachable with long paths/status.
+    actions = ttk.Frame(frame)
+    actions.pack(side="bottom", fill="x")
     image_label = ttk.Label(frame)
     image_label.pack(pady=8)
-    actions = ttk.Frame(frame)
-    actions.pack(fill="x")
     preview = None
     request = None
     busy = False
