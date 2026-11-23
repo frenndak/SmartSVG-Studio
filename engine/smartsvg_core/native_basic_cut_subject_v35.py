@@ -122,14 +122,19 @@ def inspect_native_basic_cut_subject(*, project_path, expected_sha256,
                        subject_id=subject_id, width_mm=width_mm)
     from PIL import Image
 
-    with Image.open(BytesIO(rendered["png"])) as png:
-        png.load()
-        if (png.format != "PNG" or png.mode != "RGBA" or
-                list(png.size) != rendered["dimensions_px"] or
-                png.width * png.height > _MAX_PIXELS):
-            raise BasicCutError("INVALID_RENDERED_PNG")
-        import numpy as np
-        alpha = np.asarray(png.getchannel("A"), dtype=np.uint8)
+    try:
+        with Image.open(BytesIO(rendered["png"])) as png:
+            png.load()
+            if (png.format != "PNG" or png.mode != "RGBA" or
+                    list(png.size) != rendered["dimensions_px"] or
+                    png.width * png.height > _MAX_PIXELS):
+                raise BasicCutError("INVALID_RENDERED_PNG")
+            import numpy as np
+            alpha = np.asarray(png.getchannel("A"), dtype=np.uint8)
+    except (OSError, ValueError, Image.DecompressionBombError) as exc:
+        # Corrupt or truncated renderer bytes must fail with the public
+        # Basic Cut admission error, not leak a Pillow decoder exception.
+        raise BasicCutError("INVALID_RENDERED_PNG") from exc
     rings = _mask_rings(alpha)
     width_px, height_px = rendered["dimensions_px"]
     width = _width_mm(width_mm)
