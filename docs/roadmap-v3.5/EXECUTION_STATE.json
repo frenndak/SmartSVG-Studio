@@ -5,7 +5,7 @@
   "documentary_pr": 146,
   "authority": "AGENTS.md on current main; adoption effective only after separate governance PR merges and G0 post-merge passes",
   "phase": "ENGINEERING",
-  "next_action": "LIVE_DISPATCH_OPEN_PRS_AND_FIRST_INCOMPLETE_USER_VISIBLE_WINDOWS_PATH",
+  "next_action": "W03_FIRST_EXPORT_USER_VISIBLE_WINDOWS_PATH",
   "inherited_counts": {
     "lots": 24,
     "criteria": 141,
@@ -111,7 +111,7 @@
     "evidence": "ENGINEERING_STATUS_2026_11_17.md",
     "status_note": "Point-in-time evidence; scheduled producer must refresh live GitHub and must not update protected documentary cursor itself."
   },
-  "next_action_source": "GitHub main/open PR/reviews/CI read live + MASTER_PRIORISE.md; 2026-11-17 engineering_resume is archived evidence, not a current scheduler instruction",
+  "next_action_source": "GitHub open PR/reviews/CI must be read live FIRST; this W03 label is a planning priority, not proof that W01/W02 or earlier PRs are finished. Previous engineering_resume dated 2026-11-17 is historical.",
   "delivery_plan": {
     "reference": "docs/roadmap-v3.5/DELIVERY_EXECUTION_PLAN.md",
     "calibration": "docs/roadmap-v3.5/CALIBRATION_PROTOCOL.md",
