@@ -5,7 +5,7 @@
   "documentary_pr": 146,
   "authority": "AGENTS.md on current main; adoption effective only after separate governance PR merges and G0 post-merge passes",
   "phase": "ENGINEERING",
-  "next_action": "W03_FIRST_EXPORT_USER_VISIBLE_WINDOWS_PATH",
+  "next_action": "W02_VERIFY_FIRST_SUBJECT_AND_HANDOFF_TO_EXPORT",
   "inherited_counts": {
     "lots": 24,
     "criteria": 141,
@@ -111,7 +111,7 @@
     "evidence": "ENGINEERING_STATUS_2026_11_17.md",
     "status_note": "Point-in-time evidence; scheduled producer must refresh live GitHub and must not update protected documentary cursor itself."
   },
-  "next_action_source": "GitHub open PR/reviews/CI must be read live FIRST; this W03 label is a planning priority, not proof that W01/W02 or earlier PRs are finished. Previous engineering_resume dated 2026-11-17 is historical.",
+  "next_action_source": "W02 prefix preserves evidenced historical resume contract; live GitHub open PRs/checks and the actual first incomplete Windows user path take precedence. Not an assertion that W02 is incomplete on current main.",
   "delivery_plan": {
     "reference": "docs/roadmap-v3.5/DELIVERY_EXECUTION_PLAN.md",
     "calibration": "docs/roadmap-v3.5/CALIBRATION_PROTOCOL.md",
