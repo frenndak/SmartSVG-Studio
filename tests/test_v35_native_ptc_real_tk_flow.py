@@ -163,6 +163,56 @@ class RealTkPTCFlow(TestCase):
                     output_sha256=hashlib.sha256(png).hexdigest(),
                     width_mm=100, height_mm=100, low_resolution_warning=False)
 
+
+    def test_native_save_dialog_failure_keeps_preview_and_allows_retry(self):
+        inspection = self._valid_inspection()
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "retry.png"
+            with (patch.object(ptc, "inspect_native_ptc_png", return_value=inspection),
+                  patch.object(ptc, "publish_native_ptc_png") as publisher,
+                  patch.object(ptc.filedialog, "asksaveasfilename",
+                               side_effect=[tk.TclError("dialog unavailable"), str(target)]),
+                  patch.object(ptc.messagebox, "askyesno", return_value=False)):
+                self.assertTrue(ptc.show_ptc_dialog(self.panel))
+                self.root.update()
+                self.buttons()["Examiner"].invoke()
+                self.root.update()
+                self.buttons()["Choisir et publier…"].invoke()
+                self.root.update()
+                publisher.assert_not_called()
+                self.assertFalse(target.exists())
+                self.assertEqual(str(self.buttons()["Choisir et publier…"].cget("state")),
+                                 "normal")
+                self.buttons()["Choisir et publier…"].invoke()
+                self.root.update()
+                publisher.assert_not_called()
+                self.assertFalse(target.exists())
+
+    def test_native_confirmation_failure_never_publishes_and_recovers(self):
+        inspection = self._valid_inspection()
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "retry.png"
+            with (patch.object(ptc, "inspect_native_ptc_png", return_value=inspection),
+                  patch.object(ptc, "publish_native_ptc_png") as publisher,
+                  patch.object(ptc.filedialog, "asksaveasfilename",
+                               return_value=str(target)),
+                  patch.object(ptc.messagebox, "askyesno",
+                               side_effect=[OSError("dialog unavailable"), False])):
+                self.assertTrue(ptc.show_ptc_dialog(self.panel))
+                self.root.update()
+                self.buttons()["Examiner"].invoke()
+                self.root.update()
+                self.buttons()["Choisir et publier…"].invoke()
+                self.root.update()
+                publisher.assert_not_called()
+                self.assertFalse(target.exists())
+                self.assertEqual(str(self.buttons()["Choisir et publier…"].cget("state")),
+                                 "normal")
+                self.buttons()["Choisir et publier…"].invoke()
+                self.root.update()
+                publisher.assert_not_called()
+                self.assertFalse(target.exists())
+
     def test_real_widgets_existing_destination_never_publishes(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "existing.png"
