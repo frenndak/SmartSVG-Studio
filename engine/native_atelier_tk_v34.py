@@ -156,6 +156,10 @@ class NativeAtelierPanel:
         # Scoped to the subject picker: do not steal shortcuts from brush editing.
         self.picker.bind('<Alt-Left>', self._previous_subject_key)
         self.picker.bind('<Alt-Right>', self._next_subject_key)
+        # Picker-local Home/End: jump to first/last archived subject without
+        # intercepting typing, brush-editor shortcuts or global navigation.
+        self.picker.bind('<Home>', self._first_subject_key)
+        self.picker.bind('<End>', self._last_subject_key)
         self.next_button = ttk.Button(
             navigation, text='Suiv. ▶', width=9,
             command=self.next_subject, state='disabled')
@@ -529,6 +533,20 @@ class NativeAtelierPanel:
 
     def _next_subject_key(self, _event=None):
         self.next_subject()
+        return 'break'
+
+    def _jump_subject(self, last=False):
+        if self.busy or not self.subjects:
+            return False
+        keys = tuple(self.subjects)
+        return self._select_subject(keys[-1] if last else keys[0])
+
+    def _first_subject_key(self, _event=None):
+        self._jump_subject()
+        return 'break'
+
+    def _last_subject_key(self, _event=None):
+        self._jump_subject(last=True)
         return 'break'
 
     def previous_subject(self):
