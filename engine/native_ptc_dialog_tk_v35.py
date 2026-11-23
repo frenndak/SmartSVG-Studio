@@ -182,6 +182,9 @@ def show_ptc_dialog(panel):
             target = filedialog.asksaveasfilename(parent=dialog, title="Destination PNG",
                                                    defaultextension=".png",
                                                    filetypes=[("Image PNG", "*.png")])
+        except (OSError, tk.TclError):
+            status.set("Sélecteur de fichier indisponible : aucun PNG publié. Réessayer.")
+            return
         finally:
             busy = False
         if close_requested:
@@ -201,6 +204,9 @@ def show_ptc_dialog(panel):
             confirmed = messagebox.askyesno(
                 "Confirmer l'export", "Publier ce PNG sans écraser de fichier existant ?",
                 parent=dialog, default="no")
+        except (OSError, tk.TclError):
+            status.set("Confirmation indisponible : aucun PNG publié. Réessayer.")
+            return
         finally:
             busy = False
         if close_requested:
