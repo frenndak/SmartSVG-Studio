@@ -88,13 +88,29 @@ class NativeBasicCutExportTests(unittest.TestCase):
             self.assertEqual(self.output.read_bytes(), b"other user's work")
 
     def test_writer_failure_propagates_no_success_receipt(self):
+        # Never mutate os.name: pathlib selects its host-specific Path class from it.
+        writer = "_publish_windows_locked" if sys.platform == "win32" else "_publish_posix_pinned"
         with self.mocks(), patch(MODULE + "._pinned_project", return_value=object()), patch(
-                MODULE + "._publish_posix_pinned",
+                MODULE + "." + writer,
                 side_effect=NativePTCError("OUTPUT_REQUIRES_REVIEW")):
-            with patch(MODULE + ".os.name", "posix"):
-                with self.assertRaisesRegex(BasicCutError, "OUTPUT_REQUIRES_REVIEW"):
-                    publish_native_basic_cut_svg(**self.args)
+            with self.assertRaisesRegex(BasicCutError, "OUTPUT_REQUIRES_REVIEW"):
+                publish_native_basic_cut_svg(**self.args)
             self.assertFalse(self.output.exists())
+
+    def test_unrelated_png_symlink_does_not_invalidate_svg_destination(self):
+        sibling = self.output.with_suffix(".png")
+        target = Path(self.temp.name) / "elsewhere.png"
+        target.write_bytes(b"untouched")
+        try:
+            sibling.symlink_to(target)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest(f"symlinks unavailable on this host: {exc}")
+        with self.mocks(), patch(MODULE + "._pinned_project", return_value=object()):
+            writer = "_publish_windows_locked" if sys.platform == "win32" else "_publish_posix_pinned"
+            with patch(MODULE + "." + writer) as publish:
+                publish_native_basic_cut_svg(**self.args)
+                publish.assert_called_once()
+        self.assertEqual(target.read_bytes(), b"untouched")
 
     def test_symlink_target_refused_without_render(self):
         target = Path(self.temp.name) / "other.svg"
