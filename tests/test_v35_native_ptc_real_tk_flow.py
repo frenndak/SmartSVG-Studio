@@ -218,7 +218,7 @@ class RealTkPTCFlow(TestCase):
         def fail_with_queued_close(**_kwargs):
             dialog = next(w for w in self.root.winfo_children()
                           if isinstance(w, tk.Toplevel))
-            dialog.protocol("WM_DELETE_WINDOW")()
+            dialog.tk.call(dialog.protocol("WM_DELETE_WINDOW"))
             self.assertTrue(dialog.winfo_exists())
             raise tk.TclError("native save failed")
         with (patch.object(ptc, "inspect_native_ptc_png", return_value=inspection),
@@ -242,7 +242,7 @@ class RealTkPTCFlow(TestCase):
             def fail_with_queued_close(*_args, **_kwargs):
                 dialog = next(w for w in self.root.winfo_children()
                               if isinstance(w, tk.Toplevel))
-                dialog.protocol("WM_DELETE_WINDOW")()
+                dialog.tk.call(dialog.protocol("WM_DELETE_WINDOW"))
                 self.assertTrue(dialog.winfo_exists())
                 raise OSError("native confirmation failed")
             with (patch.object(ptc, "inspect_native_ptc_png", return_value=inspection),
