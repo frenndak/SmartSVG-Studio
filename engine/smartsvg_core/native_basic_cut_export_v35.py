@@ -15,9 +15,9 @@ from .native_basic_cut_subject_v35 import inspect_native_basic_cut_subject
 from .native_basic_cut_v35 import BasicCutError
 from .native_first_subject_v35 import _pinned_project, NativeFirstSubjectError
 from .native_ptc_export_v35 import (
-    NativePTCError, _destination, _publish_posix_pinned,
-    _publish_windows_locked,
+    NativePTCError, _publish_posix_pinned, _publish_windows_locked,
 )
+from .project_contracts import _WINDOWS_DEVICE, _WINDOWS_FORBIDDEN
 
 _SHA = re.compile(r"^[0-9a-f]{64}$")
 
@@ -28,15 +28,17 @@ def _svg_destination(value):
     path = Path(value)
     if path.suffix.lower() != ".svg":
         raise BasicCutError("INVALID_EXPORT_PATH")
-    # The existing PTC path validator enforces absolute paths, Windows device
-    # names, forbidden characters, parent existence and ancestor symlinks.
+    if (not path.is_absolute() or ".." in path.parts or
+            _WINDOWS_DEVICE.fullmatch(path.name) or
+            any(char in _WINDOWS_FORBIDDEN or ord(char) < 32
+                for char in path.name) or path.name.endswith((".", " "))):
+        raise BasicCutError("INVALID_EXPORT_PATH")
+    if not path.parent.is_dir():
+        raise BasicCutError("EXPORT_DIRECTORY_NOT_FOUND")
     try:
-        _destination(str(path.with_suffix(".png")))
-    except NativePTCError as exc:
-        raise BasicCutError(str(exc)) from exc
-    try:
-        if path.is_symlink():
-            raise BasicCutError("UNSAFE_EXPORT_PATH")
+        for part in (path, *path.parents):
+            if part.is_symlink():
+                raise BasicCutError("UNSAFE_EXPORT_PATH")
     except OSError as exc:
         raise BasicCutError("UNSAFE_EXPORT_PATH") from exc
     return path
