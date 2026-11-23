@@ -74,6 +74,29 @@ class BasicCutRendererAdmissionTests(unittest.TestCase):
                 self.assertFalse(recovered.design_space_import_tested)
                 self.assertFalse(recovered.physical_cut_tested)
 
+    def test_header_rejections_do_not_decode_pixels_and_recover(self):
+        # Header checks must precede png.load(): compressed, oversized
+        # PNGs should not allocate a full decoded RGBA buffer.
+        oversized = Image.new("RGBA", (2300, 2300), (20, 40, 60, 255))
+        encoded = BytesIO()
+        oversized.save(encoded, format="PNG")
+        invalid = (
+            self.rendered(encoded.getvalue(), dimensions=(2300, 2300)),
+            self.rendered(self.png(), dimensions=(3, 2)),
+            self.rendered(self.png(mode="RGB")),
+        )
+        for rendered in invalid:
+            with self.subTest(dimensions=rendered["dimensions_px"],
+                              size=len(rendered["png"])):
+                with patch("PIL.Image.Image.load",
+                           side_effect=AssertionError("decoded before admission")):
+                    with self.assertRaisesRegex(BasicCutError, "INVALID_RENDERED_PNG"):
+                        self.inspect_rendered(rendered)
+        # A failed request must not poison the next valid preview.
+        recovered = self.inspect_rendered(self.rendered(self.png()))
+        self.assertEqual(recovered.status, "BASIC_CUT_PREVIEW_READY")
+        self.assertFalse(recovered.persisted)
+
     def test_native_renderer_cas_failure_is_not_reclassified(self):
         from smartsvg_core.native_ptc_export_v35 import NativePTCError
         with patch("smartsvg_core.native_basic_cut_subject_v35._render",
