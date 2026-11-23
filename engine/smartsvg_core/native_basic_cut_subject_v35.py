@@ -124,11 +124,14 @@ def inspect_native_basic_cut_subject(*, project_path, expected_sha256,
 
     try:
         with Image.open(BytesIO(rendered["png"])) as png:
-            png.load()
+            # Check the decoder's header before expanding pixel buffers.
+            # A highly compressible oversized PNG can otherwise allocate
+            # far beyond the Basic Cut 5-Mpx budget before rejection.
             if (png.format != "PNG" or png.mode != "RGBA" or
                     list(png.size) != rendered["dimensions_px"] or
                     png.width * png.height > _MAX_PIXELS):
                 raise BasicCutError("INVALID_RENDERED_PNG")
+            png.load()
             import numpy as np
             alpha = np.asarray(png.getchannel("A"), dtype=np.uint8)
     except (OSError, ValueError, Image.DecompressionBombError) as exc:
