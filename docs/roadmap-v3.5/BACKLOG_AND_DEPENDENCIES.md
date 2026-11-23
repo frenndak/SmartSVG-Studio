@@ -74,7 +74,7 @@ W09 Weeding : diagnostic non destructif puis coupe seulement après CAL-CUT et W
 W13 benchmark Tk/Qt/Tauri avant le gros éditeur, sans bloquer la tranche Tk utile
 W14 IA FACULTATIVE, aucune dépendance W01→W03 vers ComfyUI/GPU
 W16 usages avancés indépendants, sous-gates, sans bloquer A1/B1
-`````
+```
 
 **Attention :** cette vue décrit les dépendances minimales. **SD0 n'attend aucun export W03** ; seul SD1/W06 requiert au moins un artefact W03 réel, typé, relu et qualifié. Les 4 formats restent obligatoires pour clore **W03**, pas pour démarrer un ZIP mono-artefact en W06. Le développement peut traiter W04, W05, W07, W10 et W13 sur fixtures **en parallèle**. Les seuils de matière/outil/temps sont **UNKNOWN** tant que non mesurés ; la V3.5 n'invente aucune API Cricut.
 
