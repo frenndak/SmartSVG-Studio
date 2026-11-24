@@ -130,7 +130,7 @@ def _item(record):
         raise DeliveryPlanError("BUDGET_EXCEEDED")
     digest = _digest(record["sha256"])
     role = record["role"]
-    if role not in ROLE_MEDIA or record["media_type"] != ROLE_MEDIA[role]:
+    if type(role) is not str or role not in ROLE_MEDIA or record["media_type"] != ROLE_MEDIA[role]:
         raise DeliveryPlanError("INVALID_ARTIFACT_ROLE")
     target = _target_path(record["target_relpath"])
     if not target.casefold().endswith(".png" if role == "PNG_PTC" else ".svg"):
@@ -175,7 +175,7 @@ def _item(record):
     for check in qa:
         _keys(check, ("check_id", "status", "reason"), where="QA")
         cid = _identifier(check["check_id"], "INVALID_QA")
-        if cid in seen_qa or check["status"] not in _QA_STATES:
+        if cid in seen_qa or type(check["status"]) is not str or check["status"] not in _QA_STATES:
             raise DeliveryPlanError("INVALID_QA")
         seen_qa.add(cid)
         if check["reason"] is not None:
