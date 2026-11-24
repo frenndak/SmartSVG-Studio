@@ -26,6 +26,12 @@ Cette autorisation est limitée à **un micro-lot code + éventuellement un corr
 
 **Au plus une PR auto-fusionnée par cycle**, uniquement via `squash`, avec `expected_head_sha` strict et vérification immédiatement préalable du SHA de `main`. Si `main` a changé depuis les preuves, recalculer la mergeabilité, le diff, les tests d'intégration pertinents et le risque; si nécessaire, réconcilier la branche, rerun CI et différer. Ne pas assimiler `behind>0` à un conflit automatique; mais ne pas ignorer les conflits ou la divergence.
 
+### Clarification R13 du cycle de gel et de revue (proposition propriétaire du 24/11/2026)
+
+Le **gel volontaire** est un commentaire `R13_CANDIDATE_FREEZE` contenant le HEAD SHA exact, émis **après** le dernier commit candidat et les vérifications CI disponibles. L'autre agent réalise ensuite sa revue adversariale dans un **cycle planifié distinct et ultérieur**, et peut publier un verdict technique fondé sur le diff/consommateurs/threads/Windows du SHA. Si cette revue suit le gel et que le SHA reste inchangé, elle est la preuve indépendante de handoff requise : **aucun accusé de réception postérieur de même contenu n'est exigé uniquement pour répéter la revue**. Une revue qui précède le gel n'est pas substituable.
+
+Tout nouveau commit, même si seuls les tests changent, invalide ce gel et les revues précédentes. Une base `main` ou des conditions GitHub modifiées exigent une requalification fraîche. Seul B peut, dans son cycle ultérieur qualifié, fusionner **une seule** PR de code strictement admissible avec `expected_head_sha` après les contrôles inchangés §3/§3 bis et les preuves Windows pertinentes. Les PR documentaires, de format, de sécurité ou de gouvernance restent exclues de l'autofusion. Cette clarification n'autorise ni désactivation de checks, ni fausse revue native `APPROVED`, ni nouveau droit de scheduler.
+
 ### 2 bis. PR Ready dès la création si le connecteur ne sait pas lever le brouillon (autorisation propriétaire du 21/11/2026)
 
 **Défaut vérifié :** la mutation GitHub GraphQL `markPullRequestReadyForReview` a été refusée avec `FORBIDDEN` pendant la tentative d'intégration R13 de #179, alors que création de PR, lecture, CI et fusion après transition hors agent ont fonctionné. Ce défaut de permission est une friction de *cycle de vie de PR*, distincte du 403 d'inspection des protections de branche traité en §3 bis. Ne pas supposer que l'une des deux corrections résout l'autre.
