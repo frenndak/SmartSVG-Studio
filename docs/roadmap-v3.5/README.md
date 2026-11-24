@@ -1,10 +1,10 @@
 # SmartSVG Studio V3.5 — Référence de développement adoptée
 
-> **Reprise du développement au 17 novembre 2026 :** [réconciliation du WIP, preuves exactes et tranche W02/W13 prioritaire](ENGINEERING_STATUS_2026_11_17.md). Source d'autorité : [EXECUTION_STATE.json](EXECUTION_STATE.json), et toujours relire `main` avant toute action ; les paragraphes « candidate » et « V3.4 active » plus bas sont historiques.
+> **RÉFÉRENCE ACTIVE — V3.5 / R13.** Les [priorités produit A0–C](DELIVERY_EXECUTION_PLAN.md), le [protocole de calibration](CALIBRATION_PROTOCOL.md) et les [sources de preuve](STATUS_AND_TRACEABILITY.md) sont les vues opérationnelles ; le [maître priorisé](MASTER_PRIORISE.md) conserve les obligations. Vérifier les PR, HEAD, tests et automations **en direct** avant d'agir. `EXECUTION_STATE.json` est un curseur documentaire avec des instantanés datés, **pas** une API d'état GitHub. Les comptes rendus du 17/11 sont historiques.
 
-> **Organisation R12, instruction propriétaire du16novembre :** tâche de création/contre-expertise arrêtée, producteur horaire existant renforcé par auto-audit/correction et plugins utiles, sans changement de sa cadence ni suppression de la revue différée. [Règles et routage](PRODUCER_R12_PLUGIN_AMENDMENT_2026_11_16.md), [contrat producteur](PRODUCER_TASK_V35.md). Les indications précédentes de deux tâches actives sont l’historique de la promotion, remplacé par cette décision.
+> **Gouvernance en vigueur :** [contrat dual R13](DUAL_PRODUCER_R13_CONTRACT.md) et [politique V35](../AUTONOMOUS_INTEGRATION_POLICY_V35.md). A développe/revoit, B développe/revoit et est seul autorisé à fusionner du **code admissible** après revue inter-cycle, CI exacte et G0 post-fusion. Aucun agent planifié n'intègre les docs, la gouvernance, les binaires ou les releases. L'ancienne organisation R12 est archivée [ici](PRODUCER_R12_PLUGIN_AMENDMENT_2026_11_16.md).
 
-> **Autorité après promotion du16novembre :** laV3.5 remplaceV3.4 lorsque la PR de gouvernance séparée est fusionnée et vérifiée sur main. [Décision d’adoption](../ROADMAP_PROMOTION_v3_5.md), [état d’exécution actuel](EXECUTION_STATE.json), [contrat du producteur R11](PRODUCER_TASK_V35.md) et [contrat de contre-expertise R4](DESIGN_REVIEW_TASK_V35.md). Les mentions « candidate », « V3.4 active » et étapes closes dans les paragraphes datés ci-dessous sont historiques. RUN_STATE et PRIORITY_REGISTER conservent leurs photographies de conception ; ils ne remplacent pas le curseur d’ingénierie EXECUTION_STATE. Les critères hérités et leurs sources restent intégraux ; adoption ne signifie pas logiciel terminé.
+> **Adoption acquise :** V3.5 remplace V3.4 depuis la [promotion contrôlée](../ROADMAP_PROMOTION_v3_5.md). [EXECUTION_STATE](EXECUTION_STATE.json) documente la passation et les photographies ; les faits courants (SHA, PR, CI) proviennent de GitHub. `RUN_STATE.json`, `PRIORITY_REGISTER.json` et les sections ci-dessous relatant V3.4 active restent **archives de conception**. Les critères V3.3/V3.4 restent intégralement exigibles ; adoption ≠ implémentation ou qualification matérielle.
 
 > **Finalisation en session du16novembre :** [séquence d’intégration](INTEGRATION_SESSION_2026_11_16.md). Conception revue ; une seule PR documentaire de maintenance, puis gouvernance distincte et handoff vérifié. Exception WIP strictement bornée à cette session propriétaire, sans nouveau code produit ni droit horaire élargi. [Contre-revue d’intégration](REVIEW_PROMOTION_DOCS_2026_11_16.md), CI exact-head et contrôle post-merge exigés ; aucune adoption avant leur preuve.
 
@@ -22,7 +22,7 @@
 
 > [Revue de cette consolidation et vérifications exécutées](CONSOLIDATION_REVIEW.md) : verdict borné, deux défauts du contrôleur corrigés ; aucune certification globale de la V3.5.
 
-> **NON NORMATIVE / DRAFT**, ouverte le 12 novembre 2026. La roadmap **V3.4 reste ACTIVE pour le développement** jusqu'à une promotion documentaire et de gouvernance séparée, vérifiée, revue et autorisée. Aucun nouveau code ni test produit n'est réputé livré par ce document.
+> **HISTORIQUE (12 novembre 2026 — avant adoption) :** cette section fut rédigée lorsque V3.5 était candidate et V3.4 active. **Elle ne décrit pas l'autorité actuelle.** La conception adoptée reste applicable pour ses critères, sans attribuer de PASS aux fonctions non testées.
 >
 > **Point de départ historique vérifié :** [main@aa0ff9e7](https://github.com/frenndak/SmartSVG-Studio/commit/aa0ff9e7d0c53dba3fdc429c02c6198736cfe935) (12/11/2026). La branche main continuera à évoluer : ne pas confondre ce repère documentaire avec le HEAD réel.
 >
@@ -108,11 +108,11 @@ Chaque cycle horaire d'architecture reprend le **dernier micro-lot effectivement
 
 **État de la suite :** la **contre-expertise indépendante et la validation des 80 décisions UX candidates**, les **437 rapprochements sémantiques détaillés** (au-delà des 431 citations), l'arbitrage des **6+10 exceptions**, la validation complète des **33 opportunités**, les benchmarks UI, la contre-expertise croisée et la PR documentaire sont **encore ouverts**. Les tests produit restent distincts et ne sont PAS déduits de ces fichiers. Préserver la V3.4 active et la tâche de développement inchangée.
 
-## 6. Condition stricte de promotion
+## 6. Historique — conditions de la promotion passée
 
-**La V3.4 reste la roadmap principale en production.** Pour promouvoir V3.5 : vérifier 24/24, 141/141, 140/140, 80/80 et 437 scénarios traçables ; exécuter l'intégrité documentaire ; résoudre contradictions et dépendances ; obtenir revue/CI d'une PR documentaire contrôlée et, **séparément**, une modification autorisée et revue d'AGENTS.md et de la gouvernance. Aucune tâche horaire n'est autorisée à fusionner des docs normatives ou changer AGENTS.md automatiquement.
+**Historique : la V3.4 était la roadmap principale avant la promotion V3.5.** À l'époque, la promotion exigeait : vérifier 24/24, 141/141, 140/140, 80/80 et 437 scénarios traçables ; exécuter l'intégrité documentaire ; résoudre contradictions et dépendances ; obtenir revue/CI d'une PR documentaire contrôlée et, **séparément**, une modification autorisée et revue d'AGENTS.md et de la gouvernance. Aucune tâche horaire n'est autorisée à fusionner des docs normatives ou changer AGENTS.md automatiquement.
 
-**Statut présent :** CANDIDATE / EN CONCEPTION. Aucune qualification Windows, GPU, Design Space ou coupe physique attribuée à V3.5.
+**Statut historique au 12 novembre :** CANDIDATE / EN CONCEPTION. Ce constat n'est plus actuel ; les preuves Windows, GPU, Design Space et physiques doivent toujours être établies séparément et sur les builds concernés.
 
 ## Raccord D/E du 15 novembre 2026
 

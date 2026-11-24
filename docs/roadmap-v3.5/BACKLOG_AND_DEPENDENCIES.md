@@ -59,39 +59,50 @@ Pour fermer les raccordements, reprendre les [critères par fonction et recettes
 **Parcours transversal ajouté le 15 novembre :** [Décomposer une scène](SCENE_DECOMPOSITION_AND_RELIEF_CONTRACT.md), raffinement B03/B08 et planches/relief. W02 possède extraction et objets, W12 la planche et ses placements, W16 le relief/reconstruction avancés, W14 les fournisseurs optionnels ; W03/W04 gardent exports/prévol. SCN0–5 sont six incréments de ces responsabilités, pas six nouveaux tickets V34. SCN1 aperçu/export externe sans CP2 ; scène/placements rééditables SCN2/3 seulement avec CP0–3 et ressources strictes CP0-SCN ; relief manuel dépend uniquement des capacités utiles CP3–6, sans OCR/texte/3D obligatoires. G9 conserve le prototype quatre plans distinct des planches de pièces libres et du nouveau cas à nombre de plans variable. Aucune fonction n'est déclarée implémentée.
 
 ```text
-W00 couverture/gouvernance  -> portes d'adoption documentaire uniquement
-W01 projet V1 + CAS        ──┬─> W02 Atelier/Undo       ─┬─> W10 Texte G6 ──> W11 Gabarits G6
-                            │                           ├─> W12 Bibliothèque/CSV
-                            │                           └─> W15 Installer + recovery
-                            ├─> W03 Exports réels ───────┬─> W05 SD0 -> W06 SD1/SD2 (≥1 export)
-                            │                            ├─> W08 Print Then Cut
-                            │                            └─> W04 Prévol fab ──┬─> W07 Cut Advisor -> W09 Weeding
-                            │                                                   └─> W16 Diorama
-                            └─> W14 IA optionnelle (aucun prérequis pour W01–W13)
-W13 UX/framework mesure    -> arbitrage transverse, NE BLOQUE PAS W01/W02/W03 sauf blocage prouvé
-W16 R&D avancée             -> sous-gates propres, NE BLOQUE PAS W06 ni la première version Windows
+W00 couverture/traçabilité (transverse, pas un gate de code automatique)
+W01 projet V1/CAS ─┬─> W02 premier sujet MANUEL (alpha/pinceau/polygone), Undo/reopen
+                   ├─> W03 exports typés ─┬─> W04 prévol ──> CAL-CUT SVG réel
+                   │                      └─> W08 PTC ────> CAL-PTC distinct
+                   ├─> W05 SD0 (plan uniquement, SANS W03)
+                   └─> W15a ZIP Alpha versionné (build/test Windows)
+W05 SD0 + ≥1 export W03 qualifié ──> W06 SD1 ZIP mono-artefact / SD2 guide
+CP0 contrat V2 → CP1 lecture/plan → CP2 migration CAS/recovery → CP3 scène native
+                                                            ├─> W10 texte (CP4) → W11 gabarits
+                                                            └─> W12 séries persistantes > capacité V1
+W07 Cut Advisor : diagnostics sur fixtures W03/W04 ; seuils matiere MESURÉS après CAL-CUT
+W09 Weeding : diagnostic non destructif puis coupe seulement après CAL-CUT et W07
+W13 benchmark Tk/Qt/Tauri avant le gros éditeur, sans bloquer la tranche Tk utile
+W14 IA FACULTATIVE, aucune dépendance W01→W03 vers ComfyUI/GPU
+W16 usages avancés indépendants, sous-gates, sans bloquer A1/B1
 ```
 
-**Attention :** cette vue décrit les gates de qualification usuels ; SD0 **n'attend pas** W03 complet. Les 4 formats restent obligatoires pour clore **W03**, pas pour démarrer un ZIP mono-artefact en W06. Le développement peut traiter W04, W05, W07, W10 et W13 sur fixtures **en parallèle**. Les seuils de matière/outil/temps sont **UNKNOWN** tant que non mesurés ; la V3.5 n'invente aucune API Cricut.
+**Attention :** cette vue décrit les dépendances minimales. **SD0 n'attend aucun export W03** ; seul SD1/W06 requiert au moins un artefact W03 réel, typé, relu et qualifié. Les 4 formats restent obligatoires pour clore **W03**, pas pour démarrer un ZIP mono-artefact en W06. Le développement peut traiter W04, W05, W07, W10 et W13 sur fixtures **en parallèle**. Les seuils de matière/outil/temps sont **UNKNOWN** tant que non mesurés ; la V3.5 n'invente aucune API Cricut.
 
-## 4. Releases et critères de non-glissement
+## 4. Livraison incrémentale et preuves de sortie
 
-### Jalon A — Windows utile, sûr, local-first
-- Projet créé depuis PNG, inspecté et rouvert sur Windows réel ; un premier geste d'édition sur objet réel et Undo/recovery sans mutation des sources ; export réel correctement typé, honnête sur ses limites et récupérable.
-- Compatibilité ComfyUI historique non dégradée ; CPU/manuelle fonctionnent sans IA.
-- Tests de corruption, espace disque, concurrence CAS, erreur de permissions, clavier/1366×768 et petite taille, vrais PASS et SKIP distingués.
-- **Ne prétend pas** W03 quatre exports complets, Smart Delivery ou gate physique si ces étapes ne sont pas encore livrées.
+Les tranches **A0 → A1 → A2 → B1 → B2 → C** sont détaillées dans [DELIVERY_EXECUTION_PLAN](DELIVERY_EXECUTION_PLAN.md). Elles **ne renumérotent pas** W00–W16 et ne réduisent aucun DoD historique.
 
-### Jalon B — Studio de production complet
-- Les quatre contrats W03 pris en charge et contrôlés ; W04 prévol, guides DS/Explore5, W06 livraison et W07/08 assistance ; 12/24/50 + bibliothèque W12, UX W13 mesurée.
-- Texte/gabarits G6 W10/W11 conservent leurs critères P1. Les gates Design Space et coupe réelle nécessaires aux revendications de fabrication restent **distincts et documentés**.
-- Séparer « fonction installée » et « machine validée ». Aucun SUCCESS du pack sans hashes, versions et relecture.
+- **A0, réconciliation produit** : vérifier W01/W02/W03 existants et clore les PR courantes qualifiées sans refaire les composants fonctionnels ; sujet manuel depuis PNG, brouillon/Undo/reopen et source intacts.
+- **A1, Alpha Windows utile** : projet réel et même identité sujet, édition/récupération, **au moins un export typé** déclenché par l'UI, consentement/no-clobber/lecture de retour, build portable traçable et validation sur Windows propre, hors ComfyUI obligatoire. W03 reste ouvert tant que les quatre projections distinctes ne sont pas livrées.
+- **A2, preuve Cricut mesurée** : deux sous-gates indépendants CAL-CUT (SVG, taille importée, découpe) et CAL-PTC (PNG imprimé, calibration PTC, écart observé). Relevé matériel avec version/outils/matière, fichier hashé, résultats UNKNOWN/NOT_RUN jusqu'au test réel. Le logiciel peut progresser indépendamment d'un appareil indisponible.
+- **B1, premier parcours de livraison** : W05 SD0, W06 ZIP relu dès un export admissible, guide hors ligne, W08 assistant PTC et bibliothèque de base ; pas de fausse certification Cricut.
+- **B2, studio avancé** : CP0–CP3 avant scène rééditable, CP4/texte puis W11 gabarits ; quatre sorties W03, séries persistées W12 et leurs tests d'intégrité.
+- **C, spécialisations** : W14 IA strictement facultative et W16 sous-tranches ; CPU/manual et confidentialité maintenus.
 
-### Jalon C — Extensions et IA locale avancées
-- W14 modèles optionnels sous licences, repli CPU et OOM ; W16 OCR/dioramas et innovations P2 préparées, sans perte des exigences historiques.
-- Chaque capacité P2 possède un mini-jalon et un gate sémantique, et son absence de validation est visible. Aucun effacement de S-044/S-066/S-099 par classement « futur ».
+**Deux dimensions distinctes de « fini » :** (1) livraison produit réellement démontrée par parcours/artefact ; (2) couverture normative et traçabilité V3.3/V3.4/V3.5. Ni une adoption documentaire ni un test CI ne remplace une qualification matérielle.
 
-**Clarification de gouvernance :** l'achèvement de Jalon A/B ne suffit pas **à lui seul** pour annoncer la V3.5 normative intégrale : la roadmap de référence doit conserver des statuts et une traçabilité complète des exigences restant à réaliser. La promotion documentaire exige la revue exhaustive indépendamment de la livraison technique.
+### W16 décomposé sans nouveaux moteurs ni double propriété
+
+| Sous-tranche | Propriétaire de capacité | Dépendance minimale | Gate propre |
+|---|---|---|---|
+| W16-SCENE | W02 extraction, W16 recomposition avancée | CP0–3 pour édition durable ; aperçu manuel avant V2 | Source conservée, occultations connues |
+| W16-DIORAMA | W16 relief/montage | W03/W04 et scène/positions ; mesures propres | Quatre plans séparés réellement validés |
+| W16-OCR | W14 fournisseur OCR ; W16 usages affiches/couvertures | W10 texte si édition durable | Accepter/corriger proposition, licence, provenance |
+| W16-COST | W16 calcul ; W12 placements ; W07 géométrie | Dimensions fiables et prix fournis | Estimation identifiée comme indicative |
+| W16-PERSONAL | W12 CSV générique ; W16 QR/noms spécifiques | W10/CP requis selon persistance | Séries traçables, pas de champs V1 clandestins |
+| W16-ADV | W16 multimarque/optimisation | Profils explicitement inconnus jusqu'aux preuves | R&D, aucun READY machine imaginaire |
+
+Le chemin manuel sans IA doit rester réalisable et testé de bout en bout. Les sous-tranches P2 ne constituent pas des prérequis du jalon A1.
 
 ## 5. Modèle de fiche micro-lot, à appliquer dans chaque domaine
 
