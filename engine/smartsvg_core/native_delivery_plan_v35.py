@@ -30,7 +30,7 @@ MAX_CANONICAL_BYTES = 2 * 1024 * 1024
 _ID = re.compile(r"[A-Za-z0-9_-]{1,80}\Z")
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _WINDOWS_FORBIDDEN = frozenset('<>:"/\\|?*')
-_WINDOWS_DEVICE = re.compile(r"(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?\Z", re.I)
+_WINDOWS_DEVICE = re.compile(r"(?:CON|PRN|AUX|NUL|(?:COM|LPT)[1-9¹²³]) *(?:\..*)?\Z", re.I)
 _OPERATIONS = frozenset(("CUT", "PRINT_THEN_CUT", "SCORE", "DRAW", "FOIL", "EDIT"))
 _QA_STATES = frozenset(("PASS", "FAIL", "UNKNOWN", "NOT_APPLICABLE"))
 
@@ -164,8 +164,11 @@ def _item(record):
             or type(op["attach_required"]) is not bool
             or type(op["mirror_required"]) is not bool):
         raise DeliveryPlanError("INVALID_OPERATIONS")
-    if (role == "PNG_PTC" and "PRINT_THEN_CUT" not in op["operations"]) or (
-            role in ("SVG_BASIC_CUT", "SVG_MULTILAYER_CUT") and "CUT" not in op["operations"]):
+    declared = set(op["operations"])
+    if (role == "PNG_PTC" and declared != {"PRINT_THEN_CUT"}) or (
+            role == "SVG_BASIC_CUT" and declared != {"CUT"}) or (
+            role == "SVG_MULTILAYER_CUT" and "CUT" not in declared) or (
+            role != "PNG_PTC" and "PRINT_THEN_CUT" in declared):
         raise DeliveryPlanError("INVALID_OPERATIONS")
 
     qa = record["qa"]
@@ -245,8 +248,11 @@ def plan_delivery(*, items, selection, context):
     project = _project_ref(context["project_ref"])
     if type(items) is not list or not 1 <= len(items) <= MAX_ITEMS:
         raise DeliveryPlanError("BUDGET_EXCEEDED")
-    if type(selection) is not list or not selection:
+    if (type(selection) is not list or not selection
+            or any(type(s) is not str for s in selection)
+            or len(set(selection)) != len(selection)):
         raise DeliveryPlanError("INVALID_SELECTION")
+    selected = set(selection)
     validated = []
     by_id = set()
     by_path = set()
@@ -262,13 +268,12 @@ def plan_delivery(*, items, selection, context):
             raise DeliveryPlanError("DUPLICATE_TARGET")
         by_path.add(norm)
         validated.append(item)
-        total += item["size_bytes"]
+        if item["item_id"] in selected:
+            total += item["size_bytes"]
         if total > MAX_TOTAL_BYTES:
             raise DeliveryPlanError("BUDGET_EXCEEDED")
-    if (len(selection) != len(set(x for x in selection if type(x) is str))
-            or any(type(s) is not str or s not in by_id for s in selection)):
+    if any(s not in by_id for s in selection):
         raise DeliveryPlanError("INVALID_SELECTION")
-    selected = set(selection)
     blocked = sorted({reason for item in validated if item["item_id"] in selected
                       and item["admission"] == "BLOCKED" for reason in item["reasons"]})
     status = "BLOCKED" if blocked else "EXPORT_UNVERIFIED"
