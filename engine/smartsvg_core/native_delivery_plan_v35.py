@@ -93,7 +93,13 @@ def _target_path(value):
 def _dimension(value):
     if value is None:
         return None
-    if type(value) not in (int, float) or not math.isfinite(value) or value <= 0:
+    if type(value) not in (int, float):
+        raise DeliveryPlanError("INVALID_DIMENSIONS")
+    try:
+        finite = math.isfinite(value)
+    except (OverflowError, ValueError) as exc:
+        raise DeliveryPlanError("INVALID_DIMENSIONS") from exc
+    if not finite or value <= 0:
         raise DeliveryPlanError("INVALID_DIMENSIONS")
     return value
 
