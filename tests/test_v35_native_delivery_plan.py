@@ -95,7 +95,7 @@ class DeliveryPlanSchemaTests(unittest.TestCase):
         p = planned([a])
         self.assertEqual(p.admission, "BLOCKED")
         self.assertIn("PHYSICAL_SIZE_UNCONFIRMED", p.reasons)
-        for invalid in (0, -1, True, float("nan"), float("inf")):
+        for invalid in (0, -1, True, float("nan"), float("inf"), 10 ** 400):
             b = fixture()
             b["dimensions"]["width_mm"] = invalid
             with self.subTest(invalid=invalid), self.assertRaises(DeliveryPlanError):
