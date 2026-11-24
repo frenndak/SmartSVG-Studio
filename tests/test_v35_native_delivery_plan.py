@@ -180,6 +180,16 @@ class DeliveryPlanSchemaTests(unittest.TestCase):
         with self.assertRaisesRegex(DeliveryPlanError, "INVALID_DIGEST"):
             plan_delivery(items=[fixture()], selection=["a"], context=c)
 
+    def test_unhashable_role_and_qa_status_fail_with_public_error(self):
+        a = fixture()
+        a["role"] = ["SVG_BASIC_CUT"]
+        with self.assertRaisesRegex(DeliveryPlanError, "INVALID_ARTIFACT_ROLE"):
+            planned([a])
+        b = fixture()
+        b["qa"][0]["status"] = ["FAIL"]
+        with self.assertRaisesRegex(DeliveryPlanError, "INVALID_QA"):
+            planned([b])
+
     def test_no_file_open_or_write_during_plan(self):
         from unittest.mock import patch
         import builtins
