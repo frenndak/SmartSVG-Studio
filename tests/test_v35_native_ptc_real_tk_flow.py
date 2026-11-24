@@ -163,6 +163,105 @@ class RealTkPTCFlow(TestCase):
                     output_sha256=hashlib.sha256(png).hexdigest(),
                     width_mm=100, height_mm=100, low_resolution_warning=False)
 
+
+    def test_native_save_dialog_failure_keeps_preview_and_allows_retry(self):
+        inspection = self._valid_inspection()
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "retry.png"
+            with (patch.object(ptc, "inspect_native_ptc_png", return_value=inspection),
+                  patch.object(ptc, "publish_native_ptc_png") as publisher,
+                  patch.object(ptc.filedialog, "asksaveasfilename",
+                               side_effect=[tk.TclError("dialog unavailable"), str(target)]),
+                  patch.object(ptc.messagebox, "askyesno", return_value=False)):
+                self.assertTrue(ptc.show_ptc_dialog(self.panel))
+                self.root.update()
+                self.buttons()["Examiner"].invoke()
+                self.root.update()
+                self.buttons()["Choisir et publier…"].invoke()
+                self.root.update()
+                publisher.assert_not_called()
+                self.assertFalse(target.exists())
+                self.assertEqual(str(self.buttons()["Choisir et publier…"].cget("state")),
+                                 "normal")
+                self.buttons()["Choisir et publier…"].invoke()
+                self.root.update()
+                publisher.assert_not_called()
+                self.assertFalse(target.exists())
+
+    def test_native_confirmation_failure_never_publishes_and_recovers(self):
+        inspection = self._valid_inspection()
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "retry.png"
+            with (patch.object(ptc, "inspect_native_ptc_png", return_value=inspection),
+                  patch.object(ptc, "publish_native_ptc_png") as publisher,
+                  patch.object(ptc.filedialog, "asksaveasfilename",
+                               return_value=str(target)),
+                  patch.object(ptc.messagebox, "askyesno",
+                               side_effect=[OSError("dialog unavailable"), False])):
+                self.assertTrue(ptc.show_ptc_dialog(self.panel))
+                self.root.update()
+                self.buttons()["Examiner"].invoke()
+                self.root.update()
+                self.buttons()["Choisir et publier…"].invoke()
+                self.root.update()
+                publisher.assert_not_called()
+                self.assertFalse(target.exists())
+                self.assertEqual(str(self.buttons()["Choisir et publier…"].cget("state")),
+                                 "normal")
+                self.buttons()["Choisir et publier…"].invoke()
+                self.root.update()
+                publisher.assert_not_called()
+                self.assertFalse(target.exists())
+
+    def test_queued_close_during_failed_save_dialog_destroys_window(self):
+        inspection = self._valid_inspection()
+        def fail_with_queued_close(**_kwargs):
+            dialog = next(w for w in self.root.winfo_children()
+                          if isinstance(w, tk.Toplevel))
+            dialog.tk.call(dialog.protocol("WM_DELETE_WINDOW"))
+            self.assertTrue(dialog.winfo_exists())
+            raise tk.TclError("native save failed")
+        with (patch.object(ptc, "inspect_native_ptc_png", return_value=inspection),
+              patch.object(ptc, "publish_native_ptc_png") as publisher,
+              patch.object(ptc.filedialog, "asksaveasfilename",
+                           side_effect=fail_with_queued_close)):
+            self.assertTrue(ptc.show_ptc_dialog(self.panel))
+            self.root.update()
+            self.buttons()["Examiner"].invoke()
+            self.root.update()
+            self.buttons()["Choisir et publier…"].invoke()
+            self.root.update()
+            self.assertFalse(any(isinstance(w, tk.Toplevel)
+                                 for w in descendants(self.root)))
+            publisher.assert_not_called()
+
+    def test_queued_close_during_failed_confirmation_destroys_window(self):
+        inspection = self._valid_inspection()
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "never-published.png"
+            def fail_with_queued_close(*_args, **_kwargs):
+                dialog = next(w for w in self.root.winfo_children()
+                              if isinstance(w, tk.Toplevel))
+                dialog.tk.call(dialog.protocol("WM_DELETE_WINDOW"))
+                self.assertTrue(dialog.winfo_exists())
+                raise OSError("native confirmation failed")
+            with (patch.object(ptc, "inspect_native_ptc_png", return_value=inspection),
+                  patch.object(ptc, "publish_native_ptc_png") as publisher,
+                  patch.object(ptc.filedialog, "asksaveasfilename",
+                               return_value=str(target)),
+                  patch.object(ptc.messagebox, "askyesno",
+                               side_effect=fail_with_queued_close)):
+                self.assertTrue(ptc.show_ptc_dialog(self.panel))
+                self.root.update()
+                self.buttons()["Examiner"].invoke()
+                self.root.update()
+                self.buttons()["Choisir et publier…"].invoke()
+                self.root.update()
+                self.assertFalse(any(isinstance(w, tk.Toplevel)
+                                     for w in descendants(self.root)))
+                publisher.assert_not_called()
+                self.assertFalse(target.exists())
+
     def test_real_widgets_existing_destination_never_publishes(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "existing.png"

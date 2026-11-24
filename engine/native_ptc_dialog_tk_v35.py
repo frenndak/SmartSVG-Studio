@@ -178,16 +178,21 @@ def show_ptc_dialog(panel):
         # File dialogs and confirmations run nested Tk event loops. A queued
         # WM_DELETE_WINDOW must not destroy the parent while either is active.
         busy = True
+        target = None
+        dialog_failed = False
         try:
             target = filedialog.asksaveasfilename(parent=dialog, title="Destination PNG",
                                                    defaultextension=".png",
                                                    filetypes=[("Image PNG", "*.png")])
+        except (OSError, tk.TclError):
+            status.set("Sélecteur de fichier indisponible : aucun PNG publié. Réessayer.")
+            dialog_failed = True
         finally:
             busy = False
         if close_requested:
             close()
             return
-        if closed or not target:
+        if dialog_failed or closed or not target:
             return
         if not current() or Path(target).suffix.lower() != ".png":
             status.set("Destination ou sélection invalide.")
@@ -197,16 +202,21 @@ def show_ptc_dialog(panel):
             return
         destination.set(target)
         busy = True
+        confirmed = False
+        dialog_failed = False
         try:
             confirmed = messagebox.askyesno(
                 "Confirmer l'export", "Publier ce PNG sans écraser de fichier existant ?",
                 parent=dialog, default="no")
+        except (OSError, tk.TclError):
+            status.set("Confirmation indisponible : aucun PNG publié. Réessayer.")
+            dialog_failed = True
         finally:
             busy = False
         if close_requested:
             close()
             return
-        if closed or not confirmed:
+        if dialog_failed or closed or not confirmed:
             return
         if (not current() or preview is None or request is None or
                 ptc_preview_request(panel.snapshot, subject, path, width.get()) != request):
