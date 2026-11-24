@@ -132,6 +132,7 @@ class DeliveryPlanSchemaTests(unittest.TestCase):
 
     def test_unsafe_paths_and_case_nfc_duplicates(self):
         for target in ("../a.png", "/root/a.png", "C:/a.png", "CON.png",
+                       "CON .png", "COM¹.png", "LPT².png", "COM³.png",
                        "foo\\bar.png", "x//a.png", "x/./a.png", "a?.png",
                        "a .png ", "a.png\x00", "a.png\n"):
             a = fixture(target=target)
@@ -157,6 +158,8 @@ class DeliveryPlanSchemaTests(unittest.TestCase):
             f = fixture(item_id="q" + str(i))
             f["size_bytes"] = MAX_ITEM_BYTES
             many.append(f)
+        self.assertEqual(planned(many, selection=["q0"]).admission, "EXPORT_UNVERIFIED")
+        self.assertEqual(len(planned(many, selection=["q0"]).as_dict()["omitted_item_ids"]), 4)
         with self.assertRaisesRegex(DeliveryPlanError, "BUDGET_EXCEEDED"):
             planned(many)
         a = fixture()
@@ -179,6 +182,23 @@ class DeliveryPlanSchemaTests(unittest.TestCase):
         c["project_ref"]["sha256"] = "bad"
         with self.assertRaisesRegex(DeliveryPlanError, "INVALID_DIGEST"):
             plan_delivery(items=[fixture()], selection=["a"], context=c)
+
+    def test_print_then_cut_is_not_an_svg_operation_and_basic_cut_is_cut_only(self):
+        basic = fixture("SVG_BASIC_CUT")
+        basic["operation_context"]["operations"].append("PRINT_THEN_CUT")
+        with self.assertRaisesRegex(DeliveryPlanError, "INVALID_OPERATIONS"):
+            planned([basic])
+        editable = fixture("SVG_EDITABLE")
+        editable["operation_context"]["operations"] = ["EDIT", "PRINT_THEN_CUT"]
+        with self.assertRaisesRegex(DeliveryPlanError, "INVALID_OPERATIONS"):
+            planned([editable])
+        png = fixture()
+        png["operation_context"]["operations"].append("CUT")
+        with self.assertRaisesRegex(DeliveryPlanError, "INVALID_OPERATIONS"):
+            planned([png])
+        multilayer = fixture("SVG_MULTILAYER_CUT")
+        multilayer["operation_context"]["operations"] = ["CUT", "SCORE", "DRAW"]
+        self.assertEqual(planned([multilayer]).admission, "EXPORT_UNVERIFIED")
 
     def test_unhashable_role_and_qa_status_fail_with_public_error(self):
         a = fixture()
