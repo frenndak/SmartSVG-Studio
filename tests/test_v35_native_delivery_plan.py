@@ -210,6 +210,34 @@ class DeliveryPlanSchemaTests(unittest.TestCase):
         with self.assertRaisesRegex(DeliveryPlanError, "INVALID_QA"):
             planned([b])
 
+    def test_manual_transfer_guidance_required_even_without_html(self):
+        for operation in ("SCORE", "DRAW", "FOIL"):
+            a = fixture("SVG_MULTILAYER_CUT")
+            a["operation_context"]["operations"] = ["CUT", operation]
+            a["guidance"]["steps"] = []
+            with self.subTest(operation=operation), self.assertRaisesRegex(
+                    DeliveryPlanError, "INVALID_GUIDANCE"):
+                planned([a])
+            a["guidance"]["steps"] = ["Assign " + operation + " in Design Space."]
+            p = planned([a])
+            self.assertEqual(p.admission, "EXPORT_UNVERIFIED")
+            self.assertFalse(p.as_dict()["items"][0]["guidance"]["optional_html"])
+            self.assertEqual(p.as_dict()["items"][0]["guidance"]["steps"],
+                             a["guidance"]["steps"])
+        for flag in ("attach_required", "mirror_required"):
+            a = fixture("SVG_BASIC_CUT")
+            a["operation_context"][flag] = True
+            for steps in ([], ["   "]):
+                a["guidance"]["steps"] = steps
+                with self.subTest(flag=flag, steps=steps), self.assertRaisesRegex(
+                        DeliveryPlanError, "INVALID_GUIDANCE"):
+                    planned([a])
+            a["guidance"]["steps"] = ["Confirm " + flag + " before import."]
+            self.assertEqual(planned([a]).admission, "EXPORT_UNVERIFIED")
+        simple = fixture("SVG_BASIC_CUT")
+        simple["guidance"]["steps"] = []
+        self.assertEqual(planned([simple]).admission, "EXPORT_UNVERIFIED")
+
     def test_no_file_open_or_write_during_plan(self):
         from unittest.mock import patch
         import builtins
