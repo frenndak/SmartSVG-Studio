@@ -10,6 +10,7 @@ import sys
 from .smartsvg_controller_observation import github_get, observe
 from .smartsvg_controller_orchestration import Scope, build_plan, reserve_next
 from .smartsvg_controller_storage import Evidence, OperationalJournal
+from .smartsvg_controller_routing import route_review_hints
 
 MAX_INPUT = 32 * 1024 * 1024
 
@@ -41,7 +42,7 @@ def scopes_from_manifest(manifest, snapshot):
     return tuple(Scope(**row) for row in manifest["scopes"])
 
 
-def simulate(snapshot, manifest, *, now=None):
+def simulate(snapshot, manifest, *, now=None, review_packets=()):
     """Use actual orchestration and operational journal, but only in memory.
 
     No GitHub writes, no scheduler calls, no persistent local writes.
@@ -50,6 +51,7 @@ def simulate(snapshot, manifest, *, now=None):
     now = now or datetime.now(timezone.utc)
     scopes = scopes_from_manifest(manifest, snapshot)
     plan = build_plan(snapshot, scopes, now=now)
+    plan = route_review_hints(plan, snapshot, review_packets)
     journal = OperationalJournal(":memory:")
     try:
         candidates = []
@@ -94,6 +96,7 @@ def main(argv=None):
     source.add_argument("--snapshot", help="recent raw observation JSON")
     source.add_argument("--live", action="store_true", help="read GitHub REST only")
     parser.add_argument("--scopes", required=True, help="explicit routing manifest JSON")
+    parser.add_argument("--review-evidence", help="optional external review packets; routing hints only")
     args = parser.parse_args(argv)
     try:
         manifest = read_json(args.scopes)
@@ -103,7 +106,8 @@ def main(argv=None):
             snapshot = observe(lambda path: github_get(path, token=token))
         else:
             snapshot = read_json(args.snapshot)
-        report = simulate(snapshot, manifest)
+        packets = read_json(args.review_evidence) if args.review_evidence else ()
+        report = simulate(snapshot, manifest, review_packets=packets)
         print(json.dumps(report, indent=2, sort_keys=True))
         return 0
     except Exception as exc:

@@ -113,10 +113,14 @@ def dispatch(role, work, code_wip, *, queue_complete=False):
             rank = 0
         elif w.action in ("FIX_REQUIRED", "RECONCILE") and not other:
             rank = 1
-        elif w.action == "SHADOW_QUALIFIED" and role == "B":
+        elif w.action == "VERIFY_FINDING" and not other:
+            rank = 1
+        elif w.action in ("SHADOW_QUALIFIED", "QUALIFY_ONLY") and role == "B":
             rank = 2
-        elif w.action == "INSPECT":
+        elif w.action == "CI_INSPECT" and (not other or role == "B"):
             rank = 3
+        elif w.action == "INSPECT":
+            rank = 4
         if rank is not None:
             eligible.append((rank, w.number, w.action))
     if eligible:
