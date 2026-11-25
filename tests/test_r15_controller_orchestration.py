@@ -1,0 +1,108 @@
+import tempfile
+import unittest
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
+
+from tools.smartsvg_controller_orchestration import Scope, build_plan, reserve_next
+from tools.smartsvg_controller_recovery import RecoveryJournal
+
+NOW = datetime(2026, 11, 25, 15, 0, tzinfo=timezone.utc)
+M, P, H, J, K = (c * 40 for c in "abcde")
+REPO = "frenndak/SmartSVG-Studio"
+
+
+def row(n, head):
+    return {"pr": {"number": n, "state": "open", "head": {"sha": head,
+            "repo": {"full_name": REPO}}, "base": {"ref": "main",
+            "repo": {"full_name": REPO}}, "user": {"login": "frenndak"},
+            "draft": False, "mergeable": True}, "runs": [],
+            "comments": [{"body": "APPROVED by A"}], "reviews": []}
+
+
+def snapshot():
+    return {"qualification": "RAW_ONLY", "started_at": NOW.isoformat(),
+            "finished_at": NOW.isoformat(), "main": {"commit": {"sha": M}},
+            "policy_blob": P, "candidates": [row(192, H), row(195, J), row(196, K)]}
+
+
+SCOPES = (Scope(192, H, "B", True), Scope(195, J, "A", True),
+          Scope(196, K, "OWNER", False))
+
+
+class OrchestrationTests(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.j = RecoveryJournal(Path(tmp.name) / "state.db", lambda: 100)
+        self.addCleanup(self.j.close)
+
+    def plan(self, data=None, scopes=SCOPES, now=NOW):
+        return build_plan(data or snapshot(), scopes, now=now)
+
+    def test_real_module_routing_and_scope(self):
+        p = self.plan()
+        self.assertTrue(p.queue_complete)
+        self.assertEqual(p.code_wip, 2)
+        self.assertEqual([x.action for x in p.proposals],
+                         ["REVIEW", "REVIEW", "OWNER_REVIEW"])
+        a = reserve_next(p, "A", self.j, now=NOW)
+        b = reserve_next(p, "B", self.j, now=NOW)
+        self.assertEqual((a.number, b.number), (192, 195))
+        self.assertEqual(a.recovery_advice, "RESUME_CHECKPOINT")
+        self.assertIsNone(reserve_next(p, "A", self.j, now=NOW))
+
+    def test_resume_and_policy_change_invalidation(self):
+        p = self.plan()
+        a = reserve_next(p, "A", self.j, now=NOW)
+        args = ("pr:192", a.context_key, "A", a.fence)
+        self.assertTrue(self.j.save(*args, "consumer inspected"))
+        self.assertTrue(self.j.release(*args))
+        b = reserve_next(p, "A", self.j, now=NOW)
+        self.assertEqual(b.checkpoint, "consumer inspected")
+        self.j.release("pr:192", b.context_key, "A", b.fence)
+        d = snapshot()
+        d["policy_blob"] = J
+        c = reserve_next(self.plan(d), "A", self.j, now=NOW)
+        self.assertNotEqual(c.context_key, a.context_key)
+        self.assertEqual(c.checkpoint, "")
+
+    def test_contention_falls_through(self):
+        d = snapshot()
+        d["candidates"].append(row(194, K))
+        p = self.plan(d, SCOPES + (Scope(194, K, "B", True),))
+        a = reserve_next(p, "A", self.j, now=NOW)
+        b = reserve_next(p, "A", self.j, now=NOW)
+        self.assertEqual((a.number, b.number), (192, 194))
+
+    def test_unknown_and_changed_head_not_dispatched(self):
+        p = self.plan(scopes=SCOPES[1:])
+        self.assertFalse(p.queue_complete)
+        self.assertEqual(p.unknown, (192,))
+        self.assertEqual(p.code_wip, 2)
+        self.assertIsNone(reserve_next(p, "A", self.j, now=NOW))
+        d = snapshot()
+        d["candidates"][0]["pr"]["head"]["sha"] = K
+        self.assertIn(192, self.plan(d).unknown)
+
+    def test_stale_future_and_duplicate_rejected(self):
+        for delta in (timedelta(minutes=6), timedelta(seconds=-1)):
+            with self.assertRaises(ValueError):
+                self.plan(now=NOW + delta)
+        with self.assertRaises(ValueError):
+            reserve_next(self.plan(), "A", self.j, now=NOW + timedelta(minutes=6))
+        with self.assertRaises(ValueError):
+            self.plan(scopes=SCOPES + (SCOPES[0],))
+
+    def test_failed_step_own_writer_not_cross_review(self):
+        d = snapshot()
+        d["candidates"][0]["runs"] = [{"run": {
+            "path": ".github/workflows/g0-admission-tests.yml", "head_sha": H,
+            "event": "pull_request", "id": 1, "run_attempt": 1,
+            "status": "completed", "conclusion": "failure"}, "jobs": []}]
+        p = self.plan(d)
+        self.assertEqual(p.proposals[0].action, "FIX_REQUIRED")
+        self.assertIsNone(reserve_next(p, "A", self.j, now=NOW))
+        b = reserve_next(p, "B", self.j, now=NOW)
+        self.assertEqual(b.number, 195)  # cross review first
+        b2 = reserve_next(p, "B", self.j, now=NOW)
+        self.assertEqual((b2.number, b2.action), (192, "FIX_REQUIRED"))
