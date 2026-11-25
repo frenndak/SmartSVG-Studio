@@ -358,5 +358,77 @@ class RealTkPTCFlow(TestCase):
                 self.assertEqual(str(self.buttons()["Ouvrir le dossier"].cget("state")),
                                  "disabled")
 
+    def _cut_inspection(self):
+        from smartsvg_core.native_basic_cut_v35 import preview_basic_cut
+        raw = preview_basic_cut(rings=[[(0, 0), (100, 0), (100, 80), (0, 80)],
+                                       [(30, 20), (60, 20), (60, 40), (30, 40)]],
+                                width_mm=100, height_mm=80)
+        return SimpleNamespace(status="BASIC_CUT_PREVIEW_READY",
+                               project_sha256=self.panel.snapshot.sha256,
+                               subject_id=self.panel.selection.get(),
+                               svg=raw.svg, svg_sha256=raw.sha256,
+                               width_mm=100., height_mm=80., ring_count=2)
+
+    def test_basic_cut_real_widgets_preview_confirm_and_readback(self):
+        inspection = self._cut_inspection()
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "published.svg"
+            def publish(**kwargs):
+                self.assertIs(kwargs["confirmed"], True)
+                self.assertEqual(kwargs["expected_svg_sha256"], inspection.svg_sha256)
+                target.write_bytes(inspection.svg)
+                return dict(persisted=True, project_revision_still_current=True,
+                            status="LOCAL_SVG_RELOADED")
+            with (patch.object(ptc, "inspect_native_basic_cut_subject", return_value=inspection),
+                  patch.object(ptc, "publish_native_basic_cut_svg", side_effect=publish) as publisher,
+                  patch.object(ptc, "publish_native_ptc_png") as png_publisher,
+                  patch.object(ptc.filedialog, "asksaveasfilename", return_value=str(target)),
+                  patch.object(ptc.messagebox, "askyesno", return_value=True)):
+                self.assertTrue(ptc.show_basic_cut_dialog(self.panel))
+                self.root.update()
+                self.assertEqual(str(self.buttons()["Choisir et publier…"].cget("state")), "disabled")
+                self.buttons()["Examiner"].invoke()
+                self.root.update()
+                canvases = [w for w in descendants(self.root) if isinstance(w, tk.Canvas)]
+                self.assertEqual(len(canvases), 1)
+                self.assertEqual(len(canvases[0].find_all()), 2)
+                self.assertFalse(target.exists())
+                self.buttons()["Choisir et publier…"].invoke()
+                self.root.update()
+                publisher.assert_called_once()
+                png_publisher.assert_not_called()
+                self.assertEqual(target.read_bytes(), inspection.svg)
+                self.assertEqual(str(self.buttons()["Ouvrir le dossier"].cget("state")), "normal")
+
+    def test_basic_cut_stale_selection_during_consent_never_publishes(self):
+        inspection = self._cut_inspection()
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "stale.svg"
+            def stale(*args, **kwargs):
+                self.panel.selection.set("subject-" + "c" * 32)
+                return True
+            with (patch.object(ptc, "inspect_native_basic_cut_subject", return_value=inspection),
+                  patch.object(ptc, "publish_native_basic_cut_svg") as publisher,
+                  patch.object(ptc.filedialog, "asksaveasfilename", return_value=str(target)),
+                  patch.object(ptc.messagebox, "askyesno", side_effect=stale)):
+                self.assertTrue(ptc.show_basic_cut_dialog(self.panel))
+                self.root.update()
+                self.buttons()["Examiner"].invoke()
+                self.buttons()["Choisir et publier…"].invoke()
+                publisher.assert_not_called()
+                self.assertFalse(target.exists())
+
+    def test_basic_cut_invalid_preview_and_cancel_do_not_publish(self):
+        inspection = self._cut_inspection()
+        inspection.svg_sha256 = "0" * 64
+        with (patch.object(ptc, "inspect_native_basic_cut_subject", return_value=inspection),
+              patch.object(ptc, "publish_native_basic_cut_svg") as publisher):
+            self.assertTrue(ptc.show_basic_cut_dialog(self.panel))
+            self.root.update()
+            self.buttons()["Examiner"].invoke()
+            self.assertEqual(str(self.buttons()["Choisir et publier…"].cget("state")), "disabled")
+            self.buttons()["Fermer"].invoke()
+            publisher.assert_not_called()
+
 if __name__ == "__main__":
     main()
