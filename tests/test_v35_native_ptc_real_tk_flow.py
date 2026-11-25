@@ -418,6 +418,21 @@ class RealTkPTCFlow(TestCase):
                 publisher.assert_not_called()
                 self.assertFalse(target.exists())
 
+    def test_basic_cut_complex_contour_has_actionable_feedback(self):
+        from smartsvg_core.native_basic_cut_v35 import BasicCutError
+        with (patch.object(ptc, "inspect_native_basic_cut_subject",
+                           side_effect=BasicCutError("SILHOUETTE_TOO_COMPLEX")),
+              patch.object(ptc, "publish_native_basic_cut_svg") as publisher):
+            self.assertTrue(ptc.show_basic_cut_dialog(self.panel))
+            self.root.update()
+            self.buttons()["Examiner"].invoke()
+            labels = [w for w in descendants(self.root) if isinstance(w, ttk.Label)]
+            messages = [str(w.getvar(w.cget("textvariable"))) for w in labels
+                        if w.cget("textvariable")]
+            self.assertTrue(any("simplifiez la silhouette" in msg for msg in messages))
+            self.assertEqual(str(self.buttons()["Choisir et publier…"].cget("state")), "disabled")
+            publisher.assert_not_called()
+
     def test_basic_cut_invalid_preview_and_cancel_do_not_publish(self):
         inspection = self._cut_inspection()
         inspection.svg_sha256 = "0" * 64
