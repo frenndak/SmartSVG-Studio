@@ -4,6 +4,7 @@ from __future__ import annotations
 import base64
 import os
 import math
+import stat
 import xml.etree.ElementTree as ET
 from hashlib import sha256
 from pathlib import Path
@@ -18,7 +19,15 @@ from smartsvg_core.native_basic_cut_v35 import BasicCutError
 
 _ERRORS = {
     "PROJECT_CHANGED": "Le projet a changé. Réexaminer (F5), puis recommencer.",
-    "PREVIEW_CHANGED": "Le PNG a changé depuis l'aperçu. Refaire l'aperçu.",
+    "PREVIEW_CHANGED": "La sortie a changé depuis l’aperçu. Refaire l’aperçu.",
+    "EMPTY_CUT_SILHOUETTE": "Aucun contour découpable : retoucher le masque pour conserver une zone opaque.",
+    "MULTIPLE_CUT_COMPONENTS": "Plusieurs contours séparés : choisissez un sujet continu ou retouchez le masque.",
+    "AMBIGUOUS_CORNER_CONTACT": "Des zones se touchent seulement par un coin : séparez ou reliez ces zones dans la retouche.",
+    "SILHOUETTE_TOO_COMPLEX": "Contour trop détaillé : simplifiez la silhouette ou sélectionnez un sujet plus simple.",
+    "GEOMETRY_TOO_COMPLEX": "Contour trop détaillé : simplifiez la silhouette ou sélectionnez un sujet plus simple.",
+    "DEGENERATE_CUT_CONTOUR": "Contour trop mince ou incomplet : retouchez le masque puis réessayez.",
+    "OPEN_CUT_CONTOUR": "Contour ouvert : retouchez le masque pour obtenir une silhouette fermée.",
+    "INVALID_SIZE": "Dimensions physiques incompatibles : adapter la largeur en mm.",
     "PHYSICAL_SIZE_NOT_SUPPORTED": "Dimensions physiques incompatibles : adapter la largeur en mm.",
     "OUTPUT_REQUIRES_REVIEW": "Écriture incertaine : vérifier le fichier manuellement, sans réessayer.",
     "EXPORT_DIRECTORY_NOT_FOUND": "Dossier introuvable : choisir un dossier existant.",
@@ -54,6 +63,58 @@ def open_export_folder(target, opener=None):
         return False
     opener(str(path.parent))
     return True
+
+
+# The native PNG renderer caps the source at five million RGBA pixels.
+# 32 MiB covers the resulting lossless PNG plus its framing/metadata; the
+# SVG path uses the exact inspected byte count, not an arbitrary larger file.
+_MAX_PNG_READBACK = 32 * 1024 * 1024
+
+
+def _readback_digest(target, limit):
+    """Bound UI readback and refuse a substituted non-regular output.
+
+    The publisher already verifies its own write. This independent UI
+    readback must not load a concurrently replaced arbitrary file into RAM.
+    """
+    def regular(info):
+        return (stat.S_ISREG(info.st_mode)
+                and not (getattr(info, "st_file_attributes", 0)
+                         & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400))
+                and 0 < info.st_size <= limit)
+
+    def identity(info):
+        return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns)
+
+    before = os.lstat(target)
+    if not regular(before):
+        return None
+    flags = (os.O_RDONLY | getattr(os, "O_BINARY", 0)
+             | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+    fd = os.open(target, flags)
+    try:
+        opened = os.fstat(fd)
+        if not regular(opened) or identity(opened) != identity(before):
+            return None
+        digest = sha256()
+        total = 0
+        while True:
+            block = os.read(fd, min(1024 * 1024, limit - total + 1))
+            if not block:
+                break
+            total += len(block)
+            if total > limit:
+                return None
+            digest.update(block)
+        after = os.fstat(fd)
+        final = os.lstat(target)
+        if (total != opened.st_size or not regular(after) or not regular(final)
+                or identity(after) != identity(opened)
+                or identity(final) != identity(opened)):
+            return None
+        return digest.hexdigest()
+    finally:
+        os.close(fd)
 
 
 def _draw_cut_preview(canvas, result):
@@ -221,7 +282,7 @@ def _show_export_dialog(panel, *, basic_cut):
                     raise ValueError("STALE_CUT_PREVIEW")
                 result = dict(status=cut.status, output_sha256=cut.svg_sha256,
                               width_mm=cut.width_mm, height_mm=cut.height_mm,
-                              low_resolution_warning=False)
+                              readback_limit=len(cut.svg), low_resolution_warning=False)
             else:
                 result = inspect_native_ptc_png(**req)
             if (close_requested or not current() or
@@ -315,6 +376,7 @@ def _show_export_dialog(panel, *, basic_cut):
         # Pin the inspected digest before entering the publisher. Queued Tk
         # width-change callbacks may invalidate `preview` while it runs.
         expected_digest = preview["output_sha256"]
+        readback_limit = preview["readback_limit"] if basic_cut else _MAX_PNG_READBACK
         publish_request = request
         busy = True
         published_target = None
@@ -330,8 +392,7 @@ def _show_export_dialog(panel, *, basic_cut):
             if receipt.get("persisted") is not True:
                 status.set("Résultat incertain : vérifier le fichier avant tout nouvel essai.")
             else:
-                with open(target, "rb") as stream:
-                    digest = sha256(stream.read()).hexdigest()
+                digest = _readback_digest(target, readback_limit)
                 if digest != expected_digest:
                     status.set("Relecture différente : vérifier le fichier, ne pas réessayer.")
                 elif (receipt.get("project_revision_still_current") is not True or
