@@ -179,10 +179,16 @@ class NativeAtelierPanel:
             subject_actions, text='Exporter ce sujet · PNG Print Then Cut…',
             command=self.open_ptc, state='disabled')
         self.ptc_button.pack(side='left')
+        output_actions = ttk.Frame(parent)
+        output_actions.pack(fill='x', pady=(0, 4))
         self.first_subject_button = ttk.Button(
-            parent, text='Créer le premier sujet (PNG transparent)…',
+            output_actions, text='Créer le premier sujet (PNG transparent)…',
             command=self.create_first_subject, state='disabled')
-        self.first_subject_button.pack(anchor='w', pady=(0, 4))
+        self.first_subject_button.pack(side='left', padx=(0, 6))
+        self.basic_cut_button = ttk.Button(
+            output_actions, text='Exporter · SVG Basic Cut…',
+            command=self.open_basic_cut, state='disabled')
+        self.basic_cut_button.pack(side='left')
         ttk.Label(parent, textvariable=self.first_subject_status,
                   wraplength=640).pack(anchor='w', pady=(0, 8))
         self.viewport = NativeImageViewport(parent, tk, ttk)
@@ -576,6 +582,10 @@ class NativeAtelierPanel:
         self._update_navigation()
         self._update_history_controls()
         if self.history_requires_review:
+            for name in ('ptc_button', 'basic_cut_button'):
+                button = getattr(self, name, None)
+                if button is not None:
+                    button.configure(state='disabled')
             self.viewport.load(None)
             self.details.set('Révision à vérifier : réexaminez le projet (F5).')
             return
@@ -590,13 +600,14 @@ class NativeAtelierPanel:
         if button is not None:
             button.configure(state='normal' if not self.busy and request is not None
                              and self._brush_class is not None else 'disabled')
-        ptc_button = getattr(self, 'ptc_button', None)
-        if ptc_button is not None:
-            ptc_button.configure(
-                state='normal' if not self.busy and not self.has_open_brush
-                and not self.history_requires_review and ptc_atelier_action_ready(
-                    self.snapshot, subject, getattr(self, '_project_path', None))
-                else 'disabled')
+        for name in ('ptc_button', 'basic_cut_button'):
+            export_button = getattr(self, name, None)
+            if export_button is not None:
+                export_button.configure(
+                    state='normal' if not self.busy and not self.has_open_brush
+                    and not self.history_requires_review and ptc_atelier_action_ready(
+                        self.snapshot, subject, getattr(self, '_project_path', None))
+                    else 'disabled')
         self.viewport.load(None)
         if subject is None:
             self.details.set('Aucun sujet enregistré dans ce projet.' if self.snapshot else '')
@@ -671,6 +682,11 @@ class NativeAtelierPanel:
         """Open a separate explicit-export dialog; never save the V1 project."""
         from native_ptc_dialog_tk_v35 import show_ptc_dialog
         return show_ptc_dialog(self)
+
+    def open_basic_cut(self):
+        """Inspect and explicitly publish a separate SVG Basic Cut output."""
+        from native_ptc_dialog_tk_v35 import show_basic_cut_dialog
+        return show_basic_cut_dialog(self)
 
     def open_brush(self):
         """Open a verified V1 Subject draft with an explicit save path."""
