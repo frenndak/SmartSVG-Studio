@@ -1,5 +1,6 @@
 """W04 SVG publication: consent, CAS, non-overwrite and failure receipts."""
 from hashlib import sha256
+import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 import sys
@@ -121,6 +122,104 @@ class NativeBasicCutExportTests(unittest.TestCase):
                 publish_native_basic_cut_svg(**self.args)
             render.assert_not_called()
         self.assertEqual(target.read_bytes(), b"original")
+
+
+# This integration test uses real project loading, rendering, and the native
+# writer, rather than mocks at the renderer/writer boundary. The required
+# Windows and CPU workflows provide the existing NumPy/Pillow dependencies.
+@unittest.skipUnless(sys.platform == "win32" or sys.platform.startswith("linux"),
+                     "Native Windows/Linux publication")
+@unittest.skipUnless(all(importlib.util.find_spec(name) for name in ("numpy", "PIL")),
+                     "NumPy/Pillow required; execute on CPU/Windows job")
+class RealNativeBasicCutPublicationTests(unittest.TestCase):
+    def setUp(self):
+        from smartsvg_core.native_first_subject_v35 import (
+            inspect_first_alpha_subject, confirm_first_alpha_subject)
+        from smartsvg_core.project_workspace_g22 import ManagedWorkspace
+        from test_v35_native_first_subject import png
+
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        workspace = ManagedWorkspace(self.tmp.name)
+        self.original = png()
+        created = workspace.create(
+            "native-basic-cut-publish", self.original,
+            profile="Sticker - contour du sujet",
+            source_provenance="manual_native_png_import")
+        self.project = workspace.root / "native-basic-cut-publish.smartsvg"
+        alpha = inspect_first_alpha_subject(
+            project_path=str(self.project), expected_sha256=created["sha256"])
+        committed = confirm_first_alpha_subject(
+            project_path=str(self.project), expected_sha256=created["sha256"],
+            candidate_sha256=alpha["candidate_sha256"], confirmed=True)
+        self.request = dict(project_path=str(self.project),
+                            expected_sha256=committed["project_sha256"],
+                            subject_id=committed["subject_id"], width_mm=1.0)
+        self.before = self.project.read_bytes()
+        self.destination = Path(self.tmp.name) / "Première découpe.svg"
+
+    def preview(self):
+        from smartsvg_core.native_basic_cut_subject_v35 import inspect_native_basic_cut_subject
+        return inspect_native_basic_cut_subject(**self.request)
+
+    def publish(self, preview, **changes):
+        request = dict(self.request, destination_path=str(self.destination),
+                       expected_svg_sha256=preview.svg_sha256, confirmed=True)
+        request.update(changes)
+        return publish_native_basic_cut_svg(**request)
+
+    def test_real_project_preview_publish_reopen_and_retry(self):
+        import xml.etree.ElementTree as ET
+        from smartsvg_core.project_archive import load_project
+
+        preview = self.preview()
+        self.assertFalse(preview.persisted)
+        self.assertFalse(self.destination.exists())
+        self.assertEqual(self.project.read_bytes(), self.before)
+        receipt = self.publish(preview)
+        self.assertEqual(receipt["status"], "LOCAL_SVG_RELOADED")
+        self.assertTrue(receipt["persisted"])
+        self.assertTrue(receipt["project_revision_still_current"])
+        self.assertEqual(receipt["project_sha256"], self.request["expected_sha256"])
+        self.assertEqual(receipt["subject_id"], self.request["subject_id"])
+        self.assertEqual(receipt["file_path"], str(self.destination))
+        self.assertEqual(receipt["width_mm"], 1.0)
+        self.assertAlmostEqual(receipt["height_mm"], 5 / 6)
+        data = self.destination.read_bytes()
+        self.assertEqual(data, preview.svg)
+        self.assertEqual(sha256(data).hexdigest(), receipt["sha256"])
+        root = ET.fromstring(data)
+        self.assertEqual(root.tag, "{http://www.w3.org/2000/svg}svg")
+        self.assertEqual(root.attrib["width"], "1mm")
+        self.assertAlmostEqual(float(root.attrib["height"][:-2]), 5 / 6)
+        self.assertEqual(root.find("{http://www.w3.org/2000/svg}path").attrib["fill-rule"],
+                         "evenodd")
+        self.assertFalse(receipt["design_space_import_tested"])
+        self.assertFalse(receipt["physical_cut_tested"])
+        self.assertEqual(self.publish(preview)["sha256"], receipt["sha256"])
+        self.assertEqual(self.destination.read_bytes(), data)
+        self.assertEqual(self.project.read_bytes(), self.before)
+        project = load_project(self.project, expected_sha256=self.request["expected_sha256"])
+        self.assertEqual(project.resources[project.source_paths[project.sources[0].source_id]],
+                         self.original)
+
+    def test_real_project_negative_consent_digest_revision_and_collision(self):
+        preview = self.preview()
+        for approved in (False, "yes", 1, None):
+            with self.subTest(approved=approved), self.assertRaisesRegex(
+                    BasicCutError, "EXPLICIT_CONFIRMATION_REQUIRED"):
+                self.publish(preview, confirmed=approved)
+        with self.assertRaisesRegex(BasicCutError, "PREVIEW_CHANGED"):
+            self.publish(preview, expected_svg_sha256="0" * 64)
+        with self.assertRaises((NativePTCError, BasicCutError)):
+            self.publish(preview, expected_sha256="0" * 64)
+        self.assertFalse(self.destination.exists())
+        rival = b"Existing user file; never overwrite"
+        self.destination.write_bytes(rival)
+        with self.assertRaisesRegex(BasicCutError, "OUTPUT_REQUIRES_REVIEW"):
+            self.publish(preview)
+        self.assertEqual(self.destination.read_bytes(), rival)
+        self.assertEqual(self.project.read_bytes(), self.before)
 
 
 if __name__ == "__main__":
