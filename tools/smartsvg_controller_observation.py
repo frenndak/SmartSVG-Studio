@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import json
 import re
 from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.parse import quote
 
 ROOT = "https://api.github.com/repos/frenndak/SmartSVG-Studio"
 SHA = re.compile(r"[0-9a-f]{40}")
@@ -65,6 +66,26 @@ def pages(get, path, key=None, limit=50):
     raise ObservationError("pagination limit reached")
 
 
+def branch_observation(get, pr):
+    """A PR projection may lag its real branch; quarantine just that item."""
+    h = pr["head"]
+    repo = h.get("repo") or {}
+    ref = h.get("ref")
+    if repo.get("full_name") != "frenndak/SmartSVG-Studio":
+        return {"status": "FOREIGN_OR_UNKNOWN", "sha": None}
+    if (not isinstance(ref, str) or not ref or
+            any(x in ("", ".", "..") for x in ref.split("/"))):
+        return {"status": "INVALID_REF", "sha": None}
+    try:
+        data = get("/git/ref/heads/" + quote(ref, safe="/"))
+        if data.get("ref") != "refs/heads/" + ref or data["object"]["type"] != "commit":
+            return {"status": "INVALID_REF_RESPONSE", "sha": None}
+        sha = _sha(data["object"]["sha"])
+        return {"status": "MATCH" if sha == h["sha"] else "DIVERGED", "sha": sha}
+    except Exception as exc:
+        return {"status": "UNAVAILABLE", "sha": None, "error": type(exc).__name__}
+
+
 def observe(get=github_get):
     """Collect raw exact-head runs/jobs and review receipts; reject snapshot drift.
 
@@ -105,12 +126,23 @@ def observe(get=github_get):
         p = get(f"/pulls/{number}")
         if p.get("number") != number or p.get("state") != "open" or p["head"]["sha"] != head:
             raise ObservationError("PR changed during collection")
-        candidates.append({"pr": p, "runs": runs_for(head, "pull_request"),
+        branch = branch_observation(get, p)
+        if branch["status"] != "MATCH":
+            candidates.append({"pr": p, "branch": branch, "runs": [],
+                               "reviews": [], "comments": []})
+            continue
+        candidates.append({"pr": p, "branch": branch, "runs": runs_for(head, "pull_request"),
                            "reviews": pages(get, f"/pulls/{number}/reviews"),
                            "comments": pages(get, f"/issues/{number}/comments")})
     rulesets = pages(get, "/rulesets?includes_parents=true")
     if get("/branches/main")["commit"]["sha"] != main_sha or identity(open_prs()) != identity(initial):
         raise ObservationError("main or PR queue changed during collection")
+    for entry in candidates:
+        if entry["branch"]["status"] == "MATCH":
+            latest = branch_observation(get, entry["pr"])
+            if latest["status"] != "MATCH":
+                entry["branch"] = latest
+                entry["runs"], entry["reviews"], entry["comments"] = [], [], []
     return {"started_at": started, "finished_at": datetime.now(timezone.utc).isoformat(),
             "main": main, "policy_blob": policy_sha, "main_runs": main_runs,
             "candidates": candidates, "rulesets": rulesets,

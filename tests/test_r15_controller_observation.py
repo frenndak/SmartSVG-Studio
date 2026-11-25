@@ -9,7 +9,10 @@ def fixture(path):
         return {"commit": {"sha": M}, "protected": False}
     if path.startswith("/contents/"):
         return {"sha": P}
-    pr = {"id": 1, "number": 195, "state": "open", "head": {"sha": H}}
+    pr = {"id": 1, "number": 195, "state": "open",
+          "head": {"sha": H, "ref": "a/test", "repo": {"full_name": "frenndak/SmartSVG-Studio"}}}
+    if path == "/git/ref/heads/a/test":
+        return {"ref": "refs/heads/a/test", "object": {"sha": H, "type": "commit"}}
     if path.startswith("/pulls?state=open"):
         return [pr]
     if path == "/pulls/195":
@@ -72,3 +75,36 @@ class ObservationTests(unittest.TestCase):
             return fixture(path)
         with self.assertRaises(PermissionError):
             observe(get)
+
+    def test_stale_pr_projection_quarantined(self):
+        def get(path):
+            if path == "/git/ref/heads/a/test":
+                return {"ref": "refs/heads/a/test", "object": {"sha": M, "type": "commit"}}
+            if path.startswith("/actions/runs?head_sha=" + H):
+                self.fail("stale PR must not collect CI as current")
+            return fixture(path)
+        row = observe(get)["candidates"][0]
+        self.assertEqual(row["branch"], {"status": "DIVERGED", "sha": M})
+        self.assertEqual(row["runs"], [])
+
+    def test_branch_moves_during_collection(self):
+        count = 0
+        def get(path):
+            nonlocal count
+            if path == "/git/ref/heads/a/test":
+                count += 1
+                return {"ref": "refs/heads/a/test",
+                        "object": {"sha": H if count == 1 else M, "type": "commit"}}
+            return fixture(path)
+        row = observe(get)["candidates"][0]
+        self.assertEqual(row["branch"]["status"], "DIVERGED")
+        self.assertEqual(row["comments"], [])
+
+    def test_unavailable_branch_is_not_positive_evidence(self):
+        def get(path):
+            if path == "/git/ref/heads/a/test":
+                raise PermissionError("unavailable")
+            return fixture(path)
+        row = observe(get)["candidates"][0]
+        self.assertEqual(row["branch"]["status"], "UNAVAILABLE")
+        self.assertEqual(row["branch"]["error"], "PermissionError")

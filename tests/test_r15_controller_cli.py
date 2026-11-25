@@ -22,7 +22,7 @@ def inputs(now=NOW):
         rows.append({"pr":{"number":n,"state":"open","head":{"sha":head,
                      "repo":{"full_name":REPO}},"base":{"ref":"main",
                      "repo":{"full_name":REPO}},"user":{"login":"frenndak"},
-                     "draft":False,"mergeable":True},"runs":[],
+                     "draft":False,"mergeable":True},"branch":{"status":"MATCH","sha":head},"runs":[],
                      "comments":[{"body":"SECRET_EXAMPLE_DO_NOT_PRINT"}],"reviews":[]})
         scopes.append({"number":n,"head":head,"writer":writer,"code_only":code})
     snapshot = {"qualification":"RAW_ONLY","started_at":now.isoformat(),

@@ -108,7 +108,9 @@ def build_plan(snapshot, scopes, *, now=None):
             raise ValueError("invalid or duplicate open PR")
         seen.add(n)
         scope = scope_by_number.get(n)
-        if scope is None or scope.head != head:
+        branch = entry.get("branch") or {}
+        if (scope is None or scope.head != head or branch.get("status") != "MATCH"
+                or branch.get("sha") != head):
             unknown.append(n)
             wip += 1  # unknown scope cannot free a slot
             continue

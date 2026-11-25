@@ -15,7 +15,7 @@ def row(n, head):
     return {"pr": {"number": n, "state": "open", "head": {"sha": head,
             "repo": {"full_name": REPO}}, "base": {"ref": "main",
             "repo": {"full_name": REPO}}, "user": {"login": "frenndak"},
-            "draft": False, "mergeable": True}, "runs": [],
+            "draft": False, "mergeable": True}, "branch": {"status": "MATCH", "sha": head}, "runs": [],
             "comments": [{"body": "APPROVED by A"}], "reviews": []}
 
 
@@ -106,3 +106,13 @@ class OrchestrationTests(unittest.TestCase):
         self.assertEqual(b.number, 195)  # cross review first
         b2 = reserve_next(p, "B", self.j, now=NOW)
         self.assertEqual((b2.number, b2.action), (192, "FIX_REQUIRED"))
+
+    def test_divergent_branch_does_not_block_other_pr(self):
+        d = snapshot()
+        d["candidates"][0]["branch"] = {"status": "DIVERGED", "sha": K}
+        p = self.plan(d)
+        self.assertIn(192, p.unknown)
+        self.assertFalse(p.queue_complete)
+        self.assertIsNone(reserve_next(p, "A", self.j, now=NOW))
+        b = reserve_next(p, "B", self.j, now=NOW)
+        self.assertEqual(b.number, 195)
