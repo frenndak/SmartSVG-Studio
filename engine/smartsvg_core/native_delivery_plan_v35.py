@@ -209,6 +209,14 @@ def _item(record):
         raise DeliveryPlanError("INVALID_GUIDANCE")
     for step in guide["steps"]:
         _text(step, code="INVALID_GUIDANCE", limit=512)
+        if not step.strip():
+            raise DeliveryPlanError("INVALID_GUIDANCE")
+    # HTML is optional, but the manual transfer instructions are not.
+    # The metadata planner cannot certify their semantic correctness.
+    manual_transfer = (bool(declared & {"SCORE", "DRAW", "FOIL"})
+                       or op["attach_required"] or op["mirror_required"])
+    if manual_transfer and not guide["steps"]:
+        raise DeliveryPlanError("INVALID_GUIDANCE")
 
     reasons = []
     if not dims["confirmed"]:
