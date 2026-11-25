@@ -7,6 +7,7 @@ has no API mutation or permission to invoke one.
 from dataclasses import dataclass
 import re
 from .smartsvg_controller_storage import OperationalJournal
+from .smartsvg_controller_preflight import IntegrationSubject, evaluate
 
 SHA = re.compile(r"[0-9a-f]{40}")
 DIGEST = re.compile(r"[0-9a-f]{64}")
@@ -37,6 +38,18 @@ class Observation:
 
 
 @dataclass(frozen=True)
+class TerminalReceipt:
+    cycle: str
+    number: int
+    head: str
+    main: str
+    subject_digest: str
+    receipt_digest: str
+    outcome: str = "REJECTED_BEFORE_APPLY"
+    source: str = "SYNTHETIC_TERMINAL_EVENT"
+
+
+@dataclass(frozen=True)
 class Reconciliation:
     state: str
     action: str
@@ -51,18 +64,24 @@ class IntegrationJournal(OperationalJournal):
             cycle TEXT PRIMARY KEY, number INTEGER NOT NULL, head TEXT NOT NULL,
             main TEXT NOT NULL, subject TEXT NOT NULL, state TEXT NOT NULL,
             merge_sha TEXT, CHECK(number > 0))""")
+        self.db.execute("""CREATE TABLE IF NOT EXISTS integration_terminal_receipt(
+            cycle TEXT PRIMARY KEY, receipt_digest TEXT NOT NULL)""")
 
-    def prepare(self, intent, preflight, *, role):
-        if (role != "B" or type(intent.number) is not int or intent.number < 1
-                or not isinstance(intent.cycle, str) or not 1 <= len(intent.cycle) <= 256
-                or any(not isinstance(v, str) or SHA.fullmatch(v) is None
-                       for v in (intent.head, intent.main))
-                or not isinstance(intent.subject_digest, str)
-                or DIGEST.fullmatch(intent.subject_digest) is None
-                or preflight.action != "SHADOW_PREFLIGHT_PASS"
-                or preflight.subject_digest != intent.subject_digest
-                or preflight.merge_authorized is not False):
+    def prepare(self, subject, facts, *, role, now):
+        """Derive intent from the subject and a freshly evaluated rehearsal.
+
+        Facts are still synthetic/external inputs, not trusted production
+        receipts. A caller cannot substitute an unrelated preflight or intent.
+        """
+        if not isinstance(subject, IntegrationSubject):
             return False
+        preflight = evaluate(subject, facts, role=role, now=now)
+        if (preflight.action != "SHADOW_PREFLIGHT_PASS"
+                or preflight.merge_authorized is not False
+                or len(subject.executor_cycle) > 256):
+            return False
+        intent = Intent(subject.executor_cycle, subject.number, subject.head,
+                        subject.main, preflight.subject_digest)
         with self.transaction():
             if self.db.execute("SELECT 1 FROM integration_rehearsal WHERE cycle=?",
                                (intent.cycle,)).fetchone():
@@ -81,6 +100,52 @@ class IntegrationJournal(OperationalJournal):
             return self.db.execute(
                 "UPDATE integration_rehearsal SET state='AMBIGUOUS' WHERE cycle=? AND state='PREPARED'",
                 (cycle,)).rowcount == 1
+
+    def cancel_prepared(self, cycle, *, role):
+        """Atomic cancellation only before the synthetic dispatch boundary."""
+        if role != "B":
+            return False
+        with self.transaction():
+            return self.db.execute(
+                "UPDATE integration_rehearsal SET state='NOT_APPLIED' WHERE cycle=? AND state='PREPARED'",
+                (cycle,)).rowcount == 1
+
+    def resolve_negative(self, cycle, observation, terminal_receipt, *, role):
+        """Rehearse a separately proved terminal rejection, never infer it.
+
+        The receipt is a simulator input, not an actual server-side guarantee.
+        Both the matching negative readback and explicit terminal evidence
+        must be present; timeout/404/unchanged branch alone cannot release it.
+        """
+        if role != "B" or not isinstance(terminal_receipt, TerminalReceipt):
+            return False
+        with self.transaction():
+            row = self.db.execute(
+                "SELECT number,head,main,subject,state,merge_sha FROM integration_rehearsal WHERE cycle=?",
+                (cycle,)).fetchone()
+            if row is None:
+                return False
+            number,head,main,subject,state,known_sha = row
+            if (state != "NEGATIVE_READBACK" or known_sha is not None
+                    or terminal_receipt.source != "SYNTHETIC_TERMINAL_EVENT"
+                    or terminal_receipt.outcome != "REJECTED_BEFORE_APPLY"
+                    or (terminal_receipt.cycle,terminal_receipt.number,terminal_receipt.head,
+                        terminal_receipt.main,terminal_receipt.subject_digest) !=
+                       (cycle,number,head,main,subject)
+                    or not isinstance(terminal_receipt.receipt_digest,str)
+                    or DIGEST.fullmatch(terminal_receipt.receipt_digest) is None
+                    or observation.source != "SYNTHETIC_REHEARSAL"
+                    or type(observation.number) is not int or observation.number != number
+                    or observation.head != head or observation.main != main
+                    or observation.pr_state != "open" or observation.merged is not False
+                    or observation.merge_sha is not None or observation.merge_parent is not None):
+                return False
+            # Preserve the terminal event receipt alongside the outcome.
+            self.db.execute("INSERT INTO integration_terminal_receipt VALUES(?,?)",
+                            (cycle,terminal_receipt.receipt_digest))
+            self.db.execute("UPDATE integration_rehearsal SET state='NOT_APPLIED' WHERE cycle=?",
+                            (cycle,))
+            return True
 
     def status(self, cycle):
         row = self.db.execute(
@@ -128,7 +193,7 @@ class IntegrationJournal(OperationalJournal):
                     new, action = "G0_FAILED","REVIEW_REPAIR_OR_REVERT"
                 else:
                     new, action = "WAIT_G0","OBSERVE_EXACT_MAIN_G0"
-            elif (state == "AMBIGUOUS" and known_sha is None
+            elif (state in ("AMBIGUOUS", "NEGATIVE_READBACK") and known_sha is None
                     and observation.pr_state == "open" and observation.merged is False
                     and observation.merge_sha is None and observation.main == main):
                 # A negative readback is not proof that an in-flight request
