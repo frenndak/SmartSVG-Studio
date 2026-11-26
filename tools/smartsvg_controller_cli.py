@@ -16,6 +16,7 @@ from .smartsvg_controller_routing import route_review_hints
 from .smartsvg_controller_scope import inspect_scope
 from .smartsvg_controller_ci import inspect_ci
 from .smartsvg_controller_log_transport import github_job_log
+from .smartsvg_controller_evidence import SPECS, step_receipts
 
 MAX_INPUT = 32 * 1024 * 1024
 
@@ -92,6 +93,34 @@ def inspect_plan_scopes(plan, get):
             reports)
 
 
+def recheck_candidate_ci(p, get):
+    """Re-read all relevant run identities, including pending/failed runs.
+
+    A later success, rerun, missing run, or duplicate run is new evidence,
+    not authority to reuse the previously computed work proposal.
+    """
+    paths = {spec[0] for spec in SPECS.values()}
+    runs = pages(get, "/actions/runs?head_sha="+p.head+"&event=pull_request",
+                 "workflow_runs")
+    entries = []
+    for run in runs:
+        if run.get("head_sha") != p.head or run.get("event") != "pull_request":
+            raise ObservationError("unexpected CI identity")
+        if run.get("path") not in paths:
+            continue
+        rid, attempt = run.get("id"), run.get("run_attempt")
+        if type(rid) is not int or rid < 1 or type(attempt) is not int or attempt < 1:
+            raise ObservationError("invalid CI attempt")
+        jobs = []
+        if run.get("status") == "completed" and run.get("conclusion") == "success":
+            jobs = pages(get, f"/actions/runs/{rid}/attempts/{attempt}/jobs", "jobs")
+            if any(j.get("run_id") != rid or j.get("run_attempt") != attempt
+                   or j.get("head_sha") != p.head for j in jobs):
+                raise ObservationError("unexpected CI job identity")
+        entries.append({"run":run,"jobs":jobs})
+    return step_receipts(p.head, entries)
+
+
 def recheck_live_queue(plan, snapshot, get, scope_reports, ci_reports):
     """Final advisory readback: never allocate a candidate with known drift.
 
@@ -129,6 +158,28 @@ def recheck_live_queue(plan, snapshot, get, scope_reports, ci_reports):
                 invalid.add(p.number)
         except Exception:
             invalid.add(p.number)
+    ci_changed = {}
+    for p in plan.proposals:
+        if p.number in invalid or p.writer not in ("A","B") or not p.steps:
+            continue
+        try:
+            latest = recheck_candidate_ci(p, get)
+            changed = tuple(s.name for s, t in zip(p.steps,latest) if s != t)
+            if len(latest) != len(p.steps):
+                changed = tuple(sorted(SPECS))
+            if changed:
+                ci_changed[p.number] = ("CI_ATTEMPT_CHANGED", *changed)
+        except Exception:
+            ci_changed[p.number] = ("CI_READBACK_UNAVAILABLE",)
+        # CI lookup can itself outlive the branch readback.
+        try:
+            pr = get("/pulls/"+str(p.number))
+            if (pr.get("number") != p.number or pr.get("state") != "open"
+                    or pr.get("head",{}).get("sha") != p.head
+                    or branch_observation(get,pr)["status"] != "MATCH"):
+                invalid.add(p.number)
+        except Exception:
+            invalid.add(p.number)
     if get("/branches/main")["commit"]["sha"] != plan.main:
         raise ObservationError("main changed during final readback")
     # Never publish old positive receipts for a known invalidated context.
@@ -159,11 +210,18 @@ def recheck_live_queue(plan, snapshot, get, scope_reports, ci_reports):
         stale_checks=tuple(sorted({r["check"] for r in ci_reports
             if r["number"]==p.number and r["reason"] in
             ("RUN_JOB_OR_ATTEMPT_CHANGED","ATTEMPT_CHANGED_DURING_LOG_READ")}))
-        if stale_checks:
+        if stale_checks or p.number in ci_changed:
             # Do not keep a proposal based on stale CI, including FIX_REQUIRED.
             # Re-observe rather than implement a correction against old failure.
-            p=replace(p, action="INSPECT", reasons=("CI_ATTEMPT_CHANGED",*stale_checks),
-                      steps=())
+            reasons = ci_changed.get(p.number, ("CI_ATTEMPT_CHANGED", *stale_checks))
+            for report in ci_reports:
+                if report["number"] == p.number:
+                    number,head,check=report["number"],report["head"],report["check"]
+                    report.clear()
+                    report.update(number=number,head=head,check=check,
+                                  qualification="ADVISORY_ONLY",status="UNKNOWN",
+                                  reason="FINAL_CI_CONTEXT_CHANGED",tests=[])
+            p=replace(p, action="INSPECT", reasons=reasons, steps=())
         proposals.append(p)
     return replace(plan,proposals=tuple(proposals),unknown=tuple(sorted(unknown)),
                    code_wip=wip,queue_complete=plan.queue_complete and not unknown)
@@ -214,7 +272,7 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
     journal = OperationalJournal(str(journal_path) if persistent else ":memory:")
     try:
         for report in ci_reports:
-            if report["reason"] == "FINAL_QUEUE_CONTEXT_CHANGED":
+            if report["reason"] in ("FINAL_QUEUE_CONTEXT_CHANGED","FINAL_CI_CONTEXT_CHANGED"):
                 continue
             report["receipt_digest"] = journal.store_evidence(Evidence(
                 report["number"], report["head"], plan.main, plan.policy_blob,

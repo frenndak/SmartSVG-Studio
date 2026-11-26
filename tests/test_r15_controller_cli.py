@@ -97,6 +97,16 @@ def scope_source(snapshot, *, bad=(), old=(), excluded=()):
             return {"commit": {"sha": M}}
         if path.startswith("/pulls?state=open"):
             return [dict(pr,id=n) for n,pr in rows.items()]
+        if path.startswith("/actions/runs?"):
+            head=path.split("head_sha=",1)[1].split("&",1)[0]
+            entries=next(r["runs"] for r in snapshot["candidates"] if r["pr"]["head"]["sha"]==head)
+            runs=[entry["run"] for entry in entries]
+            return {"total_count":len(runs),"workflow_runs":runs}
+        if path.startswith("/actions/runs/") and "/jobs?" in path:
+            rid=int(path.split("/")[3])
+            jobs=next(entry["jobs"] for r in snapshot["candidates"] for entry in r["runs"]
+                      if entry["run"]["id"]==rid)
+            return {"total_count":len(jobs),"jobs":jobs}
         if path.startswith("/git/ref/heads/scope/"):
             n = int(path.rsplit("/",1)[1])
             return {"ref": "refs/heads/scope/"+str(n),
@@ -323,3 +333,58 @@ class FinalReadbackTests(unittest.TestCase):
         self.assertEqual(p["steps"],[])
         self.assertIn("CI_ATTEMPT_CHANGED",p["reasons"])
         self.assertFalse(r["merge_authorized"])
+
+
+class FinalCIReadbackTests(unittest.TestCase):
+    def failed_snapshot(self):
+        s,m=inputs()
+        run={"id":123,"path":".github/workflows/g0-admission-tests.yml",
+             "head_sha":H,"event":"pull_request","run_attempt":1,
+             "status":"completed","conclusion":"failure"}
+        s["candidates"][0]["runs"]=[{"run":run,"jobs":[]}]
+        return s,m,run
+
+    def test_unchanged_failure_remains_repair(self):
+        s,m,run=self.failed_snapshot()
+        r=simulate(s,m,now=NOW,scope_get=scope_source(s))
+        self.assertEqual(next(p for p in r["candidates"] if p["number"]==192)["action"],
+                         "FIX_REQUIRED")
+
+    def test_failed_attempt_now_queued_is_not_repaired_again(self):
+        s,m,run=self.failed_snapshot()
+        source=scope_source(s)
+        def get(path):
+            if path.startswith("/actions/runs?head_sha="+H):
+                return {"total_count":1,"workflow_runs":[dict(run,run_attempt=2,
+                         status="queued",conclusion=None)]}
+            return source(path)
+        r=simulate(s,m,now=NOW,scope_get=get)
+        p=next(p for p in r["candidates"] if p["number"]==192)
+        self.assertEqual(p["action"],"INSPECT")
+        self.assertEqual(p["steps"],[])
+        self.assertIn("CI_ATTEMPT_CHANGED",p["reasons"])
+        self.assertEqual(r["assignments"]["B"]["number"],195)
+
+    def test_new_run_after_missing_observation_invalidates_plan(self):
+        s,m,run=self.failed_snapshot()
+        s["candidates"][0]["runs"]=[]
+        source=scope_source(s)
+        def get(path):
+            if path.startswith("/actions/runs?head_sha="+H):
+                return {"total_count":1,"workflow_runs":[run]}
+            return source(path)
+        r=simulate(s,m,now=NOW,scope_get=get)
+        self.assertEqual(next(p for p in r["candidates"] if p["number"]==192)["action"],"INSPECT")
+
+    def test_unavailable_ci_does_not_block_independent_work(self):
+        s,m,run=self.failed_snapshot()
+        source=scope_source(s)
+        def get(path):
+            if path.startswith("/actions/runs?head_sha="+H):
+                raise PermissionError("unavailable")
+            return source(path)
+        r=simulate(s,m,now=NOW,scope_get=get)
+        p=next(p for p in r["candidates"] if p["number"]==192)
+        self.assertEqual(p["reasons"],("CI_READBACK_UNAVAILABLE",))
+        self.assertEqual(p["steps"],[])
+        self.assertEqual(r["assignments"]["B"]["number"],195)
