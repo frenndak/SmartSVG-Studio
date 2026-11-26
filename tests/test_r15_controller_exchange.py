@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
 
-from tools.smartsvg_controller_exchange import AUTHOR_PREFIX, derive_review_packets
+from tools.smartsvg_controller_exchange import AUTHOR_PREFIX, HANDOFF_PREFIX, derive_review_packets
 from tools.smartsvg_controller_review import PREFIX, TASKS, _canonical
 from tools.smartsvg_controller_orchestration import build_plan, Scope
 from tools.smartsvg_controller_routing import route_review_hints
@@ -172,3 +172,48 @@ class ExchangeTests(unittest.TestCase):
                 self.get,now=self.now,journal=j)[0],())
         finally:
             j.close()
+
+
+    def minimal_handoffs(self):
+        for task,prefix,kind in zip(self.tasks,(AUTHOR_PREFIX,PREFIX),("AUTHOR","REVIEW")):
+            result=task["run_details"]["latest_result"]
+            receipt=json.loads(result["content_text"][len(prefix):])
+            receipt.pop("run_id")
+            receipt.pop("comment_sha256")
+            receipt["kind"]=kind
+            result["content_text"]=HANDOFF_PREFIX+json.dumps(receipt)
+
+    def test_minimal_handoff_uses_observed_run_and_comment_digest(self):
+        self.minimal_handoffs()
+        original=deepcopy(self.scheduler)
+        packets,reports=self.derive()
+        self.assertEqual(len(packets),1)
+        self.assertEqual(packets[0]["author_run"],"run-A")
+        self.assertEqual(next(r for r in reports if r["number"]==195)["status"],
+                         "CORRELATED_FAVORABLE")
+        self.assertEqual(self.scheduler,original)
+
+    def test_handoff_missing_explicit_author_run_cannot_correlate(self):
+        self.minimal_handoffs()
+        result=self.tasks[1]["run_details"]["latest_result"]
+        marker=json.loads(result["content_text"][len(HANDOFF_PREFIX):])
+        marker.pop("author_run")
+        result["content_text"]=HANDOFF_PREFIX+json.dumps(marker)
+        self.assertEqual(self.derive()[0],())
+
+    def test_handoff_duplicate_fields_or_conflicting_protocol_rejected(self):
+        self.minimal_handoffs()
+        result=self.tasks[0]["run_details"]["latest_result"]
+        raw=result["content_text"]
+        result["content_text"]=raw.replace("{",'{ "version":1,',1)
+        self.assertEqual(self.derive()[0],())
+        result["content_text"]=raw+"\n"+AUTHOR_PREFIX+"{}"
+        self.assertEqual(self.derive()[0],())
+
+    def test_handoff_cannot_claim_other_agent_role(self):
+        self.minimal_handoffs()
+        result=self.tasks[0]["run_details"]["latest_result"]
+        marker=json.loads(result["content_text"][len(HANDOFF_PREFIX):])
+        marker["role"]="B"
+        result["content_text"]=HANDOFF_PREFIX+json.dumps(marker)
+        self.assertEqual(self.derive()[0],())

@@ -5,6 +5,7 @@ attestations. Never fabricate author cycles from latest narrative output or
 commit timestamps. Only explicit matching receipts can yield routing hints.
 """
 import json
+from copy import deepcopy
 from hashlib import sha256
 from .smartsvg_controller_review import (
     TASKS, PREFIX, MAX_BODY, ReviewContext, correlate_review, _canonical, _time)
@@ -13,6 +14,7 @@ from .smartsvg_controller_observation import ObservationError, branch_observatio
 from .smartsvg_controller_storage import Evidence
 
 AUTHOR_PREFIX = "R15_AUTHOR_RECEIPT "
+HANDOFF_PREFIX = "R15_HANDOFF "
 
 
 def _receipt(task, prefix, captured):
@@ -62,6 +64,89 @@ def _comment(get, entry, number, ident, digest, start, end):
             or not start<=_time(fresh["created_at"])<=_time(fresh["updated_at"])<=end):
         raise ValueError("invalid comment provenance")
     return fresh
+
+
+def normalize_handoff(task, role, captured, plan, snapshot, get):
+    """Bind a minimal agent marker to actual imported scheduler metadata.
+
+    Agents need not know their own run ID or compute a SHA256. The observer
+    obtains those from independent scheduler and GitHub readback. This is
+    still imported correlation, never a signature or a production gate.
+    The original task is not modified. A review must explicitly identify
+    the author run; no narrative inference or latest-run guessing.
+    """
+    if task.get("id")!=TASKS[role] or task.get("is_enabled") is not True:
+        return task
+    try:
+        detail=task["run_details"]
+        run,result=detail["last_run"],detail["latest_result"]
+        if (run["recorded_status"]!="completed" or result["run_id"]!=run["id"]
+                or not isinstance(run["id"],str) or not 1<=len(run["id"])<=128
+                or any(result.get(k) is not False for k in
+                       ("content_truncated","requires_user_action","is_failure_message"))):
+            return task
+        start,end=_time(run["started_at"]),_time(run["completed_at"])
+        if (not start<=_time(result["created_at"])<=end<=captured
+                or captured-end>MAX_RESULT_AGE or _time(result["completed_at"])!=end):
+            return task
+        body=result["content_text"]
+        if not isinstance(body,str) or len(body)>MAX_BODY:
+            return task
+        lines=body.splitlines()
+        markers=[x[len(HANDOFF_PREFIX):] for x in lines if x.startswith(HANDOFF_PREFIX)]
+        if len(markers)!=1 or any(x.startswith((AUTHOR_PREFIX,PREFIX)) for x in lines):
+            return task
+        # JSON formatting need not be canonical in an agent-generated marker.
+        # Reject duplicate keys rather than silently accepting the last value.
+        def unique(pairs):
+            obj={}
+            for k,v in pairs:
+                if k in obj:
+                    raise ValueError("duplicate marker field")
+                obj[k]=v
+            return obj
+        marker=json.loads(markers[0],object_pairs_hook=unique)
+        if not isinstance(marker,dict) or type(marker.get("version")) is not int or marker["version"]!=1:
+            return task
+        number=marker.get("number")
+        if type(number) is not int or number<1:
+            return task
+        p=next((p for p in plan.proposals if p.number==number),None)
+        if (p is None or p.writer not in TASKS or
+                (marker.get("head"),marker.get("main"),marker.get("policy_blob"),marker.get("role"))!=
+                (p.head,plan.main,plan.policy_blob,role)):
+            return task
+        common={"version","kind","number","head","main","policy_blob","role","comment_id"}
+        kind=marker.get("kind")
+        if kind=="AUTHOR":
+            if set(marker)!=common or p.writer!=role:
+                return task
+            prefix=AUTHOR_PREFIX
+        elif kind=="REVIEW":
+            if (set(marker)!=common|{"author_run","verdict"} or p.writer==role
+                    or not isinstance(marker["author_run"],str)
+                    or not 1<=len(marker["author_run"])<=128
+                    or marker["verdict"] not in ("FAVORABLE","ADVERSE","PARTIAL")):
+                return task
+            prefix=PREFIX
+        else:
+            return task
+        ident=marker["comment_id"]
+        if type(ident) is not int or ident<1:
+            return task
+        entry=next(x for x in snapshot["candidates"] if x["pr"]["number"]==number)
+        matches=[x for x in entry["comments"] if x.get("id")==ident]
+        if len(matches)!=1 or not isinstance(matches[0].get("body"),str):
+            return task
+        digest=sha256(matches[0]["body"].encode()).hexdigest()
+        _comment(get,entry,number,ident,digest,start,end)
+        receipt={k:v for k,v in marker.items() if k!="kind"}
+        receipt.update(run_id=run["id"],comment_sha256=digest)
+        normalized=deepcopy(task)
+        normalized["run_details"]["latest_result"]["content_text"]=prefix+_canonical(receipt)
+        return normalized
+    except (KeyError,TypeError,ValueError,AttributeError,OverflowError,OSError,ObservationError,StopIteration):
+        return task
 
 
 def _author_context(plan,p,author,run_id):
@@ -123,7 +208,7 @@ def derive_review_packets(plan,snapshot,scheduler_snapshot,get,*,now,journal=Non
         matches=[a for a in scheduler_snapshot["automations"]
                  if isinstance(a,dict) and a.get("id")==ident]
         if len(matches)==1:
-            tasks[role]=matches[0]
+            tasks[role]=normalize_handoff(matches[0],role,captured,plan,snapshot,get)
     entries={r["pr"]["number"]:r for r in snapshot["candidates"]}
     packets,reports=[],[]
     for p in plan.proposals:
