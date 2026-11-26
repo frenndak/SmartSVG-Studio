@@ -17,6 +17,7 @@ from .smartsvg_controller_cli import recheck_candidate_ci
 from .smartsvg_controller_orchestration import Proposal
 from .smartsvg_controller_live_reconcile import _g0
 from .smartsvg_controller_tree import disjoint_tree
+from .smartsvg_controller_recovery_plan import recover
 
 
 def predicted_tree(get, number, head, main):
@@ -70,7 +71,18 @@ def _observe(get, route, journal, result):
             result["status"]="PILOT_COMPLETE"
             return
         if record.state not in TERMINAL | {"IDLE"}:
+            # The pending intent takes precedence over the next candidate.
+            # Reuse the existing read-only recovery planner, never its writer.
             result["status"]="RECOVERY_REQUIRED"
+            advice=recover(journal.read,get)
+            if ((advice.get("journal_ref"),advice.get("generation"),
+                 advice.get("intent"),advice.get("journal_state")) !=
+                (ref,record.generation,record.intent,record.state)
+                    or journal.read()!=(ref,raw)
+                    or advice.get("action")=="JOURNAL_DRIFT"):
+                result["status"]="CONTEXT_CHANGED"
+                return
+            result["recovery"]=advice
             return
         a=route["assignments"]["B"]
         if a is None:
