@@ -31,6 +31,11 @@ class JournalTransport:
     update_ref accept the installed connector's keyword arguments and
     return its normalized result dict (without the outer result wrapper).
     """
+    branch = BRANCH
+    genesis = GENESIS
+    genesis_parent = GENESIS_PARENT
+    commit_message = "test(r15b): shadow journal transition"
+
     def __init__(self, get, create_tree=None, create_commit=None, update_ref=None):
         self.get = get
         self.create_tree = create_tree
@@ -38,8 +43,8 @@ class JournalTransport:
         self.update_ref = update_ref
 
     def tip(self):
-        data = self.get("/git/ref/heads/" + BRANCH)
-        if data["ref"] != "refs/heads/" + BRANCH or data["object"]["type"] != "commit":
+        data = self.get("/git/ref/heads/" + self.branch)
+        if data["ref"] != "refs/heads/" + self.branch or data["object"]["type"] != "commit":
             raise ValueError("wrong journal ref")
         return _ref(data["object"]["sha"])
 
@@ -80,8 +85,8 @@ class JournalTransport:
                 newest = raw
             if child is not None:
                 validate_edge(record, child)
-            if current == GENESIS:
-                if parent != GENESIS_PARENT or record != Record():
+            if current == self.genesis:
+                if parent != self.genesis_parent or record != Record():
                     raise ValueError("invalid genesis")
                 if self.tip() != tip:
                     raise ValueError("journal drift")
@@ -98,7 +103,7 @@ class JournalTransport:
                     tree_elements=[{"path": "state.json", "mode": "100644",
                                     "type": "blob", "content": raw.decode("ascii")}])["sha"])
         sha = _ref(self.create_commit(repository_full_name=REPO,
-                    message="test(r15b): shadow journal transition",
+                    message=self.commit_message,
                     tree_sha=tree, parent_sha=parent)["sha"])
         if self.commit(sha) != (parent, raw):
             raise ValueError("staged commit mismatch")
@@ -110,9 +115,22 @@ class JournalTransport:
         if tip != expected or parent != expected:
             raise ValueError("stale or wrong parent")
         validate_edge(decode(before), decode(after))
-        return self.update_ref(repository_full_name=REPO, branch_name=BRANCH,
+        return self.update_ref(repository_full_name=REPO, branch_name=self.branch,
                                sha=candidate, expected_sha=expected, force=False)
 
     def write(self, expected, previous, proposed):
         return persist(self.read, self.stage, self.advance, expected=expected,
                        previous=previous, proposed=proposed)
+
+
+class PilotJournalTransport(JournalTransport):
+    """Separate owner-initialized pilot. No new GitHub permissions.
+
+    Not a protected distributed lock. The caller must obey the live owner
+    policy and B-only integration contract. Never use the shadow branch for
+    real intents. The bounded history requires reviewed rollover.
+    """
+    branch = "r15b/integration-journal-v1"
+    genesis = "3ae1078e65c7fa8052042fe65852c50720ae93e0"
+    genesis_parent = "492e44288bfbc0d28defd7ec89cc9367447a2711"
+    commit_message = "chore(r15b): record integration pilot observation"
