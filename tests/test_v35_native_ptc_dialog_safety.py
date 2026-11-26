@@ -89,6 +89,32 @@ class DialogSafetyTests(unittest.TestCase):
                     output_sha256=self.digest, width_mm=100,
                     height_mm=100, low_resolution_warning=False)
 
+    def test_readback_is_bounded_and_rejects_nonregular_entries(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / "export.svg"
+            target.write_bytes(b"abc")
+            self.assertEqual(module._readback_digest(target, 3),
+                             hashlib.sha256(b"abc").hexdigest())
+            with patch.object(module.os, "open", side_effect=AssertionError("oversize opened")):
+                self.assertIsNone(module._readback_digest(target, 2))
+                self.assertIsNone(module._readback_digest(Path(folder), 100))
+            target.write_bytes(b"")
+            self.assertIsNone(module._readback_digest(target, 3))
+
+    def test_readback_rejects_replaced_file_after_open(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / "export.svg"
+            target.write_bytes(b"abc")
+            actual = module.os.fstat
+            before = actual
+            def changed(fd):
+                info = before(fd)
+                return SimpleNamespace(st_mode=info.st_mode, st_dev=info.st_dev,
+                                       st_ino=info.st_ino + 1, st_size=info.st_size,
+                                       st_mtime_ns=info.st_mtime_ns)
+            with patch.object(module.os, "fstat", side_effect=changed):
+                self.assertIsNone(module._readback_digest(target, 3))
+
     def test_action_row_reserved_at_bottom_before_preview(self):
         self.assertTrue(module.show_ptc_dialog(self.panel))
         action = Widget.buttons["Choisir et publier…"]
