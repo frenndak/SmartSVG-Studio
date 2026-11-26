@@ -118,7 +118,10 @@ def dispatch(role, work, code_wip, *, queue_complete=False):
             rank = 1
         elif w.action in ("SHADOW_QUALIFIED", "QUALIFY_ONLY") and role == "B":
             rank = 2
-        elif w.action == "CI_INSPECT" and (not other or role == "B"):
+        elif w.action == "CI_INSPECT":
+            # CI inspection is read-only and does not qualify a review or merge.
+            # A can inspect B-owned work instead of idling when B is unavailable.
+            # Mutating repairs and B-only qualification retain their own gates.
             rank = 3
         elif w.action == "INSPECT":
             rank = 4
