@@ -94,6 +94,27 @@ class RuntimeRoutingTests(unittest.TestCase):
             self.assertEqual(result["roles"],[])
             self.assertEqual(result["reason"],reason)
 
+    def test_truncated_optional_roadmap_preserves_assignments(self):
+        from http.client import IncompleteRead
+        from tools.smartsvg_controller_roadmap import PATH
+
+        report = self.report()
+        snapshot = {"main": {"commit": {"sha": report["main"]}},
+                    "policy_blob": report["policy_blob"], "candidates": []}
+
+        def short_read(path):
+            self.assertEqual(path, f"/contents/{PATH}?ref={report['main']}")
+            raise IncompleteRead(b"partial body")
+
+        with patch("tools.smartsvg_controller_runtime.observe", return_value=snapshot), patch(
+                "tools.smartsvg_controller_runtime.simulate", return_value=report):
+            result = route(short_read, "unused", run_id=1, attempt=1,
+                           controller_head=report["main"], require_main=True)
+        self.assertEqual(result["assignments"]["A"]["number"], 197)
+        self.assertEqual(result["roadmap_advice"]["status"], "UNAVAILABLE")
+        self.assertFalse(result["merge_authorized"])
+        self.assertNotIn("partial body", str(result))
+
     def test_existing_assignments_retained(self):
         report=self.report()
         report["assignments"]["B"]={"number":198,"head":H,"action":"REVIEW","plan_digest":"e"*64}

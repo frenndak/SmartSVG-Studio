@@ -8,6 +8,7 @@ a test, transfer ownership, authorize a merge or reserve a live worker.
 from dataclasses import replace
 from datetime import datetime
 from hashlib import sha256
+from http.client import HTTPException
 import json
 
 from .smartsvg_controller_decision import Status
@@ -116,7 +117,7 @@ def route_checkpoints(plan, snapshot, get):
                 invalid.add(p.number)
                 continue
             except (KeyError, TypeError, ValueError, AttributeError, OSError,
-                    OverflowError, ObservationError):
+                    OverflowError, HTTPException, ObservationError):
                 pass
         if hint is not None:
             reports.append(hint)

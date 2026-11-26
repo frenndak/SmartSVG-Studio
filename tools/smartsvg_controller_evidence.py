@@ -90,6 +90,16 @@ def step_receipts(head, runs, *, event="pull_request"):
     return tuple(out)
 
 
+def only_waiting_on_ci(steps):
+    """Recognize a complete inventory where every outstanding check is pending."""
+    if len(steps) != len(SPECS) or {step.name for step in steps} != SPECS.keys():
+        return False
+    return (any(step.status is Status.PENDING for step in steps)
+            and all(step.status in (Status.PASS, Status.PENDING)
+                    and type(step.run_id) is int and step.run_id > 0
+                    and type(step.attempt) is int and step.attempt > 0 for step in steps))
+
+
 @dataclass(frozen=True)
 class Work:
     number: int
@@ -98,6 +108,7 @@ class Work:
     # False for work currently reserved by a different live worker.
     available: bool = True
     roadmap_rank: int | None = None
+    only_waiting_on_ci: bool = False
 
 
 def dispatch(role, work, code_wip, *, queue_complete=False):
@@ -122,7 +133,7 @@ def dispatch(role, work, code_wip, *, queue_complete=False):
             # CI inspection is read-only and does not qualify a review or merge.
             # A can inspect B-owned work instead of idling when B is unavailable.
             # Mutating repairs and B-only qualification retain their own gates.
-            rank = 3
+            rank = 5 if w.only_waiting_on_ci else 3
         elif w.action == "INSPECT":
             rank = 4
         if rank is not None:

@@ -4,6 +4,7 @@ The rank map reflects the current MASTER_PRIORISE delivery order. It is
 pinned to its reviewed blob; if the document changes, fall back without
 blocking normal routing. A lot label is only a hint, not semantic scope.
 """
+from http.client import HTTPException
 import re
 
 PATH = "docs/roadmap-v3.5/MASTER_PRIORISE.md"
@@ -48,6 +49,6 @@ def roadmap_advice(snapshot,get):
                 result["candidates"].append({"number":n,"lot":lot,"rank":RANKS[lot]})
         result["candidates"].sort(key=lambda x:x["number"])
         return ranks,result
-    except (KeyError,TypeError,ValueError,AttributeError,OSError,RuntimeError):
+    except (KeyError,TypeError,ValueError,AttributeError,OSError,HTTPException,RuntimeError):
         return {},{"qualification":"ADVISORY_ONLY","status":"UNAVAILABLE",
                    "source_blob":None,"candidates":[]}
