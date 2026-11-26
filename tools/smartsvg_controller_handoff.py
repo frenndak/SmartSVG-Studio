@@ -20,6 +20,10 @@ FIELDS = {"version", "number", "head", "main", "policy_blob", "role", "verdict"}
 VERDICTS = {"PARTIAL", "ADVERSE", "FAVORABLE"}
 
 
+class CheckpointContextChanged(ObservationError):
+    """Known PR/ref drift is not merely an unusable checkpoint."""
+
+
 def _unique(pairs):
     result = {}
     for key, value in pairs:
@@ -86,7 +90,7 @@ def _checkpoint(plan, p, entry, get):
     if (pr.get("number") != p.number or pr.get("state") != "open"
             or pr.get("head",{}).get("sha") != p.head
             or branch_observation(get, pr)["status"] != "MATCH"):
-        return None
+        raise CheckpointContextChanged("PR changed during checkpoint readback")
     return {"number":p.number,"head":p.head,"comment_id":c["id"],
             "role":v["role"],"verdict":v["verdict"],
             "comment_digest":sha256(body.encode()).hexdigest(),
@@ -102,12 +106,15 @@ def route_checkpoints(plan, snapshot, get):
     Missing/unreadable hint leaves original routing unchanged.
     """
     entries = {e["pr"]["number"]:e for e in snapshot["candidates"]}
-    proposals, reports = [], []
+    proposals, reports, invalid = [], [], set()
     for p in plan.proposals:
         hint = None
         if p.action == "REVIEW" and p.writer in ("A","B"):
             try:
                 hint = _checkpoint(plan,p,entries[p.number],get)
+            except CheckpointContextChanged:
+                invalid.add(p.number)
+                continue
             except (KeyError, TypeError, ValueError, AttributeError, OSError,
                     OverflowError, ObservationError):
                 pass
@@ -126,6 +133,9 @@ def route_checkpoints(plan, snapshot, get):
             else:
                 p = replace(p,reasons=(*p.reasons,"RESUME_PARTIAL_REVIEW"))
         proposals.append(p)
-    if reports and get("/branches/main")["commit"]["sha"] != plan.main:
+    if (reports or invalid) and get("/branches/main")["commit"]["sha"] != plan.main:
         raise ObservationError("main changed during checkpoint readback")
-    return replace(plan,proposals=tuple(proposals)),reports
+    unknown = set(plan.unknown) | invalid
+    # A quarantined product PR still occupies its original WIP slot.
+    return replace(plan,proposals=tuple(proposals),unknown=tuple(sorted(unknown)),
+                   queue_complete=plan.queue_complete and not unknown),reports

@@ -86,3 +86,36 @@ class DurableHandoffTests(unittest.TestCase):
         self.assertEqual(self.run_hint(),(self.plan,[]))
         self.comment["created_at"]=self.comment["updated_at"]="2026-11-26T13:00:00Z"
         self.assertEqual(self.run_hint(),(self.plan,[]))
+
+    def test_changed_or_closed_pr_is_quarantined_not_reviewed_again(self):
+        for state, head in (("open","d"*40),("closed",H)):
+            self.pr["state"]=state
+            self.pr["head"]["sha"]=head
+            plan,reports=self.run_hint()
+            self.assertEqual(plan.proposals,())
+            self.assertEqual(plan.unknown,(195,))
+            self.assertFalse(plan.queue_complete)
+            self.assertEqual(plan.code_wip,1)
+            self.assertEqual(reports,[])
+
+    def test_diverged_branch_is_quarantined(self):
+        original=self.get
+        def get(path):
+            if path=="/git/ref/heads/a/test":
+                return {"ref":"refs/heads/a/test","object":{"type":"commit","sha":"d"*40}}
+            return original(path)
+        self.get=get
+        plan,reports=self.run_hint()
+        self.assertEqual(plan.proposals,())
+        self.assertEqual(plan.unknown,(195,))
+        self.assertEqual(reports,[])
+
+    def test_other_candidate_survives_quarantine(self):
+        other=replace(self.plan.proposals[0],number=196,action="FIX_REQUIRED")
+        self.plan=replace(self.plan,proposals=(*self.plan.proposals,other),code_wip=2)
+        self.pr["state"]="closed"
+        plan,reports=self.run_hint()
+        self.assertEqual(plan.proposals,(other,))
+        self.assertEqual(plan.code_wip,2)
+        self.assertEqual(plan.unknown,(195,))
+        self.assertEqual(reports,[])

@@ -141,7 +141,7 @@ def recheck_live_queue(plan, snapshot, get, scope_reports, ci_reports):
             raise ObservationError("invalid final queue identity")
         current[n] = pr
     added = set(current) - set(original)
-    invalid = set(original) - set(current)
+    invalid = (set(original) - set(current)) | set(plan.unknown)
     invalid.update(n for n in set(original) & set(current)
                    if current[n].get("head", {}).get("sha") != original[n]["head"]["sha"])
     invalid.update(r["number"] for r in ci_reports
@@ -282,15 +282,19 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
         _fresh(plan.finished, now)
     elif ci_logs or ci_log_get is not None:
         raise ValueError("logs require CI manifest")
-    if scope_get is not None:
-        plan = recheck_live_queue(plan, snapshot, scope_get, scope_reports, ci_reports)
-        if exchange_reports:
-            plan = recheck_exchange(plan, snapshot, scope_get, exchange_reports)
-        now = explicit_now or datetime.now(timezone.utc)
-        _fresh(plan.finished, now)
     checkpoint_reports = []
     if durable_checkpoints and scope_get is not None:
         plan, checkpoint_reports = route_checkpoints(plan, snapshot, scope_get)
+        now = explicit_now or datetime.now(timezone.utc)
+        _fresh(plan.finished, now)
+    if scope_get is not None:
+        # Checkpoint lookup is a network observation and can outlive an old
+        # branch/CI snapshot. Run the full final readback AFTER it.
+        plan = recheck_live_queue(plan, snapshot, scope_get, scope_reports, ci_reports)
+        if exchange_reports:
+            plan = recheck_exchange(plan, snapshot, scope_get, exchange_reports)
+        eligible = {p.number for p in plan.proposals if p.action != "INSPECT"}
+        checkpoint_reports = [r for r in checkpoint_reports if r["number"] in eligible]
         now = explicit_now or datetime.now(timezone.utc)
         _fresh(plan.finished, now)
     scheduler_reports = (inspect_scheduler(scheduler_snapshot, now=now)
