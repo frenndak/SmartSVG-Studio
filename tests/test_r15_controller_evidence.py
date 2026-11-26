@@ -85,3 +85,33 @@ class EvidenceTests(unittest.TestCase):
     def test_unranked_legacy_tie_is_stable(self):
         q=(Work(194,"B","REVIEW"),Work(192,"B","REVIEW"))
         self.assertEqual(dispatch("A",q,3),(192,"REVIEW"))
+
+    def test_ci_inspection_is_read_only_for_either_role(self):
+        for writer in ("A", "B"):
+            q = (Work(195, writer, "CI_INSPECT"),)
+            for role in ("A", "B"):
+                with self.subTest(writer=writer, role=role):
+                    self.assertEqual(dispatch(role, q, 3), (195, "CI_INSPECT"))
+
+    def test_local_block_preserves_independent_ci_at_full_wip(self):
+        q = (Work(192, "B", "REVIEW", available=False),
+             Work(193, "B", "CI_INSPECT"),
+             Work(194, "B", "FIX_REQUIRED"))
+        self.assertEqual(dispatch("A", q, 3), (193, "CI_INSPECT"))
+
+    def test_ci_fallback_does_not_change_mutation_or_qualification_roles(self):
+        for action in ("FIX_REQUIRED", "RECONCILE", "VERIFY_FINDING",
+                       "QUALIFY_ONLY", "SHADOW_QUALIFIED"):
+            self.assertEqual(dispatch("A", (Work(195, "B", action),), 3),
+                             (None, "CHECKPOINT_WAIT"))
+        self.assertEqual(dispatch("A", (Work(195, "B", "CI_INSPECT", False),), 2),
+                         (None, "CHECKPOINT_WAIT"))
+        self.assertEqual(dispatch("A", (), 3, queue_complete=True),
+                         (None, "CHECKPOINT_WAIT"))
+
+    def test_cross_role_ci_preserves_review_and_repair_priority(self):
+        q = (Work(192, "B", "CI_INSPECT", roadmap_rank=1),
+             Work(193, "A", "FIX_REQUIRED", roadmap_rank=4),
+             Work(194, "B", "REVIEW", roadmap_rank=5))
+        self.assertEqual(dispatch("A", q, 3), (194, "REVIEW"))
+        self.assertEqual(dispatch("A", q[:2], 3), (193, "FIX_REQUIRED"))
