@@ -8,7 +8,7 @@ from .smartsvg_controller_recovery import RecoveryJournal
 
 SHA = re.compile(r"[0-9a-f]{40}")
 KEY = re.compile(r"[0-9a-f]{64}")
-KINDS = frozenset(("STEP_ONLY", "LOG_ONLY", "REVIEW_CORRELATION", "SCOPE_OBSERVATION"))
+KINDS = frozenset(("STEP_ONLY", "LOG_ONLY", "REVIEW_CORRELATION", "SCOPE_OBSERVATION", "AUTHOR_CYCLE"))
 MAX_PAYLOAD = 65536
 
 

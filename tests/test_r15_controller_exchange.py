@@ -108,3 +108,67 @@ class ExchangeTests(unittest.TestCase):
                 value["object"]["sha"]="f"*40
             return value
         self.assertEqual(self.derive(get)[0],())
+
+
+    def test_author_preserved_before_review_and_recovered_after_restart(self):
+        import tempfile
+        from tools.smartsvg_controller_storage import OperationalJournal
+        reviewer=deepcopy(self.tasks[1])
+        self.tasks[1]["run_details"]["latest_result"]["content_text"]="not yet reviewed"
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/"archive.sqlite"
+            j=OperationalJournal(path)
+            try:
+                packets,reports=derive_review_packets(self.plan,self.snapshot,self.scheduler,
+                    self.get,now=self.now,journal=j)
+                self.assertEqual(packets,())
+                self.assertEqual(len(j.evidence_for(195,self.p.head,self.plan.main,
+                    self.plan.policy_blob,"AUTHOR_CYCLE")),1)
+            finally:
+                j.close()
+            self.tasks[1]=reviewer
+            self.tasks[0]["run_details"]["last_run"]["id"]="new-author-cycle"
+            self.tasks[0]["run_details"]["latest_result"].update(
+                run_id="new-author-cycle",content_text="other work")
+            j=OperationalJournal(path)
+            try:
+                packets,reports=derive_review_packets(self.plan,self.snapshot,self.scheduler,
+                    self.get,now=self.now,journal=j)
+                self.assertEqual(len(packets),1)
+                report=next(r for r in reports if r["number"]==195)
+                self.assertEqual(report["author_source"],"PRESERVED_CYCLE")
+                self.assertEqual(report["status"],"CORRELATED_FAVORABLE")
+                self.assertNotIn("fixture only",json.dumps(report))
+                # A stale or edited author comment invalidates historical use.
+                self.comments[701]["body"]="edited"
+                self.assertEqual(derive_review_packets(self.plan,self.snapshot,self.scheduler,
+                    self.get,now=self.now,journal=j)[0],())
+            finally:
+                j.close()
+
+    def test_current_author_conflicting_archive_is_not_accepted(self):
+        from tools.smartsvg_controller_storage import OperationalJournal, Evidence
+        j=OperationalJournal(":memory:")
+        try:
+            packets,_=derive_review_packets(self.plan,self.snapshot,self.scheduler,
+                self.get,now=self.now,journal=j)
+            self.assertEqual(len(packets),1)
+            _,e=j.evidence_for(195,self.p.head,self.plan.main,self.plan.policy_blob,"AUTHOR_CYCLE")[0]
+            modified=dict(e.payload,completed_at="2026-11-25T16:06:00+00:00")
+            j.store_evidence(Evidence(e.number,e.head,e.main,e.policy_blob,e.kind,e.source,modified))
+            self.assertEqual(derive_review_packets(self.plan,self.snapshot,self.scheduler,
+                self.get,now=self.now,journal=j)[0],())
+        finally:
+            j.close()
+
+    def test_failed_current_readback_cannot_fall_back_to_history(self):
+        from tools.smartsvg_controller_storage import OperationalJournal
+        j=OperationalJournal(":memory:")
+        try:
+            self.assertEqual(len(derive_review_packets(self.plan,self.snapshot,self.scheduler,
+                self.get,now=self.now,journal=j)[0]),1)
+            self.tasks[0]["run_details"]["latest_result"]["content_text"]="missing receipt"
+            self.assertEqual(derive_review_packets(self.plan,self.snapshot,self.scheduler,
+                self.get,now=self.now,journal=j)[0],())
+        finally:
+            j.close()

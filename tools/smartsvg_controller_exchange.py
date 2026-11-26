@@ -10,6 +10,7 @@ from .smartsvg_controller_review import (
     TASKS, PREFIX, MAX_BODY, ReviewContext, correlate_review, _canonical, _time)
 from .smartsvg_controller_scheduler import inspect_scheduler, MAX_RESULT_AGE
 from .smartsvg_controller_observation import ObservationError, branch_observation
+from .smartsvg_controller_storage import Evidence
 
 AUTHOR_PREFIX = "R15_AUTHOR_RECEIPT "
 
@@ -63,12 +64,57 @@ def _comment(get, entry, number, ident, digest, start, end):
     return fresh
 
 
-def derive_review_packets(plan,snapshot,scheduler_snapshot,get,*,now):
-    """Return legacy routing packets only when both latest cycles correlate.
+def _author_context(plan,p,author,run_id):
+    expected={"version":1,"number":p.number,"head":p.head,"main":plan.main,
+              "policy_blob":plan.policy_blob,"role":p.writer,"run_id":run_id,
+              "comment_id":author.get("comment_id"),
+              "comment_sha256":author.get("comment_sha256")}
+    return (author==expected and type(author.get("version")) is int
+            and type(author.get("number")) is int)
 
-    Older author cycles are deliberately not reconstructed. A later unrelated
-    writer run means the previous author receipt needs a separately preserved
-    scheduler observation. No production qualification or mutation.
+
+def _verify_author(plan,p,entry,get,author,run_id,start,end):
+    if not _author_context(plan,p,author,run_id):
+        raise ValueError("author context mismatch")
+    commit=get("/git/commits/"+p.head)
+    if commit["sha"]!=p.head:
+        raise ValueError("commit mismatch")
+    committed=_time(commit["committer"]["date"])
+    if not start<=committed<=end:
+        raise ValueError("commit outside author cycle")
+    _comment(get,entry,p.number,author["comment_id"],author["comment_sha256"],start,end)
+    return committed
+
+
+def _archive_payload(author,run,start,end,committed):
+    return {"receipt":author,"run_id":run["id"],"started_at":start.isoformat(),
+            "completed_at":end.isoformat(),"committed_at":committed.isoformat(),
+            "qualification":"IMPORTED_AUTHOR_CYCLE_ONLY"}
+
+
+def _historical_author(journal,plan,p,entry,get,run_id,captured):
+    rows=journal.evidence_for(p.number,p.head,plan.main,plan.policy_blob,"AUTHOR_CYCLE")
+    matches=[e.payload for _,e in rows if e.payload.get("run_id")==run_id]
+    if len(matches)!=1:
+        raise ValueError("missing or conflicting author history")
+    data=matches[0]
+    if data.get("qualification")!="IMPORTED_AUTHOR_CYCLE_ONLY":
+        raise ValueError("invalid historical source")
+    start,end=_time(data["started_at"]),_time(data["completed_at"])
+    if not start<=end<=captured:
+        raise ValueError("invalid historical dates")
+    committed=_verify_author(plan,p,entry,get,data["receipt"],run_id,start,end)
+    if committed!=_time(data["committed_at"]):
+        raise ValueError("historical commit mismatch")
+    return data,end,committed
+
+
+def derive_review_packets(plan,snapshot,scheduler_snapshot,get,*,now,journal=None):
+    """Correlate current reviewer with explicit current or preserved author cycle.
+
+    Historical receipts are imported advisory observations, not signed proof.
+    The exact context and live author comment are checked again on every use.
+    No narrative reconstruction, production qualification or mutation.
     """
     inspect_scheduler(scheduler_snapshot,now=now)
     captured=_time(scheduler_snapshot["captured_at"])
@@ -81,32 +127,56 @@ def derive_review_packets(plan,snapshot,scheduler_snapshot,get,*,now):
     entries={r["pr"]["number"]:r for r in snapshot["candidates"]}
     packets,reports=[],[]
     for p in plan.proposals:
-        if p.action!="REVIEW" or p.writer not in TASKS:
+        if p.writer not in TASKS:
             continue
         report={"number":p.number,"head":p.head,"status":"UNKNOWN",
                 "reason":"AUTHOR_RECEIPT_UNAVAILABLE","qualification":"IMPORTED_CORRELATION_ONLY"}
         reports.append(report)
         role="B" if p.writer=="A" else "A"
+        live_author=None
         try:
             author,ar,astart,aend=_receipt(tasks[p.writer],AUTHOR_PREFIX,captured)
-            expected={"version":1,"number":p.number,"head":p.head,"main":plan.main,
-                      "policy_blob":plan.policy_blob,"role":p.writer,"run_id":ar["id"],
-                      "comment_id":author.get("comment_id"),
-                      "comment_sha256":author.get("comment_sha256")}
-            if author!=expected or type(author.get("version")) is not int or type(author.get("number")) is not int:
+            if not _author_context(plan,p,author,ar["id"]):
                 report["reason"]="AUTHOR_CONTEXT_MISMATCH"
-                continue
+                raise ValueError("author context mismatch")
             report["reason"]="AUTHOR_PROVENANCE_UNAVAILABLE"
-            commit=get("/git/commits/"+p.head)
-            if commit["sha"]!=p.head:
-                raise ValueError("commit mismatch")
-            committed=_time(commit["committer"]["date"])
-            if not astart<=committed<=aend:
-                raise ValueError("commit outside author cycle")
-            _comment(get,entries[p.number],p.number,author["comment_id"],
-                     author["comment_sha256"],astart,aend)
+            committed=_verify_author(plan,p,entries[p.number],get,author,ar["id"],astart,aend)
+            live_author=_archive_payload(author,ar,astart,aend,committed)
+            report["author_source"]="LATEST_CYCLE"
+            if journal is not None:
+                report["author_archive_digest"]=journal.store_evidence(Evidence(
+                    p.number,p.head,plan.main,plan.policy_blob,"AUTHOR_CYCLE",
+                    "scheduler-import:"+p.writer,live_author))
             report["reason"]="REVIEW_RECEIPT_UNAVAILABLE"
+        except (KeyError,TypeError,ValueError,AttributeError,OverflowError,OSError,ObservationError):
+            live_author=None
+        if p.action!="REVIEW":
+            continue
+        try:
             reviewer,rr,rstart,rend=_receipt(tasks[role],PREFIX,captured)
+            author_run=reviewer.get("author_run")
+            if not isinstance(author_run,str) or not author_run:
+                raise ValueError("missing author run")
+            # A current failed author readback must not be bypassed by history.
+            writer=tasks[p.writer]
+            if writer.get("is_enabled") is not True:
+                raise ValueError("writer disabled")
+            latest_id=writer["run_details"]["last_run"]["id"]
+            if live_author is not None and live_author["run_id"]==author_run:
+                if journal is not None:
+                    # Detect conflicting copies of the same cycle even when current.
+                    _,aend,committed=_historical_author(journal,plan,p,
+                        entries[p.number],get,author_run,captured)
+                else:
+                    aend=_time(live_author["completed_at"])
+                    committed=_time(live_author["committed_at"])
+            elif journal is not None and latest_id!=author_run:
+                report["reason"]="AUTHOR_HISTORY_UNAVAILABLE"
+                data,aend,committed=_historical_author(journal,plan,p,
+                    entries[p.number],get,author_run,captured)
+                report["author_source"]="PRESERVED_CYCLE"
+            else:
+                continue
             if rstart<=aend:
                 report["reason"]="REVIEW_NOT_LATER_CYCLE"
                 continue
@@ -114,7 +184,7 @@ def derive_review_packets(plan,snapshot,scheduler_snapshot,get,*,now):
             comment=_comment(get,entries[p.number],p.number,reviewer["comment_id"],
                              reviewer["comment_sha256"],rstart,rend)
             ctx=ReviewContext(p.number,p.head,plan.main,plan.policy_blob,p.writer,
-                              ar["id"],aend.isoformat(),committed.isoformat())
+                              author_run,aend.isoformat(),committed.isoformat())
             verdict=correlate_review(ctx,role,tasks[role],comment)
             if not verdict.status.startswith("CORRELATED_"):
                 report["reason"]=verdict.reason
@@ -127,11 +197,11 @@ def derive_review_packets(plan,snapshot,scheduler_snapshot,get,*,now):
                 continue
             packets.append({"number":p.number,"head":p.head,"main":plan.main,
                 "policy_blob":plan.policy_blob,"writer":p.writer,"role":role,
-                "author_run":ar["id"],"author_completed_at":aend.isoformat(),
+                "author_run":author_run,"author_completed_at":aend.isoformat(),
                 "head_committed_at":committed.isoformat(),"comment_id":comment["id"],
                 "scheduler":tasks[role]})
             report.update(status=verdict.status,reason="SEMANTIC_REVIEW_STILL_REQUIRED",
-                          author_run=ar["id"],review_run=rr["id"],comment_id=comment["id"])
+                          author_run=author_run,review_run=rr["id"],comment_id=comment["id"])
         except (KeyError,TypeError,ValueError,AttributeError,OverflowError,OSError,ObservationError):
             continue
     if get("/branches/main")["commit"]["sha"]!=plan.main:

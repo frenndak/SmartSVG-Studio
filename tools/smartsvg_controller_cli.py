@@ -247,12 +247,20 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
         plan, scope_reports = inspect_plan_scopes(plan, scope_get)
         now = explicit_now or datetime.now(timezone.utc)
         _fresh(plan.finished, now)
+    persistent = journal_path is not None
+    if persistent and (not str(journal_path) or str(journal_path) == ":memory:"):
+        raise ValueError("dedicated persistent journal path required")
     exchange_reports = []
     if scheduler_snapshot is not None and scope_get is not None:
         if review_packets:
             raise ValueError("choose scheduler exchange or manual review packets")
-        review_packets, exchange_reports = derive_review_packets(
-            plan, snapshot, scheduler_snapshot, scope_get, now=now)
+        archive = OperationalJournal(str(journal_path)) if persistent else None
+        try:
+            review_packets, exchange_reports = derive_review_packets(
+                plan, snapshot, scheduler_snapshot, scope_get, now=now,journal=archive)
+        finally:
+            if archive is not None:
+                archive.close()
         now = explicit_now or datetime.now(timezone.utc)
         _fresh(plan.finished, now)
     plan = route_review_hints(plan, snapshot, review_packets)
@@ -279,9 +287,6 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
         _fresh(plan.finished, now)
     scheduler_reports = (inspect_scheduler(scheduler_snapshot, now=now)
                          if scheduler_snapshot is not None else {})
-    persistent = journal_path is not None
-    if persistent and (not str(journal_path) or str(journal_path) == ":memory:"):
-        raise ValueError("dedicated persistent journal path required")
     journal = OperationalJournal(str(journal_path) if persistent else ":memory:")
     try:
         for report in ci_reports:
