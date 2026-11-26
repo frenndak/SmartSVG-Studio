@@ -18,7 +18,7 @@ from .smartsvg_controller_ci import inspect_ci
 from .smartsvg_controller_log_transport import github_job_log
 from .smartsvg_controller_evidence import SPECS, step_receipts
 from .smartsvg_controller_scheduler import inspect_scheduler
-from .smartsvg_controller_exchange import derive_review_packets
+from .smartsvg_controller_exchange import derive_review_packets, recheck_exchange
 
 MAX_INPUT = 32 * 1024 * 1024
 
@@ -283,12 +283,19 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
         raise ValueError("logs require CI manifest")
     if scope_get is not None:
         plan = recheck_live_queue(plan, snapshot, scope_get, scope_reports, ci_reports)
+        if exchange_reports:
+            plan = recheck_exchange(plan, snapshot, scope_get, exchange_reports)
         now = explicit_now or datetime.now(timezone.utc)
         _fresh(plan.finished, now)
     scheduler_reports = (inspect_scheduler(scheduler_snapshot, now=now)
                          if scheduler_snapshot is not None else {})
     journal = OperationalJournal(str(journal_path) if persistent else ":memory:")
     try:
+        for report in exchange_reports:
+            if report["status"].startswith("CORRELATED_"):
+                report["receipt_digest"] = journal.store_evidence(Evidence(
+                    report["number"],report["head"],plan.main,plan.policy_blob,
+                    "REVIEW_CORRELATION","scheduler-import",dict(report)))
         for report in ci_reports:
             if report["reason"] in ("FINAL_QUEUE_CONTEXT_CHANGED","FINAL_CI_CONTEXT_CHANGED"):
                 continue
@@ -335,7 +342,8 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
                     material = [reservation.context_key,
                         next(c for c in candidates if c["number"] == reservation.number),
                         [r for r in scope_reports if r["number"] == reservation.number],
-                        [r for r in ci_reports if r["number"] == reservation.number]]
+                        [r for r in ci_reports if r["number"] == reservation.number],
+                        [r for r in exchange_reports if r["number"] == reservation.number]]
                     digest = sha256(json.dumps(material,sort_keys=True,separators=(",",":"),
                         ensure_ascii=True,allow_nan=False).encode()).hexdigest()
                     checkpoint = "SHADOW_PLAN_V1:" + digest

@@ -6,6 +6,7 @@ commit timestamps. Only explicit matching receipts can yield routing hints.
 """
 import json
 from copy import deepcopy
+from dataclasses import replace
 from hashlib import sha256
 from .smartsvg_controller_review import (
     TASKS, PREFIX, MAX_BODY, ReviewContext, correlate_review, _canonical, _time)
@@ -36,8 +37,10 @@ def _receipt(task, prefix, captured):
     body=result["content_text"]
     if not isinstance(body,str) or len(body)>MAX_BODY:
         raise ValueError("invalid result")
-    lines=[x[len(prefix):] for x in body.splitlines() if x.startswith(prefix)]
-    if len(lines)!=1:
+    markers=[x for x in body.splitlines()
+             if x.startswith((AUTHOR_PREFIX,PREFIX,HANDOFF_PREFIX))]
+    lines=[x[len(prefix):] for x in markers if x.startswith(prefix)]
+    if len(markers)!=1 or len(lines)!=1:
         raise ValueError("missing or ambiguous structured receipt")
     value=json.loads(lines[0])
     if not isinstance(value,dict) or _canonical(value)!=lines[0]:
@@ -250,14 +253,14 @@ def derive_review_packets(plan,snapshot,scheduler_snapshot,get,*,now,journal=Non
             if live_author is not None and live_author["run_id"]==author_run:
                 if journal is not None:
                     # Detect conflicting copies of the same cycle even when current.
-                    _,aend,committed=_historical_author(journal,plan,p,
+                    live_author,aend,committed=_historical_author(journal,plan,p,
                         entries[p.number],get,author_run,captured)
                 else:
                     aend=_time(live_author["completed_at"])
                     committed=_time(live_author["committed_at"])
             elif journal is not None and latest_id!=author_run:
                 report["reason"]="AUTHOR_HISTORY_UNAVAILABLE"
-                data,aend,committed=_historical_author(journal,plan,p,
+                live_author,aend,committed=_historical_author(journal,plan,p,
                     entries[p.number],get,author_run,captured)
                 report["author_source"]="PRESERVED_CYCLE"
             else:
@@ -286,9 +289,50 @@ def derive_review_packets(plan,snapshot,scheduler_snapshot,get,*,now,journal=Non
                 "head_committed_at":committed.isoformat(),"comment_id":comment["id"],
                 "scheduler":tasks[role]})
             report.update(status=verdict.status,reason="SEMANTIC_REVIEW_STILL_REQUIRED",
-                          author_run=author_run,review_run=rr["id"],comment_id=comment["id"])
+                          author_run=author_run,review_run=rr["id"],comment_id=comment["id"],
+                          author_comment_id=live_author["receipt"]["comment_id"])
         except (KeyError,TypeError,ValueError,AttributeError,OverflowError,OSError,ObservationError):
             continue
     if get("/branches/main")["commit"]["sha"]!=plan.main:
         raise ObservationError("main changed during scheduler correlation")
     return tuple(packets),reports
+
+
+def recheck_exchange(plan,snapshot,get,reports):
+    """Re-read both comments after CI collection, before advisory allocation.
+
+    A stale correlation cannot retain a favorable/adverse routing hint.
+    Preserve separate CI inspection signals and owner-only work.
+    """
+    entries={r["pr"]["number"]:r for r in snapshot["candidates"]}
+    proposals={p.number:p for p in plan.proposals}
+    for report in reports:
+        if not report["status"].startswith("CORRELATED_"):
+            continue
+        number=report["number"]
+        p=proposals.get(number)
+        stable=False
+        try:
+            if p is None or p.head!=report["head"]:
+                raise ValueError("candidate changed")
+            for ident in (report["author_comment_id"],report["comment_id"]):
+                matches=[c for c in entries[number]["comments"] if c.get("id")==ident]
+                if len(matches)!=1:
+                    raise ValueError("missing comment")
+                fresh=get("/issues/comments/"+str(ident))
+                if any(fresh.get(k)!=matches[0].get(k) for k in
+                       ("id","body","user","issue_url","created_at","updated_at")):
+                    raise ValueError("comment changed")
+            stable=True
+        except (KeyError,TypeError,ValueError,AttributeError,OSError,ObservationError):
+            pass
+        if not stable:
+            report.update(status="UNKNOWN",reason="FINAL_REVIEW_CONTEXT_CHANGED")
+            if p is not None and p.action in ("QUALIFY_ONLY","CI_INSPECT","VERIFY_FINDING"):
+                reasons=("REVIEW_RECEIPT_INVALIDATED",)
+                if "BASE_CONTEXT_REQUIRES_REVIEW" in p.reasons:
+                    reasons+=("BASE_CONTEXT_REQUIRES_REVIEW",)
+                proposals[number]=replace(p,action="REVIEW",reasons=reasons)
+    if get("/branches/main")["commit"]["sha"]!=plan.main:
+        raise ObservationError("main changed during final review readback")
+    return replace(plan,proposals=tuple(proposals[p.number] for p in plan.proposals))

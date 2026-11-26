@@ -79,7 +79,13 @@ def inspect_scheduler(snapshot, *, now):
                 raise ValueError("invalid result body")
             report["result_digest"]=sha256(body.encode()).hexdigest()
             receipts=[line[len(PREFIX):] for line in body.splitlines() if line.startswith(PREFIX)]
-            if not receipts:
+            handoffs=[line for line in body.splitlines() if line.startswith("R15_HANDOFF ")]
+            authors=[line for line in body.splitlines() if line.startswith("R15_AUTHOR_RECEIPT ")]
+            if len(receipts)+len(handoffs)+len(authors)>1:
+                report["reason"]="AMBIGUOUS_STRUCTURED_RECEIPT"
+            elif handoffs or authors:
+                report["reason"]="RECEIPT_PRESENT_NOT_CORRELATED"
+            elif not receipts:
                 report["reason"]="NARRATIVE_ONLY"
             elif len(receipts)!=1:
                 report["reason"]="AMBIGUOUS_STRUCTURED_RECEIPT"

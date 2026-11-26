@@ -217,3 +217,31 @@ class ExchangeTests(unittest.TestCase):
         marker["role"]="B"
         result["content_text"]=HANDOFF_PREFIX+json.dumps(marker)
         self.assertEqual(self.derive()[0],())
+
+
+    def test_valid_legacy_receipt_plus_handoff_is_ambiguous(self):
+        result=self.tasks[0]["run_details"]["latest_result"]
+        result["content_text"]+="\n"+HANDOFF_PREFIX+"{}"
+        self.assertEqual(self.derive()[0],())
+
+    def test_final_comment_readback_revokes_routing_hint(self):
+        from tools.smartsvg_controller_exchange import recheck_exchange
+        packets,reports=self.derive()
+        routed=route_review_hints(self.plan,self.snapshot,packets)
+        def get(path):
+            value=self.get(path)
+            if path=="/issues/comments/701":
+                value["body"]="edited after CI"
+            return value
+        final=recheck_exchange(routed,self.snapshot,get,reports)
+        self.assertEqual(next(p for p in final.proposals if p.number==195).action,"REVIEW")
+        self.assertEqual(next(r for r in reports if r["number"]==195)["reason"],
+                         "FINAL_REVIEW_CONTEXT_CHANGED")
+
+    def test_final_comment_readback_preserves_valid_routing(self):
+        from tools.smartsvg_controller_exchange import recheck_exchange
+        packets,reports=self.derive()
+        routed=route_review_hints(self.plan,self.snapshot,packets)
+        self.assertEqual(recheck_exchange(routed,self.snapshot,self.get,reports),routed)
+        self.assertEqual(next(r for r in reports if r["number"]==195)["status"],
+                         "CORRELATED_FAVORABLE")
