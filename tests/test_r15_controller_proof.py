@@ -51,3 +51,24 @@ class ProofTests(unittest.TestCase):
             parse("", (A, A))
         with self.assertRaises(ValueError):
             parse("", ())
+
+    def test_docstring_two_line_result(self):
+        header = row(A, "ok").replace(" ... ok", "")
+        desc = "2026-11-25T05:07:32.0000000Z Both export controls follow state. ... ok\n"
+        r = parse(header + desc + row(B, "ok"))
+        self.assertEqual(r.tests[0].status, "PASS")
+        self.assertEqual(r.tests[0].lines, (1,2))
+        self.assertEqual(r.tests[1].lines, (3,))
+        self.assertEqual(parse(header+desc.replace("... ok", "... skipped 'no Tk'")).tests[0].status,"SKIP")
+
+    def test_docstring_missing_or_other_test_is_not_pass(self):
+        header = row(A,"ok").replace(" ... ok","")
+        self.assertEqual(parse(header+row(B,"ok")).tests[0].status,"UNKNOWN")
+        self.assertEqual(parse(header+"unrelated output\n... ok\n").tests[0].status,"UNKNOWN")
+        self.assertEqual(parse(header+row(A,"ok")).tests[0].status,"UNKNOWN")
+
+    def test_docstring_duplicate_and_failure(self):
+        header = row(A,"ok").replace(" ... ok","")
+        desc = "Actual Tk transition. ... ok\n"
+        self.assertEqual(parse(header+desc+header+desc).tests[0].status,"UNKNOWN")
+        self.assertEqual(parse(header+desc.replace("... ok","... FAIL")).tests[0].status,"FAIL")

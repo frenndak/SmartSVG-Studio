@@ -14,6 +14,18 @@ LINE = re.compile(
     r"(test_[A-Za-z0-9_]+) \(([A-Za-z_][A-Za-z0-9_.]*)\) \.\.\. "
     r"(ok|FAIL|ERROR|skipped(?: .*)?|expected failure|unexpected success)$"
 )
+# unittest.TextTestResult with descriptions=True prints a docstring on a
+# second line. Only an immediately adjacent, non-header description result
+# can belong to a bare full test identity. A missing result is UNKNOWN.
+HEADER = re.compile(
+    r"^(?:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z )?"
+    r"(test_[A-Za-z0-9_]+) \(([A-Za-z_][A-Za-z0-9_.]*)\)$"
+)
+DESCRIPTION = re.compile(
+    r"^(?:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z )?"
+    r"([^ \t\r\n][^\r\n]{0,1023}?) \.\.\. "
+    r"(ok|FAIL|ERROR|skipped(?: .*)?|expected failure|unexpected success)$"
+)
 MAX_LOG = 16 * 1024 * 1024
 
 
@@ -74,21 +86,36 @@ def parse_test_receipts(log, required, *, head, run_id, attempt, job_id):
                    or ".test_" not in x for x in required)):
         raise ValueError("invalid test identifiers")
     found = {name: [] for name in required}
-    for number, line in enumerate(log.splitlines(), 1):
+    lines = log.splitlines()
+    for index, line in enumerate(lines):
         m = LINE.fullmatch(line)
-        if not m:
-            continue
-        short, name, outcome = m.groups()
+        locations = (index + 1,)
+        if m:
+            short, name, outcome = m.groups()
+        else:
+            header = HEADER.fullmatch(line)
+            if not header:
+                continue
+            short, name = header.groups()
+            outcome = ""
+            if index + 1 < len(lines):
+                following = lines[index + 1]
+                description = DESCRIPTION.fullmatch(following)
+                if (description and not LINE.fullmatch(following)
+                        and not HEADER.fullmatch(following)
+                        and not description.group(1).startswith(("[", "##[", "test_"))):
+                    outcome = description.group(2)
+                    locations = (index + 1, index + 2)
         if name.rsplit(".", 1)[-1] != short or name not in found:
             continue
         status = ("PASS" if outcome == "ok" else
                   "SKIP" if outcome.startswith("skipped") else
                   "FAIL" if outcome in ("FAIL", "ERROR", "unexpected success")
                   else "UNKNOWN")
-        found[name].append((number, status))
+        found[name].append((locations, status))
     receipts = []
     for name, rows in found.items():
         status = rows[0][1] if len(rows) == 1 else "UNKNOWN"
-        receipts.append(TestReceipt(name, status, tuple(n for n, _ in rows)))
+        receipts.append(TestReceipt(name, status, tuple(n for loc, _ in rows for n in loc)))
     return LogReceipt(run_id, attempt, job_id, head, sha256(raw).hexdigest(),
                       tuple(receipts))

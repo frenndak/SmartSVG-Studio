@@ -5,6 +5,9 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "tools/smartsvg_controller_live_reconcile.py"
+      - "tools/smartsvg_controller_proof.py"
+      - "tools/smartsvg_controller_step_log.py"
+      - "tools/smartsvg_controller_ci.py"
       - "tests/test_r15_controller_live_reconcile.py"
       - "tools/smartsvg_controller_successor.py"
       - "tests/test_r15_controller_successor.py"
@@ -166,4 +169,43 @@ jobs:
           assert not result['merge_authorized'] and not result['retry_authorized']
           assert j.read()==(ref,raw)
           print('R15B_DURABLE_TERMINAL_RESTART_PASS',ref)
+          PY
+
+      - name: Qualify actual two-line Tk unittest receipt
+        env:
+          SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os, json
+          from tools.smartsvg_controller_observation import github_get
+          from tools.smartsvg_controller_log_transport import github_job_log
+          from tools.smartsvg_controller_proof import parse_test_receipts, verify_workflow_pin
+          from tools.smartsvg_controller_step_log import bind_step_log
+          token=os.environ['SMARTSVG_GITHUB_READ_TOKEN']
+          get=lambda p:github_get(p,token=token)
+          head='7e557c8c450f0083d4362a703ba5f74adc43d243'
+          main=get('/branches/main')['commit']['sha']
+          path='.github/workflows/stability-qualification.yml'
+          pin='41d17675dc6f41cd4138bac4250f8073490b62fe'
+          assert verify_workflow_pin(pin,get(f'/contents/{path}?ref={main}')['sha'],get(f'/contents/{path}?ref={head}')['sha']).matched
+          run=get('/actions/runs/45744247915')
+          job=get('/actions/jobs/139656342576')
+          assert run['head_sha']==head and run['run_attempt']==1 and run['conclusion']=='success'
+          assert job['conclusion']=='success'
+          test='test_v35_native_ptc_real_tk_flow.RealTkPTCFlow.test_real_export_buttons_follow_brush_and_history_transitions'
+          log=github_job_log(job['id'],token=token)
+          receipt=parse_test_receipts(log,[test],head=head,run_id=run['id'],attempt=1,job_id=job['id'])
+          step=next(s for s in job['steps'] if s['name']=='Full Python suite on native Windows (with brush CPU dependencies)')
+          binding=bind_step_log(log,receipt,job,step['number'])
+          assert receipt.tests[0].status=='PASS' and len(receipt.tests[0].lines)==2
+          assert binding['status']=='BOUND',binding
+          assert get('/actions/runs/45744247915')['run_attempt']==1
+          assert get('/actions/jobs/139656342576')==job
+          assert get('/branches/main')['commit']['sha']==main
+          print('R15B_TK_DOCSTRING_RECEIPT_PASS '+json.dumps({'number':195,'head':head,'main':main,
+              'run_id':run['id'],'job_id':job['id'],'attempt':1,'test':test,
+              'status':'PASS','lines':receipt.tests[0].lines,'binding':binding,'log_digest':receipt.digest,
+              'qualification':'ADVISORY_ONLY','merge_authorized':False},sort_keys=True,separators=(',',':')))
           PY

@@ -47,3 +47,9 @@ class StepLogTests(unittest.TestCase):
         j=deepcopy(self.job)
         j["run_attempt"]=2
         self.assertEqual(self.report(job=j)["reason"],"LOG_JOB_IDENTITY_MISMATCH")
+
+    def test_two_line_docstring_both_lines_bound_to_step(self):
+        log=self.log.replace(" ... ok\n","\n2026-11-25T03:54:46.5000000Z Actual Tk transition. ... ok\n")
+        self.assertEqual(self.report(log)["status"],"BOUND")
+        self.assertEqual(self.report(log.replace("03:54:46.5000000","03:56:46.5000000"))["status"],"UNKNOWN")
+        self.assertEqual(self.report(log.replace("03:54:46.5000000","03:54:46.1000000"))["status"],"UNKNOWN")

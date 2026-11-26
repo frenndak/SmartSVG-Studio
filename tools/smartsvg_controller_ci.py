@@ -116,8 +116,11 @@ def inspect_ci(plan, manifest, get, logs=(), *, log_get=None):
                 if log_get is not None:
                     report["step_binding"]=bind_step_log(log,receipt,latest_job,
                                                          step.step_number)
-                report["reason"]=("GITHUB_LOG_ONLY_STEP_AND_CHECKOUT_NOT_QUALIFIED"
-                                  if log_get is not None else "IMPORTED_LOG_ONLY_NOT_AUTHENTICATED")
+                report["reason"]=(
+                    "GITHUB_LOG_STEP_AND_CHECKOUT_BOUND_ADVISORY"
+                    if report.get("step_binding",{}).get("status")=="BOUND"
+                    else "GITHUB_LOG_ONLY_STEP_AND_CHECKOUT_NOT_QUALIFIED"
+                    if log_get is not None else "IMPORTED_LOG_ONLY_NOT_AUTHENTICATED")
             except Exception as exc:
                 report["status"]="UNKNOWN"
                 report["reason"]="CI_READ_OR_PARSE_UNAVAILABLE"
