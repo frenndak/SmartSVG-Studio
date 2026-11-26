@@ -108,3 +108,44 @@ class ObservationTests(unittest.TestCase):
         row = observe(get)["candidates"][0]
         self.assertEqual(row["branch"]["status"], "UNAVAILABLE")
         self.assertEqual(row["branch"]["error"], "PermissionError")
+
+
+class ReadRetryTests(unittest.TestCase):
+    def test_transient_get_retries_once(self):
+        from unittest.mock import patch, MagicMock
+        from http.client import RemoteDisconnected
+        from tools.smartsvg_controller_observation import github_get
+        response=MagicMock()
+        response.__enter__.return_value.read.return_value=b'{"ok":true}'
+        with patch("tools.smartsvg_controller_observation.build_opener") as opener, patch("tools.smartsvg_controller_observation.time.sleep") as sleep:
+            opener.return_value.open.side_effect=[RemoteDisconnected("temporary"),response]
+            self.assertEqual(github_get("/branches/main"),{"ok":True})
+            self.assertEqual(opener.return_value.open.call_count,2)
+            sleep.assert_called_once_with(0.25)
+
+    def test_permanent_transport_error_bounded(self):
+        from unittest.mock import patch
+        from tools.smartsvg_controller_observation import github_get
+        with patch("tools.smartsvg_controller_observation.build_opener") as opener, patch("tools.smartsvg_controller_observation.time.sleep"):
+            opener.return_value.open.side_effect=TimeoutError()
+            with self.assertRaises(TimeoutError):
+                github_get("/branches/main")
+            self.assertEqual(opener.return_value.open.call_count,2)
+
+    def test_no_retry_permission_rate_limit_or_invalid_json(self):
+        from unittest.mock import patch, MagicMock
+        from urllib.error import HTTPError
+        from tools.smartsvg_controller_observation import github_get
+        for code in (403,404,429):
+            with patch("tools.smartsvg_controller_observation.build_opener") as opener:
+                opener.return_value.open.side_effect=HTTPError("https://example.invalid",code,"denied",{},None)
+                with self.assertRaises(HTTPError):
+                    github_get("/branches/main")
+                self.assertEqual(opener.return_value.open.call_count,1)
+        response=MagicMock()
+        response.__enter__.return_value.read.return_value=b'not-json'
+        with patch("tools.smartsvg_controller_observation.build_opener") as opener:
+            opener.return_value.open.return_value=response
+            with self.assertRaises(ValueError):
+                github_get("/branches/main")
+            self.assertEqual(opener.return_value.open.call_count,1)

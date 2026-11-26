@@ -55,6 +55,8 @@ def recover(read, get):
                     report["successor"] = observe_successor(get, subject, result)
         if read() != (ref, raw):
             report.update(action="JOURNAL_DRIFT", observation=None, successor=None)
-    except Exception:
-        report.update(action="INSPECT_JOURNAL_OR_READBACK", observation=None, successor=None)
+    except Exception as exc:
+        # Type only: never expose a token, URL or server response body.
+        report.update(action="INSPECT_JOURNAL_OR_READBACK", observation=None, successor=None,
+                      error=type(exc).__name__)
     return report

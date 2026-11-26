@@ -5,6 +5,8 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "tools/smartsvg_controller_live_reconcile.py"
+      - "tools/smartsvg_controller_observation.py"
+      - "tests/test_r15_controller_observation.py"
       - "tools/smartsvg_controller_proof.py"
       - "tools/smartsvg_controller_step_log.py"
       - "tools/smartsvg_controller_ci.py"
@@ -104,7 +106,8 @@ jobs:
           record = transition(prepared, 'DISPATCH_UNKNOWN', 'f'*64)
           result = recover(lambda:(merged,encode(record)),get)
           assert not result['merge_authorized'] and not result['retry_authorized']
-          assert result['observation']['merge_sha'] == merged
+          print('RECOVERY_LIVE_REPLAY_DIAGNOSTIC',result['action'], (result.get('observation') or {}).get('state'), (result.get('observation') or {}).get('reason'),result.get('error'))
+          assert (result.get('observation') or {}).get('merge_sha') == merged
           assert result['action'] in ('OBSERVE_COMPLETED_INTEGRATION','REQUALIFY_CURRENT_MAIN')
           print('RECOVERY_LIVE_REPLAY_PASS',result['action'])
           PY
