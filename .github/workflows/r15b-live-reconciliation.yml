@@ -6,6 +6,10 @@ on:
     paths:
       - "tools/smartsvg_controller_live_reconcile.py"
       - "tests/test_r15_controller_live_reconcile.py"
+      - "tools/smartsvg_controller_cas.py"
+      - "tools/smartsvg_controller_git_journal.py"
+      - "tests/test_r15_controller_cas.py"
+      - "tests/test_r15_controller_git_journal.py"
       - ".github/workflows/r15b-live-reconciliation.yml"
 
 permissions:
@@ -47,4 +51,24 @@ jobs:
           # turn that into an artificial gate for the product.
           if result["state"] not in ("MERGED_G0_PASS","MAIN_DRIFT") or result["merge_sha"]!="f00f665d075259e521b4067d700d55b2a9b892ee":
               raise SystemExit(1)
+          PY
+
+      - name: Verify pinned journal adapter and live history
+        env:
+          SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_r15_controller_cas.py'
+          python -m unittest discover -s tests -p 'test_r15_controller_git_journal.py'
+          python - <<'PY'
+          import os
+          from tools.smartsvg_controller_observation import github_get
+          from tools.smartsvg_controller_git_journal import JournalTransport
+          from tools.smartsvg_controller_cas import decode
+          ref, raw = JournalTransport(lambda p: github_get(p, token=os.environ["SMARTSVG_GITHUB_READ_TOKEN"])).read()
+          assert ref == "f5df4c1b101fb87c8681b4e55f1339edbc9ec124"
+          record = decode(raw)
+          assert record.generation == 2 and record.state == "CANCELLED_PREPARED"
+          print("PINNED_JOURNAL_READBACK_PASS", ref)
           PY
