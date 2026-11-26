@@ -3,7 +3,7 @@ from hashlib import sha1
 import unittest
 from tools.smartsvg_controller_cas import Record, encode, decode, prepare, transition
 from tools.smartsvg_controller_git_journal import (
-    JournalTransport, BRANCH, GENESIS, GENESIS_PARENT, REPO)
+    JournalTransport, PilotJournalTransport, BRANCH, GENESIS, GENESIS_PARENT, REPO)
 
 A,B,C,D = (x*40 for x in "abcd")
 E = "e"*64
@@ -101,3 +101,39 @@ class GitJournalTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.transport.advance(GENESIS,A)
         self.assertEqual(self.calls,[])
+
+    def test_single_pilot_rejects_new_intent_after_qualified_readback(self):
+        pilot = PilotJournalTransport(self.get, self.tree, self.commit, self.advance)
+        dispatched = transition(self.prepared, "DISPATCH_UNKNOWN", E)
+        done = transition(dispatched, "QUALIFIED_READBACK", E)
+        again = prepare(done, number=197, head=A, main=B, tree=C, policy=D, evidence=E)
+        # Generic commissioning history remains reusable.
+        JournalTransport.validate_edge(done, again)
+        with self.assertRaisesRegex(ValueError, "pilot already qualified"):
+            pilot.validate_edge(done, again)
+        cancelled = transition(self.prepared, "CANCELLED_PREPARED", E)
+        pilot.validate_edge(cancelled, prepare(cancelled, number=197, head=A,
+                                              main=B, tree=C, policy=D, evidence=E))
+
+    def test_pilot_read_rejects_history_continuing_after_qualification(self):
+        pilot = PilotJournalTransport(self.get, self.tree, self.commit, self.advance)
+        def get(path):
+            if path == "/git/ref/heads/" + pilot.branch:
+                return {"ref": "refs/heads/" + pilot.branch,
+                        "object": {"type": "commit", "sha": self.ref}}
+            return self.get(path)
+        pilot.get = get
+        self.add(pilot.genesis, pilot.genesis_parent, encode(self.initial))
+        prev = pilot.genesis
+        dispatched = transition(self.prepared, "DISPATCH_UNKNOWN", E)
+        done = transition(dispatched, "QUALIFIED_READBACK", E)
+        again = prepare(done, number=197, head=A, main=B, tree=C, policy=D, evidence=E)
+        for i, record in enumerate((self.prepared, dispatched, done, again), 1):
+            sha = f"{i:040x}"
+            self.add(sha, prev, encode(record))
+            prev = sha
+            self.ref = sha
+            if record == done:
+                self.assertEqual(decode(pilot.read()[1]), done)
+        with self.assertRaisesRegex(ValueError, "pilot already qualified"):
+            pilot.read()

@@ -58,3 +58,21 @@ class PilotTests(unittest.TestCase):
         digest = result.pop("evidence_digest")
         canonical = json.dumps(result, sort_keys=True, separators=(",", ":"), allow_nan=False)
         self.assertEqual(digest, sha256(canonical.encode()).hexdigest())
+
+    def test_qualified_pilot_stops_before_candidate_reads(self):
+        prepared=prepare(Record(),number=1,head=H,main=M,tree=T,policy=P,evidence="f"*64)
+        done=transition(transition(prepared,"DISPATCH_UNKNOWN","e"*64),
+                        "QUALIFIED_READBACK","d"*64)
+        class J:
+            def read(self):
+                return G,encode(done)
+        route={"main":M,"policy_blob":P,"run_id":1,"attempt":1,"controller_head":M,
+               "assignments":{"B":{"number":2,"head":H,"action":"REVIEW"}}}
+        result=packet(lambda p:self.fail("completed pilot must not read candidate"),route,journal=J())
+        self.assertEqual(result["status"],"PILOT_COMPLETE")
+        self.assertEqual(result["journal_state"],"QUALIFIED_READBACK")
+        self.assertFalse(result["merge_authorized"])
+        self.assertFalse(result["retry_authorized"])
+        digest=result.pop("evidence_digest")
+        self.assertEqual(digest,sha256(json.dumps(result,sort_keys=True,separators=(",",":"),
+                                                   allow_nan=False).encode()).hexdigest())

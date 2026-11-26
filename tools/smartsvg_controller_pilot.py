@@ -66,6 +66,9 @@ def _observe(get, route, journal, result):
         record=decode(raw)
         result.update(journal_ref=ref,journal_generation=record.generation,
                       journal_state=record.state)
+        if record.state == "QUALIFIED_READBACK":
+            result["status"]="PILOT_COMPLETE"
+            return
         if record.state not in TERMINAL | {"IDLE"}:
             result["status"]="RECOVERY_REQUIRED"
             return
