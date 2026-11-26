@@ -42,3 +42,12 @@ class RoadmapPriorityTests(unittest.TestCase):
             q=(Work(192,"B","REVIEW",roadmap_rank=RANKS[a]),
                Work(194,"B","REVIEW",roadmap_rank=RANKS[b]))
             self.assertEqual(dispatch("A",q,2),(192,"REVIEW"))
+
+
+    def test_quarantined_candidate_cannot_poison_other_roadmap_ranks(self):
+        snapshot=self.snapshot()
+        snapshot["candidates"][0]={"pr":{"number":192,"head":None},
+                                  "collection_error":"TypeError"}
+        ranks,report=roadmap_advice(snapshot,lambda p:{"sha":PIN})
+        self.assertEqual(ranks,{194:3,195:3})
+        self.assertEqual(report["status"],"REVIEWED_ORDER")

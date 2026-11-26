@@ -299,3 +299,19 @@ class CandidateIsolationTests(unittest.TestCase):
         plan=build_plan(snapshot,tuple(Scope(**s) for s in scopes["scopes"]))
         self.assertEqual(plan.unknown,(195,))
         self.assertEqual(plan.code_wip,2)
+
+
+    def test_nested_malformed_base_repo_never_escapes_manifest(self):
+        from tools.smartsvg_controller_commission import manifests
+        from tools.smartsvg_controller_orchestration import Scope, build_plan
+        def get(path):
+            if path=="/pulls/195":
+                return dict(self.prs[0],base={"ref":"main","repo":"malformed"})
+            return self.get(path)
+        snapshot=observe(get)
+        self.assertEqual(snapshot["candidates"][0]["collection_error"],"ObservationError")
+        scopes,_=manifests(snapshot)
+        plan=build_plan(snapshot,tuple(Scope(**s) for s in scopes["scopes"]))
+        self.assertEqual(plan.unknown,(195,))
+        self.assertEqual(plan.code_wip,2)
+        self.assertEqual(tuple(p.number for p in plan.proposals),(196,))

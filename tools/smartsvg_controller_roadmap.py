@@ -40,6 +40,8 @@ def roadmap_advice(snapshot,get):
         result.update(status="REVIEWED_ORDER",source_blob=PIN)
         ranks={}
         for entry in snapshot["candidates"]:
+            if "collection_error" in entry:
+                continue
             pr=entry["pr"]
             lot=explicit_lot(pr)
             n=pr.get("number")

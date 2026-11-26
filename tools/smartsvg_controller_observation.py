@@ -168,6 +168,12 @@ def observe(get=github_get):
                         or ("base" in p and not isinstance(p["base"],dict))
                         or ("user" in p and not isinstance(p["user"],dict))):
                     raise ObservationError("invalid candidate repository detail")
+            # Nested base repository metadata is consumed by manifests and
+            # must be checked here, not after leaving the isolation boundary.
+            if ("base" in p and "repo" in p["base"]
+                    and p["base"]["repo"] is not None
+                    and not isinstance(p["base"]["repo"],dict)):
+                raise ObservationError("invalid candidate base repository")
         except candidate_errors as exc:
             candidates.append({"pr":initial_by_number[number],
                                "branch":{"status":"UNAVAILABLE","sha":None},
