@@ -10,8 +10,8 @@ PATH = "docs/roadmap-v3.5/MASTER_PRIORISE.md"
 PIN = "ec4f2e1dc5102840697c466b86fdc2ce99726f4b"
 # Coarse first-entry order only. Transverse W00/W13/W15 and mixed lots
 # require the affected consumer's scope; don't invent a global priority.
-RANKS = {"W01":1,"W02":2,"W03":3,"W04":3,"W05":4,"W06":4,
-         "W07":5,"W08":5,"W10":7,"W11":7,"W12":8,"W14":9,"W09":10,"W16":11}
+RANKS = {"W01":1,"W02":1,"W03":3,"W04":3,"W05":4,"W06":4,
+         "W07":5,"W08":5,"W10":7,"W11":7,"W12":8,"W14":9,"W09":10,"W16":10}
 LOT = re.compile(r"(?<![A-Za-z0-9])W(?:0[0-9]|1[0-6])(?![A-Za-z0-9])", re.I)
 
 

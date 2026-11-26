@@ -32,3 +32,13 @@ class RoadmapPriorityTests(unittest.TestCase):
         for title,ref in (("W04","b/w05"),("W04 W05","b/w04"),
                           ("W13","a/w13"),("W04","a/export"),("W040","b/w04")):
             self.assertIsNone(explicit_lot({"title":title,"head":{"ref":ref}}))
+
+    def test_first_entry_ties_match_reviewed_master(self):
+        from tools.smartsvg_controller_roadmap import RANKS
+        from tools.smartsvg_controller_evidence import Work, dispatch
+        self.assertEqual(RANKS["W01"],RANKS["W02"])
+        self.assertEqual(RANKS["W09"],RANKS["W16"])
+        for a,b in (("W02","W01"),("W16","W09")):
+            q=(Work(192,"B","REVIEW",roadmap_rank=RANKS[a]),
+               Work(194,"B","REVIEW",roadmap_rank=RANKS[b]))
+            self.assertEqual(dispatch("A",q,2),(192,"REVIEW"))
