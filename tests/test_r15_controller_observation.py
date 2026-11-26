@@ -269,3 +269,33 @@ class CandidateIsolationTests(unittest.TestCase):
             return self.get(path)
         with self.assertRaises(QueueChanged):
             observe(get)
+
+
+    def test_malformed_step_payload_does_not_escape_candidate_isolation(self):
+        from tools.smartsvg_controller_evidence import SPECS
+        workflow, job_name, _ = SPECS["g0"]
+        def get(path):
+            if path.startswith("/actions/runs?head_sha="+H):
+                return {"total_count":1,"workflow_runs":[{"id":20,
+                    "head_sha":H,"event":"pull_request","run_attempt":1,
+                    "path":workflow,"status":"completed","conclusion":"success"}]}
+            if path.startswith("/actions/runs/20/attempts/1/jobs?"):
+                return {"total_count":1,"jobs":[{"id":21,"run_id":20,
+                    "head_sha":H,"run_attempt":1,"name":job_name,
+                    "status":"completed","conclusion":"success","steps":None}]}
+            return self.get(path)
+        snapshot=observe(get)
+        self.assertEqual(snapshot["candidates"][0]["collection_error"],"TypeError")
+        self.assertNotIn("collection_error",snapshot["candidates"][1])
+
+    def test_manifest_ignores_quarantined_incomplete_projection(self):
+        from tools.smartsvg_controller_commission import manifests
+        from tools.smartsvg_controller_orchestration import Scope, build_plan
+        self.bad="/pulls/195"
+        snapshot=observe(self.get)
+        snapshot["candidates"][0]["pr"]=dict(self.prs[0],user=None)
+        scopes,_=manifests(snapshot)
+        self.assertEqual([s["number"] for s in scopes["scopes"]],[196])
+        plan=build_plan(snapshot,tuple(Scope(**s) for s in scopes["scopes"]))
+        self.assertEqual(plan.unknown,(195,))
+        self.assertEqual(plan.code_wip,2)

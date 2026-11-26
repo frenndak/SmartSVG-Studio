@@ -31,6 +31,10 @@ def manifests(snapshot):
     scopes=[]
     probes=[]
     for row in snapshot["candidates"]:
+        if "collection_error" in row:
+            # build_plan still counts the original queue identity as unknown.
+            # Do not interpret a partially readable PR's ownership metadata.
+            continue
         p=row["pr"]
         head=p["head"]
         if ((head.get("repo") or {}).get("full_name")!=REPO

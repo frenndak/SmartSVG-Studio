@@ -159,8 +159,15 @@ def observe(get=github_get):
                     or not isinstance(p.get("state"),str)):
                 raise ObservationError("invalid candidate detail")
             detail_head = _sha(p["head"]["sha"])
-            if not isinstance(p["head"].get("repo"),dict):
-                raise ObservationError("invalid candidate repository detail")
+            if (not isinstance(p["head"].get("repo"),dict)
+                    or not isinstance(p.get("base"),dict)
+                    or not isinstance(p.get("user"),dict)):
+                # Some read-only test projections intentionally omit optional
+                # base/user; a present malformed value is never accepted.
+                if (not isinstance(p["head"].get("repo"),dict)
+                        or ("base" in p and not isinstance(p["base"],dict))
+                        or ("user" in p and not isinstance(p["user"],dict))):
+                    raise ObservationError("invalid candidate repository detail")
         except candidate_errors as exc:
             candidates.append({"pr":initial_by_number[number],
                                "branch":{"status":"UNAVAILABLE","sha":None},
@@ -176,6 +183,10 @@ def observe(get=github_get):
             continue
         try:
             runs = runs_for(head, "pull_request")
+            # Exercise the same normalizer the planner will consume here.
+            # Malformed step payloads must not escape candidate isolation.
+            from .smartsvg_controller_evidence import step_receipts
+            step_receipts(head, runs)
             reviews = pages(get, f"/pulls/{number}/reviews")
             comments = pages(get, f"/issues/{number}/comments")
         except candidate_errors as exc:
