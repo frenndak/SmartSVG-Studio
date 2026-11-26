@@ -12,6 +12,7 @@ from .smartsvg_controller_orchestration import Scope, build_plan, reserve_next, 
 from .smartsvg_controller_storage import Evidence, OperationalJournal
 from .smartsvg_controller_routing import route_review_hints
 from .smartsvg_controller_scope import inspect_scope
+from .smartsvg_controller_ci import inspect_ci
 
 MAX_INPUT = 32 * 1024 * 1024
 
@@ -88,7 +89,8 @@ def inspect_plan_scopes(plan, get):
             reports)
 
 
-def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None):
+def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
+             ci_manifest=None, ci_logs=()):
     """Use actual orchestration and operational journal, but only in memory.
 
     No GitHub writes, no scheduler calls, no persistent local writes.
@@ -112,8 +114,21 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None)
         replace(p, reasons=(*p.reasons, "BASE_CONTEXT_REQUIRES_REVIEW"))
         if p.number in old_bases and "BASE_CONTEXT_REQUIRES_REVIEW" not in p.reasons
         else p for p in plan.proposals))
+    ci_reports = []
+    if ci_manifest is not None:
+        if scope_get is None:
+            raise ValueError("CI manifest requires live metadata source")
+        ci_reports = inspect_ci(plan, ci_manifest, scope_get, ci_logs)
+        now = explicit_now or datetime.now(timezone.utc)
+        _fresh(plan.finished, now)
+    elif ci_logs:
+        raise ValueError("logs require CI manifest")
     journal = OperationalJournal(":memory:")
     try:
+        for report in ci_reports:
+            report["receipt_digest"] = journal.store_evidence(Evidence(
+                report["number"], report["head"], plan.main, plan.policy_blob,
+                "LOG_ONLY", "ci-inspection", dict(report)))
         for report in scope_reports:
             if report["qualification"] == "PATHS_ONLY":
                 report["receipt_digest"] = journal.store_evidence(Evidence(
@@ -152,6 +167,8 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None)
                 "scope_verification": ("OPERATOR_HINT_ONLY" if scope_get is None else
                     "PATHS_ONLY_PARTIAL" if plan.unknown else "PATHS_ONLY"),
                 "scope_reports": scope_reports,
+                "ci_reports": ci_reports,
+                "ci_verification": "ADVISORY_ONLY" if ci_manifest is not None else "NOT_REQUESTED",
                 "review_verification": "NOT_QUALIFIED"}
     finally:
         journal.close()
@@ -164,6 +181,8 @@ def main(argv=None):
     source.add_argument("--live", action="store_true", help="read GitHub REST only")
     parser.add_argument("--scopes", required=True, help="explicit routing manifest JSON")
     parser.add_argument("--review-evidence", help="optional external review packets; routing hints only")
+    parser.add_argument("--ci-manifest", help="explicit workflow pins and targeted test inventory; live only")
+    parser.add_argument("--ci-logs", help="optional imported job log packets, not authenticated")
     args = parser.parse_args(argv)
     try:
         manifest = read_json(args.scopes)
@@ -176,7 +195,10 @@ def main(argv=None):
         else:
             snapshot = read_json(args.snapshot)
         packets = read_json(args.review_evidence) if args.review_evidence else ()
-        report = simulate(snapshot, manifest, review_packets=packets, scope_get=get)
+        ci = read_json(args.ci_manifest) if args.ci_manifest else None
+        logs = read_json(args.ci_logs) if args.ci_logs else ()
+        report = simulate(snapshot, manifest, review_packets=packets, scope_get=get,
+                          ci_manifest=ci, ci_logs=logs)
         print(json.dumps(report, indent=2, sort_keys=True))
         return 0
     except Exception as exc:
