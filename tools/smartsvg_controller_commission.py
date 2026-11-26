@@ -3,6 +3,7 @@
 The current workflow pin and probe case are explicitly selected for commissioning.
 Branch prefixes are routing hints only, never writer authorization.
 """
+import argparse
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,7 @@ from .smartsvg_controller_cli import simulate
 from .smartsvg_controller_observation import github_get, observe, ObservationError
 from .smartsvg_controller_log_transport import github_job_log
 from .smartsvg_controller_storage import OperationalJournal
+from .smartsvg_controller_relay import make_checkpoint, read_checkpoint, compare_checkpoint, write_checkpoint
 
 REPO="frenndak/SmartSVG-Studio"
 PROBE_HEAD="fa292605d6edf7bc3bed454fac252694240b2a29"
@@ -92,12 +94,25 @@ def commission(get,log_get,journal_path):
             "agent_work_executed":False,"persistent_across_runners":False}
 
 
-def main():
+def main(argv=None):
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--state-in",type=Path)
+    parser.add_argument("--state-out",type=Path)
+    parser.add_argument("--require-current-relay",action="store_true")
+    args=parser.parse_args(argv)
     token=os.environ.get("SMARTSVG_GITHUB_READ_TOKEN")
     try:
         with tempfile.TemporaryDirectory(prefix="r15-commission-") as tmp:
             report=commission(lambda path:github_get(path,token=token),
                 lambda job:github_job_log(job,token=token),Path(tmp)/"rehearsal.sqlite")
+        if args.state_in or args.state_out or args.require_current_relay:
+            run_id,attempt=int(os.environ["GITHUB_RUN_ID"]),int(os.environ["GITHUB_RUN_ATTEMPT"])
+            current=make_checkpoint(report,run_id,attempt)
+            prior=read_checkpoint(args.state_in) if args.state_in else None
+            report["relay"]=compare_checkpoint(prior,current,
+                                               require_current=args.require_current_relay)
+            if args.state_out:
+                write_checkpoint(args.state_out,current)
         print(json.dumps(report,sort_keys=True,indent=2))
         # A green commissioning check means an actual targeted log was parsed
         # and evidence reopened, not merely that the CLI returned JSON.
