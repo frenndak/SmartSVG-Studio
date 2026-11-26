@@ -1,0 +1,67 @@
+name: SmartSVG R15-B - Operational pilot commissioning
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "tools/smartsvg_controller_pilot.py"
+      - "tools/smartsvg_controller_tree.py"
+      - "tests/test_r15_controller_tree.py"
+      - "tools/smartsvg_controller_git_journal.py"
+      - "tools/smartsvg_controller_runtime.py"
+      - "tests/test_r15_controller_pilot.py"
+      - ".github/workflows/r15b-operational-pilot.yml"
+      - "docs/AUTONOMOUS_INTEGRATION_POLICY_V35.md"
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  issues: read
+jobs:
+  qualify-pilot:
+    if: ${{ github.repository == 'frenndak/SmartSVG-Studio' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'owner/r15b-operational-pilot-20261126' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Verify live pilot genesis and reduced candidate advice
+        env:
+          SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          python -m unittest discover -s tests -p 'test_r15_controller_pilot.py'
+          python -m unittest discover -s tests -p 'test_r15_controller_tree.py'
+          python - <<'PY'
+          import json, os, tempfile
+          from pathlib import Path
+          from tools.smartsvg_controller_observation import github_get
+          from tools.smartsvg_controller_git_journal import PilotJournalTransport
+          from tools.smartsvg_controller_cas import Record, decode
+          from tools.smartsvg_controller_runtime import route
+          from tools.smartsvg_controller_pilot import packet
+          get=lambda p:github_get(p,token=os.environ['SMARTSVG_GITHUB_READ_TOKEN'])
+          journal=PilotJournalTransport(get)
+          ref,raw=journal.read()
+          assert ref=='3ae1078e65c7fa8052042fe65852c50720ae93e0' and decode(raw)==Record()
+          print('R15B_PILOT_GENESIS_PASS',ref)
+          with tempfile.TemporaryDirectory() as tmp:
+              advice=route(get,Path(tmp)/'routing.sqlite',run_id=int(os.environ['GITHUB_RUN_ID']),
+                  attempt=int(os.environ['GITHUB_RUN_ATTEMPT']),controller_head=os.environ['EXPECTED_HEAD'])
+          result=packet(get,advice,journal=journal)
+          assert not result['merge_authorized'] and not result['retry_authorized']
+          print('R15B_PILOT_COMMISSIONING '+json.dumps(result,sort_keys=True,separators=(',',':')))
+          assert result['status'] in ('OBSERVED','NO_CANDIDATE'),result['status']
+          assert journal.read()==(ref,raw)
+          # Current exact candidate #195 has a stale preview. Its two sides
+          # were disjoint additive/regular edits at commissioning.
+          if result.get('number')==195 and result.get('head')=='7e557c8c450f0083d4362a703ba5f74adc43d243' and result.get('main')=='492e44288bfbc0d28defd7ec89cc9367447a2711':
+              assert result['expected_tree'], 'disjoint tree prediction missing'
+              print('R15B_DISJOINT_TREE_PASS',result['expected_tree'])
+          PY

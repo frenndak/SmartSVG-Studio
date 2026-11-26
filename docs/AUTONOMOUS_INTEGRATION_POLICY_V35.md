@@ -89,3 +89,54 @@ Cette section remplace seulement les clauses R1/R12 incompatibles concernant le 
 B respecte une **revue adverse sur un cycle ultérieur** sur le diff complet et HEAD exact; nouveau commit => nouvelle revue, aucun APPROVED fictif. Un agent ne peut être seul réviseur de son propre correctif; l'utilisation de la même identité GitHub par A/B ne satisfait pas une approbation GitHub externe obligatoire. Avant un squash, B relit la branche, main, l'auteur, l'ensemble des fichiers, reviews bloquantes, mergeability, G0/prévol/CPU/Windows pertinents completed/success au SHA exact, aucun test pertinent SKIP, aucune P0/P1. `expected_head_sha` obligatoire. Une fusion maximum dans la fenêtre entre deux débuts de cycle B. Tant que le G0 push exact SHA post-merge est pending/failed/unavailable, toute autre fusion est bloquée. Aucun bypass GitHub.
 
 Le but est de livrer des capacités utiles: qualifier/intégrer les PR bloquées, résoudre leur problème reproductible, puis avancer sur un lot indépendant. Les audits génériques répétés n'ont pas priorité sur une action concrète. Aucune modification de docs, AGENTS, READY, .github, dépendances, packaging, contrôles d'admission/permissions ou publication depuis les tâches. La tâche historique de conception reste arrêtée.
+
+
+## 7. Pilote opérationnel R15-B — journal séparé (décision propriétaire du 26/11/2026)
+
+Cette évolution ne transfère **aucun** droit de fusion : R13, ses quatre
+marqueurs READY, sa revue distincte et ses contrôles restent intégralement
+effectifs. Le contrôleur et ses tests (tools/smartsvg_controller_*,
+tests/test_r15_controller_*, fixture R15), ainsi que les branches de journal,
+sont des composants de gouvernance, exclus des PR code ordinaires.
+
+Après fusion de cette PR de gouvernance, G0 push exact main PASS et
+relecture du prompt B explicitement raccordé, B seul peut utiliser la
+branche isolée `r15b/integration-journal-v1` (genesis 3ae1078e65c7fa8052042fe65852c50720ae93e0,
+parent 492e44288bfbc0d28defd7ec89cc9367447a2711) pour **un premier pilote opérationnel**. A ne peut jamais
+écrire ce journal ni fusionner. Le journal historique owner/r15b-journal-shadow-20261126
+reste expérimental. Aucun force push, suppression, reset ou écriture
+sur main. L'état public contient uniquement les SHA/numéros/digests
+techniques et états bornés, jamais de jetons, identifiants scheduler,
+logs bruts ou données privées. Le journal n'est pas une preuve de
+permission, ni un verrou protégé par GitHub; les droits réels et CAS
+non forcé restent déterminants.
+
+Le paquet R15B_PILOT_V1 est consultatif : lire la provenance du run,
+job, SHA main/policy/HEAD, âge, journal et preuves immuables; confirmer
+indépendamment tous les contrôles R13, y compris contre-expertise et
+scheduler. Un paquet absent/périmé ou une prévision de tree inconnue
+n'interdit pas le travail R13. Avant une première tentative pilote,
+B relit le journal et toutes les conditions R13; si exact tree prévu,
+journal IDLE/terminal, historique valide et contexte frais, enregistrer
+PREPARED, puis DISPATCH_UNKNOWN **avant** l'appel squash déjà autorisé
+par R13 (une seule tentative avec expected_head_sha). Chaque transition
+est un commit à parent unique, state.json seul, canonique, génération
+monotone, CAS expected_sha, force=false, relecture exacte.
+Si aucune tentative n'a été envoyée et PREPARED est certain, annuler
+proprement via CANCELLED_PREPARED; ne pas inventer une autorisation.
+Si une tentative peut avoir été envoyée, aucune répétition automatique :
+relire PR/parent/tree/main/G0 et utiliser la récupération bornée.
+Un résultat ambigu ou nonterminal suspend uniquement les fusions, pas
+les corrections, tests, revues ou autres lots permis. Le retour R13
+ordinaire est permis avant tout intent pilote si aucun intent non
+résolu n'existe; jamais pour contourner une tentative incertaine.
+Une clôture QUALIFIED_READBACK exige fusion observée, parent/tree exact,
+G0 exact et politique/workflow G0 inchangés; un main successeur exige
+requalification et traitement distinct, pas de PASS inventé.
+
+Le pilote n'est pas un intégrateur autonome définitif; il qualifie la
+première vraie exécution B et sa reprise. Il n'ajoute ni tâche payante
+ni autorité à A. Les limites de l'historique (256 commits), la preuve
+de non-réécriture et les erreurs terminales nécessitent un traitement
+owner distinct avant généralisation. Ne pas exiger un deuxième clic
+humain pour une fusion R13 admissible en dehors d'un intent incertain.

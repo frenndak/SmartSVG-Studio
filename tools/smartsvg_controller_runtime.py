@@ -59,6 +59,14 @@ def main():
                          controller_head=os.environ["EXPECTED_HEAD"],
                          require_main=os.environ.get("R15_REQUIRE_MAIN")=="1")
         print(PREFIX+json.dumps(result,sort_keys=True,separators=(",",":"),allow_nan=False))
+        if os.environ.get("R15_REQUIRE_MAIN")=="1":
+            from .smartsvg_controller_pilot import packet
+            try:
+                advice=packet(lambda path:github_get(path,token=token),result)
+                print("R15B_PILOT_V1 "+json.dumps(advice,sort_keys=True,separators=(",",":"),allow_nan=False))
+            except Exception:
+                # Optional advice must not invalidate a successful A route.
+                print("R15B_PILOT_UNAVAILABLE")
         return 0
     except Exception as exc:
         print(json.dumps({"mode":"R15_ROUTING","error":type(exc).__name__,
