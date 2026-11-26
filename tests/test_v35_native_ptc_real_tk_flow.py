@@ -105,6 +105,81 @@ class RealTkPTCFlow(TestCase):
             self.root.update()
             publish.assert_not_called()
 
+    def test_real_export_buttons_follow_brush_and_history_transitions(self):
+        """Both actual Ttk export controls follow non-render write transitions."""
+        from concurrent.futures import Future
+        from native_atelier_tk_v34 import NativeAtelierPanel
+
+        class BrushFixture:
+            # Isolate brush engine only; actual open/close and widget state.
+            def __init__(self, *args, **kwargs):
+                self._identity = None
+                self.has_draft = False
+
+            def load(self, **kwargs):
+                self._identity = kwargs
+
+            def shutdown(self):
+                pass
+
+        sid = self.panel.selection.get()
+        subject = SimpleNamespace(
+            subject_id=sid, proof_status="verified",
+            preview=SimpleNamespace(status="READY_PNG", png=b"x" * 33,
+                                    width_px=10, height_px=10))
+        panel = NativeAtelierPanel.__new__(NativeAtelierPanel)
+        panel.tk, panel.ttk, panel.parent = tk, ttk, self.root
+        panel.snapshot = self.panel.snapshot
+        panel.subjects = {sid: subject}
+        panel.selection = self.panel.selection
+        panel._project_path = self.panel._project_path
+        panel._brush_key = panel._brush_dialog = panel._brush_panel = None
+        panel._brush_class = BrushFixture
+        panel._closed = False
+        panel._history_confirming = panel._history_needs_review = False
+        panel._history_future = None
+        panel._history_generation = 0
+        panel._history_status = {"project_sha256": panel.snapshot.sha256,
+                                 "undo_available": True, "undo_subject_id": sid}
+        panel._on_saved = lambda _receipt: None
+        panel.ptc_button = ttk.Button(self.root, state="disabled")
+        panel.basic_cut_button = ttk.Button(self.root, state="disabled")
+
+        def states():
+            return tuple(str(b.cget("state")) for b in
+                         (panel.ptc_button, panel.basic_cut_button))
+
+        panel._update_history_controls()
+        self.assertEqual(states(), ("normal", "normal"))
+        try:
+            self.assertTrue(panel.open_brush())
+            self.assertEqual(states(), ("disabled", "disabled"))
+            self.assertTrue(panel._request_close_brush())
+            self.assertEqual(states(), ("normal", "normal"))
+
+            observed = []
+            def cancel_history(*args):
+                observed.append(states())
+                return False
+
+            panel._confirm_history_fn = cancel_history
+            self.assertFalse(panel.undo_brush())
+            self.assertEqual(observed, [("disabled", "disabled")])
+            self.assertEqual(states(), ("normal", "normal"))
+
+            panel._history_future = Future()
+            panel._update_history_controls()
+            self.assertEqual(states(), ("disabled", "disabled"))
+            panel._history_future = None
+            panel._history_needs_review = True
+            panel._update_history_controls()
+            self.assertEqual(states(), ("disabled", "disabled"))
+            panel._history_needs_review = False
+            panel._update_history_controls()
+            self.assertEqual(states(), ("normal", "normal"))
+        finally:
+            panel._close_brush()
+
     def test_real_widgets_no_implicit_export_and_cancel(self):
         with patch.object(ptc, "publish_native_ptc_png") as publish:
             self.assertTrue(ptc.show_ptc_dialog(self.panel))

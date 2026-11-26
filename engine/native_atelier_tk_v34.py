@@ -340,6 +340,28 @@ class NativeAtelierPanel:
         except Exception:
             return False
 
+    def _update_export_controls(self):
+        """Synchronize visual export readiness with brush and history state.
+
+        Dialogs and publishers still independently verify consent and revision.
+        """
+        if getattr(self, '_closed', False):
+            return
+        buttons = [getattr(self, name, None)
+                   for name in ('ptc_button', 'basic_cut_button')]
+        if all(button is None for button in buttons):
+            return
+        selection = getattr(self, 'selection', None)
+        subject = getattr(self, 'subjects', {}).get(
+            selection.get() if selection is not None else None)
+        ready = (not self.busy and not self.has_open_brush
+                 and not self.history_requires_review and ptc_atelier_action_ready(
+                     getattr(self, 'snapshot', None), subject,
+                     getattr(self, '_project_path', None)))
+        for button in buttons:
+            if button is not None:
+                button.configure(state='normal' if ready else 'disabled')
+
     def _update_history_controls(self):
         if getattr(self, '_closed', False):
             return
@@ -359,6 +381,7 @@ class NativeAtelierPanel:
                              and request is not None
                              and getattr(self, '_brush_class', None) is not None
                              else 'disabled')
+        self._update_export_controls()
 
     def undo_brush(self):
         return self._change_history('undo')
@@ -582,10 +605,7 @@ class NativeAtelierPanel:
         self._update_navigation()
         self._update_history_controls()
         if self.history_requires_review:
-            for name in ('ptc_button', 'basic_cut_button'):
-                button = getattr(self, name, None)
-                if button is not None:
-                    button.configure(state='disabled')
+            self._update_export_controls()
             self.viewport.load(None)
             self.details.set('Révision à vérifier : réexaminez le projet (F5).')
             return
@@ -600,14 +620,7 @@ class NativeAtelierPanel:
         if button is not None:
             button.configure(state='normal' if not self.busy and request is not None
                              and self._brush_class is not None else 'disabled')
-        for name in ('ptc_button', 'basic_cut_button'):
-            export_button = getattr(self, name, None)
-            if export_button is not None:
-                export_button.configure(
-                    state='normal' if not self.busy and not self.has_open_brush
-                    and not self.history_requires_review and ptc_atelier_action_ready(
-                        self.snapshot, subject, getattr(self, '_project_path', None))
-                    else 'disabled')
+        self._update_export_controls()
         self.viewport.load(None)
         if subject is None:
             self.details.set('Aucun sujet enregistré dans ce projet.' if self.snapshot else '')
