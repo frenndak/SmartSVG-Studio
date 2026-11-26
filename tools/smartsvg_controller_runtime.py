@@ -31,7 +31,6 @@ def envelope(report,run_id,attempt,controller_head):
     from .smartsvg_controller_relay import SHA
     if not isinstance(controller_head,str) or SHA.fullmatch(controller_head) is None:
         raise ValueError("invalid controller identity")
-    # Additive advice outside the validated legacy assignment schema.
     from .smartsvg_controller_capacity import development_advice
     checkpoint["development_advice"] = development_advice(report)
     if "roadmap_advice" in report:
@@ -39,7 +38,8 @@ def envelope(report,run_id,attempt,controller_head):
     return dict(checkpoint,controller_head=controller_head,observed_at=report["observed_at"],
                 queue_complete=report["queue_complete"],code_wip=report["code_wip"],
                 unknown=list(report["unknown"]),qualification="ADVISORY_ONLY",
-                merge_authorized=False,agent_work_executed=False)
+                merge_authorized=False,agent_work_executed=False,
+                checkpoint_hints=report.get("checkpoint_reports", []))
 
 
 def route(get,journal_path,*,run_id,attempt,controller_head,require_main=False):
@@ -51,7 +51,7 @@ def route(get,journal_path,*,run_id,attempt,controller_head,require_main=False):
     from .smartsvg_controller_roadmap import roadmap_advice
     ranks, advice = roadmap_advice(snapshot,get)
     report=simulate(snapshot,scopes,scope_get=get,journal_path=journal_path,
-                    roadmap_ranks=ranks)
+                    durable_checkpoints=True,roadmap_ranks=ranks)
     report["roadmap_advice"] = advice
     if require_main and report["main"]!=controller_head:
         raise ObservationError("routing main drift")

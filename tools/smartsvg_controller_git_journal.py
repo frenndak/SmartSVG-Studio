@@ -42,6 +42,8 @@ class JournalTransport:
         self.create_commit = create_commit
         self.update_ref = update_ref
 
+    validate_edge = staticmethod(validate_edge)
+
     def tip(self):
         data = self.get("/git/ref/heads/" + self.branch)
         if data["ref"] != "refs/heads/" + self.branch or data["object"]["type"] != "commit":
@@ -84,7 +86,7 @@ class JournalTransport:
             if newest is None:
                 newest = raw
             if child is not None:
-                validate_edge(record, child)
+                self.validate_edge(record, child)
             if current == self.genesis:
                 if parent != self.genesis_parent or record != Record():
                     raise ValueError("invalid genesis")
@@ -98,7 +100,7 @@ class JournalTransport:
         tip, before = self.read()
         if parent != tip:
             raise ValueError("stale parent")
-        validate_edge(decode(before), decode(raw))
+        self.validate_edge(decode(before), decode(raw))
         tree = _ref(self.create_tree(repository_full_name=REPO,
                     tree_elements=[{"path": "state.json", "mode": "100644",
                                     "type": "blob", "content": raw.decode("ascii")}])["sha"])
@@ -114,7 +116,7 @@ class JournalTransport:
         parent, after = self.commit(candidate)
         if tip != expected or parent != expected:
             raise ValueError("stale or wrong parent")
-        validate_edge(decode(before), decode(after))
+        self.validate_edge(decode(before), decode(after))
         return self.update_ref(repository_full_name=REPO, branch_name=self.branch,
                                sha=candidate, expected_sha=expected, force=False)
 
@@ -134,3 +136,12 @@ class PilotJournalTransport(JournalTransport):
     genesis = "3ae1078e65c7fa8052042fe65852c50720ae93e0"
     genesis_parent = "492e44288bfbc0d28defd7ec89cc9367447a2711"
     commit_message = "chore(r15b): record integration pilot observation"
+
+    @staticmethod
+    def validate_edge(old, new):
+        # The live pilot is one successful qualified dispatch only. The
+        # generic shadow journal remains reusable; a cancelled preparation
+        # (no dispatch) does not consume the pilot.
+        if old.state == "QUALIFIED_READBACK":
+            raise ValueError("pilot already qualified; owner transition required")
+        validate_edge(old, new)

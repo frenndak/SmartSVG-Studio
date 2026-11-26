@@ -19,6 +19,7 @@ from .smartsvg_controller_log_transport import github_job_log
 from .smartsvg_controller_evidence import SPECS, step_receipts
 from .smartsvg_controller_scheduler import inspect_scheduler
 from .smartsvg_controller_exchange import derive_review_packets, recheck_exchange
+from .smartsvg_controller_handoff import route_checkpoints
 
 MAX_INPUT = 32 * 1024 * 1024
 
@@ -140,7 +141,7 @@ def recheck_live_queue(plan, snapshot, get, scope_reports, ci_reports):
             raise ObservationError("invalid final queue identity")
         current[n] = pr
     added = set(current) - set(original)
-    invalid = set(original) - set(current)
+    invalid = (set(original) - set(current)) | set(plan.unknown)
     invalid.update(n for n in set(original) & set(current)
                    if current[n].get("head", {}).get("sha") != original[n]["head"]["sha"])
     invalid.update(r["number"] for r in ci_reports
@@ -231,7 +232,7 @@ def recheck_live_queue(plan, snapshot, get, scope_reports, ci_reports):
 
 def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
              ci_manifest=None, ci_logs=(), ci_log_get=None, journal_path=None,
-             scheduler_snapshot=None, roadmap_ranks=None):
+             scheduler_snapshot=None, durable_checkpoints=False, roadmap_ranks=None):
     """Run a read-only advisory rehearsal; optional dedicated local SQLite.
 
     No GitHub writes or scheduler calls. Persistent mode stores only reduced
@@ -281,10 +282,19 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
         _fresh(plan.finished, now)
     elif ci_logs or ci_log_get is not None:
         raise ValueError("logs require CI manifest")
+    checkpoint_reports = []
+    if durable_checkpoints and scope_get is not None:
+        plan, checkpoint_reports = route_checkpoints(plan, snapshot, scope_get)
+        now = explicit_now or datetime.now(timezone.utc)
+        _fresh(plan.finished, now)
     if scope_get is not None:
+        # Checkpoint lookup is a network observation and can outlive an old
+        # branch/CI snapshot. Run the full final readback AFTER it.
         plan = recheck_live_queue(plan, snapshot, scope_get, scope_reports, ci_reports)
         if exchange_reports:
             plan = recheck_exchange(plan, snapshot, scope_get, exchange_reports)
+        eligible = {p.number for p in plan.proposals if p.action != "INSPECT"}
+        checkpoint_reports = [r for r in checkpoint_reports if r["number"] in eligible]
         now = explicit_now or datetime.now(timezone.utc)
         _fresh(plan.finished, now)
     scheduler_reports = (inspect_scheduler(scheduler_snapshot, now=now)
@@ -344,7 +354,8 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
                         next(c for c in candidates if c["number"] == reservation.number),
                         [r for r in scope_reports if r["number"] == reservation.number],
                         [r for r in ci_reports if r["number"] == reservation.number],
-                        [r for r in exchange_reports if r["number"] == reservation.number]]
+                        [r for r in exchange_reports if r["number"] == reservation.number],
+                        [r for r in checkpoint_reports if r["number"] == reservation.number]]
                     digest = sha256(json.dumps(material,sort_keys=True,separators=(",",":"),
                         ensure_ascii=True,allow_nan=False).encode()).hexdigest()
                     checkpoint = "SHADOW_PLAN_V1:" + digest
@@ -378,6 +389,7 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
                 "review_verification": "NOT_QUALIFIED",
                 "scheduler_reports": scheduler_reports,
                 "review_exchange_reports": exchange_reports,
+                "checkpoint_reports": checkpoint_reports,
                 "scheduler_verification": ("IMPORTED_METADATA_ONLY" if scheduler_snapshot is not None
                                             else "NOT_REQUESTED")}
     finally:
