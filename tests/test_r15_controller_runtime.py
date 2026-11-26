@@ -100,3 +100,26 @@ class RuntimeRoutingTests(unittest.TestCase):
         result=envelope(report,10,1,C)
         self.assertEqual(result["development_advice"]["roles"],[])
         self.assertEqual(result["assignments"]["B"]["number"],198)
+
+    def test_queue_churn_restarts_once_with_new_snapshot(self):
+        from tools.smartsvg_controller_observation import QueueChanged
+        snapshot={"main":{"commit":{"sha":H}},"policy_blob":P,"candidates":[]}
+        report=self.report()
+        with patch("tools.smartsvg_controller_runtime.observe",
+                   side_effect=[QueueChanged("queue drift"),snapshot]) as observe, patch(
+                "tools.smartsvg_controller_runtime.simulate",return_value=report) as simulate:
+            result=route(object(),"fixture",run_id=10,attempt=1,controller_head=H,require_main=True)
+            self.assertTrue(result["observation_restarted"])
+            self.assertEqual(observe.call_count,2)
+            self.assertIs(simulate.call_args.args[0],snapshot)
+            self.assertFalse(result["merge_authorized"])
+
+    def test_queue_churn_restart_bounded_and_other_errors_not_retried(self):
+        from tools.smartsvg_controller_observation import QueueChanged, ObservationError
+        for error,count in ((QueueChanged("queue drift"),2),(ObservationError("main drift"),1)):
+            with patch("tools.smartsvg_controller_runtime.observe",side_effect=error) as observe, patch(
+                    "tools.smartsvg_controller_runtime.simulate") as simulate:
+                with self.assertRaises(type(error)):
+                    route(object(),"fixture",run_id=10,attempt=1,controller_head=H)
+                self.assertEqual(observe.call_count,count)
+                simulate.assert_not_called()

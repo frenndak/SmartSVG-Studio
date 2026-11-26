@@ -10,7 +10,7 @@ import tempfile
 
 from .smartsvg_controller_cli import simulate
 from .smartsvg_controller_commission import manifests
-from .smartsvg_controller_observation import observe, github_get, ObservationError
+from .smartsvg_controller_observation import observe, github_get, ObservationError, QueueChanged
 from .smartsvg_controller_relay import validate
 
 PREFIX="R15_ROUTE_V1 "
@@ -43,7 +43,14 @@ def envelope(report,run_id,attempt,controller_head):
 
 
 def route(get,journal_path,*,run_id,attempt,controller_head,require_main=False):
-    snapshot=observe(get)
+    # One bounded restart of a read-only observation on known PR churn.
+    # Never reuse partial evidence; main drift and other errors still fail.
+    restarted=False
+    try:
+        snapshot=observe(get)
+    except QueueChanged:
+        restarted=True
+        snapshot=observe(get)
     if require_main and snapshot["main"]["commit"]["sha"]!=controller_head:
         raise ObservationError("controller checkout is no longer main")
     scopes,_=manifests(snapshot)
@@ -55,7 +62,9 @@ def route(get,journal_path,*,run_id,attempt,controller_head,require_main=False):
     report["roadmap_advice"] = advice
     if require_main and report["main"]!=controller_head:
         raise ObservationError("routing main drift")
-    return envelope(report,run_id,attempt,controller_head)
+    result=envelope(report,run_id,attempt,controller_head)
+    result["observation_restarted"]=restarted
+    return result
 
 
 def main():
