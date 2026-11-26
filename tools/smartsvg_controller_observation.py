@@ -115,7 +115,8 @@ def observe(get=github_get):
 
     A successful observation is NOT a verified policy, actual step PASS,
     independent A/B review, resolved-thread proof, or scheduler readback.
-    Those remain separate gates. Errors propagate; no partial success returned.
+    Those remain separate gates. Global errors propagate. Candidate-local
+    read errors are explicitly quarantined; no partial receipts retained.
     """
     started = datetime.now(timezone.utc).isoformat()
     main = get("/branches/main")
@@ -146,8 +147,20 @@ def observe(get=github_get):
         return out
     main_runs = runs_for(main_sha, "push")
     candidates = []
+    # Failures confined to one PR must not erase independent usable work.
+    # Global main/policy/rules/queue collection is still fail-closed.
+    initial_by_number = {p["number"]:p for p in initial}
+    candidate_errors = (ObservationError, OSError, KeyError, TypeError,
+                        ValueError, AttributeError, OverflowError)
     for number, head in identity(initial):
-        p = get(f"/pulls/{number}")
+        try:
+            p = get(f"/pulls/{number}")
+        except candidate_errors as exc:
+            candidates.append({"pr":initial_by_number[number],
+                               "branch":{"status":"UNAVAILABLE","sha":None},
+                               "runs":[],"reviews":[],"comments":[],
+                               "collection_error":type(exc).__name__})
+            continue
         if p.get("number") != number or p.get("state") != "open" or p["head"]["sha"] != head:
             raise QueueChanged("PR changed during collection")
         branch = branch_observation(get, p)
@@ -155,9 +168,19 @@ def observe(get=github_get):
             candidates.append({"pr": p, "branch": branch, "runs": [],
                                "reviews": [], "comments": []})
             continue
-        candidates.append({"pr": p, "branch": branch, "runs": runs_for(head, "pull_request"),
-                           "reviews": pages(get, f"/pulls/{number}/reviews"),
-                           "comments": pages(get, f"/issues/{number}/comments")})
+        try:
+            runs = runs_for(head, "pull_request")
+            reviews = pages(get, f"/pulls/{number}/reviews")
+            comments = pages(get, f"/issues/{number}/comments")
+        except candidate_errors as exc:
+            # Discard ALL partial receipts for the affected PR. A successful
+            # branch read is not proof of complete CI or review inventory.
+            candidates.append({"pr":p,"branch":branch,
+                               "runs":[],"reviews":[],"comments":[],
+                               "collection_error":type(exc).__name__})
+            continue
+        candidates.append({"pr":p,"branch":branch,"runs":runs,
+                           "reviews":reviews,"comments":comments})
     rulesets = pages(get, "/rulesets?includes_parents=true")
     if get("/branches/main")["commit"]["sha"] != main_sha:
         raise ObservationError("main changed during collection")

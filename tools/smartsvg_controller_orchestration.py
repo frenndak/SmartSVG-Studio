@@ -109,7 +109,8 @@ def build_plan(snapshot, scopes, *, now=None):
         seen.add(n)
         scope = scope_by_number.get(n)
         branch = entry.get("branch") or {}
-        if (scope is None or scope.head != head or branch.get("status") != "MATCH"
+        if ("collection_error" in entry or scope is None or scope.head != head
+                or branch.get("status") != "MATCH"
                 or branch.get("sha") != head):
             unknown.append(n)
             wip += 1  # unknown scope cannot free a slot

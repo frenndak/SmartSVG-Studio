@@ -178,3 +178,67 @@ class ReadRetryTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 github_get("/branches/main")
             self.assertEqual(opener.return_value.open.call_count,1)
+
+
+class CandidateIsolationTests(unittest.TestCase):
+    def setUp(self):
+        self.head2="d"*40
+        repo={"full_name":"frenndak/SmartSVG-Studio"}
+        self.prs=[dict(id=i,number=n,state="open",draft=False,mergeable=True,
+                       head=dict(sha=h,ref=ref,repo=repo),
+                       base=dict(ref="main",repo=repo),user=dict(login="frenndak"))
+                  for i,n,h,ref in ((1,195,H,"a/test"),(2,196,self.head2,"b/test"))]
+        self.bad=None
+
+    def get(self,path):
+        if self.bad and path.startswith(self.bad):
+            raise PermissionError("private transport details")
+        if path.startswith("/pulls?state=open"):
+            return self.prs
+        for p in self.prs:
+            if path==f"/pulls/{p['number']}":
+                return p
+            if path=="/git/ref/heads/"+p["head"]["ref"]:
+                return {"ref":"refs/heads/"+p["head"]["ref"],
+                        "object":{"type":"commit","sha":p["head"]["sha"]}}
+            if path.startswith((f"/pulls/{p['number']}/reviews?",
+                                f"/issues/{p['number']}/comments?")):
+                return []
+        return fixture(path)
+
+    def test_candidate_read_failure_preserves_other_pr_and_conservative_wip(self):
+        from tools.smartsvg_controller_orchestration import Scope, build_plan
+        for endpoint in ("/pulls/195", "/actions/runs?head_sha="+H,
+                         "/issues/195/comments?", "/pulls/195/reviews?"):
+            self.bad=endpoint
+            snapshot=observe(self.get)
+            first,second=snapshot["candidates"]
+            self.assertEqual(first["collection_error"],"PermissionError")
+            for key in ("runs","reviews","comments"):
+                self.assertEqual(first[key],[])
+            self.assertNotIn("collection_error",second)
+            self.assertNotIn("private transport details",str(snapshot))
+            plan=build_plan(snapshot,(Scope(195,H,"A",True),
+                                      Scope(196,self.head2,"B",True)))
+            self.assertEqual(plan.unknown,(195,))
+            self.assertEqual(plan.code_wip,2)
+            self.assertFalse(plan.queue_complete)
+            self.assertEqual(tuple(p.number for p in plan.proposals),(196,))
+
+    def test_global_reads_still_fail_closed(self):
+        for endpoint in ("/branches/main","/rulesets?",
+                         "/actions/runs?head_sha="+M,"/pulls?state=open"):
+            self.bad=endpoint
+            with self.assertRaises(PermissionError):
+                observe(self.get)
+
+    def test_invalid_candidate_job_provenance_is_quarantined(self):
+        def get(path):
+            if path.startswith("/actions/runs?head_sha="+H):
+                return {"total_count":1,"workflow_runs":[
+                    {"id":20,"head_sha":self.head2,"event":"pull_request",
+                     "run_attempt":1}]}
+            return self.get(path)
+        snapshot=observe(get)
+        self.assertEqual(snapshot["candidates"][0]["collection_error"],"ObservationError")
+        self.assertNotIn("collection_error",snapshot["candidates"][1])
