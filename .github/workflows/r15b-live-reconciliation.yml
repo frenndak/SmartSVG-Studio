@@ -75,9 +75,9 @@ jobs:
           from tools.smartsvg_controller_git_journal import JournalTransport
           from tools.smartsvg_controller_cas import decode
           ref, raw = JournalTransport(lambda p: github_get(p, token=os.environ["SMARTSVG_GITHUB_READ_TOKEN"])).read()
-          assert ref in ("24026a19bbb419ffd66bdbfdc2bdbd67206bbca5",) 
+          assert ref == "fa5868c9a8789d7daed7a4f102fb258f81c9eb2c"
           record = decode(raw)
-          assert record.generation == 4 and record.state == "DISPATCH_UNKNOWN" and record.intent == 2
+          assert record.generation == 5 and record.state == "QUALIFIED_READBACK" and record.intent == 2
           print("PINNED_JOURNAL_READBACK_PASS", ref)
           PY
       - name: Replay recovery coordinator against actual GitHub observations
@@ -142,36 +142,28 @@ jobs:
           print('REAL_READBACK_SHADOW_PERSISTENCE_PASS',journal.record.state)
           PY
 
-      - name: Derive a canonical CAS proposal from the actual pinned shadow intent
+      - name: Verify durable terminal recovery across a fresh runner
         env:
           SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
-          import os, json
+          import os
           from tools.smartsvg_controller_observation import github_get
           from tools.smartsvg_controller_git_journal import JournalTransport
-          from tools.smartsvg_controller_cas import Result, encode
+          from tools.smartsvg_controller_cas import decode
           from tools.smartsvg_controller_recovery_record import reconcile_and_record
           get = lambda p: github_get(p, token=os.environ['SMARTSVG_GITHUB_READ_TOKEN'])
-          class Capture:
-              def __init__(self):
-                  self.transport=JournalTransport(get)
-                  self.proposal=None
-              def read(self):
-                  return self.transport.read()
-              def write(self,ref,previous,proposed):
-                  assert self.read()==(ref,encode(previous))
-                  assert self.proposal is None
-                  self.proposal={"expected":ref,"previous":json.loads(encode(previous)),
-                                 "proposed":json.loads(encode(proposed))}
-                  # No live mutation. Owner consumes the exact proposal separately.
-                  return Result("CAPTURED",None,ref)
-          j=Capture()
+          j=JournalTransport(get)
+          ref, raw=j.read()
+          assert ref=='fa5868c9a8789d7daed7a4f102fb258f81c9eb2c'
+          record=decode(raw)
+          assert record.state=='QUALIFIED_READBACK' and record.intent==2 and record.generation==5
+          assert record.evidence=='6ffe711ec91e2b96ef35a659c9e376f272be0431bd7fea9b7863b600dbcd1158'
           result=reconcile_and_record(j,get)
+          assert result['status']=='NO_OBSERVATION_WRITE'
           assert not result['merge_authorized'] and not result['retry_authorized']
-          assert result['status']=='JOURNAL_CAPTURED' and j.proposal, result['status']
-          assert j.proposal['expected']=='24026a19bbb419ffd66bdbfdc2bdbd67206bbca5'
-          print('R15B_SHADOW_CAS_PROPOSAL '+json.dumps(j.proposal,sort_keys=True,separators=(',',':')))
+          assert j.read()==(ref,raw)
+          print('R15B_DURABLE_TERMINAL_RESTART_PASS',ref)
           PY
