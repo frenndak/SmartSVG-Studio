@@ -55,19 +55,59 @@ class NativeBasicCutExportTests(unittest.TestCase):
 
     def test_preview_change_does_not_publish(self):
         with self.mocks(), patch(MODULE + "._pinned_project") as pinned, patch(
-                MODULE + "._publish_posix_pinned") as publish:
+                MODULE + "._publish_posix_pinned") as posix, patch(
+                MODULE + "._publish_windows_locked") as windows:
             with self.assertRaisesRegex(BasicCutError, "PREVIEW_CHANGED"):
                 publish_native_basic_cut_svg(**{**self.args, "expected_svg_sha256": "c" * 64})
             pinned.assert_not_called()
-            publish.assert_not_called()
+            posix.assert_not_called()
+            windows.assert_not_called()
+        self.assertFalse(self.output.exists())
 
     def test_project_cas_failure_prevents_publication(self):
         with self.mocks(), patch(MODULE + "._pinned_project",
                                  side_effect=NativeFirstSubjectError("PROJECT_CHANGED")), patch(
-                MODULE + "._publish_posix_pinned") as publish:
+                MODULE + "._publish_posix_pinned") as posix, patch(
+                MODULE + "._publish_windows_locked") as windows:
             with self.assertRaisesRegex(BasicCutError, "PROJECT_CHANGED"):
                 publish_native_basic_cut_svg(**self.args)
-            publish.assert_not_called()
+            posix.assert_not_called()
+            windows.assert_not_called()
+        self.assertFalse(self.output.exists())
+
+    def test_revision_changes_after_publication_preserves_stale_receipt_and_bytes(self):
+        from unittest.mock import call
+        import os
+        if os.name not in ("posix", "nt"):
+            self.skipTest("Supported host writer required")
+        def write(dest, data, digest, parent):
+            self.assertEqual(dest, self.output)
+            self.assertEqual(data, self.data)
+            self.assertEqual(digest, self.digest)
+            self.assertFalse(dest.exists())
+            dest.write_bytes(data)
+        writer = "_publish_windows_locked" if os.name == "nt" else "_publish_posix_pinned"
+        other = "_publish_posix_pinned" if os.name == "nt" else "_publish_windows_locked"
+        with self.mocks(), patch(MODULE + "._pinned_project",
+                side_effect=[object(), NativeFirstSubjectError("PROJECT_CHANGED")]) as pinned, patch(
+                MODULE + "." + writer, side_effect=write) as publish, patch(
+                MODULE + "." + other) as unexpected:
+            receipt = publish_native_basic_cut_svg(**self.args)
+            self.assertEqual(pinned.call_args_list, [
+                call(self.args["project_path"], self.args["expected_sha256"]),
+                call(self.args["project_path"], self.args["expected_sha256"])])
+            publish.assert_called_once()
+            unexpected.assert_not_called()
+        self.assertEqual(receipt["status"], "LOCAL_SVG_REVISION_CHANGED")
+        self.assertIs(receipt["persisted"], True)
+        self.assertIs(receipt["project_revision_still_current"], False)
+        self.assertEqual(receipt["project_sha256"], self.args["expected_sha256"])
+        self.assertEqual(receipt["subject_id"], self.args["subject_id"])
+        self.assertEqual(receipt["sha256"], self.digest)
+        self.assertEqual(self.output.read_bytes(), self.data)
+        self.assertEqual(sha256(self.output.read_bytes()).hexdigest(), receipt["sha256"])
+        self.assertIs(receipt["design_space_import_tested"], False)
+        self.assertIs(receipt["physical_cut_tested"], False)
 
     @unittest.skipUnless(sys.platform.startswith("linux"), "POSIX Linux atomic writer")
     def test_real_writer_no_overwrite_and_identical_retry(self):
