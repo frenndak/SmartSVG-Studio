@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from tools.smartsvg_controller_cli import main, read_json, simulate
+from tools.smartsvg_controller_observation import ObservationError
 
 NOW = datetime(2026, 11, 25, 15, 0, tzinfo=timezone.utc)
 M, P, H, J, K = (c*40 for c in "abcde")
@@ -86,3 +87,83 @@ class CliTests(unittest.TestCase):
                 self.assertEqual(main(["--snapshot",str(p),"--scopes",str(p)]),2)
             self.assertFalse(json.loads(err.getvalue())["merge_authorized"])
             self.assertNotIn(str(p),err.getvalue())
+
+
+def scope_source(snapshot, *, bad=(), old=(), excluded=()):
+    """Synthetic REST source; no actual GitHub reads in these tests."""
+    rows = {r["pr"]["number"]: r["pr"] for r in snapshot["candidates"]}
+    def get(path):
+        if path == "/branches/main":
+            return {"commit": {"sha": M}}
+        if path.startswith("/git/ref/heads/scope/"):
+            n = int(path.rsplit("/",1)[1])
+            return {"ref": "refs/heads/scope/"+str(n),
+                    "object": {"type":"commit","sha":rows[n]["head"]["sha"]}}
+        if path.startswith("/pulls/"):
+            n = int(path.split("/")[2])
+            if n in bad:
+                raise PermissionError("fixture missing")
+            if "/files?" in path:
+                name = ("docs/policy.md" if n in excluded or n == 196
+                        else "engine/native.py" if n == 195 else "tests/test_x.py")
+                return [{"filename":name,"status":"modified","sha":P,"patch":"@@ fixture"}]
+            pr = json.loads(json.dumps(rows[n]))
+            pr["head"]["ref"] = "scope/"+str(n)
+            pr["base"]["sha"] = K if n in old else M
+            pr["changed_files"] = 1
+            return pr
+        raise AssertionError(path)
+    return get
+
+
+class LiveScopeWiringTests(unittest.TestCase):
+    def test_live_paths_can_narrow_but_not_authorize(self):
+        s,m = inputs()
+        r = simulate(s,m,now=NOW,scope_get=scope_source(s,excluded=(192,)))
+        by = {x["number"]:x for x in r["candidates"]}
+        self.assertEqual(by[192]["action"],"OWNER_REVIEW")
+        self.assertIsNone(r["assignments"]["A"])
+        self.assertEqual(r["assignments"]["B"]["number"],195)
+        self.assertEqual(r["scope_verification"],"PATHS_ONLY")
+        self.assertFalse(r["merge_authorized"])
+        self.assertEqual(r["code_wip"],2)
+        self.assertTrue(all(len(x["receipt_digest"])==64 for x in r["scope_reports"]))
+
+    def test_one_unavailable_inventory_keeps_other_work(self):
+        s,m = inputs()
+        r = simulate(s,m,now=NOW,scope_get=scope_source(s,bad=(192,)))
+        self.assertEqual(r["unknown"],(192,))
+        self.assertEqual(r["scope_verification"],"PATHS_ONLY_PARTIAL")
+        self.assertFalse(r["queue_complete"])
+        self.assertEqual(r["code_wip"],2)
+        self.assertEqual(r["assignments"]["B"]["number"],195)
+        self.assertFalse(r["merge_authorized"])
+
+    def test_owner_inventory_failure_does_not_free_capacity(self):
+        s,m = inputs()
+        r = simulate(s,m,now=NOW,scope_get=scope_source(s,bad=(196,)))
+        self.assertEqual(r["code_wip"],3)
+        self.assertEqual(r["unknown"],(196,))
+        self.assertFalse(r["queue_complete"])
+
+    def test_old_base_is_explicit_and_not_a_false_conflict(self):
+        s,m = inputs()
+        r = simulate(s,m,now=NOW,scope_get=scope_source(s,old=(192,)))
+        p=next(x for x in r["candidates"] if x["number"]==192)
+        self.assertEqual(p["action"],"REVIEW")
+        self.assertIn("BASE_CONTEXT_REQUIRES_REVIEW",p["reasons"])
+        self.assertFalse(next(x for x in r["scope_reports"] if x["number"]==192)["base_matches_main"])
+
+    def test_main_drift_fails_entire_observation(self):
+        s,m=inputs()
+        src=scope_source(s)
+        calls=0
+        def get(path):
+            nonlocal calls
+            if path=="/branches/main":
+                calls+=1
+                if calls>=7:
+                    return {"commit":{"sha":K}}
+            return src(path)
+        with self.assertRaises(ObservationError):
+            simulate(s,m,now=NOW,scope_get=get)
