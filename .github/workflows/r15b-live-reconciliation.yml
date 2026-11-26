@@ -1,0 +1,50 @@
+name: SmartSVG R15-B - Live reconciliation qualification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "tools/smartsvg_controller_live_reconcile.py"
+      - "tests/test_r15_controller_live_reconcile.py"
+      - ".github/workflows/r15b-live-reconciliation.yml"
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+jobs:
+  reconcile-real-squash:
+    if: ${{ github.repository == 'frenndak/SmartSVG-Studio' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'owner/r15b-live-reconciliation-20261126' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Read actual PR 196 squash and exact-main G0
+        env:
+          SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          python - <<'PY'
+          import json, os
+          from tools.smartsvg_controller_observation import github_get
+          from tools.smartsvg_controller_live_reconcile import Subject, reconcile_live
+          result = reconcile_live(lambda p: github_get(p, token=os.environ["SMARTSVG_GITHUB_READ_TOKEN"]),
+              Subject(196, "8764ced8ee8100b4e187cdcc595d735ec3630622",
+                      "c161e663cd841eef5eb47646d6e907904d26e60b",
+                      "ea8351fbee5f972b6e45784e42e3060f733739ae"))
+          print(json.dumps(result, sort_keys=True, indent=2))
+          # A later product merge may legitimately advance main. Do not
+          # turn that into an artificial gate for the product.
+          if result["state"] not in ("MERGED_G0_PASS","MAIN_DRIFT") or result["merge_sha"]!="f00f665d075259e521b4067d700d55b2a9b892ee":
+              raise SystemExit(1)
+          PY
