@@ -18,6 +18,7 @@ from .smartsvg_controller_ci import inspect_ci
 from .smartsvg_controller_log_transport import github_job_log
 from .smartsvg_controller_evidence import SPECS, step_receipts
 from .smartsvg_controller_scheduler import inspect_scheduler
+from .smartsvg_controller_exchange import derive_review_packets
 
 MAX_INPUT = 32 * 1024 * 1024
 
@@ -246,6 +247,14 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
         plan, scope_reports = inspect_plan_scopes(plan, scope_get)
         now = explicit_now or datetime.now(timezone.utc)
         _fresh(plan.finished, now)
+    exchange_reports = []
+    if scheduler_snapshot is not None and scope_get is not None:
+        if review_packets:
+            raise ValueError("choose scheduler exchange or manual review packets")
+        review_packets, exchange_reports = derive_review_packets(
+            plan, snapshot, scheduler_snapshot, scope_get, now=now)
+        now = explicit_now or datetime.now(timezone.utc)
+        _fresh(plan.finished, now)
     plan = route_review_hints(plan, snapshot, review_packets)
     # Review hints may replace reasons. Preserve path-derived base context
     # as an explicit reminder, without making it a false conflict.
@@ -354,6 +363,7 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
                 "ci_verification": "ADVISORY_ONLY" if ci_manifest is not None else "NOT_REQUESTED",
                 "review_verification": "NOT_QUALIFIED",
                 "scheduler_reports": scheduler_reports,
+                "review_exchange_reports": exchange_reports,
                 "scheduler_verification": ("IMPORTED_METADATA_ONLY" if scheduler_snapshot is not None
                                             else "NOT_REQUESTED")}
     finally:
