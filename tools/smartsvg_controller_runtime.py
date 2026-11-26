@@ -34,7 +34,8 @@ def envelope(report,run_id,attempt,controller_head):
     return dict(checkpoint,controller_head=controller_head,observed_at=report["observed_at"],
                 queue_complete=report["queue_complete"],code_wip=report["code_wip"],
                 unknown=list(report["unknown"]),qualification="ADVISORY_ONLY",
-                merge_authorized=False,agent_work_executed=False)
+                merge_authorized=False,agent_work_executed=False,
+                checkpoint_hints=report.get("checkpoint_reports", []))
 
 
 def route(get,journal_path,*,run_id,attempt,controller_head,require_main=False):
@@ -43,7 +44,8 @@ def route(get,journal_path,*,run_id,attempt,controller_head,require_main=False):
         raise ObservationError("controller checkout is no longer main")
     scopes,_=manifests(snapshot)
     # No fixed test probe. A closed or changed #194 must not stop routing.
-    report=simulate(snapshot,scopes,scope_get=get,journal_path=journal_path)
+    report=simulate(snapshot,scopes,scope_get=get,journal_path=journal_path,
+                    durable_checkpoints=True)
     if require_main and report["main"]!=controller_head:
         raise ObservationError("routing main drift")
     return envelope(report,run_id,attempt,controller_head)
