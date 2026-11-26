@@ -6,6 +6,8 @@ on:
     paths:
       - "tools/smartsvg_controller_live_reconcile.py"
       - "tests/test_r15_controller_live_reconcile.py"
+      - "tools/smartsvg_controller_recovery_plan.py"
+      - "tests/test_r15_controller_recovery_plan.py"
       - "tools/smartsvg_controller_cas.py"
       - "tools/smartsvg_controller_git_journal.py"
       - "tests/test_r15_controller_cas.py"
@@ -59,6 +61,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python -m unittest discover -s tests -p 'test_r15_controller_recovery_plan.py'
           python -m unittest discover -s tests -p 'test_r15_controller_cas.py'
           python -m unittest discover -s tests -p 'test_r15_controller_git_journal.py'
           python - <<'PY'
