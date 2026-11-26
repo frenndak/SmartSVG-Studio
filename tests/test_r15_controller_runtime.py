@@ -33,6 +33,7 @@ class RuntimeRoutingTests(unittest.TestCase):
                 "tools.smartsvg_controller_runtime.simulate",return_value=report) as simulate:
             r=route(object(),"fixture",run_id=10,attempt=1,controller_head=C)
             self.assertEqual(r["assignments"],{"A":None,"B":None})
+            self.assertEqual(r["candidate_failures"],[])
             self.assertNotIn("ci_manifest",simulate.call_args.kwargs)
             self.assertEqual(simulate.call_args.args[1]["scopes"],[])
 
@@ -123,3 +124,23 @@ class RuntimeRoutingTests(unittest.TestCase):
                     route(object(),"fixture",run_id=10,attempt=1,controller_head=H)
                 self.assertEqual(observe.call_count,count)
                 simulate.assert_not_called()
+
+
+    def test_isolation_diagnostics_are_reduced_and_do_not_release_wip(self):
+        snapshot={"main":{"commit":{"sha":H}},"policy_blob":P,"candidates":[
+            {"pr":{"number":195},"collection_error":"PermissionError"},
+            {"pr":{"number":196},"collection_error":"secret raw detail"},
+            {"pr":{"number":198},"collection_error":"TypeError"},
+        ]}
+        report=self.report()
+        report.update(unknown=[195,196],queue_complete=False,code_wip=3)
+        with patch("tools.smartsvg_controller_runtime.observe",return_value=snapshot), patch(
+                "tools.smartsvg_controller_runtime.simulate",return_value=report):
+            result=route(object(),"fixture",run_id=10,attempt=1,controller_head=H)
+        self.assertEqual(result["candidate_failures"],[
+            {"number":195,"reason":"READ_UNAVAILABLE"},
+            {"number":196,"reason":"UNCLASSIFIED"}])
+        self.assertNotIn("secret raw detail",str(result))
+        self.assertEqual(result["development_advice"]["available_slots"],0)
+        self.assertEqual(result["assignments"]["A"]["number"],197)
+        self.assertFalse(result["merge_authorized"])
