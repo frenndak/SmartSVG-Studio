@@ -242,3 +242,30 @@ class CandidateIsolationTests(unittest.TestCase):
         snapshot=observe(get)
         self.assertEqual(snapshot["candidates"][0]["collection_error"],"ObservationError")
         self.assertNotIn("collection_error",snapshot["candidates"][1])
+
+
+    def test_malformed_detail_or_exhausted_body_read_is_candidate_local(self):
+        from http.client import IncompleteRead
+        for malformed in (None, {}, {"number":195,"state":"open","head":None}):
+            def get(path):
+                return malformed if path=="/pulls/195" else self.get(path)
+            rows=observe(get)["candidates"]
+            self.assertIn("collection_error",rows[0])
+            self.assertNotIn("collection_error",rows[1])
+        def partial_body(path):
+            if path.startswith("/issues/195/comments?"):
+                raise IncompleteRead(b"partial")
+            return self.get(path)
+        rows=observe(partial_body)["candidates"]
+        self.assertEqual(rows[0]["collection_error"],"IncompleteRead")
+        self.assertEqual(rows[0]["comments"],[])
+        self.assertNotIn("collection_error",rows[1])
+
+    def test_valid_but_changed_detail_still_restarts_queue(self):
+        from tools.smartsvg_controller_observation import QueueChanged
+        def get(path):
+            if path=="/pulls/195":
+                return dict(self.prs[0],state="closed")
+            return self.get(path)
+        with self.assertRaises(QueueChanged):
+            observe(get)

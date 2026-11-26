@@ -150,18 +150,24 @@ def observe(get=github_get):
     # Failures confined to one PR must not erase independent usable work.
     # Global main/policy/rules/queue collection is still fail-closed.
     initial_by_number = {p["number"]:p for p in initial}
-    candidate_errors = (ObservationError, OSError, KeyError, TypeError,
-                        ValueError, AttributeError, OverflowError)
+    candidate_errors = (ObservationError, OSError, IncompleteRead, KeyError,
+                        TypeError, ValueError, AttributeError, OverflowError)
     for number, head in identity(initial):
         try:
             p = get(f"/pulls/{number}")
+            if (not isinstance(p,dict) or type(p.get("number")) is not int
+                    or not isinstance(p.get("state"),str)):
+                raise ObservationError("invalid candidate detail")
+            detail_head = _sha(p["head"]["sha"])
+            if not isinstance(p["head"].get("repo"),dict):
+                raise ObservationError("invalid candidate repository detail")
         except candidate_errors as exc:
             candidates.append({"pr":initial_by_number[number],
                                "branch":{"status":"UNAVAILABLE","sha":None},
                                "runs":[],"reviews":[],"comments":[],
                                "collection_error":type(exc).__name__})
             continue
-        if p.get("number") != number or p.get("state") != "open" or p["head"]["sha"] != head:
+        if p.get("number") != number or p.get("state") != "open" or detail_head != head:
             raise QueueChanged("PR changed during collection")
         branch = branch_observation(get, p)
         if branch["status"] != "MATCH":
