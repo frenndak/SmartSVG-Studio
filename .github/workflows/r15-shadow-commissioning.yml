@@ -85,3 +85,26 @@ jobs:
           python -m tools.smartsvg_controller_commission \
             --state-in "$RUNNER_TEMP/r15-relay/checkpoint.json" \
             --require-current-relay
+
+
+  route-shadow:
+    if: ${{ github.repository == 'frenndak/SmartSVG-Studio' && github.event.pull_request.number == 196 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'owner/r15-controller-shadow-20261125' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Publish reduced live routing advice
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          python -m tools.smartsvg_controller_runtime
