@@ -17,6 +17,7 @@ from .smartsvg_controller_cli import recheck_candidate_ci
 from .smartsvg_controller_orchestration import Proposal
 from .smartsvg_controller_live_reconcile import _g0
 from .smartsvg_controller_tree import disjoint_tree
+from .smartsvg_controller_recovery_plan import recover
 
 
 def predicted_tree(get, number, head, main):
@@ -70,7 +71,18 @@ def _observe(get, route, journal, result):
             result["status"]="PILOT_COMPLETE"
             return
         if record.state not in TERMINAL | {"IDLE"}:
+            # The pending intent takes precedence over the next candidate.
+            # Reuse the existing read-only recovery planner, never its writer.
             result["status"]="RECOVERY_REQUIRED"
+            advice=recover(journal.read,get)
+            if ((advice.get("journal_ref"),advice.get("generation"),
+                 advice.get("intent"),advice.get("journal_state")) !=
+                (ref,record.generation,record.intent,record.state)
+                    or journal.read()!=(ref,raw)
+                    or advice.get("action")=="JOURNAL_DRIFT"):
+                result["status"]="CONTEXT_CHANGED"
+                return
+            result["recovery"]=advice
             return
         a=route["assignments"]["B"]
         if a is None:
@@ -113,3 +125,27 @@ def _observe(get, route, journal, result):
                       checks=[dict(asdict(s),status=s.status.value) for s in checks])
     except Exception as exc:
         result.update(status="UNAVAILABLE",error=type(exc).__name__)
+
+
+def recovery_only_packet(get, *, run_id, attempt, controller_head, journal=None):
+    """Independent diagnostic after route failure, never a qualified route.
+
+    Read only the live main/policy and pinned journal/recovery subject. Do not
+    select any new candidate or turn a failed routing job into a success.
+    """
+    main=_sha(controller_head)
+    if get("/branches/main")["commit"]["sha"]!=main:
+        return None
+    policy=_sha(get(f"/contents/{POLICY}?ref={main}")["sha"])
+    route={"main":main,"policy_blob":policy,"run_id":run_id,"attempt":attempt,
+           "controller_head":main,"assignments":{"B":None}}
+    result=packet(get,route,journal=journal)
+    if (result["status"]!="RECOVERY_REQUIRED"
+            or "recovery" not in result
+            or get("/branches/main")["commit"]["sha"]!=main):
+        return None
+    result.pop("evidence_digest")
+    result["qualification"]="FAILED_ROUTE_DIAGNOSTIC_ONLY"
+    result["evidence_digest"]=sha256(json.dumps(result,sort_keys=True,
+        separators=(",",":"),allow_nan=False).encode()).hexdigest()
+    return result

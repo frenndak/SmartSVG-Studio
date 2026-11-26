@@ -89,6 +89,23 @@ def main():
     except Exception as exc:
         print(json.dumps({"mode":"R15_ROUTING","error":type(exc).__name__,
                           "merge_authorized":False}))
+        # Recovery of a preexisting intent is independent of the open PR
+        # queue. A failed routing job remains FAILED; this reduced diagnostic
+        # never becomes an admissible route or integration qualification.
+        if os.environ.get("R15_REQUIRE_MAIN")=="1":
+            try:
+                from .smartsvg_controller_pilot import recovery_only_packet
+                recovery=recovery_only_packet(
+                    lambda path:github_get(path,token=os.environ.get("SMARTSVG_GITHUB_READ_TOKEN")),
+                    run_id=int(os.environ["GITHUB_RUN_ID"]),
+                    attempt=int(os.environ["GITHUB_RUN_ATTEMPT"]),
+                    controller_head=os.environ["EXPECTED_HEAD"])
+                if recovery is not None:
+                    print("R15B_RECOVERY_DIAGNOSTIC_V1 "+json.dumps(
+                        recovery,sort_keys=True,separators=(",",":"),allow_nan=False))
+            except Exception:
+                # Do not print raw errors, private values or credentials.
+                print("R15B_RECOVERY_DIAGNOSTIC_UNAVAILABLE")
         return 2
 
 
