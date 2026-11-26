@@ -101,3 +101,28 @@ class CICompositionTests(unittest.TestCase):
         self.manifest["main"]="f"*40
         with self.assertRaises(ValueError):
             self.report()
+
+    def test_live_log_read_is_advisory_and_rechecks_attempt(self):
+        reads=[]
+        def log_get(job_id):
+            reads.append(job_id)
+            return self.packet["log"]
+        report=inspect_ci(self.plan,self.manifest,self.source,log_get=log_get)[0]
+        self.assertEqual(reads,[self.job["id"]])
+        self.assertEqual(report["log_source"],"GITHUB_JOB_LOG")
+        self.assertEqual(report["tests"][0]["status"],"PASS")
+        self.assertEqual(report["qualification"],"ADVISORY_ONLY")
+        def changed(path):
+            value=self.source(path)
+            if path.startswith("/actions/runs/") and reads:
+                return dict(value,run_attempt=2)
+            return value
+        reads.clear()
+        report=inspect_ci(self.plan,self.manifest,changed,log_get=log_get)[0]
+        self.assertEqual(report["reason"],"ATTEMPT_CHANGED_DURING_LOG_READ")
+        self.assertEqual(report["tests"],[])
+
+    def test_live_and_imported_logs_cannot_be_mixed(self):
+        with self.assertRaises(ValueError):
+            inspect_ci(self.plan,self.manifest,self.source,[self.packet],
+                       log_get=lambda job_id:self.packet["log"])

@@ -13,19 +13,21 @@ from .smartsvg_controller_proof import SHA, TEST_ID, verify_workflow_pin, parse_
 MAX_TARGETS = 64
 
 
-def inspect_ci(plan, manifest, get, logs=()):
+def inspect_ci(plan, manifest, get, logs=(), *, log_get=None):
     if (not isinstance(manifest, dict) or set(manifest) != {"main","policy_blob","pins","candidates"}
             or (manifest["main"],manifest["policy_blob"]) != (plan.main,plan.policy_blob)
             or not isinstance(manifest["pins"],dict)
             or any(k not in {v[0] for v in SPECS.values()} or not isinstance(v,str)
                    or SHA.fullmatch(v) is None for k,v in manifest["pins"].items())
             or not isinstance(manifest["candidates"],list) or len(manifest["candidates"])>100
-            or not isinstance(logs,(list,tuple)) or len(logs)>100):
+            or not isinstance(logs,(list,tuple)) or len(logs)>100
+            or (log_get is not None and logs)):
         raise ValueError("invalid CI manifest")
     proposals={p.number:p for p in plan.proposals}
     seen=set()
     reports=[]
     cache={}
+    log_cache={}
     def blob(path,ref):
         key=(path,ref)
         if key not in cache:
@@ -78,18 +80,39 @@ def inspect_ci(plan, manifest, get, logs=()):
                 report["run_id"],report["attempt"],report["job_id"]=step.run_id,step.attempt,step.job_id
                 if not targets:
                     continue
-                packets=[x for x in logs if isinstance(x,dict) and x.get("job_id")==step.job_id
-                         and x.get("run_id")==step.run_id and x.get("attempt")==step.attempt
-                         and x.get("head")==p.head]
-                if len(packets)!=1:
-                    report["reason"]="IMPORTED_LOG_MISSING_OR_AMBIGUOUS"
-                    continue
-                receipt=parse_test_receipts(packets[0]["log"],targets,head=p.head,
+                if log_get is not None:
+                    log_key=(step.run_id,step.attempt,step.job_id,p.head)
+                    if log_key not in log_cache:
+                        log_cache[log_key]=log_get(step.job_id)
+                    log=log_cache[log_key]
+                    # A rerun can begin while downloading. Revalidate current
+                    # metadata after the bytes have arrived.
+                    latest_run=get("/actions/runs/"+str(step.run_id))
+                    latest_job=get("/actions/jobs/"+str(step.job_id))
+                    latest=next(s for s in step_receipts(p.head,[{"run":latest_run,
+                        "jobs":[latest_job]}]) if s.name==name)
+                    if latest!=step:
+                        report["status"]="UNKNOWN"
+                        report["reason"]="ATTEMPT_CHANGED_DURING_LOG_READ"
+                        continue
+                    source="GITHUB_JOB_LOG"
+                else:
+                    packets=[x for x in logs if isinstance(x,dict) and x.get("job_id")==step.job_id
+                             and x.get("run_id")==step.run_id and x.get("attempt")==step.attempt
+                             and x.get("head")==p.head]
+                    if len(packets)!=1:
+                        report["reason"]="IMPORTED_LOG_MISSING_OR_AMBIGUOUS"
+                        continue
+                    log=packets[0]["log"]
+                    source="IMPORTED_LOG"
+                receipt=parse_test_receipts(log,targets,head=p.head,
                     run_id=step.run_id,attempt=step.attempt,job_id=step.job_id)
                 report["tests"]=[{"test_id":t.test_id,"status":t.status,"lines":t.lines}
                                  for t in receipt.tests]
                 report["log_digest"]=receipt.digest
-                report["reason"]="IMPORTED_LOG_ONLY_NOT_AUTHENTICATED"
+                report["log_source"]=source
+                report["reason"]=("GITHUB_LOG_ONLY_STEP_AND_CHECKOUT_NOT_QUALIFIED"
+                                  if log_get is not None else "IMPORTED_LOG_ONLY_NOT_AUTHENTICATED")
             except Exception as exc:
                 report["status"]="UNKNOWN"
                 report["reason"]="CI_READ_OR_PARSE_UNAVAILABLE"
@@ -107,6 +130,7 @@ def inspect_ci(plan, manifest, get, logs=()):
                 if report["number"]==number:
                     report.update(status="UNKNOWN",reason="PR_CONTEXT_CHANGED",tests=[])
                     report.pop("log_digest",None)
+                    report.pop("log_source",None)
     if get("/branches/main")["commit"]["sha"]!=plan.main:
         raise ObservationError("main changed during CI inspection")
     return reports

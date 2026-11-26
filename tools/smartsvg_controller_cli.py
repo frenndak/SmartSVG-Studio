@@ -13,6 +13,7 @@ from .smartsvg_controller_storage import Evidence, OperationalJournal
 from .smartsvg_controller_routing import route_review_hints
 from .smartsvg_controller_scope import inspect_scope
 from .smartsvg_controller_ci import inspect_ci
+from .smartsvg_controller_log_transport import github_job_log
 
 MAX_INPUT = 32 * 1024 * 1024
 
@@ -90,7 +91,7 @@ def inspect_plan_scopes(plan, get):
 
 
 def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
-             ci_manifest=None, ci_logs=()):
+             ci_manifest=None, ci_logs=(), ci_log_get=None):
     """Use actual orchestration and operational journal, but only in memory.
 
     No GitHub writes, no scheduler calls, no persistent local writes.
@@ -118,10 +119,10 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
     if ci_manifest is not None:
         if scope_get is None:
             raise ValueError("CI manifest requires live metadata source")
-        ci_reports = inspect_ci(plan, ci_manifest, scope_get, ci_logs)
+        ci_reports = inspect_ci(plan, ci_manifest, scope_get, ci_logs, log_get=ci_log_get)
         now = explicit_now or datetime.now(timezone.utc)
         _fresh(plan.finished, now)
-    elif ci_logs:
+    elif ci_logs or ci_log_get is not None:
         raise ValueError("logs require CI manifest")
     journal = OperationalJournal(":memory:")
     try:
@@ -182,23 +183,30 @@ def main(argv=None):
     parser.add_argument("--scopes", required=True, help="explicit routing manifest JSON")
     parser.add_argument("--review-evidence", help="optional external review packets; routing hints only")
     parser.add_argument("--ci-manifest", help="explicit workflow pins and targeted test inventory; live only")
-    parser.add_argument("--ci-logs", help="optional imported job log packets, not authenticated")
+    logs_source = parser.add_mutually_exclusive_group()
+    logs_source.add_argument("--ci-logs", help="optional imported job log packets, not authenticated")
+    logs_source.add_argument("--fetch-ci-logs", action="store_true", help="read actual GitHub job logs, live only")
     args = parser.parse_args(argv)
     try:
+        if args.fetch_ci_logs and (not args.live or not args.ci_manifest):
+            raise ValueError("live CI manifest required for log fetch")
         manifest = read_json(args.scopes)
         get = None
+        log_get = None
         if args.live:
             # Optional existing read token; never print or persist it.
             token = os.environ.get("SMARTSVG_GITHUB_READ_TOKEN")
             get = lambda path: github_get(path, token=token)
             snapshot = observe(get)
+            if args.fetch_ci_logs:
+                log_get = lambda job_id: github_job_log(job_id, token=token)
         else:
             snapshot = read_json(args.snapshot)
         packets = read_json(args.review_evidence) if args.review_evidence else ()
         ci = read_json(args.ci_manifest) if args.ci_manifest else None
         logs = read_json(args.ci_logs) if args.ci_logs else ()
         report = simulate(snapshot, manifest, review_packets=packets, scope_get=get,
-                          ci_manifest=ci, ci_logs=logs)
+                          ci_manifest=ci, ci_logs=logs, ci_log_get=log_get)
         print(json.dumps(report, indent=2, sort_keys=True))
         return 0
     except Exception as exc:
