@@ -43,3 +43,22 @@ class RuntimeRoutingTests(unittest.TestCase):
             r[key]=value
             with self.assertRaises(ValueError):
                 envelope(r,10,1,C)
+
+
+    def test_operational_route_rejects_old_controller_checkout(self):
+        from tools.smartsvg_controller_observation import ObservationError
+        snapshot={"main":{"commit":{"sha":H}},"policy_blob":P,"candidates":[]}
+        with patch("tools.smartsvg_controller_runtime.observe",return_value=snapshot), patch(
+                "tools.smartsvg_controller_runtime.simulate") as simulate:
+            with self.assertRaises(ObservationError):
+                route(object(),"fixture",run_id=10,attempt=1,controller_head=C,require_main=True)
+            simulate.assert_not_called()
+
+    def test_operational_route_binds_controller_to_fresh_main(self):
+        snapshot={"main":{"commit":{"sha":H}},"policy_blob":P,"candidates":[]}
+        report=self.report()
+        with patch("tools.smartsvg_controller_runtime.observe",return_value=snapshot), patch(
+                "tools.smartsvg_controller_runtime.simulate",return_value=report):
+            result=route(object(),"fixture",run_id=10,attempt=1,controller_head=H,require_main=True)
+            self.assertEqual(result["main"],result["controller_head"])
+            self.assertFalse(result["merge_authorized"])

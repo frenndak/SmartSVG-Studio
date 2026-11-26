@@ -10,7 +10,7 @@ import tempfile
 
 from .smartsvg_controller_cli import simulate
 from .smartsvg_controller_commission import manifests
-from .smartsvg_controller_observation import observe, github_get
+from .smartsvg_controller_observation import observe, github_get, ObservationError
 from .smartsvg_controller_relay import validate
 
 PREFIX="R15_ROUTE_V1 "
@@ -37,11 +37,15 @@ def envelope(report,run_id,attempt,controller_head):
                 merge_authorized=False,agent_work_executed=False)
 
 
-def route(get,journal_path,*,run_id,attempt,controller_head):
+def route(get,journal_path,*,run_id,attempt,controller_head,require_main=False):
     snapshot=observe(get)
+    if require_main and snapshot["main"]["commit"]["sha"]!=controller_head:
+        raise ObservationError("controller checkout is no longer main")
     scopes,_=manifests(snapshot)
     # No fixed test probe. A closed or changed #194 must not stop routing.
     report=simulate(snapshot,scopes,scope_get=get,journal_path=journal_path)
+    if require_main and report["main"]!=controller_head:
+        raise ObservationError("routing main drift")
     return envelope(report,run_id,attempt,controller_head)
 
 
@@ -52,7 +56,8 @@ def main():
             result=route(lambda path:github_get(path,token=token),Path(tmp)/"routing.sqlite",
                          run_id=int(os.environ["GITHUB_RUN_ID"]),
                          attempt=int(os.environ["GITHUB_RUN_ATTEMPT"]),
-                         controller_head=os.environ["EXPECTED_HEAD"])
+                         controller_head=os.environ["EXPECTED_HEAD"],
+                         require_main=os.environ.get("R15_REQUIRE_MAIN")=="1")
         print(PREFIX+json.dumps(result,sort_keys=True,separators=(",",":"),allow_nan=False))
         return 0
     except Exception as exc:
