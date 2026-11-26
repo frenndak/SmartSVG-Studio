@@ -238,6 +238,62 @@ class DeliveryPlanSchemaTests(unittest.TestCase):
         simple["guidance"]["steps"] = []
         self.assertEqual(planned([simple]).admission, "EXPORT_UNVERIFIED")
 
+    def test_native_png_pixel_budget_and_integer_bounds(self):
+        from smartsvg_core.native_delivery_plan_v35 import MAX_NATIVE_PTC_PIXELS
+        from smartsvg_core.native_ptc_export_v35 import _MAX_PIXELS
+        self.assertEqual(MAX_NATIVE_PTC_PIXELS, _MAX_PIXELS)
+        a = fixture()
+        a["dimensions"].update(width_px=2500, height_px=2000)
+        self.assertEqual(planned([a]).admission, "EXPORT_UNVERIFIED")
+        for width, height in ((2501, 2000), (10 ** 400, 1), (True, 1),
+                              (0, 1), (MAX_NATIVE_PTC_PIXELS + 1, 1)):
+            a["dimensions"].update(width_px=width, height_px=height)
+            with self.subTest(width=width, height=height), self.assertRaisesRegex(
+                    DeliveryPlanError, "INVALID_DIMENSIONS"):
+                planned([a])
+
+    def test_selection_preflight_before_item_validation(self):
+        from unittest.mock import patch
+        module = "smartsvg_core.native_delivery_plan_v35"
+        for selection in (["a"] * 501, ["a" * 81], ["a/b"], ["é"], [[]]):
+            with self.subTest(selection_length=len(selection)), patch(module + "._item") as item:
+                with self.assertRaisesRegex(DeliveryPlanError, "INVALID_SELECTION"):
+                    plan_delivery(items=[fixture()], selection=selection, context=context())
+                item.assert_not_called()
+
+    def test_surrogates_rejected_at_field_validation(self):
+        for field, code in (("source_locator", "INVALID_SOURCE_LOCATOR"),
+                            ("target_relpath", "UNSAFE_PATH")):
+            a = fixture()
+            a[field] = chr(0xD800)
+            with self.assertRaisesRegex(DeliveryPlanError, code):
+                planned([a])
+        a = fixture()
+        a["guidance"]["steps"] = [chr(0xDFFF)]
+        with self.assertRaisesRegex(DeliveryPlanError, "INVALID_GUIDANCE"):
+            planned([a])
+
+    def test_exact_utf8_canonical_budget_and_early_item_stop(self):
+        from unittest.mock import patch
+        from smartsvg_core import native_delivery_plan_v35 as module
+        a = fixture()
+        a["guidance"]["steps"] = ["é漢😀" * 100]
+        p = planned([a])
+        exact = len(p.canonical_json)
+        with patch.object(module, "MAX_CANONICAL_BYTES", exact):
+            self.assertEqual(planned([a]).canonical_json, p.canonical_json)
+        with patch.object(module, "MAX_CANONICAL_BYTES", exact - 1):
+            with self.assertRaisesRegex(DeliveryPlanError, "BUDGET_EXCEEDED"):
+                planned([a])
+        many = [fixture(item_id="q" + str(i)) for i in range(30)]
+        for item in many:
+            item["guidance"]["steps"] = ["é" * 512] * 64
+        with patch.object(module, "MAX_CANONICAL_BYTES", 200_000), patch.object(
+                module, "_item", wraps=module._item) as validate:
+            with self.assertRaisesRegex(DeliveryPlanError, "BUDGET_EXCEEDED"):
+                planned(many, selection=["q0"])
+            self.assertLess(validate.call_count, len(many))
+
     def test_no_file_open_or_write_during_plan(self):
         from unittest.mock import patch
         import builtins

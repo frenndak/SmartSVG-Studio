@@ -27,6 +27,8 @@ MAX_ITEMS = 500
 MAX_ITEM_BYTES = 512 * 1024 * 1024
 MAX_TOTAL_BYTES = 2 * 1024 * 1024 * 1024
 MAX_CANONICAL_BYTES = 2 * 1024 * 1024
+# Existing native PNG PTC renderer budget, not a Cricut or brush limit.
+MAX_NATIVE_PTC_PIXELS = 5_000_000
 _ID = re.compile(r"[A-Za-z0-9_-]{1,80}\Z")
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _WINDOWS_FORBIDDEN = frozenset('<>:"/\\|?*')
@@ -53,7 +55,8 @@ class DeliveryPlan:
 
 
 def _keys(record, required, *, where):
-    if type(record) is not dict or set(record) != set(required):
+    if (type(record) is not dict or len(record) != len(required)
+            or set(record) != set(required)):
         raise DeliveryPlanError("INVALID_" + where)
     return record
 
@@ -61,7 +64,8 @@ def _keys(record, required, *, where):
 def _text(value, *, code, limit=4096, empty=False):
     if type(value) is not str or len(value) > limit or (not empty and not value):
         raise DeliveryPlanError(code)
-    if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+    if any(ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF
+           for ch in value):
         raise DeliveryPlanError(code)
     return value
 
@@ -105,7 +109,7 @@ def _dimension(value):
 
 
 def _positive_px(value):
-    if type(value) is not int or value <= 0:
+    if type(value) is not int or not 1 <= value <= MAX_NATIVE_PTC_PIXELS:
         raise DeliveryPlanError("INVALID_DIMENSIONS")
     return value
 
@@ -157,8 +161,10 @@ def _item(record):
     if dims["confirmed"] and provenance is None:
         raise DeliveryPlanError("INVALID_DIMENSIONS")
     if role == "PNG_PTC":
-        _positive_px(dims["width_px"])
-        _positive_px(dims["height_px"])
+        width_px = _positive_px(dims["width_px"])
+        height_px = _positive_px(dims["height_px"])
+        if width_px * height_px > MAX_NATIVE_PTC_PIXELS:
+            raise DeliveryPlanError("INVALID_DIMENSIONS")
 
     op = _keys(record["operation_context"],
                ("operations", "attach_required", "mirror_required"),
@@ -246,6 +252,24 @@ def _item(record):
     return result
 
 
+def _canonical_bytes(data, budget):
+    """Encode exact canonical UTF-8 in bounded chunks; reject before joining."""
+    out = bytearray()
+    try:
+        encoder = json.JSONEncoder(ensure_ascii=False, sort_keys=True,
+                                   separators=(",", ":"), allow_nan=False)
+        for chunk in encoder.iterencode(data):
+            part = chunk.encode("utf-8")
+            if len(part) > budget - len(out):
+                raise DeliveryPlanError("BUDGET_EXCEEDED")
+            out.extend(part)
+    except DeliveryPlanError:
+        raise
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise DeliveryPlanError("INVALID_PLAN") from exc
+    return bytes(out)
+
+
 def plan_delivery(*, items, selection, context):
     """Plan an explicit selection without opening, copying or writing files.
 
@@ -253,7 +277,7 @@ def plan_delivery(*, items, selection, context):
     canonical_json retains private source locators and must not be published
     as a portable delivery manifest.
     """
-    if type(context) is not dict or set(context) != {
+    if type(context) is not dict or len(context) != 3 or set(context) != {
             "plan_id", "project_ref", "policy_version"}:
         raise DeliveryPlanError("INVALID_CONTEXT")
     _identifier(context["plan_id"], "INVALID_CONTEXT")
@@ -262,8 +286,8 @@ def plan_delivery(*, items, selection, context):
     project = _project_ref(context["project_ref"])
     if type(items) is not list or not 1 <= len(items) <= MAX_ITEMS:
         raise DeliveryPlanError("BUDGET_EXCEEDED")
-    if (type(selection) is not list or not selection
-            or any(type(s) is not str for s in selection)
+    if (type(selection) is not list or not 1 <= len(selection) <= len(items)
+            or any(type(s) is not str or not _ID.fullmatch(s) for s in selection)
             or len(set(selection)) != len(selection)):
         raise DeliveryPlanError("INVALID_SELECTION")
     selected = set(selection)
@@ -271,6 +295,7 @@ def plan_delivery(*, items, selection, context):
     by_id = set()
     by_path = set()
     total = 0
+    item_bytes = 0
     for raw in items:
         item = _item(raw)
         if item["item_id"] in by_id:
@@ -281,6 +306,9 @@ def plan_delivery(*, items, selection, context):
                 norm.startswith(x + "/") or x.startswith(norm + "/") for x in by_path):
             raise DeliveryPlanError("DUPLICATE_TARGET")
         by_path.add(norm)
+        # Items are included even when unselected. Their exact canonical
+        # byte sum is a lower bound for the final plan, so stop early.
+        item_bytes += len(_canonical_bytes(item, MAX_CANONICAL_BYTES - item_bytes))
         validated.append(item)
         if item["item_id"] in selected:
             total += item["size_bytes"]
@@ -300,12 +328,6 @@ def plan_delivery(*, items, selection, context):
         "actual_source_verified": False,
         "design_space_import_tested": False, "physical_cut_tested": False,
     }
-    try:
-        encoded = json.dumps(data, ensure_ascii=False, sort_keys=True,
-                             separators=(",", ":"), allow_nan=False).encode("utf-8")
-    except (TypeError, ValueError, OverflowError) as exc:
-        raise DeliveryPlanError("INVALID_PLAN") from exc
-    if len(encoded) > MAX_CANONICAL_BYTES:
-        raise DeliveryPlanError("BUDGET_EXCEEDED")
+    encoded = _canonical_bytes(data, MAX_CANONICAL_BYTES)
     return DeliveryPlan(encoded, sha256(encoded).hexdigest(), status,
                         tuple(data["reasons"]), tuple(selection))
