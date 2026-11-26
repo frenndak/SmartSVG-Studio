@@ -10,6 +10,8 @@ from .smartsvg_controller_decision import Status
 from .smartsvg_controller_observation import ObservationError, branch_observation
 from .smartsvg_controller_proof import SHA, TEST_ID, verify_workflow_pin, parse_test_receipts
 
+from .smartsvg_controller_step_log import bind_step_log
+
 MAX_TARGETS = 64
 
 
@@ -111,6 +113,9 @@ def inspect_ci(plan, manifest, get, logs=(), *, log_get=None):
                                  for t in receipt.tests]
                 report["log_digest"]=receipt.digest
                 report["log_source"]=source
+                if log_get is not None:
+                    report["step_binding"]=bind_step_log(log,receipt,latest_job,
+                                                         step.step_number)
                 report["reason"]=("GITHUB_LOG_ONLY_STEP_AND_CHECKOUT_NOT_QUALIFIED"
                                   if log_get is not None else "IMPORTED_LOG_ONLY_NOT_AUTHENTICATED")
             except Exception as exc:
@@ -131,6 +136,7 @@ def inspect_ci(plan, manifest, get, logs=(), *, log_get=None):
                     report.update(status="UNKNOWN",reason="PR_CONTEXT_CHANGED",tests=[])
                     report.pop("log_digest",None)
                     report.pop("log_source",None)
+                    report.pop("step_binding",None)
     if get("/branches/main")["commit"]["sha"]!=plan.main:
         raise ObservationError("main changed during CI inspection")
     return reports

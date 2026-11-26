@@ -84,6 +84,9 @@ def commission(get,log_get,journal_path):
             "unknown":report["unknown"],"code_wip":report["code_wip"],
             "assignments":report["assignments"],"scope_reports":report["scope_reports"],
             "ci_probe":probe,"probe_status":"PASS" if log_pass else "NOT_QUALIFIED",
+            "step_probe_status":("PASS" if log_pass and
+                                 probe.get("step_binding",{}).get("status")=="BOUND"
+                                 else "NOT_QUALIFIED"),
             "reopened_evidence_count":evidence_count,"active_leases":active,
             "scheduler_verified":False,"merge_authorized":False,
             "agent_work_executed":False,"persistent_across_runners":False}
@@ -98,7 +101,8 @@ def main():
         print(json.dumps(report,sort_keys=True,indent=2))
         # A green commissioning check means an actual targeted log was parsed
         # and evidence reopened, not merely that the CLI returned JSON.
-        return 0 if report["probe_status"]=="PASS" and report["reopened_evidence_count"]>0 else 1
+        return 0 if (report["probe_status"]=="PASS" and report["step_probe_status"]=="PASS"
+                     and report["reopened_evidence_count"]>0) else 1
     except Exception as exc:
         print(json.dumps({"mode":"LIVE_SHADOW_COMMISSIONING","error":type(exc).__name__,
                           "merge_authorized":False}))
