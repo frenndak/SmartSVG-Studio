@@ -41,12 +41,22 @@ def manifests(snapshot):
         ref=head.get("ref","")
         if not isinstance(ref,str):
             continue
-        if ref.startswith("owner/"):
+        if ref.startswith(("owner/","docs/","governance/")):
             writer,code="OWNER",False
         elif re.fullmatch(r"[ab]/[a-zA-Z0-9._/-]+",ref):
             writer,code=ref[0].upper(),True
         else:
-            continue
+            # Historical R13 producers use both code/v35-a-* and
+            # code/v35-*-a. Ambiguous names stay unknown; these are
+            # routing hints only, never proof of actual writer ownership.
+            legacy=re.fullmatch(r"code/v35-([a-zA-Z0-9._-]+)",ref)
+            if legacy is None:
+                continue
+            parts=legacy.group(1).split("-")
+            roles={p.upper() for p in (parts[0],parts[-1]) if p in ("a","b")}
+            if len(roles)!=1 or len(parts)<2:
+                continue
+            writer,code=roles.pop(),True
         scopes.append({"number":p["number"],"head":head["sha"],"writer":writer,"code_only":code})
         if p["number"]==194 and head["sha"]==PROBE_HEAD and writer=="B":
             probes.append({"number":194,"head":PROBE_HEAD,

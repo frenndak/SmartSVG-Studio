@@ -57,3 +57,24 @@ by routing. Keep R13 no-merge semantics; continue code and technical review.
 A separately reviewed operational authorization channel is required before
 an authority transition. Never treat a routing hint or cached scheduler
 snapshot as live scheduler permission.
+
+
+## Connector discovery verified in owner session
+The workflow-specific REST endpoint is rejected by the installed GitHub
+connector (HTTP 400, endpoint not allowed). Use its supported repository
+endpoint `/actions/runs?head_sha=<live-main>&event=<event>` for each of
+schedule, push, workflow_dispatch. Filter exact workflow path and main branch,
+exact head, completed/success; select the newest valid observed run and read
+its job via fetch_workflow_run_jobs and fetch_workflow_job_logs. Never use
+fetch_commit_workflow_runs for scheduled/main discovery: it filters PR runs.
+If pagination cannot be completed within the cycle, skip the optional hint.
+
+Owner readback on 2026-11-26 confirmed the repository endpoint works for
+all three production event values. There are currently no production
+routing runs because the workflow is not on main. Pilot run 45751415837
+job 139679839196 is PASS, but its result expires normally.
+
+Promotion readiness: this PR may be moved to Ready for Review after its
+exact-head checks. Owner governance review must cover the added read-only
+workflow and all controller changes; no agent may merge it. The scheduled
+service on main is advisory only, never replaces R13 merge authorization.
