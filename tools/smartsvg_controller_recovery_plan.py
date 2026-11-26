@@ -6,6 +6,7 @@ a merge or grants authority. A prepared intent must be requalified before use.
 from .smartsvg_controller_cas import decode, _ref, TERMINAL
 from .smartsvg_controller_live_reconcile import Subject, reconcile_live
 from .smartsvg_controller_observation import POLICY
+from .smartsvg_controller_successor import observe_successor
 
 ACTIONS = {
     "MERGED_G0_PASS": "OBSERVE_COMPLETED_INTEGRATION",
@@ -26,7 +27,7 @@ def recover(read, get):
     """
     report = {
         "journal_ref": None, "generation": None, "intent": None,
-        "journal_state": None, "observation": None,
+        "journal_state": None, "observation": None, "successor": None,
         "action": "INSPECT_JOURNAL", "qualification": "SHADOW_ONLY",
         "merge_authorized": False, "retry_authorized": False,
         "independent_work_blocked": False,
@@ -46,12 +47,14 @@ def recover(read, get):
             if policy.get("sha") != record.policy:
                 report["action"] = "INSPECT_POLICY_MISMATCH"
             else:
-                result = reconcile_live(get, Subject(record.number, record.head,
-                                                     record.main, record.tree))
+                subject = Subject(record.number, record.head, record.main, record.tree)
+                result = reconcile_live(get, subject)
                 report["observation"] = result
                 report["action"] = ACTIONS.get(result["state"], "INSPECT_READBACK")
+                if result["state"] == "MAIN_DRIFT" and result.get("merge_sha"):
+                    report["successor"] = observe_successor(get, subject, result)
         if read() != (ref, raw):
-            report.update(action="JOURNAL_DRIFT", observation=None)
+            report.update(action="JOURNAL_DRIFT", observation=None, successor=None)
     except Exception:
-        report.update(action="INSPECT_JOURNAL_OR_READBACK", observation=None)
+        report.update(action="INSPECT_JOURNAL_OR_READBACK", observation=None, successor=None)
     return report

@@ -6,6 +6,8 @@ on:
     paths:
       - "tools/smartsvg_controller_live_reconcile.py"
       - "tests/test_r15_controller_live_reconcile.py"
+      - "tools/smartsvg_controller_successor.py"
+      - "tests/test_r15_controller_successor.py"
       - "tools/smartsvg_controller_recovery_plan.py"
       - "tests/test_r15_controller_recovery_plan.py"
       - "tools/smartsvg_controller_cas.py"
@@ -61,6 +63,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python -m unittest discover -s tests -p 'test_r15_controller_successor.py'
           python -m unittest discover -s tests -p 'test_r15_controller_recovery_plan.py'
           python -m unittest discover -s tests -p 'test_r15_controller_cas.py'
           python -m unittest discover -s tests -p 'test_r15_controller_git_journal.py'
@@ -74,4 +77,29 @@ jobs:
           record = decode(raw)
           assert record.generation == 2 and record.state == "CANCELLED_PREPARED"
           print("PINNED_JOURNAL_READBACK_PASS", ref)
+          PY
+      - name: Replay recovery coordinator against actual GitHub observations
+        env:
+          SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          from tools.smartsvg_controller_observation import github_get, POLICY
+          from tools.smartsvg_controller_cas import Record, prepare, transition, encode
+          from tools.smartsvg_controller_recovery_plan import recover
+          get = lambda p: github_get(p, token=os.environ['SMARTSVG_GITHUB_READ_TOKEN'])
+          parent = 'c161e663cd841eef5eb47646d6e907904d26e60b'
+          merged = 'f00f665d075259e521b4067d700d55b2a9b892ee'
+          # Synthetic intent, actual immutable and mutable observations; no writes.
+          prepared = prepare(Record(), number=196, head='8764ced8ee8100b4e187cdcc595d735ec3630622',
+              main=parent, tree='ea8351fbee5f972b6e45784e42e3060f733739ae',
+              policy=get(f'/contents/{POLICY}?ref={parent}')['sha'], evidence='e'*64)
+          record = transition(prepared, 'DISPATCH_UNKNOWN', 'f'*64)
+          result = recover(lambda:(merged,encode(record)),get)
+          assert not result['merge_authorized'] and not result['retry_authorized']
+          assert result['observation']['merge_sha'] == merged
+          assert result['action'] in ('OBSERVE_COMPLETED_INTEGRATION','REQUALIFY_CURRENT_MAIN')
+          print('RECOVERY_LIVE_REPLAY_PASS',result['action'])
           PY
