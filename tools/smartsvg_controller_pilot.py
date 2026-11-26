@@ -16,10 +16,11 @@ from .smartsvg_controller_scope import inspect_scope
 from .smartsvg_controller_cli import recheck_candidate_ci
 from .smartsvg_controller_orchestration import Proposal
 from .smartsvg_controller_live_reconcile import _g0
+from .smartsvg_controller_tree import disjoint_tree
 
 
 def predicted_tree(get, number, head, main):
-    """Require exact preview parents, or a proven main ancestor of HEAD."""
+    """Exact preview, ancestor, or conservative verified disjoint tree."""
     try:
         compare=get("/compare/"+main+"..."+head)
         if (compare.get("status")=="ahead" and compare["base_commit"]["sha"]==main
@@ -42,7 +43,7 @@ def predicted_tree(get, number, head, main):
             return _sha(commit["tree"]["sha"])
     except Exception:
         pass
-    return None
+    return disjoint_tree(get,main,head)
 
 
 def packet(get, route, *, journal=None):

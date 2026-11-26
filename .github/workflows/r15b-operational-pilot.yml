@@ -4,6 +4,8 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "tools/smartsvg_controller_pilot.py"
+      - "tools/smartsvg_controller_tree.py"
+      - "tests/test_r15_controller_tree.py"
       - "tools/smartsvg_controller_git_journal.py"
       - "tools/smartsvg_controller_runtime.py"
       - "tests/test_r15_controller_pilot.py"
@@ -35,6 +37,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
           python -m unittest discover -s tests -p 'test_r15_controller_pilot.py'
+          python -m unittest discover -s tests -p 'test_r15_controller_tree.py'
           python - <<'PY'
           import json, os, tempfile
           from pathlib import Path
@@ -56,4 +59,9 @@ jobs:
           print('R15B_PILOT_COMMISSIONING '+json.dumps(result,sort_keys=True,separators=(',',':')))
           assert result['status'] in ('OBSERVED','NO_CANDIDATE'),result['status']
           assert journal.read()==(ref,raw)
+          # Current exact candidate #195 has a stale preview. Its two sides
+          # were disjoint additive/regular edits at commissioning.
+          if result.get('number')==195 and result.get('head')=='7e557c8c450f0083d4362a703ba5f74adc43d243' and result.get('main')=='492e44288bfbc0d28defd7ec89cc9367447a2711':
+              assert result['expected_tree'], 'disjoint tree prediction missing'
+              print('R15B_DISJOINT_TREE_PASS',result['expected_tree'])
           PY
