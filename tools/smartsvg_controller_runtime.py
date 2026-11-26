@@ -31,6 +31,9 @@ def envelope(report,run_id,attempt,controller_head):
     from .smartsvg_controller_relay import SHA
     if not isinstance(controller_head,str) or SHA.fullmatch(controller_head) is None:
         raise ValueError("invalid controller identity")
+    # Additive advice outside the validated legacy assignment schema.
+    from .smartsvg_controller_capacity import development_advice
+    checkpoint["development_advice"] = development_advice(report)
     return dict(checkpoint,controller_head=controller_head,observed_at=report["observed_at"],
                 queue_complete=report["queue_complete"],code_wip=report["code_wip"],
                 unknown=list(report["unknown"]),qualification="ADVISORY_ONLY",
