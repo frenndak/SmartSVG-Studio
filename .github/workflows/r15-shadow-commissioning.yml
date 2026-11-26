@@ -1,0 +1,110 @@
+name: SmartSVG R15 - Live shadow commissioning
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: r15-shadow-commissioning-196
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  issues: read
+
+jobs:
+  live-shadow:
+    if: ${{ github.repository == 'frenndak/SmartSVG-Studio' && github.event.pull_request.number == 196 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'owner/r15-controller-shadow-20261125' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Restore previous advisory checkpoint
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/r15-relay/checkpoint.json
+          key: r15-shadow-relay-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            r15-shadow-relay-v1-
+      - name: Run read-only live commissioning against actual queue
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          python -m tools.smartsvg_controller_commission \
+            --state-in "$RUNNER_TEMP/r15-relay/checkpoint.json" \
+            --state-out "$RUNNER_TEMP/r15-relay/checkpoint.json"
+      - name: Preserve reduced checkpoint across workflow runs
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/r15-relay/checkpoint.json
+          key: r15-shadow-relay-v1-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Pass advisory checkpoint to independent runner
+        uses: actions/upload-artifact@v4
+        with:
+          name: r15-shadow-relay-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/r15-relay/checkpoint.json
+          if-no-files-found: error
+          retention-days: 7
+
+  resume-shadow:
+    needs: live-shadow
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/download-artifact@v4
+        with:
+          name: r15-shadow-relay-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/r15-relay
+      - name: Reobserve live queue and compare prior runner checkpoint
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          python -m tools.smartsvg_controller_commission \
+            --state-in "$RUNNER_TEMP/r15-relay/checkpoint.json" \
+            --require-current-relay
+
+
+  route-shadow:
+    if: ${{ github.repository == 'frenndak/SmartSVG-Studio' && github.event.pull_request.number == 196 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'owner/r15-controller-shadow-20261125' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Publish reduced live routing advice
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          python -m tools.smartsvg_controller_runtime
