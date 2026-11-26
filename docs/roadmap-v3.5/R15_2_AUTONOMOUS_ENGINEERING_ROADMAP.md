@@ -116,3 +116,20 @@ Budget de maintien : au plus un chantier de gouvernance R15 actif par défaut ap
 ## 10. Portabilité et activation
 Core sans noms de repo, horaires, lots SmartSVG ou critères Cricut codés dans les interfaces génériques; adaptateur SmartSVG conserve toutes ses exigences. Profil et mémoire sont isolés par projet/dépôt, version de schéma, scope de droits; aucune réutilisation de credentials ou preuves d'un autre projet. Un test synthétique de second projet suffit à prouver la portabilité de base, pas sa mise en production. Pas d'activation TITAN, Cavernfest ou L'Enquêteur avant décision spécifique. Les adaptateurs n'étendent jamais les pouvoirs du runtime.
 Après adoption documentaire, une tranche d'implémentation à la fois selon le chemin critique et les capacités réellement disponibles. Toute promotion d'autorité (WIP, plusieurs fusions, changement de rôle, écriture de journal, gouvernance, runtime) reste un changement distinct relu et qualifié conformément au contrat actuel. Retour R13 immédiat en absence d'avis valide avant tout intent pilote; jamais pour ignorer un intent incertain. Aucun autre stop global artificiel. La mission de fond est la livraison complète de SmartSVG V3.5, puis la réutilisation qualifiée du moteur.
+
+## 11. Point de reprise vérifié du 26 novembre 2026
+
+La référence de comparaison est le commit `dccd7a4fcdfdd49857b26e3e6014e3c1e769014b` de main. Les quatre PR ci-dessous sont ouvertes. Les nombres correspondent aux tests Python du contrôleur R15 exécutés sur Linux avec Python 3.12.14. Chaque ligne inclut le socle commun de 266 tests.
+
+| Tranche | Révision testée | Tests locaux réussis | Comportement couvert |
+|---|---|---:|---|
+| T0, #202 | `2f418e2db7007095262a157cca0667cc6576ccff` | 273 | Conseil de récupération d’un intent en cours, y compris après échec du routage. |
+| T0, #203 | `1d65c0a11ef5afe0f348ec9316ad95fa055930d9` | 281 | Une PR dont le numéro est connu mais dont le SHA est illisible reste comptée dans le WIP. Le routage attribue encore la revue de la PR saine. |
+| T1, #205 | `5c3f9e510fc8276fb2dd7dc119a3c54d63dcd9ef` | 270 | Inspection CI en lecture seule par A ou B, avec conservation des restrictions de correction et de qualification. |
+| T1, #206 | `8575eafbc58364985195462afc1a919794f03aaf` | 272 | Détection locale de stagnation au changement de HEAD et de preuves de progrès dupliquées. |
+
+**Essai de compatibilité.** Sur une copie locale des sources du contrôleur, les modifications des quatre PR ont été assemblées dans l’ordre #202, #203, #205, #206. Le premier essai a révélé un conflit entre deux ajouts de tests au même emplacement. Le test de #203 a été déplacé à côté des tests de l’enveloppe de routage. Le second assemblage s’est effectué automatiquement. La commande `python -m unittest discover -s tests -p 'test_r15_controller*.py'` a exécuté 298 tests, tous réussis, sans skip. Cet essai couvre la compatibilité de ces révisions dans le contrôleur. Toute nouvelle révision demande de réexaminer les preuves affectées.
+
+**Exploitation.** Le journal pilote lu sur `r15b/integration-journal-v1` indiquait `IDLE`, génération 0. Le dernier compte rendu B achevé consulté déclarait la revue indépendante de #195 et la fusion `NOT_RUN`. La cause de l’absence d’action technique reste indéterminée. Le Core reste partiel. Les gains de productivité restent `INSUFFICIENT_DATA`.
+
+**Reprise du pilote.** Au prochain cycle B effectif, relire le journal. Si un intent est en cours, le réconcilier. S’il est toujours libre et que #195 reste candidate, reprendre la revue du diff sur son HEAD courant et réutiliser les preuves CI dont les identités concordent encore. Si la lecture échoue, essayer l’autre voie de lecture GitHub autorisée et conserver le résultat de l’appel. Si les conditions du pilote demeurent incomplètes, poursuivre la correction ou la revue d’un autre travail admissible. La première preuve d’adoption à rechercher est une action technique observée du cycle B.
