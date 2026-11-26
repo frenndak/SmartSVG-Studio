@@ -52,6 +52,14 @@ def packet(get, route, *, journal=None):
             "run_id":route["run_id"],"attempt":route["attempt"],
             "controller_head":route["controller_head"],"qualification":"ADVISORY_ONLY",
             "merge_authorized":False,"retry_authorized":False,"status":"UNAVAILABLE"}
+    _observe(get, route, journal, result)
+    result["observed_at"]=datetime.now(timezone.utc).isoformat()
+    result["evidence_digest"]=sha256(json.dumps(result,sort_keys=True,separators=(",",":"),
+                                               allow_nan=False).encode()).hexdigest()
+    return result
+
+
+def _observe(get, route, journal, result):
     try:
         journal=journal or PilotJournalTransport(get)
         ref,raw=journal.read()
@@ -60,25 +68,25 @@ def packet(get, route, *, journal=None):
                       journal_state=record.state)
         if record.state not in TERMINAL | {"IDLE"}:
             result["status"]="RECOVERY_REQUIRED"
-            return result
+            return
         a=route["assignments"]["B"]
         if a is None:
             result["status"]="NO_CANDIDATE"
-            return result
+            return
         main=_sha(route["main"])
         head=_sha(a["head"])
         number=a["number"]
         if type(number) is not int or number<1:
-            return result
+            return
         if get("/branches/main")["commit"]["sha"]!=main:
-            return result
+            return
         if get(f"/contents/{POLICY}?ref={main}")["sha"]!=route["policy_blob"]:
-            return result
+            return
         pr=get("/pulls/"+str(number))
         scope=inspect_scope(get,number,head=head,main=main)
         if scope.excluded_paths or not pr["head"]["ref"].startswith(("a/","b/","code/v35-")):
             result["status"]="OWNER_REVIEW"
-            return result
+            return
         proposal=Proposal(number,head,"A",a["action"],(),())
         checks=recheck_candidate_ci(proposal,get)
         g0=_g0(get,main)
@@ -93,7 +101,7 @@ def packet(get, route, *, journal=None):
                 or predicted_tree(get,number,head,main)!=tree
                 or journal.read()!=(ref,raw) or get("/branches/main")["commit"]["sha"]!=main):
             result["status"]="CONTEXT_CHANGED"
-            return result
+            return
         result.update(status="OBSERVED",number=number,head=head,
                       path_count=len(scope.files),inventory_digest=scope.inventory_digest,
                       engine_changed=scope.engine_changed,base_matches_main=scope.base_matches_main,
@@ -102,7 +110,3 @@ def packet(get, route, *, journal=None):
                       checks=[dict(asdict(s),status=s.status.value) for s in checks])
     except Exception as exc:
         result.update(status="UNAVAILABLE",error=type(exc).__name__)
-    result["observed_at"]=datetime.now(timezone.utc).isoformat()
-    result["evidence_digest"]=sha256(json.dumps(result,sort_keys=True,separators=(",",":"),
-                                               allow_nan=False).encode()).hexdigest()
-    return result

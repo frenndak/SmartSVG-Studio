@@ -1,4 +1,7 @@
 import unittest
+import json
+from datetime import datetime, timedelta
+from hashlib import sha256
 from tools.smartsvg_controller_pilot import predicted_tree, packet
 from tools.smartsvg_controller_git_journal import PilotJournalTransport, JournalTransport
 from tools.smartsvg_controller_cas import Record, encode, prepare, transition
@@ -51,3 +54,7 @@ class PilotTests(unittest.TestCase):
         self.assertEqual(result["status"],"RECOVERY_REQUIRED")
         self.assertFalse(result["merge_authorized"])
         self.assertFalse(result["retry_authorized"])
+        self.assertEqual(datetime.fromisoformat(result["observed_at"]).utcoffset(), timedelta(0))
+        digest = result.pop("evidence_digest")
+        canonical = json.dumps(result, sort_keys=True, separators=(",", ":"), allow_nan=False)
+        self.assertEqual(digest, sha256(canonical.encode()).hexdigest())
