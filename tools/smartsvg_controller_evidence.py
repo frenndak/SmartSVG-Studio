@@ -34,6 +34,10 @@ class StepReceipt:
     qualification: str = "STEP_ONLY"
 
 
+def _positive_int(value):
+    return type(value) is int and value > 0
+
+
 def _status(obj):
     if obj.get("status") in ("queued", "in_progress", "waiting", "requested", "pending"):
         return Status.PENDING
@@ -59,7 +63,7 @@ def step_receipts(head, runs, *, event="pull_request"):
         entry = matches[0]
         run = entry["run"]
         rid, attempt = run.get("id"), run.get("run_attempt")
-        if type(rid) is not int or type(attempt) is not int or attempt < 1:
+        if not _positive_int(rid) or not _positive_int(attempt):
             out.append(missing("INVALID_RUN_IDENTITY"))
             continue
         if _status(run) is not Status.PASS:
@@ -72,8 +76,9 @@ def step_receipts(head, runs, *, event="pull_request"):
             continue
         job = jobs[0]
         jid = job.get("id")
-        if (type(jid) is not int or job.get("head_sha") != head
-                or job.get("run_id") != rid or job.get("run_attempt") != attempt):
+        if (not _positive_int(jid) or job.get("head_sha") != head
+                or not _positive_int(job.get("run_id")) or job["run_id"] != rid
+                or not _positive_int(job.get("run_attempt")) or job["run_attempt"] != attempt):
             out.append(missing("JOB_PROVENANCE_MISMATCH"))
             continue
         if _status(job) is not Status.PASS:
@@ -81,7 +86,7 @@ def step_receipts(head, runs, *, event="pull_request"):
                                    reason="JOB_NOT_SUCCESS"))
             continue
         steps = [s for s in job.get("steps", ()) if s.get("name") == step_name]
-        if len(steps) != 1 or type(steps[0].get("number")) is not int:
+        if len(steps) != 1 or not _positive_int(steps[0].get("number")):
             out.append(missing("MISSING_OR_MULTIPLE_STEPS"))
             continue
         step = steps[0]
@@ -96,8 +101,8 @@ def only_waiting_on_ci(steps):
         return False
     return (any(step.status is Status.PENDING for step in steps)
             and all(step.status in (Status.PASS, Status.PENDING)
-                    and type(step.run_id) is int and step.run_id > 0
-                    and type(step.attempt) is int and step.attempt > 0 for step in steps))
+                    and _positive_int(step.run_id) and _positive_int(step.attempt)
+                    for step in steps))
 
 
 @dataclass(frozen=True)

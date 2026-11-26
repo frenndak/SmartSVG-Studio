@@ -34,6 +34,27 @@ class EvidenceTests(unittest.TestCase):
             target[key] = value
             self.assertEqual(evidence([x]).status, Status.UNKNOWN)
 
+    def test_invalid_ci_identity_is_neither_progress_nor_an_actionable_wait(self):
+        for field, value in (("run", 0), ("job", -1), ("step", 0),
+                             ("job_run", True), ("job_attempt", True)):
+            for status in ("completed", "in_progress"):
+                with self.subTest(field=field, value=value, status=status):
+                    packet = entry("g0")
+                    run, job = packet["run"], packet["jobs"][0]
+                    run["run_attempt"] = job["run_attempt"] = 1
+                    step = job["steps"][0]
+                    if field == "run":
+                        run.update(id=value, status=status)
+                        job["run_id"] = value
+                    elif field == "step":
+                        step.update(number=value, status=status)
+                    else:
+                        key = {"job": "id", "job_run": "run_id", "job_attempt": "run_attempt"}[field]
+                        job.update({key: value, "status": status})
+                    receipt = evidence([packet])
+                    self.assertEqual(receipt.status, Status.UNKNOWN)
+                    self.assertIsNone(receipt.step_number)
+
     def test_step_skipped_failed_pending_and_cancelled(self):
         for status, conclusion, expected in (
             ("completed", "skipped", Status.SKIP),
