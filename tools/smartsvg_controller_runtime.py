@@ -34,6 +34,8 @@ def envelope(report,run_id,attempt,controller_head):
     # Additive advice outside the validated legacy assignment schema.
     from .smartsvg_controller_capacity import development_advice
     checkpoint["development_advice"] = development_advice(report)
+    if "roadmap_advice" in report:
+        checkpoint["roadmap_advice"] = report["roadmap_advice"]
     return dict(checkpoint,controller_head=controller_head,observed_at=report["observed_at"],
                 queue_complete=report["queue_complete"],code_wip=report["code_wip"],
                 unknown=list(report["unknown"]),qualification="ADVISORY_ONLY",
@@ -46,7 +48,11 @@ def route(get,journal_path,*,run_id,attempt,controller_head,require_main=False):
         raise ObservationError("controller checkout is no longer main")
     scopes,_=manifests(snapshot)
     # No fixed test probe. A closed or changed #194 must not stop routing.
-    report=simulate(snapshot,scopes,scope_get=get,journal_path=journal_path)
+    from .smartsvg_controller_roadmap import roadmap_advice
+    ranks, advice = roadmap_advice(snapshot,get)
+    report=simulate(snapshot,scopes,scope_get=get,journal_path=journal_path,
+                    roadmap_ranks=ranks)
+    report["roadmap_advice"] = advice
     if require_main and report["main"]!=controller_head:
         raise ObservationError("routing main drift")
     return envelope(report,run_id,attempt,controller_head)

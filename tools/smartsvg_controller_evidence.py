@@ -97,6 +97,7 @@ class Work:
     action: str
     # False for work currently reserved by a different live worker.
     available: bool = True
+    roadmap_rank: int | None = None
 
 
 def dispatch(role, work, code_wip, *, queue_complete=False):
@@ -122,9 +123,11 @@ def dispatch(role, work, code_wip, *, queue_complete=False):
         elif w.action == "INSPECT":
             rank = 4
         if rank is not None:
-            eligible.append((rank, w.number, w.action))
+            # Roadmap only breaks ties within the existing action class.
+            lot_rank = w.roadmap_rank if type(w.roadmap_rank) is int and w.roadmap_rank > 0 else 100
+            eligible.append((rank, lot_rank, w.number, w.action))
     if eligible:
-        _, number, action = min(eligible)
+        _, _, number, action = min(eligible)
         return number, "QUALIFY_ONLY" if action == "SHADOW_QUALIFIED" else action
     if queue_complete is True and code_wip < 3:
         return None, "DEVELOP"
