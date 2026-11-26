@@ -8,7 +8,8 @@ import os
 from pathlib import Path
 import sys
 
-from .smartsvg_controller_observation import ObservationError, github_get, observe
+from .smartsvg_controller_observation import (
+    ObservationError, branch_observation, github_get, observe, pages)
 from .smartsvg_controller_orchestration import Scope, build_plan, reserve_next, _fresh
 from .smartsvg_controller_storage import Evidence, OperationalJournal
 from .smartsvg_controller_routing import route_review_hints
@@ -91,6 +92,83 @@ def inspect_plan_scopes(plan, get):
             reports)
 
 
+def recheck_live_queue(plan, snapshot, get, scope_reports, ci_reports):
+    """Final advisory readback: never allocate a candidate with known drift.
+
+    New, changed or unreadable PRs remain conservative WIP. Closed candidates
+    are not reused and do not release capacity within an old plan. Main drift
+    invalidates the complete plan. A final readback is not a GitHub lock.
+    """
+    if get("/branches/main")["commit"]["sha"] != plan.main:
+        raise ObservationError("main changed before final readback")
+    original = {r["pr"]["number"]: r["pr"] for r in snapshot["candidates"]}
+    current = {}
+    for pr in pages(get, "/pulls?state=open"):
+        n = pr.get("number")
+        if type(n) is not int or n < 1 or n in current:
+            raise ObservationError("invalid final queue identity")
+        current[n] = pr
+    added = set(current) - set(original)
+    invalid = set(original) - set(current)
+    invalid.update(n for n in set(original) & set(current)
+                   if current[n].get("head", {}).get("sha") != original[n]["head"]["sha"])
+    invalid.update(r["number"] for r in ci_reports
+                   if r["reason"] == "PR_CONTEXT_CHANGED")
+    for p in plan.proposals:
+        if p.number in invalid:
+            continue
+        try:
+            pr = get("/pulls/"+str(p.number))
+            if (pr.get("number") != p.number or pr.get("state") != "open"
+                    or pr.get("head", {}).get("sha") != p.head
+                    or (pr.get("base", {}).get("repo") or {}).get("full_name") !=
+                       "frenndak/SmartSVG-Studio"
+                    or pr.get("base", {}).get("ref") != "main"
+                    or pr.get("user", {}).get("login") != "frenndak"
+                    or branch_observation(get, pr)["status"] != "MATCH"):
+                invalid.add(p.number)
+        except Exception:
+            invalid.add(p.number)
+    if get("/branches/main")["commit"]["sha"] != plan.main:
+        raise ObservationError("main changed during final readback")
+    # Never publish old positive receipts for a known invalidated context.
+    for report in scope_reports:
+        if report["number"] in invalid:
+            number, head = report["number"], report["head"]
+            report.clear()
+            report.update(number=number,head=head,qualification="INVALIDATED",
+                          reason="FINAL_QUEUE_CONTEXT_CHANGED")
+    for report in ci_reports:
+        if report["number"] in invalid:
+            number,head,check=report["number"],report["head"],report["check"]
+            report.clear()
+            report.update(number=number,head=head,check=check,qualification="ADVISORY_ONLY",
+                          status="UNKNOWN",reason="FINAL_QUEUE_CONTEXT_CHANGED",tests=[])
+    unknown = set(plan.unknown) | invalid | added
+    # Unknown owner/governance items must also reserve conservative capacity.
+    old_code = {p.number for p in plan.proposals if p.writer in ("A","B")}
+    # A code candidate narrowed to OWNER_REVIEW may already count in code_wip.
+    # Count only original explicitly non-code candidates (no step inventory).
+    old_owner = {p.number for p in plan.proposals if p.action=="OWNER_REVIEW"
+                 and not p.steps and p.number not in old_code}
+    wip = plan.code_wip + len(added) + len(invalid & old_owner)
+    proposals=[]
+    for p in plan.proposals:
+        if p.number in invalid:
+            continue
+        stale_checks=tuple(sorted({r["check"] for r in ci_reports
+            if r["number"]==p.number and r["reason"] in
+            ("RUN_JOB_OR_ATTEMPT_CHANGED","ATTEMPT_CHANGED_DURING_LOG_READ")}))
+        if stale_checks:
+            # Do not keep a proposal based on stale CI, including FIX_REQUIRED.
+            # Re-observe rather than implement a correction against old failure.
+            p=replace(p, action="INSPECT", reasons=("CI_ATTEMPT_CHANGED",*stale_checks),
+                      steps=())
+        proposals.append(p)
+    return replace(plan,proposals=tuple(proposals),unknown=tuple(sorted(unknown)),
+                   code_wip=wip,queue_complete=plan.queue_complete and not unknown)
+
+
 def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
              ci_manifest=None, ci_logs=(), ci_log_get=None, journal_path=None):
     """Run a read-only advisory rehearsal; optional dedicated local SQLite.
@@ -126,12 +204,18 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
         _fresh(plan.finished, now)
     elif ci_logs or ci_log_get is not None:
         raise ValueError("logs require CI manifest")
+    if scope_get is not None:
+        plan = recheck_live_queue(plan, snapshot, scope_get, scope_reports, ci_reports)
+        now = explicit_now or datetime.now(timezone.utc)
+        _fresh(plan.finished, now)
     persistent = journal_path is not None
     if persistent and (not str(journal_path) or str(journal_path) == ":memory:"):
         raise ValueError("dedicated persistent journal path required")
     journal = OperationalJournal(str(journal_path) if persistent else ":memory:")
     try:
         for report in ci_reports:
+            if report["reason"] == "FINAL_QUEUE_CONTEXT_CHANGED":
+                continue
             report["receipt_digest"] = journal.store_evidence(Evidence(
                 report["number"], report["head"], plan.main, plan.policy_blob,
                 "LOG_ONLY", "ci-inspection", dict(report)))
@@ -160,7 +244,8 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
         held = []
         try:
             for role in ("A", "B"):
-                reservation = reserve_next(plan, role, journal, now=now)
+                reservation = reserve_next(plan, role, journal,
+                                           now=explicit_now or datetime.now(timezone.utc))
                 assignments[role] = None
                 if reservation is None:
                     continue
@@ -199,6 +284,7 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
                 "unknown": plan.unknown, "candidates": candidates,
                 "assignments": assignments, "persistent_writes": persistent,
                 "agent_work_executed": False,
+                "final_queue_readback": "ADVISORY" if scope_get is not None else "NOT_REQUESTED",
                 "scope_verification": ("OPERATOR_HINT_ONLY" if scope_get is None else
                     "PATHS_ONLY_PARTIAL" if plan.unknown else "PATHS_ONLY"),
                 "scope_reports": scope_reports,

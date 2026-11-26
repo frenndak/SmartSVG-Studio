@@ -95,6 +95,8 @@ def scope_source(snapshot, *, bad=(), old=(), excluded=()):
     def get(path):
         if path == "/branches/main":
             return {"commit": {"sha": M}}
+        if path.startswith("/pulls?state=open"):
+            return [dict(pr,id=n) for n,pr in rows.items()]
         if path.startswith("/git/ref/heads/scope/"):
             n = int(path.rsplit("/",1)[1])
             return {"ref": "refs/heads/scope/"+str(n),
@@ -247,3 +249,77 @@ class PersistentRehearsalTests(unittest.TestCase):
                 self.assertEqual(main(["--snapshot",str(a),"--scopes",str(b),"--journal",str(db)]),0)
             self.assertTrue(db.is_file())
             self.assertFalse(json.loads(out.getvalue())["merge_authorized"])
+
+
+class FinalReadbackTests(unittest.TestCase):
+    def test_head_change_after_inventory_is_quarantined(self):
+        s,m=inputs()
+        source=scope_source(s)
+        def get(path):
+            result=source(path)
+            if path.startswith("/pulls?state=open"):
+                result=json.loads(json.dumps(result))
+                result[0]["head"]["sha"]=K
+            return result
+        r=simulate(s,m,now=NOW,scope_get=get)
+        self.assertEqual(r["unknown"],(192,))
+        self.assertFalse(r["queue_complete"])
+        self.assertIsNone(r["assignments"]["A"])
+        self.assertEqual(r["assignments"]["B"]["number"],195)
+        old=next(x for x in r["scope_reports"] if x["number"]==192)
+        self.assertEqual(old["qualification"],"INVALIDATED")
+        self.assertNotIn("receipt_digest",old)
+
+    def test_new_and_closed_pr_do_not_release_capacity(self):
+        s,m=inputs()
+        source=scope_source(s)
+        def get(path):
+            result=source(path)
+            if path.startswith("/pulls?state=open"):
+                return [pr for pr in result if pr["number"]!=192]+[
+                    {"id":197,"number":197,"head":{"sha":K}}]
+            return result
+        r=simulate(s,m,now=NOW,scope_get=get)
+        self.assertEqual(r["unknown"],(192,197))
+        self.assertEqual(r["code_wip"],3)
+        self.assertEqual(r["assignments"]["B"]["number"],195)
+
+    def test_branch_moves_during_final_detail_read(self):
+        s,m=inputs()
+        source=scope_source(s)
+        final=False
+        def get(path):
+            nonlocal final
+            result=source(path)
+            if path.startswith("/pulls?state=open"):
+                final=True
+            if final and path=="/git/ref/heads/scope/192":
+                result["object"]["sha"]=K
+            return result
+        r=simulate(s,m,now=NOW,scope_get=get)
+        self.assertEqual(r["unknown"],(192,))
+        self.assertIsNone(r["assignments"]["A"])
+        self.assertEqual(r["assignments"]["B"]["number"],195)
+
+    def test_ci_context_change_cannot_leave_assignment(self):
+        s,m=inputs()
+        reports=[{"number":192,"head":H,"check":"g0","reason":"PR_CONTEXT_CHANGED",
+                  "qualification":"ADVISORY_ONLY","status":"UNKNOWN","tests":[]}]
+        with patch("tools.smartsvg_controller_cli.inspect_ci",return_value=reports):
+            r=simulate(s,m,now=NOW,scope_get=scope_source(s),ci_manifest={})
+        self.assertEqual(r["unknown"],(192,))
+        self.assertIsNone(r["assignments"]["A"])
+        self.assertEqual(r["ci_reports"][0]["reason"],"FINAL_QUEUE_CONTEXT_CHANGED")
+        self.assertNotIn("receipt_digest",r["ci_reports"][0])
+
+    def test_ci_attempt_change_replaces_stale_steps_with_inspection(self):
+        s,m=inputs()
+        reports=[{"number":192,"head":H,"check":"g0","reason":"RUN_JOB_OR_ATTEMPT_CHANGED",
+                  "qualification":"ADVISORY_ONLY","status":"UNKNOWN","tests":[]}]
+        with patch("tools.smartsvg_controller_cli.inspect_ci",return_value=reports):
+            r=simulate(s,m,now=NOW,scope_get=scope_source(s),ci_manifest={})
+        p=next(x for x in r["candidates"] if x["number"]==192)
+        self.assertEqual(p["action"],"INSPECT")
+        self.assertEqual(p["steps"],[])
+        self.assertIn("CI_ATTEMPT_CHANGED",p["reasons"])
+        self.assertFalse(r["merge_authorized"])
