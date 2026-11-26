@@ -123,3 +123,24 @@ class RuntimeRoutingTests(unittest.TestCase):
                     route(object(),"fixture",run_id=10,attempt=1,controller_head=H)
                 self.assertEqual(observe.call_count,count)
                 simulate.assert_not_called()
+
+
+    def test_failed_route_emits_recovery_diagnostic_but_still_fails(self):
+        import os
+        import io
+        from contextlib import redirect_stdout
+        from tools.smartsvg_controller_runtime import main
+        from tools.smartsvg_controller_observation import ObservationError
+        env={"R15_REQUIRE_MAIN":"1","GITHUB_RUN_ID":"10","GITHUB_RUN_ATTEMPT":"1",
+             "EXPECTED_HEAD":H}
+        out=io.StringIO()
+        with patch.dict(os.environ,env), patch(
+                "tools.smartsvg_controller_runtime.route",side_effect=ObservationError("drift")), patch(
+                "tools.smartsvg_controller_pilot.recovery_only_packet",return_value={
+                    "qualification":"FAILED_ROUTE_DIAGNOSTIC_ONLY","merge_authorized":False,
+                    "retry_authorized":False}) as recovery, redirect_stdout(out):
+            self.assertEqual(main(),2)
+            recovery.assert_called_once()
+        self.assertIn("R15B_RECOVERY_DIAGNOSTIC_V1 ",out.getvalue())
+        self.assertNotIn("R15_ROUTE_V1 ",out.getvalue())
+        self.assertNotIn("R15B_PILOT_V1 ",out.getvalue())

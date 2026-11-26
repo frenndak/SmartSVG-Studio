@@ -125,3 +125,27 @@ def _observe(get, route, journal, result):
                       checks=[dict(asdict(s),status=s.status.value) for s in checks])
     except Exception as exc:
         result.update(status="UNAVAILABLE",error=type(exc).__name__)
+
+
+def recovery_only_packet(get, *, run_id, attempt, controller_head, journal=None):
+    """Independent diagnostic after route failure, never a qualified route.
+
+    Read only the live main/policy and pinned journal/recovery subject. Do not
+    select any new candidate or turn a failed routing job into a success.
+    """
+    main=_sha(controller_head)
+    if get("/branches/main")["commit"]["sha"]!=main:
+        return None
+    policy=_sha(get(f"/contents/{POLICY}?ref={main}")["sha"])
+    route={"main":main,"policy_blob":policy,"run_id":run_id,"attempt":attempt,
+           "controller_head":main,"assignments":{"B":None}}
+    result=packet(get,route,journal=journal)
+    if (result["status"]!="RECOVERY_REQUIRED"
+            or "recovery" not in result
+            or get("/branches/main")["commit"]["sha"]!=main):
+        return None
+    result.pop("evidence_digest")
+    result["qualification"]="FAILED_ROUTE_DIAGNOSTIC_ONLY"
+    result["evidence_digest"]=sha256(json.dumps(result,sort_keys=True,
+        separators=(",",":"),allow_nan=False).encode()).hexdigest()
+    return result
