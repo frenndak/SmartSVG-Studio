@@ -17,6 +17,10 @@ class ObservationError(RuntimeError):
     pass
 
 
+class QueueChanged(ObservationError):
+    """The open queue changed during a read-only snapshot."""
+
+
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -145,7 +149,7 @@ def observe(get=github_get):
     for number, head in identity(initial):
         p = get(f"/pulls/{number}")
         if p.get("number") != number or p.get("state") != "open" or p["head"]["sha"] != head:
-            raise ObservationError("PR changed during collection")
+            raise QueueChanged("PR changed during collection")
         branch = branch_observation(get, p)
         if branch["status"] != "MATCH":
             candidates.append({"pr": p, "branch": branch, "runs": [],
@@ -155,8 +159,12 @@ def observe(get=github_get):
                            "reviews": pages(get, f"/pulls/{number}/reviews"),
                            "comments": pages(get, f"/issues/{number}/comments")})
     rulesets = pages(get, "/rulesets?includes_parents=true")
-    if get("/branches/main")["commit"]["sha"] != main_sha or identity(open_prs()) != identity(initial):
-        raise ObservationError("main or PR queue changed during collection")
+    if get("/branches/main")["commit"]["sha"] != main_sha:
+        raise ObservationError("main changed during collection")
+    if identity(open_prs()) != identity(initial):
+        raise QueueChanged("PR queue changed during collection")
+    if get("/branches/main")["commit"]["sha"] != main_sha:
+        raise ObservationError("main changed during final queue read")
     for entry in candidates:
         if entry["branch"]["status"] == "MATCH":
             latest = branch_observation(get, entry["pr"])

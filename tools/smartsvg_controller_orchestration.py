@@ -147,7 +147,7 @@ def _context(plan, p):
     return sha256(raw).hexdigest()
 
 
-def reserve_next(plan, role, journal, *, now=None, ttl=300):
+def reserve_next(plan, role, journal, *, now=None, ttl=300, roadmap_ranks=None):
     """Reserve a local advisory PR unit, falling through on lease contention.
 
     The lease is not a GitHub lock. Re-observe before any real action.
@@ -156,7 +156,9 @@ def reserve_next(plan, role, journal, *, now=None, ttl=300):
     """
     _fresh(plan.finished, _now(now))
     candidates = {p.number: p for p in plan.proposals}
-    work = [Work(p.number, p.writer, p.action) for p in plan.proposals]
+    ranks = roadmap_ranks or {}
+    work = [Work(p.number, p.writer, p.action, roadmap_rank=ranks.get(p.number))
+            for p in plan.proposals]
     while work:
         number, action = dispatch(role, work, plan.code_wip, queue_complete=False)
         if number is None:

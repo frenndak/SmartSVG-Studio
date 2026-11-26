@@ -110,6 +110,35 @@ class ObservationTests(unittest.TestCase):
         self.assertEqual(row["branch"]["error"], "PermissionError")
 
 
+class QueueChurnTests(unittest.TestCase):
+    def test_queue_change_has_distinct_retryable_type(self):
+        from tools.smartsvg_controller_observation import QueueChanged
+        count=0
+        def get(path):
+            nonlocal count
+            if path.startswith("/pulls?state=open"):
+                count+=1
+                if count==2:
+                    return []
+            return fixture(path)
+        with self.assertRaises(QueueChanged):
+            observe(get)
+
+    def test_main_change_not_retryable_queue_churn(self):
+        from tools.smartsvg_controller_observation import QueueChanged
+        count=0
+        def get(path):
+            nonlocal count
+            if path=="/branches/main":
+                count+=1
+                if count==3:
+                    return {"commit":{"sha":H}}
+            return fixture(path)
+        with self.assertRaises(ObservationError) as error:
+            observe(get)
+        self.assertNotIsInstance(error.exception,QueueChanged)
+
+
 class ReadRetryTests(unittest.TestCase):
     def test_transient_get_retries_once(self):
         from unittest.mock import patch, MagicMock

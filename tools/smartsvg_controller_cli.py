@@ -232,7 +232,7 @@ def recheck_live_queue(plan, snapshot, get, scope_reports, ci_reports):
 
 def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
              ci_manifest=None, ci_logs=(), ci_log_get=None, journal_path=None,
-             scheduler_snapshot=None, durable_checkpoints=False):
+             scheduler_snapshot=None, durable_checkpoints=False, roadmap_ranks=None):
     """Run a read-only advisory rehearsal; optional dedicated local SQLite.
 
     No GitHub writes or scheduler calls. Persistent mode stores only reduced
@@ -338,7 +338,8 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
         try:
             for role in ("A", "B"):
                 reservation = reserve_next(plan, role, journal,
-                                           now=explicit_now or datetime.now(timezone.utc))
+                                           now=explicit_now or datetime.now(timezone.utc),
+                                           roadmap_ranks=roadmap_ranks)
                 assignments[role] = None
                 if reservation is None:
                     continue

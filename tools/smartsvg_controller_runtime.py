@@ -10,7 +10,7 @@ import tempfile
 
 from .smartsvg_controller_cli import simulate
 from .smartsvg_controller_commission import manifests
-from .smartsvg_controller_observation import observe, github_get, ObservationError
+from .smartsvg_controller_observation import observe, github_get, ObservationError, QueueChanged
 from .smartsvg_controller_relay import validate
 
 PREFIX="R15_ROUTE_V1 "
@@ -31,6 +31,10 @@ def envelope(report,run_id,attempt,controller_head):
     from .smartsvg_controller_relay import SHA
     if not isinstance(controller_head,str) or SHA.fullmatch(controller_head) is None:
         raise ValueError("invalid controller identity")
+    from .smartsvg_controller_capacity import development_advice
+    checkpoint["development_advice"] = development_advice(report)
+    if "roadmap_advice" in report:
+        checkpoint["roadmap_advice"] = report["roadmap_advice"]
     return dict(checkpoint,controller_head=controller_head,observed_at=report["observed_at"],
                 queue_complete=report["queue_complete"],code_wip=report["code_wip"],
                 unknown=list(report["unknown"]),qualification="ADVISORY_ONLY",
@@ -39,16 +43,28 @@ def envelope(report,run_id,attempt,controller_head):
 
 
 def route(get,journal_path,*,run_id,attempt,controller_head,require_main=False):
-    snapshot=observe(get)
+    # One bounded restart of a read-only observation on known PR churn.
+    # Never reuse partial evidence; main drift and other errors still fail.
+    restarted=False
+    try:
+        snapshot=observe(get)
+    except QueueChanged:
+        restarted=True
+        snapshot=observe(get)
     if require_main and snapshot["main"]["commit"]["sha"]!=controller_head:
         raise ObservationError("controller checkout is no longer main")
     scopes,_=manifests(snapshot)
     # No fixed test probe. A closed or changed #194 must not stop routing.
+    from .smartsvg_controller_roadmap import roadmap_advice
+    ranks, advice = roadmap_advice(snapshot,get)
     report=simulate(snapshot,scopes,scope_get=get,journal_path=journal_path,
-                    durable_checkpoints=True)
+                    durable_checkpoints=True,roadmap_ranks=ranks)
+    report["roadmap_advice"] = advice
     if require_main and report["main"]!=controller_head:
         raise ObservationError("routing main drift")
-    return envelope(report,run_id,attempt,controller_head)
+    result=envelope(report,run_id,attempt,controller_head)
+    result["observation_restarted"]=restarted
+    return result
 
 
 def main():

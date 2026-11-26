@@ -68,3 +68,20 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(dispatch("B", (), 2, queue_complete=True), (None, "DEVELOP"))
         self.assertEqual(dispatch("A", (Work(192, "B", "REVIEW", False),), 3),
                          (None, "CHECKPOINT_WAIT"))
+
+    def test_roadmap_rank_breaks_review_tie_not_role_or_action(self):
+        q=(Work(192,"B","REVIEW",roadmap_rank=4),
+           Work(194,"B","REVIEW",roadmap_rank=3),
+           Work(195,"A","FIX_REQUIRED",roadmap_rank=1))
+        self.assertEqual(dispatch("A",q,3),(194,"REVIEW"))
+        self.assertEqual(dispatch("B",q,3),(None,"CHECKPOINT_WAIT"))
+
+    def test_roadmap_does_not_override_existing_action_priority_or_availability(self):
+        q=(Work(192,"B","REVIEW",False,1),Work(194,"B","REVIEW",True,4),
+           Work(195,"A","FIX_REQUIRED",True,1))
+        self.assertEqual(dispatch("A",q,3),(194,"REVIEW"))
+        self.assertEqual(dispatch("A",q[2:],3),(195,"FIX_REQUIRED"))
+
+    def test_unranked_legacy_tie_is_stable(self):
+        q=(Work(194,"B","REVIEW"),Work(192,"B","REVIEW"))
+        self.assertEqual(dispatch("A",q,3),(192,"REVIEW"))
