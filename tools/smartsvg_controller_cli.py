@@ -145,7 +145,7 @@ def recheck_live_queue(plan, snapshot, get, scope_reports, ci_reports):
     # A known PR number with an invalid head projection is a local
     # observation failure, not loss of the whole queue identity. Preserve
     # independent candidates and retain conservative WIP for this number.
-    for n in set(original) & set(current):
+    for n in (set(original) & set(current)) - invalid:
         head = current[n].get("head")
         if not isinstance(head, dict) or head.get("sha") != original[n]["head"]["sha"]:
             invalid.add(n)

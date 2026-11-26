@@ -315,3 +315,63 @@ class CandidateIsolationTests(unittest.TestCase):
         self.assertEqual(plan.unknown,(195,))
         self.assertEqual(plan.code_wip,2)
         self.assertEqual(tuple(p.number for p in plan.proposals),(196,))
+
+    def test_unreadable_queue_head_preserves_other_assignment_through_live_route(self):
+        from tempfile import TemporaryDirectory
+        from pathlib import Path
+        from tools.smartsvg_controller_runtime import route
+
+        for broken_reads in ({1}, {2}, {1, 2, 3}):
+            with self.subTest(broken_reads=broken_reads), TemporaryDirectory() as tmp:
+                queue_reads = 0
+
+                def get(path):
+                    nonlocal queue_reads
+                    if path.startswith("/pulls?state=open"):
+                        queue_reads += 1
+                        if queue_reads in broken_reads:
+                            return [dict(self.prs[0], head=None), self.prs[1]]
+                    if path in ("/pulls/195", "/pulls/196"):
+                        pr = self.get(path)
+                        return dict(pr, base=dict(pr["base"], sha=M), changed_files=1)
+                    if "/files?" in path:
+                        return [{"filename": "tests/test_example.py",
+                                 "status": "modified", "sha": P}]
+                    return self.get(path)
+
+                result = route(get, Path(tmp) / "routing.db", run_id=1, attempt=1,
+                               controller_head=M, require_main=True)
+                self.assertEqual(result["unknown"], [195])
+                self.assertEqual(result["code_wip"], 2)
+                self.assertFalse(result["queue_complete"])
+                self.assertEqual(result["development_advice"]["available_slots"], 0)
+                self.assertEqual(result["assignments"]["A"]["number"], 196)
+                self.assertIsNone(result["assignments"]["B"])
+                self.assertFalse(result["merge_authorized"])
+                self.assertFalse(result["observation_restarted"])
+
+    def test_invalid_queue_numbers_refuse_whole_observation(self):
+        for number in (None, False, 0, -1, "195", 196):
+            with self.subTest(number=number):
+                def get(path):
+                    if path.startswith("/pulls?state=open"):
+                        return [dict(self.prs[0], number=number), self.prs[1]]
+                    return self.get(path)
+                with self.assertRaises(ObservationError):
+                    observe(get)
+
+    def test_valid_queue_head_change_keeps_bounded_restart(self):
+        from tools.smartsvg_controller_observation import QueueChanged
+        count = 0
+
+        def get(path):
+            nonlocal count
+            if path.startswith("/pulls?state=open"):
+                count += 1
+                if count == 2:
+                    old = self.prs[0]
+                    return [dict(old, head=dict(old["head"], sha=P)), self.prs[1]]
+            return self.get(path)
+
+        with self.assertRaises(QueueChanged):
+            observe(get)
