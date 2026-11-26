@@ -17,6 +17,7 @@ from .smartsvg_controller_scope import inspect_scope
 from .smartsvg_controller_ci import inspect_ci
 from .smartsvg_controller_log_transport import github_job_log
 from .smartsvg_controller_evidence import SPECS, step_receipts
+from .smartsvg_controller_scheduler import inspect_scheduler
 
 MAX_INPUT = 32 * 1024 * 1024
 
@@ -228,7 +229,8 @@ def recheck_live_queue(plan, snapshot, get, scope_reports, ci_reports):
 
 
 def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
-             ci_manifest=None, ci_logs=(), ci_log_get=None, journal_path=None):
+             ci_manifest=None, ci_logs=(), ci_log_get=None, journal_path=None,
+             scheduler_snapshot=None):
     """Run a read-only advisory rehearsal; optional dedicated local SQLite.
 
     No GitHub writes or scheduler calls. Persistent mode stores only reduced
@@ -266,6 +268,8 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
         plan = recheck_live_queue(plan, snapshot, scope_get, scope_reports, ci_reports)
         now = explicit_now or datetime.now(timezone.utc)
         _fresh(plan.finished, now)
+    scheduler_reports = (inspect_scheduler(scheduler_snapshot, now=now)
+                         if scheduler_snapshot is not None else {})
     persistent = journal_path is not None
     if persistent and (not str(journal_path) or str(journal_path) == ":memory:"):
         raise ValueError("dedicated persistent journal path required")
@@ -348,7 +352,10 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
                 "scope_reports": scope_reports,
                 "ci_reports": ci_reports,
                 "ci_verification": "ADVISORY_ONLY" if ci_manifest is not None else "NOT_REQUESTED",
-                "review_verification": "NOT_QUALIFIED"}
+                "review_verification": "NOT_QUALIFIED",
+                "scheduler_reports": scheduler_reports,
+                "scheduler_verification": ("IMPORTED_METADATA_ONLY" if scheduler_snapshot is not None
+                                            else "NOT_REQUESTED")}
     finally:
         journal.close()
 
@@ -365,6 +372,7 @@ def main(argv=None):
     logs_source.add_argument("--ci-logs", help="optional imported job log packets, not authenticated")
     logs_source.add_argument("--fetch-ci-logs", action="store_true", help="read actual GitHub job logs, live only")
     parser.add_argument("--journal", help="optional dedicated local SQLite rehearsal file")
+    parser.add_argument("--scheduler-snapshot", help="imported independent scheduler readback JSON; advisory only")
     args = parser.parse_args(argv)
     try:
         if args.fetch_ci_logs and (not args.live or not args.ci_manifest):
@@ -386,7 +394,9 @@ def main(argv=None):
         logs = read_json(args.ci_logs) if args.ci_logs else ()
         report = simulate(snapshot, manifest, review_packets=packets, scope_get=get,
                           ci_manifest=ci, ci_logs=logs, ci_log_get=log_get,
-                          journal_path=args.journal)
+                          journal_path=args.journal,
+                          scheduler_snapshot=(read_json(args.scheduler_snapshot)
+                                              if args.scheduler_snapshot else None))
         print(json.dumps(report, indent=2, sort_keys=True))
         return 0
     except Exception as exc:
