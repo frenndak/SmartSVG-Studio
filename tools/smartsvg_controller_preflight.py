@@ -73,6 +73,8 @@ def _valid_path(path):
         return False
     return (path.startswith(("engine/", "tests/", "tools/", "examples/synthetic/"))
             and path not in FORBIDDEN
+            and not path.startswith(("tools/smartsvg_controller_", "tests/test_r15_controller_"))
+            and path != "tests/fixtures/r15_queue_replay_20261125.json"
             and not path.lower().endswith((".zip", ".exe", ".dll", ".bin", ".whl"))
             and path.rsplit("/", 1)[-1].lower() not in
             ("requirements.txt", "package-lock.json", "pyproject.toml", "setup.py"))

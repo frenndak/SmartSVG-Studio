@@ -2,6 +2,9 @@
 from datetime import datetime, timezone
 import json
 import re
+import time
+from http.client import RemoteDisconnected, IncompleteRead
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 from urllib.parse import quote
 
@@ -26,11 +29,28 @@ def github_get(path, token=None):
     headers = {"Accept": "application/vnd.github+json", "User-Agent": "SmartSVG-R15-shadow"}
     if token:
         headers["Authorization"] = "Bearer " + token
-    with build_opener(NoRedirect()).open(Request(ROOT + path, headers=headers), timeout=20) as r:
-        raw = r.read(16 * 1024 * 1024 + 1)
-    if len(raw) > 16 * 1024 * 1024:
-        raise ObservationError("response too large")
-    return json.loads(raw)
+    # Only an idempotent GET may be retried, once, for a narrow transient
+    # transport failure. No retry of auth, rate-limit, malformed data,
+    # context mismatch, or mutation. Callers still revalidate identities.
+    for attempt in range(2):
+        try:
+            with build_opener(NoRedirect()).open(Request(ROOT + path, headers=headers), timeout=20) as r:
+                raw = r.read(16 * 1024 * 1024 + 1)
+            if len(raw) > 16 * 1024 * 1024:
+                raise ObservationError("response too large")
+            return json.loads(raw)
+        except HTTPError as exc:
+            retry = exc.code in (502, 503, 504) and not exc.headers.get("Retry-After")
+            exc.close()
+            if attempt or not retry:
+                raise
+        except URLError as exc:
+            if attempt or not isinstance(exc.reason, (TimeoutError, ConnectionResetError, RemoteDisconnected)):
+                raise
+        except (TimeoutError, ConnectionResetError, RemoteDisconnected, IncompleteRead):
+            if attempt:
+                raise
+        time.sleep(0.25)
 
 
 def _sha(value):

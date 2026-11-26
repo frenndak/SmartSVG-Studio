@@ -1,0 +1,214 @@
+name: SmartSVG R15-B - Live reconciliation qualification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "tools/smartsvg_controller_live_reconcile.py"
+      - "tools/smartsvg_controller_observation.py"
+      - "tests/test_r15_controller_observation.py"
+      - "tools/smartsvg_controller_proof.py"
+      - "tools/smartsvg_controller_step_log.py"
+      - "tools/smartsvg_controller_ci.py"
+      - "tests/test_r15_controller_live_reconcile.py"
+      - "tools/smartsvg_controller_successor.py"
+      - "tests/test_r15_controller_successor.py"
+      - "tools/smartsvg_controller_recovery_plan.py"
+      - "tools/smartsvg_controller_recovery_record.py"
+      - "tests/test_r15_controller_recovery_record.py"
+      - "tests/test_r15_controller_recovery_plan.py"
+      - "tools/smartsvg_controller_cas.py"
+      - "tools/smartsvg_controller_git_journal.py"
+      - "tests/test_r15_controller_cas.py"
+      - "tests/test_r15_controller_git_journal.py"
+      - ".github/workflows/r15b-live-reconciliation.yml"
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+jobs:
+  reconcile-real-squash:
+    if: ${{ github.repository == 'frenndak/SmartSVG-Studio' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'owner/r15b-live-reconciliation-20261126' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Read actual PR 196 squash and exact-main G0
+        env:
+          SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          python - <<'PY'
+          import json, os
+          from tools.smartsvg_controller_observation import github_get
+          from tools.smartsvg_controller_live_reconcile import Subject, reconcile_live
+          result = reconcile_live(lambda p: github_get(p, token=os.environ["SMARTSVG_GITHUB_READ_TOKEN"]),
+              Subject(196, "8764ced8ee8100b4e187cdcc595d735ec3630622",
+                      "c161e663cd841eef5eb47646d6e907904d26e60b",
+                      "ea8351fbee5f972b6e45784e42e3060f733739ae"))
+          print(json.dumps(result, sort_keys=True, indent=2))
+          # A later product merge may legitimately advance main. Do not
+          # turn that into an artificial gate for the product.
+          if result["state"] not in ("MERGED_G0_PASS","MAIN_DRIFT") or result["merge_sha"]!="f00f665d075259e521b4067d700d55b2a9b892ee":
+              raise SystemExit(1)
+          PY
+
+      - name: Verify pinned journal adapter and live history
+        env:
+          SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_r15_controller_successor.py'
+          python -m unittest discover -s tests -p 'test_r15_controller_recovery_plan.py'
+          python -m unittest discover -s tests -p 'test_r15_controller_cas.py'
+          python -m unittest discover -s tests -p 'test_r15_controller_git_journal.py'
+          python - <<'PY'
+          import os
+          from tools.smartsvg_controller_observation import github_get
+          from tools.smartsvg_controller_git_journal import JournalTransport
+          from tools.smartsvg_controller_cas import decode
+          ref, raw = JournalTransport(lambda p: github_get(p, token=os.environ["SMARTSVG_GITHUB_READ_TOKEN"])).read()
+          assert ref == "fa5868c9a8789d7daed7a4f102fb258f81c9eb2c"
+          record = decode(raw)
+          assert record.generation == 5 and record.state == "QUALIFIED_READBACK" and record.intent == 2
+          print("PINNED_JOURNAL_READBACK_PASS", ref)
+          PY
+      - name: Replay recovery coordinator against actual GitHub observations
+        env:
+          SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          from tools.smartsvg_controller_observation import github_get, POLICY
+          from tools.smartsvg_controller_cas import Record, prepare, transition, encode
+          from tools.smartsvg_controller_recovery_plan import recover
+          get = lambda p: github_get(p, token=os.environ['SMARTSVG_GITHUB_READ_TOKEN'])
+          parent = 'c161e663cd841eef5eb47646d6e907904d26e60b'
+          merged = 'f00f665d075259e521b4067d700d55b2a9b892ee'
+          # Synthetic intent, actual immutable and mutable observations; no writes.
+          prepared = prepare(Record(), number=196, head='8764ced8ee8100b4e187cdcc595d735ec3630622',
+              main=parent, tree='ea8351fbee5f972b6e45784e42e3060f733739ae',
+              policy=get(f'/contents/{POLICY}?ref={parent}')['sha'], evidence='e'*64)
+          record = transition(prepared, 'DISPATCH_UNKNOWN', 'f'*64)
+          result = recover(lambda:(merged,encode(record)),get)
+          assert not result['merge_authorized'] and not result['retry_authorized']
+          print('RECOVERY_LIVE_REPLAY_DIAGNOSTIC',result['action'], (result.get('observation') or {}).get('state'), (result.get('observation') or {}).get('reason'),result.get('error'))
+          assert (result.get('observation') or {}).get('merge_sha') == merged
+          assert result['action'] in ('OBSERVE_COMPLETED_INTEGRATION','REQUALIFY_CURRENT_MAIN')
+          print('RECOVERY_LIVE_REPLAY_PASS',result['action'])
+          PY
+
+      - name: Rehearse persistence of fresh real recovery readback
+        env:
+          SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_r15_controller_recovery_record.py'
+          python - <<'PY'
+          import os
+          from tools.smartsvg_controller_observation import github_get, POLICY
+          from tools.smartsvg_controller_cas import Record, prepare, transition, encode, Result
+          from tools.smartsvg_controller_recovery_record import reconcile_and_record
+          get = lambda p: github_get(p, token=os.environ['SMARTSVG_GITHUB_READ_TOKEN'])
+          parent = 'c161e663cd841eef5eb47646d6e907904d26e60b'
+          merged = 'f00f665d075259e521b4067d700d55b2a9b892ee'
+          prepared = prepare(Record(), number=196, head='8764ced8ee8100b4e187cdcc595d735ec3630622',
+              main=parent, tree='ea8351fbee5f972b6e45784e42e3060f733739ae',
+              policy=get(f'/contents/{POLICY}?ref={parent}')['sha'], evidence='e'*64)
+          class Shadow:
+              record=transition(prepared,'DISPATCH_UNKNOWN','f'*64)
+              ref='a'*40
+              def read(self):
+                  return self.ref,encode(self.record)
+              def write(self,ref,previous,proposed):
+                  assert self.read()==(ref,encode(previous))
+                  self.record=proposed
+                  self.ref='b'*40
+                  return Result('APPLIED',self.ref,self.ref)
+          journal=Shadow()
+          result=reconcile_and_record(journal,get)
+          assert not result['merge_authorized'] and not result['retry_authorized']
+          assert result['status']=='OBSERVATION_RECORDED',result['status']
+          assert journal.record.state in ('QUALIFIED_READBACK','MAIN_DRIFT')
+          print('REAL_READBACK_SHADOW_PERSISTENCE_PASS',journal.record.state)
+          PY
+
+      - name: Verify durable terminal recovery across a fresh runner
+        env:
+          SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          from tools.smartsvg_controller_observation import github_get
+          from tools.smartsvg_controller_git_journal import JournalTransport
+          from tools.smartsvg_controller_cas import decode
+          from tools.smartsvg_controller_recovery_record import reconcile_and_record
+          get = lambda p: github_get(p, token=os.environ['SMARTSVG_GITHUB_READ_TOKEN'])
+          j=JournalTransport(get)
+          ref, raw=j.read()
+          assert ref=='fa5868c9a8789d7daed7a4f102fb258f81c9eb2c'
+          record=decode(raw)
+          assert record.state=='QUALIFIED_READBACK' and record.intent==2 and record.generation==5
+          assert record.evidence=='6ffe711ec91e2b96ef35a659c9e376f272be0431bd7fea9b7863b600dbcd1158'
+          result=reconcile_and_record(j,get)
+          assert result['status']=='NO_OBSERVATION_WRITE'
+          assert not result['merge_authorized'] and not result['retry_authorized']
+          assert j.read()==(ref,raw)
+          print('R15B_DURABLE_TERMINAL_RESTART_PASS',ref)
+          PY
+
+      - name: Qualify actual two-line Tk unittest receipt
+        env:
+          SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os, json
+          from tools.smartsvg_controller_observation import github_get
+          from tools.smartsvg_controller_log_transport import github_job_log
+          from tools.smartsvg_controller_proof import parse_test_receipts, verify_workflow_pin
+          from tools.smartsvg_controller_step_log import bind_step_log
+          token=os.environ['SMARTSVG_GITHUB_READ_TOKEN']
+          get=lambda p:github_get(p,token=token)
+          head='7e557c8c450f0083d4362a703ba5f74adc43d243'
+          main=get('/branches/main')['commit']['sha']
+          path='.github/workflows/stability-qualification.yml'
+          pin='41d17675dc6f41cd4138bac4250f8073490b62fe'
+          assert verify_workflow_pin(pin,get(f'/contents/{path}?ref={main}')['sha'],get(f'/contents/{path}?ref={head}')['sha']).matched
+          run=get('/actions/runs/45744247915')
+          job=get('/actions/jobs/139656342576')
+          assert run['head_sha']==head and run['run_attempt']==1 and run['conclusion']=='success'
+          assert job['conclusion']=='success'
+          test='test_v35_native_ptc_real_tk_flow.RealTkPTCFlow.test_real_export_buttons_follow_brush_and_history_transitions'
+          log=github_job_log(job['id'],token=token)
+          receipt=parse_test_receipts(log,[test],head=head,run_id=run['id'],attempt=1,job_id=job['id'])
+          step=next(s for s in job['steps'] if s['name']=='Full Python suite on native Windows (with brush CPU dependencies)')
+          binding=bind_step_log(log,receipt,job,step['number'])
+          assert receipt.tests[0].status=='PASS' and len(receipt.tests[0].lines)==2
+          assert binding['status']=='BOUND',binding
+          assert get('/actions/runs/45744247915')['run_attempt']==1
+          assert get('/actions/jobs/139656342576')==job
+          assert get('/branches/main')['commit']['sha']==main
+          print('R15B_TK_DOCSTRING_RECEIPT_PASS '+json.dumps({'number':195,'head':head,'main':main,
+              'run_id':run['id'],'job_id':job['id'],'attempt':1,'test':test,
+              'status':'PASS','lines':receipt.tests[0].lines,'binding':binding,'log_digest':receipt.digest,
+              'qualification':'ADVISORY_ONLY','merge_authorized':False},sort_keys=True,separators=(',',':')))
+          PY

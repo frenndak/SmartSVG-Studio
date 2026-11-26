@@ -72,9 +72,12 @@ def bind_step_log(log,receipt,job,step_number):
         if len(checkout_lines)!=1 or checkout_lines[0][1]!=receipt.head:
             return unknown("CHECKOUT_SHA_NOT_OBSERVED")
         for test in receipt.tests:
-            if (len(test.lines)!=1 or test.status=="UNKNOWN" or
-                    type(test.lines[0]) is not int or not 1<=test.lines[0]<=len(parsed)
-                    or not _inside(parsed[test.lines[0]-1][0],tw)):
+            if (len(test.lines) not in (1,2) or test.status=="UNKNOWN"
+                    or any(type(n) is not int or not 1<=n<=len(parsed)
+                           or not _inside(parsed[n-1][0],tw) for n in test.lines)
+                    or (len(test.lines)==2 and
+                        (test.lines[1]!=test.lines[0]+1 or
+                         parsed[test.lines[1]-1][0]<parsed[test.lines[0]-1][0]))):
                 return unknown("TEST_RESULT_NOT_UNIQUELY_IN_STEP")
         return {"status":"BOUND","reason":"CHECKOUT_SHA_AND_TEST_STEP_OBSERVED",
                 "checkout_line":checkout_lines[0][0],"step_number":step_number,
