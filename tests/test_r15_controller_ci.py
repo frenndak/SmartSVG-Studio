@@ -126,3 +126,16 @@ class CICompositionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             inspect_ci(self.plan,self.manifest,self.source,[self.packet],
                        log_get=lambda job_id:self.packet["log"])
+
+    def test_composed_log_receipt_is_json_journal_compatible(self):
+        from tools.smartsvg_controller_storage import Evidence, OperationalJournal
+        r=self.report()
+        self.assertEqual(r["tests"][0]["lines"],[1])
+        j=OperationalJournal(":memory:")
+        try:
+            digest=j.store_evidence(Evidence(195,self.pr["head"]["sha"],self.plan.main,
+                self.plan.policy_blob,"LOG_ONLY","ci-inspection",r))
+            self.assertEqual(j.evidence_for(195,self.pr["head"]["sha"],self.plan.main,
+                self.plan.policy_blob,"LOG_ONLY")[0][0],digest)
+        finally:
+            j.close()

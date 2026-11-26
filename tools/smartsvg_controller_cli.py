@@ -2,6 +2,7 @@
 import argparse
 from dataclasses import asdict, replace
 from datetime import datetime, timezone
+from hashlib import sha256
 import json
 import os
 from pathlib import Path
@@ -91,10 +92,11 @@ def inspect_plan_scopes(plan, get):
 
 
 def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
-             ci_manifest=None, ci_logs=(), ci_log_get=None):
-    """Use actual orchestration and operational journal, but only in memory.
+             ci_manifest=None, ci_logs=(), ci_log_get=None, journal_path=None):
+    """Run a read-only advisory rehearsal; optional dedicated local SQLite.
 
-    No GitHub writes, no scheduler calls, no persistent local writes.
+    No GitHub writes or scheduler calls. Persistent mode stores only reduced
+    evidence and advisory plan fingerprints, not completed agent work.
     No raw comments, logs, credentials, checkpoints or bodies in output.
     """
     explicit_now = now
@@ -124,7 +126,10 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
         _fresh(plan.finished, now)
     elif ci_logs or ci_log_get is not None:
         raise ValueError("logs require CI manifest")
-    journal = OperationalJournal(":memory:")
+    persistent = journal_path is not None
+    if persistent and (not str(journal_path) or str(journal_path) == ":memory:"):
+        raise ValueError("dedicated persistent journal path required")
+    journal = OperationalJournal(str(journal_path) if persistent else ":memory:")
     try:
         for report in ci_reports:
             report["receipt_digest"] = journal.store_evidence(Evidence(
@@ -152,19 +157,48 @@ def simulate(snapshot, manifest, *, now=None, review_packets=(), scope_get=None,
             candidates.append({"number": p.number, "head": p.head, "writer": p.writer,
                                "action": p.action, "reasons": p.reasons, "steps": steps})
         assignments = {}
-        for role in ("A", "B"):
-            reservation = reserve_next(plan, role, journal, now=now)
-            assignments[role] = ({"number": reservation.number,
-                                  "action": reservation.action,
-                                  "head": reservation.head,
-                                  "recovery_advice": reservation.recovery_advice}
-                                 if reservation else None)
-        return {"mode": "SHADOW_DRY_RUN", "merge_authorized": False,
+        held = []
+        try:
+            for role in ("A", "B"):
+                reservation = reserve_next(plan, role, journal, now=now)
+                assignments[role] = None
+                if reservation is None:
+                    continue
+                held.append(reservation)
+                assignment = {"number": reservation.number, "action": reservation.action,
+                              "head": reservation.head,
+                              "recovery_advice": reservation.recovery_advice}
+                if persistent:
+                    # A plan fingerprint only: not a review, completed task,
+                    # execution receipt, or authority to skip verification.
+                    material = [reservation.context_key,
+                        next(c for c in candidates if c["number"] == reservation.number),
+                        [r for r in scope_reports if r["number"] == reservation.number],
+                        [r for r in ci_reports if r["number"] == reservation.number]]
+                    digest = sha256(json.dumps(material,sort_keys=True,separators=(",",":"),
+                        ensure_ascii=True,allow_nan=False).encode()).hexdigest()
+                    checkpoint = "SHADOW_PLAN_V1:" + digest
+                    assignment["same_plan_as_previous"] = reservation.checkpoint == checkpoint
+                    assignment["plan_digest"] = digest
+                    if not journal.save("pr:"+str(reservation.number), reservation.context_key,
+                                        role,reservation.fence,checkpoint):
+                        raise ObservationError("rehearsal lease expired")
+                assignments[role] = assignment
+        finally:
+            # Retain both reservations until planning finishes, avoiding
+            # duplicate allocation within a rehearsal. Never retain a lease
+            # after normal completion because no agent action was dispatched.
+            for reservation in held:
+                journal.release("pr:"+str(reservation.number),reservation.context_key,
+                                reservation.owner,reservation.fence)
+        return {"mode": "SHADOW_PERSISTENT_REHEARSAL" if persistent else "SHADOW_DRY_RUN",
+                "merge_authorized": False,
                 "main": plan.main, "policy_blob": plan.policy_blob,
                 "observed_at": plan.finished.isoformat(),
                 "code_wip": plan.code_wip, "queue_complete": plan.queue_complete,
                 "unknown": plan.unknown, "candidates": candidates,
-                "assignments": assignments, "persistent_writes": False,
+                "assignments": assignments, "persistent_writes": persistent,
+                "agent_work_executed": False,
                 "scope_verification": ("OPERATOR_HINT_ONLY" if scope_get is None else
                     "PATHS_ONLY_PARTIAL" if plan.unknown else "PATHS_ONLY"),
                 "scope_reports": scope_reports,
@@ -186,6 +220,7 @@ def main(argv=None):
     logs_source = parser.add_mutually_exclusive_group()
     logs_source.add_argument("--ci-logs", help="optional imported job log packets, not authenticated")
     logs_source.add_argument("--fetch-ci-logs", action="store_true", help="read actual GitHub job logs, live only")
+    parser.add_argument("--journal", help="optional dedicated local SQLite rehearsal file")
     args = parser.parse_args(argv)
     try:
         if args.fetch_ci_logs and (not args.live or not args.ci_manifest):
@@ -206,7 +241,8 @@ def main(argv=None):
         ci = read_json(args.ci_manifest) if args.ci_manifest else None
         logs = read_json(args.ci_logs) if args.ci_logs else ()
         report = simulate(snapshot, manifest, review_packets=packets, scope_get=get,
-                          ci_manifest=ci, ci_logs=logs, ci_log_get=log_get)
+                          ci_manifest=ci, ci_logs=logs, ci_log_get=log_get,
+                          journal_path=args.journal)
         print(json.dumps(report, indent=2, sort_keys=True))
         return 0
     except Exception as exc:

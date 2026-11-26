@@ -107,7 +107,7 @@ def inspect_ci(plan, manifest, get, logs=(), *, log_get=None):
                     source="IMPORTED_LOG"
                 receipt=parse_test_receipts(log,targets,head=p.head,
                     run_id=step.run_id,attempt=step.attempt,job_id=step.job_id)
-                report["tests"]=[{"test_id":t.test_id,"status":t.status,"lines":t.lines}
+                report["tests"]=[{"test_id":t.test_id,"status":t.status,"lines":list(t.lines)}
                                  for t in receipt.tests]
                 report["log_digest"]=receipt.digest
                 report["log_source"]=source

@@ -167,3 +167,83 @@ class LiveScopeWiringTests(unittest.TestCase):
             return src(path)
         with self.assertRaises(ObservationError):
             simulate(s,m,now=NOW,scope_get=get)
+
+
+class PersistentRehearsalTests(unittest.TestCase):
+    def test_reopen_recognizes_same_plan_and_keeps_evidence(self):
+        from tools.smartsvg_controller_storage import OperationalJournal
+        s,m=inputs()
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/"shadow.sqlite"
+            first=simulate(s,m,now=NOW,journal_path=path)
+            second=simulate(s,m,now=NOW,journal_path=path)
+            self.assertEqual(second["mode"],"SHADOW_PERSISTENT_REHEARSAL")
+            self.assertTrue(second["persistent_writes"])
+            self.assertFalse(second["agent_work_executed"])
+            self.assertFalse(second["merge_authorized"])
+            for role in ("A","B"):
+                self.assertFalse(first["assignments"][role]["same_plan_as_previous"])
+                self.assertTrue(second["assignments"][role]["same_plan_as_previous"])
+                self.assertEqual(first["assignments"][role]["plan_digest"],
+                                 second["assignments"][role]["plan_digest"])
+            j=OperationalJournal(path)
+            try:
+                self.assertEqual(len(j.evidence_for(192,H,M,P,"STEP_ONLY")),5)
+                self.assertEqual(j.db.execute("SELECT COUNT(*) FROM work WHERE expires>0").fetchone()[0],0)
+            finally:
+                j.close()
+
+    def test_changed_head_does_not_reuse_checkpoint(self):
+        s,m=inputs()
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/"shadow.sqlite"
+            simulate(s,m,now=NOW,journal_path=path)
+            s["candidates"][0]["pr"]["head"]["sha"]=K
+            s["candidates"][0]["branch"]["sha"]=K
+            m["scopes"][0]["head"]=K
+            r=simulate(s,m,now=NOW,journal_path=path)
+            self.assertFalse(r["assignments"]["A"]["same_plan_as_previous"])
+            self.assertTrue(r["assignments"]["B"]["same_plan_as_previous"])
+
+    def test_live_scope_receipts_persist_and_deduplicate(self):
+        from tools.smartsvg_controller_storage import OperationalJournal
+        s,m=inputs()
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/"shadow.sqlite"
+            one=simulate(s,m,now=NOW,scope_get=scope_source(s),journal_path=path)
+            two=simulate(s,m,now=NOW,scope_get=scope_source(s),journal_path=path)
+            self.assertTrue(two["assignments"]["A"]["same_plan_as_previous"])
+            self.assertEqual(one["scope_reports"],two["scope_reports"])
+            j=OperationalJournal(path)
+            try:
+                self.assertEqual(len(j.evidence_for(192,H,M,P,"SCOPE_OBSERVATION")),1)
+            finally:
+                j.close()
+
+    def test_existing_active_lease_not_stolen(self):
+        from tools.smartsvg_controller_storage import OperationalJournal
+        s,m=inputs()
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/"shadow.sqlite"
+            j=OperationalJournal(path)
+            try:
+                fence=j.claim("pr:192","f"*64,"A",300)
+                self.assertIsNotNone(fence)
+                r=simulate(s,m,now=NOW,journal_path=path)
+                self.assertIsNone(r["assignments"]["A"])
+                self.assertEqual(r["assignments"]["B"]["number"],195)
+                self.assertTrue(j.release("pr:192","f"*64,"A",fence))
+            finally:
+                j.close()
+
+    def test_cli_explicit_persistent_file(self):
+        s,m=inputs(datetime.now(timezone.utc))
+        with tempfile.TemporaryDirectory() as tmp:
+            a,b,db=Path(tmp)/"snapshot.json",Path(tmp)/"scopes.json",Path(tmp)/"shadow.sqlite"
+            a.write_text(json.dumps(s),encoding="utf-8")
+            b.write_text(json.dumps(m),encoding="utf-8")
+            out=io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(main(["--snapshot",str(a),"--scopes",str(b),"--journal",str(db)]),0)
+            self.assertTrue(db.is_file())
+            self.assertFalse(json.loads(out.getvalue())["merge_authorized"])
