@@ -203,7 +203,7 @@ def ingest_cycle(journal, plan, proposal, reservation, observation):
                            (*stable_key,o.run_digest,context,o.source_digest,digest))
         journal.db.execute("INSERT OR IGNORE INTO evidence VALUES(?,?,?,?,?,?,?)",
                            (digest,number,proposal.head,plan.main,plan.policy_blob,
-                            evidence.kind,raw))
+                            "CYCLE_OUTCOME",raw))
         stored = journal.db.execute("SELECT raw FROM evidence WHERE digest=?",
                                     (digest,)).fetchone()
         if stored != (raw,):
