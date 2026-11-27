@@ -7,9 +7,10 @@ False on a definite version conflict. There is no unconditional write.
 from contextlib import closing
 from dataclasses import dataclass
 from http.client import HTTPException
+import json
 from sqlite3 import Error as SQLiteError
 
-from .smartsvg_controller_missions import MAX_SNAPSHOT_BYTES, MissionError, MissionJournal
+from .smartsvg_controller_missions import MAX_SNAPSHOT_BYTES, MissionError, MissionJournal, _canonical
 
 
 @dataclass(frozen=True)
@@ -49,6 +50,10 @@ def sync_mission_snapshot(profile, outgoing, *, read, replace):
             proposed = journal.export_snapshot(profile)
     except (MissionError, SQLiteError, ValueError):
         return "SNAPSHOT_INVALID"
+    return _publish(current, proposed, read=read, replace=replace)
+
+
+def _publish(current, proposed, *, read, replace):
     if proposed == current.payload:
         return "ALREADY_CURRENT"
 
@@ -67,3 +72,63 @@ def sync_mission_snapshot(profile, outgoing, *, read, replace):
             and observed.payload == proposed):
         return "WRITE_VERIFIED"
     return "WRITE_UNCONFIRMED"
+
+
+@dataclass(frozen=True)
+class IndependentSync:
+    status: str
+    conflicts: tuple = ()
+    qualification: str = "LOCAL_ADVISORY_ONLY"
+
+
+def sync_independent_missions(profile, outgoing, *, read, replace):
+    """Persist compatible missions while retaining divergent remote histories.
+
+    Both whole snapshots must first pass the existing strict validation.
+    Only conflicting mission histories are excluded from the proposed write;
+    the caller must retain its outgoing snapshot and quarantine the listed
+    missions until independently reconciled. Nothing here grants ownership
+    or makes either divergent history the truth. No write retry is performed.
+    """
+    try:
+        with closing(MissionJournal(":memory:")) as local:
+            local.import_snapshot(profile, outgoing)
+            local_rows = dict(json.loads(local.export_snapshot(profile))["missions"])
+    except (MissionError, SQLiteError, ValueError):
+        return IndependentSync("SNAPSHOT_INVALID")
+
+    try:
+        current = read()
+    except (OSError, HTTPException):
+        return IndependentSync("STORE_UNAVAILABLE")
+    if not _valid_snapshot(current):
+        return IndependentSync("STORE_UNAVAILABLE")
+
+    try:
+        with closing(MissionJournal(":memory:")) as remote:
+            try:
+                remote.import_snapshot(profile, current.payload)
+            except MissionError:
+                return IndependentSync("HISTORY_REJECTED")
+            remote_doc = json.loads(remote.export_snapshot(profile))
+            remote_rows = dict(remote_doc["missions"])
+            conflicts = []
+            compatible = []
+            for key, rows in sorted(local_rows.items()):
+                stored = remote_rows.get(key, [])
+                shared = min(len(stored), len(rows))
+                if stored[:shared] != rows[:shared]:
+                    conflicts.append(key)
+                else:
+                    compatible.append([key, rows])
+            # Reuse the bounded append-only import, including inventory checks.
+            # This deliberately never replaces a conflicting remote history.
+            remote.import_snapshot(profile, _canonical({
+                "version": 1, "profile": remote_doc["profile"],
+                "missions": compatible,
+            }))
+            proposed = remote.export_snapshot(profile)
+    except (MissionError, SQLiteError, ValueError):
+        return IndependentSync("SNAPSHOT_INVALID")
+    status = _publish(current, proposed, read=read, replace=replace)
+    return IndependentSync(status, tuple(conflicts))
