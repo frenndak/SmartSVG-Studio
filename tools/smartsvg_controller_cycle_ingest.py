@@ -18,6 +18,9 @@ from .smartsvg_controller_storage import Evidence, OperationalJournal, _encode
 
 @dataclass(frozen=True)
 class CycleObservation:
+    context_key: str
+    incident_key: str
+    role: str
     run_digest: str
     ordinal: int
     outcome: str
@@ -43,7 +46,9 @@ def ingest_cycle(journal, plan, proposal, reservation, observation):
             or type(observation) is not CycleObservation):
         raise ValueError("invalid cycle adapter input")
     o = observation
-    if (not _digest(o.run_digest) or type(o.ordinal) is not int or o.ordinal < 1
+    if (not all(_digest(v) for v in (o.context_key,o.incident_key,o.run_digest))
+            or o.role not in ("A","B") or type(o.ordinal) is not int
+            or not 1 <= o.ordinal <= 2**63-1
             or not isinstance(o.outcome, str) or o.outcome not in OUTCOMES
             or not _digest(o.source_digest) or not isinstance(o.material_digest, str)
             or (o.outcome == "PROGRESS" and not _digest(o.material_digest))
@@ -58,7 +63,9 @@ def ingest_cycle(journal, plan, proposal, reservation, observation):
     if (number != proposal.number or action != reservation.action
             or reservation.number != proposal.number or reservation.head != proposal.head
             or reservation.context_key != context
-            or type(reservation.fence) is not int or reservation.fence < 1):
+            or (o.context_key,o.incident_key,o.role) != (context,incident,reservation.owner)
+            or type(reservation.fence) is not int
+            or not 1 <= reservation.fence <= 2**63-1):
         return None
     item = "pr:" + str(number)
     owner = reservation.owner
@@ -96,11 +103,20 @@ def ingest_cycle(journal, plan, proposal, reservation, observation):
             (*stable_key,o.run_digest)).fetchone()
         stored = journal.db.execute("SELECT raw FROM evidence WHERE digest=?",
                                     (digest,)).fetchone()
-        if exact is not None or stable is not None:
+        link = journal.db.execute(
+            "SELECT context,source,evidence_digest FROM cycle_import_v1 "
+            "WHERE item=? AND incident=? AND owner=? AND run=?",
+            (*stable_key,o.run_digest)).fetchone()
+        if exact is not None or stable is not None or link is not None:
             # Never fill a partially written legacy ledger by assuming that
             # it came from this observation. Reconcile it separately.
             return digest if (exact==exact_value and stable==stable_value
+                              and link==(context,o.source_digest,digest)
                               and stored==(raw,)) else None
+        if journal.db.execute(
+                "SELECT 1 FROM cycle_import_v1 WHERE item=? AND incident=? "
+                "AND owner=? AND source=?", (*stable_key,o.source_digest)).fetchone():
+            return None
         exact_last = journal.db.execute(
             "SELECT MAX(ordinal) FROM cycle WHERE item=? AND head=? AND owner=?",
             key).fetchone()[0]
@@ -114,6 +130,8 @@ def ingest_cycle(journal, plan, proposal, reservation, observation):
         journal.db.execute("INSERT INTO incident_cycle_v1 VALUES(?,?,?,?,?,?,?,?)",
                            (*stable_key,context,
                             o.run_digest,o.ordinal,o.outcome,receipt))
+        journal.db.execute("INSERT INTO cycle_import_v1 VALUES(?,?,?,?,?,?,?)",
+                           (*stable_key,o.run_digest,context,o.source_digest,digest))
         journal.db.execute("INSERT OR IGNORE INTO evidence VALUES(?,?,?,?,?,?,?)",
                            (digest,number,proposal.head,plan.main,plan.policy_blob,
                             evidence.kind,raw))
