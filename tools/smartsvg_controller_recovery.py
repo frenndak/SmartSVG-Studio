@@ -112,11 +112,17 @@ class RecoveryJournal(Journal):
                             (*key, run, ordinal, outcome, receipt))
             return True
 
-    def advise(self, item, head, owner):
+    def advise(self, item, head, owner, *, incident=None):
         """Return an advisory action. No transfer or lease claim is performed."""
         rows = self.db.execute(
             "SELECT outcome,receipt FROM cycle WHERE item=? AND head=? AND owner=? ORDER BY ordinal",
             (item, head, owner)).fetchall()
+        if not rows and incident is not None:
+            stable = self.advise_incident(item, incident, owner)
+            # Waits expire with their context. Verified exact-context progress
+            # also supersedes older stagnation for this reservation.
+            if stable in ("CHANGE_STRATEGY", "PROPOSE_HANDOFF_REVIEW"):
+                return stable
         return _advice(rows)
 
     def record_incident_cycle(self, item, context, owner, fence, *, incident,

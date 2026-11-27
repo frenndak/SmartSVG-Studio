@@ -193,3 +193,13 @@ class StableIncidentTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             incident_key("smartsvg", "frenndak/smartsvg-studio",
                          "a"*40, "raw message with spaces", "pr:195")
+
+    def test_new_exact_progress_supersedes_old_stagnation_for_routing(self):
+        self.record(1, "NO_PROGRESS")
+        self.record(2, "NO_PROGRESS")
+        self.rotate("c"*64)
+        args = (self.item, self.context, "B")
+        self.assertEqual(self.j.advise(*args, incident=self.scope), "CHANGE_STRATEGY")
+        self.assertTrue(self.j.record_cycle(*args, self.fence, run="fresh", ordinal=1,
+                                            outcome="PROGRESS", receipt="e"*64))
+        self.assertEqual(self.j.advise(*args, incident=self.scope), "RESUME_CHECKPOINT")

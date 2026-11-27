@@ -177,12 +177,7 @@ def reserve_next(plan, role, journal, *, now=None, ttl=300, roadmap_ranks=None):
         p = candidates[number]
         key = _context(plan, p)
         item = "pr:" + str(number)
-        advice = journal.advise(item, key, role)
-        if advice == "RESUME_CHECKPOINT":
-            stable = journal.advise_incident(item, routing_incident(plan, p), role)
-            # Waits attached to an older HEAD do not imply this HEAD is waiting.
-            if stable in ("CHANGE_STRATEGY", "PROPOSE_HANDOFF_REVIEW"):
-                advice = stable
+        advice = journal.advise(item, key, role, incident=routing_incident(plan, p))
         candidate = (number, action, p.head, key, item, advice)
         if advice != "RESUME_CHECKPOINT":
             deferred.append(candidate)
