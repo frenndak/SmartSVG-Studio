@@ -17,7 +17,8 @@ def route_review_hints(plan, snapshot, packets=()):
     ambiguous = set()
     for packet in packets:
         if not isinstance(packet, dict) or type(packet.get("number")) is not int:
-            raise ValueError("invalid review packet")
+            # Unaddressable optional evidence cannot select or cancel any PR.
+            continue
         n = packet["number"]
         if n in by_number:
             ambiguous.add(n)

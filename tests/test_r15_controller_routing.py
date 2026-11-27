@@ -81,3 +81,17 @@ class RoutingTests(unittest.TestCase):
         row=next(x for x in self.snapshot["candidates"] if x["pr"]["number"]==195)
         row["runs"][0]["run"]["conclusion"]="failure"
         self.assertEqual(self.action(self.report(p),195),"FIX_REQUIRED")
+
+    def test_unaddressable_optional_hint_preserves_other_reviews(self):
+        good = self.packet(195, "ADVERSE")
+        for invalid in (None, {}, {"number": True}, {"number": "194"}):
+            with self.subTest(invalid=invalid):
+                report = self.report(invalid, good)
+                self.assertEqual(self.action(report, 194), "REVIEW")
+                self.assertEqual(self.action(report, 195), "VERIFY_FINDING")
+                self.assertFalse(report["merge_authorized"])
+
+    def test_malformed_duplicate_never_resurrects_favorable_hint(self):
+        report = self.report(self.packet(195), {"number": 195})
+        self.assertEqual(self.action(report, 195), "REVIEW")
+        self.assertFalse(report["merge_authorized"])
