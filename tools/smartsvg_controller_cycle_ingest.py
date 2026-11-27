@@ -32,6 +32,93 @@ def _digest(value):
     return isinstance(value, str) and DIGEST.fullmatch(value) is not None
 
 
+def _validate_observation(observation):
+    if type(observation) is not CycleObservation:
+        raise ValueError("invalid cycle observation")
+    o = observation
+    if (not all(_digest(v) for v in (o.context_key,o.incident_key,o.run_digest))
+            or o.role not in ("A","B") or type(o.ordinal) is not int
+            or not 1 <= o.ordinal <= 2**63-1
+            or not isinstance(o.outcome, str) or o.outcome not in OUTCOMES
+            or not _digest(o.source_digest) or not isinstance(o.material_digest, str)
+            or (o.outcome == "PROGRESS" and not _digest(o.material_digest))
+            or (o.outcome != "PROGRESS" and o.material_digest != "")):
+        raise ValueError("invalid observed outcome")
+    return o
+
+
+def _cycle_evidence(plan, proposal, o, context, incident, owner, number):
+    payload = {
+        "version": 1, "role": owner, "writer": proposal.writer,
+        "action": proposal.action, "context_key": context, "incident_key": incident,
+        "run_digest": o.run_digest, "ordinal": o.ordinal, "outcome": o.outcome,
+        "source_digest": o.source_digest, "material_digest": o.material_digest,
+        "qualification": "EXTERNAL_OBSERVATION_IMPORTED_ONLY",
+    }
+    evidence = Evidence(number,proposal.head,plan.main,plan.policy_blob,
+                        "CYCLE_OUTCOME","external-cycle-observer",payload)
+    raw = _encode(evidence)
+    return raw, sha256(raw).hexdigest()
+
+
+@dataclass(frozen=True)
+class CycleReadback:
+    status: str
+    evidence_digest: str | None = None
+    qualification: str = "LOCAL_READBACK_ONLY"
+
+
+def read_imported_cycle(journal, plan, proposal, observation):
+    """Reconcile an uncertain import from one consistent SQLite read.
+
+    No active lease, clock or write is needed to confirm historical local
+    bytes. This is not proof of scheduler provenance or current authority.
+    Never infer success from a single ledger or retry an uncertain write.
+    """
+    if (not isinstance(journal, OperationalJournal) or type(plan) is not Plan
+            or type(proposal) is not Proposal):
+        raise ValueError("invalid cycle readback input")
+    o = _validate_observation(observation)
+    if proposal not in plan.proposals:
+        return CycleReadback("CONTEXT_MISMATCH")
+    number, action = dispatch(o.role, (Work(proposal.number, proposal.writer,
+                                            proposal.action),), plan.code_wip)
+    context = _context(plan, proposal)
+    incident = routing_incident(plan, proposal)
+    if (number != proposal.number or not action
+            or (o.context_key, o.incident_key) != (context, incident)):
+        return CycleReadback("CONTEXT_MISMATCH")
+    item = "pr:" + str(number)
+    receipt = o.material_digest if o.outcome == "PROGRESS" else o.source_digest
+    raw, digest = _cycle_evidence(plan, proposal, o, context, incident, o.role, number)
+    # One SELECT gives a consistent view of the exact row, stable row, link,
+    # and complete evidence index/raw bytes even during a concurrent commit.
+    row = journal.db.execute("""
+        SELECT c.ordinal,c.outcome,c.receipt,
+               s.context,s.ordinal,s.outcome,s.receipt,
+               l.context,l.source,l.evidence_digest,
+               e.number,e.head,e.main,e.policy,e.kind,e.raw
+        FROM (SELECT 1) anchor
+        LEFT JOIN cycle c ON c.item=? AND c.head=? AND c.owner=? AND c.run=?
+        LEFT JOIN incident_cycle_v1 s
+            ON s.item=? AND s.incident=? AND s.owner=? AND s.run=?
+        LEFT JOIN cycle_import_v1 l
+            ON l.item=? AND l.incident=? AND l.owner=? AND l.run=?
+        LEFT JOIN evidence e ON e.digest=?
+        """, (item,context,o.role,o.run_digest,
+              item,incident,o.role,o.run_digest,
+              item,incident,o.role,o.run_digest,digest)).fetchone()
+    expected = (o.ordinal,o.outcome,receipt,
+                context,o.ordinal,o.outcome,receipt,
+                context,o.source_digest,digest,
+                number,proposal.head,plan.main,plan.policy_blob,"CYCLE_OUTCOME",raw)
+    if row == expected:
+        return CycleReadback("MATCHED", digest)
+    if all(value is None for value in row):
+        return CycleReadback("ABSENT")
+    return CycleReadback("CONFLICT")
+
+
 def ingest_cycle(journal, plan, proposal, reservation, observation):
     """Bind one observed outcome per actual run/incident to both ledgers.
 
@@ -45,15 +132,7 @@ def ingest_cycle(journal, plan, proposal, reservation, observation):
             or type(proposal) is not Proposal or type(reservation) is not Reservation
             or type(observation) is not CycleObservation):
         raise ValueError("invalid cycle adapter input")
-    o = observation
-    if (not all(_digest(v) for v in (o.context_key,o.incident_key,o.run_digest))
-            or o.role not in ("A","B") or type(o.ordinal) is not int
-            or not 1 <= o.ordinal <= 2**63-1
-            or not isinstance(o.outcome, str) or o.outcome not in OUTCOMES
-            or not _digest(o.source_digest) or not isinstance(o.material_digest, str)
-            or (o.outcome == "PROGRESS" and not _digest(o.material_digest))
-            or (o.outcome != "PROGRESS" and o.material_digest != "")):
-        raise ValueError("invalid observed outcome")
+    o = _validate_observation(observation)
     if proposal not in plan.proposals or reservation.owner not in ("A","B"):
         return None
     number, action = dispatch(reservation.owner,
@@ -72,17 +151,7 @@ def ingest_cycle(journal, plan, proposal, reservation, observation):
     # Use the stable material fingerprint for PROGRESS, not the new cycle's
     # receipt digest: repeated evidence must not reset the incident streak.
     receipt = o.material_digest if o.outcome == "PROGRESS" else o.source_digest
-    payload = {
-        "version": 1, "role": owner, "writer": proposal.writer,
-        "action": proposal.action, "context_key": context, "incident_key": incident,
-        "run_digest": o.run_digest, "ordinal": o.ordinal, "outcome": o.outcome,
-        "source_digest": o.source_digest, "material_digest": o.material_digest,
-        "qualification": "EXTERNAL_OBSERVATION_IMPORTED_ONLY",
-    }
-    evidence = Evidence(number,proposal.head,plan.main,plan.policy_blob,
-                        "CYCLE_OUTCOME","external-cycle-observer",payload)
-    raw = _encode(evidence)
-    digest = sha256(raw).hexdigest()
+    raw, digest = _cycle_evidence(plan, proposal, o, context, incident, owner, number)
     key = (item, context, owner)
     stable_key = (item, incident, owner)
     exact_value = (o.ordinal, o.outcome, receipt)

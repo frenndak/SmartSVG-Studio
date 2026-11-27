@@ -8,7 +8,9 @@ from hashlib import sha256
 
 from tools.smartsvg_controller_orchestration import Plan, Proposal, reserve_next, routing_incident
 from tools.smartsvg_controller_storage import OperationalJournal
-from tools.smartsvg_controller_cycle_ingest import CycleObservation, ingest_cycle
+from tools.smartsvg_controller_cycle_ingest import (
+    CycleObservation, CycleReadback, ingest_cycle, read_imported_cycle,
+)
 
 NOW=datetime(2026,11,27,tzinfo=timezone.utc)
 M,P,H,J=(c*40 for c in "abcd")
@@ -176,3 +178,65 @@ class CycleIngestionTests(unittest.TestCase):
             self.ingest(replace(self.obs(1),ordinal=2**63))
         self.assertIsNone(self.ingest(self.obs(1),r=replace(self.r,fence=2**63)))
         self.assertEqual(self.evidence(),())
+
+
+    def test_readback_after_release_and_reopen_needs_no_lease(self):
+        o = self.obs(1)
+        digest = self.ingest(o)
+        self.assertTrue(self.j.release("pr:195", self.r.context_key, "A", self.r.fence))
+        other = OperationalJournal(self.path, lambda: 9999)
+        try:
+            before = other.db.total_changes
+            result = read_imported_cycle(other, self.plan, self.p, o)
+            self.assertEqual(result, CycleReadback("MATCHED", digest))
+            self.assertEqual(other.db.total_changes, before)
+        finally:
+            other.close()
+
+    def test_readback_absent_is_not_success_and_does_not_write(self):
+        before = self.j.db.total_changes
+        result = read_imported_cycle(self.j, self.plan, self.p, self.obs(1))
+        self.assertEqual(result, CycleReadback("ABSENT"))
+        self.assertEqual(self.j.db.total_changes, before)
+
+    def test_readback_detects_every_partial_ledger_and_index_corruption(self):
+        for n, sql in enumerate((
+                "DELETE FROM cycle WHERE run=?",
+                "DELETE FROM incident_cycle_v1 WHERE run=?",
+                "DELETE FROM cycle_import_v1 WHERE run=?",
+                "DELETE FROM evidence WHERE digest=?",
+                "UPDATE evidence SET number=999 WHERE digest=?"), 1):
+            with self.subTest(sql=sql):
+                o = self.obs(n)
+                digest = self.ingest(o)
+                self.assertIsNotNone(digest)
+                self.j.db.execute(sql, (digest if "evidence" in sql else o.run_digest,))
+                result = read_imported_cycle(self.j, self.plan, self.p, o)
+                self.assertEqual(result, CycleReadback("CONFLICT"))
+
+    def test_readback_conflicting_observation_cannot_match(self):
+        o = self.obs(1)
+        self.ingest(o)
+        different = replace(o, source_digest=dig("different"))
+        self.assertEqual(read_imported_cycle(self.j, self.plan, self.p, different),
+                         CycleReadback("CONFLICT"))
+
+    def test_readback_never_promotes_old_context_to_new_head(self):
+        o = self.obs(1)
+        digest = self.ingest(o)
+        old_plan, old_proposal = self.plan, self.p
+        self.rotate(J)
+        self.assertEqual(read_imported_cycle(self.j, self.plan, self.p, o),
+                         CycleReadback("CONTEXT_MISMATCH"))
+        self.assertEqual(read_imported_cycle(self.j, old_plan, old_proposal, o),
+                         CycleReadback("MATCHED", digest))
+
+    def test_unlinked_evidence_is_not_an_import(self):
+        o = self.obs(1)
+        digest = self.ingest(o)
+        self.j.db.execute("DELETE FROM cycle")
+        self.j.db.execute("DELETE FROM incident_cycle_v1")
+        self.j.db.execute("DELETE FROM cycle_import_v1")
+        self.assertEqual(read_imported_cycle(self.j, self.plan, self.p, o),
+                         CycleReadback("CONFLICT"))
+        self.assertEqual(self.evidence()[0][0], digest)
