@@ -138,25 +138,22 @@ def plan_objectives(profile, main, objectives, receipts=()):
             raise ValueError("duplicate objective")
         by_key[o.key] = o
 
-    # DFS stack identifies cycle members; a descendant is blocked, not
-    # mislabeled as a cycle member. The inventory is explicitly bounded.
-    visited, active, stack, cycles = set(), set(), [], set()
-    def visit(key):
-        if key in active:
-            cycles.update(stack[stack.index(key):])
-            return
-        if key in visited:
-            return
-        active.add(key)
-        stack.append(key)
-        for dep in by_key[key].dependencies:
-            if dep in by_key:
-                visit(dep)
-        stack.pop()
-        active.remove(key)
-        visited.add(key)
-    for key in sorted(by_key):
-        visit(key)
+    # An objective is cyclic exactly when a known dependency path reaches
+    # itself. The bounded inventory makes this explicit reachability test
+    # small, including overlapping cycles that a single DFS stack can miss.
+    cycles = set()
+    for key in by_key:
+        pending = list(by_key[key].dependencies)
+        visited = set()
+        while pending:
+            dep = pending.pop()
+            if dep == key:
+                cycles.add(key)
+                break
+            if dep in visited or dep not in by_key:
+                continue
+            visited.add(dep)
+            pending.extend(by_key[dep].dependencies)
 
     observed = {}
     digest_scopes = {}
@@ -200,9 +197,12 @@ def plan_objectives(profile, main, objectives, receipts=()):
                                 tuple("UNKNOWN:" + d for d in missing) +
                                 tuple("BLOCKED:" + d for d in invalid))
             elif waiting:
+                # Never repeat already observed preparation simply because
+                # a prerequisite has not yet finished.
+                pending = tuple(c for c in o.criteria if states[c] in ("FAIL", "UNKNOWN"))
                 result = Advice(key, o.role,
-                                "PREPARE_INDEPENDENT" if o.preparation_allowed
-                                else "WAIT_DEPENDENCY", (), waiting)
+                                "PREPARE_INDEPENDENT" if o.preparation_allowed and pending
+                                else "WAIT_DEPENDENCY", pending, waiting)
             elif any(s == "FAIL" for s in states.values()):
                 result = Advice(key, o.role, "REPAIR_CRITERION",
                                 tuple(c for c in o.criteria if states[c] == "FAIL"), ())
