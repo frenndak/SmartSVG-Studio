@@ -149,3 +149,81 @@ La référence de comparaison est le commit `dccd7a4fcdfdd49857b26e3e6014e3c1e76
 **Continuité du routage T1.** Sur #206 à la révision `fad00834142e863cdbab682ad9a86d5be780536c`, le choix du travail lit désormais les observations du journal local. Dans la recette, deux cycles sans progrès sur la même revue puis un changement de HEAD conduisent A vers une autre PR admissible. Si cette autre PR est déjà réservée, la première reste proposée avec le conseil CHANGE_STRATEGY. Une attente CI du contexte précédent expire avec ce contexte. Le changement de politique invalide la portée de l’incident. Les traces persistantes doivent être alimentées par des observations vérifiées. Le runtime planifié utilise encore un journal temporaire. Une preuve de progrès enregistrée dans le contexte courant reprend la priorité sur une stagnation plus ancienne. Sur une file synthétique pleine, un second processus CLI a rouvert le journal SQLite et attribué deux revues distinctes, A sur #196 et B sur #195. Test local de la branche : 275 tests réussis. Assemblage avec #202, #203 et #205 au HEAD f54f967 : 309 tests réussis.
 
 **Relecture entre cycles.** Sur #206 à la révision `d67e5abecce14b0f1bd7e9b7446c8343c54f8ba2`, le contrôleur vérifie que le commentaire de reprise est toujours le dernier marqueur de la PR après sa relecture individuelle. La disparition du marqueur ou son remplacement, y compris par un marqueur mal formé, rétablit la revue ordinaire. Un commentaire technique sans marqueur laisse la reprise disponible. Une répétition synthétique entre deux processus a couvert la séquence favorable → marqueur remplacé → reprise de la revue partielle au nouveau commentaire. Cette vérification est en lecture seule. La transmission par deux tâches planifiées réelles reste à observer. Suite locale de #206 : 277 tests réussis. Assemblage #202/#203/#205/#206 : 311 tests réussis.
+
+## 13. Recette de reprise de la revue produit #195
+
+B a relevé que les tests de dialogue simulent la publication. Cette recette de session propriétaire relie les callbacks du dialogue au moteur réel sur le HEAD `7e557c8c450f0083d4362a703ba5f74adc43d243`. Seuls les widgets, le choix du chemin et la réponse à la confirmation sont simulés. Le PNG synthétique, le V1 temporaire, le sujet confirmé, le tracé SVG, la publication POSIX et la relecture des octets passent par le code du produit.
+
+| Action | Observation sur Linux |
+|---|---|
+| Refuser la confirmation | Destination absente et ouverture du dossier désactivée |
+| Changer la largeur pendant la confirmation | Publication annulée et nouvel examen requis |
+| Faire apparaître un fichier pendant la confirmation | Octets préexistants conservés |
+| Confirmer la publication à la largeur française `1,0` | 393 octets SVG relus, SHA affiché et ouverture du dossier activée |
+
+L’archive V1 est restée identique octet par octet. Le SHA-256 du SVG est `85a56df7c1daa11b8daafed8f4ee313f87722f21f02bfe9b8feac5ec7d21e927`. Cette observation répond à la question du raccordement du dialogue au publisher sur POSIX. La revue indépendante B, le rendu Tk interactif et la qualification physique conservent leurs preuves distinctes.
+
+<details><summary>Reproduire la recette sur la révision de #195</summary>
+
+Depuis la racine de cette révision sous Linux, enregistrer le script ci-dessous dans un fichier temporaire et l’exécuter avec `PYTHONPATH=engine:tests python /chemin/recette.py`. Utiliser les dépendances Python de la suite CPU du dépôt. Le script crée sa propre destination dans un répertoire temporaire.
+
+```python
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
+from hashlib import sha256
+from test_v35_native_ptc_dialog_safety import DialogSafetyTests, Widget, Variable
+from test_v35_native_first_subject import png
+from smartsvg_core.project_workspace_g22 import ManagedWorkspace
+from smartsvg_core.native_first_subject_v35 import inspect_first_alpha_subject, confirm_first_alpha_subject
+import native_ptc_dialog_tk_v35 as ui
+
+class Canvas(Widget):
+    def delete(self, tag): pass
+    def create_line(self,*args,**kwargs): assert args[:2] == args[-2:]
+
+with TemporaryDirectory() as root:
+    workspace=ManagedWorkspace(root)
+    initial=workspace.create("sample",png(),profile="Sticker - contour du sujet",source_provenance="manual_native_png_import")
+    archive=workspace.root/"sample.smartsvg"
+    req=dict(project_path=str(archive),expected_sha256=initial["sha256"])
+    alpha=inspect_first_alpha_subject(**req)
+    confirmed=confirm_first_alpha_subject(**req,candidate_sha256=alpha["candidate_sha256"],confirmed=True)
+    original=archive.read_bytes()
+    fixture=DialogSafetyTests(); fixture.setUp()
+    panel=fixture.panel
+    panel.tk.Canvas=Canvas
+    panel._project_path=str(archive)
+    panel.snapshot.sha256=confirmed["project_sha256"]
+    sid=fixture.subject.subject_id=confirmed["subject_id"]
+    panel.subjects={sid:fixture.subject}; panel.selection.set(sid)
+    assert ui.show_basic_cut_dialog(panel)
+    width,status,destination=Variable.created[-3:]
+    width.set("1,0"); Widget.buttons["Examiner"].command()
+    publish=Widget.buttons["Choisir et publier…"]; folder=Widget.buttons["Ouvrir le dossier"]
+    assert publish.state=="normal",status.get()
+    target=Path(root)/"export.svg"
+    with patch.object(ui.filedialog,"asksaveasfilename",return_value=str(target)):
+        with patch.object(ui.messagebox,"askyesno",return_value=False): publish.command()
+        assert not target.exists() and folder.state=="disabled"
+        def change_width(*args, **kwargs):
+            width.set("1,1")
+            return True
+        with patch.object(ui.messagebox,"askyesno",side_effect=change_width): publish.command()
+        assert not target.exists() and publish.state=="disabled"
+        width.set("1,0"); Widget.buttons["Examiner"].command()
+        sentinel=b"preexisting"
+        def create_during_confirmation(*args, **kwargs):
+            target.write_bytes(sentinel)
+            return True
+        with patch.object(ui.messagebox,"askyesno",side_effect=create_during_confirmation): publish.command()
+        assert target.read_bytes()==sentinel and folder.state=="disabled"
+        target.unlink()
+        with patch.object(ui.messagebox,"askyesno",return_value=True): publish.command()
+    digest=sha256(target.read_bytes()).hexdigest()
+    assert folder.state=="normal" and digest[:12] in status.get(),status.get()
+    assert archive.read_bytes()==original
+    print("PASS",len(target.read_bytes()),digest)
+```
+
+</details>
