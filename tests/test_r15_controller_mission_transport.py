@@ -3,7 +3,9 @@ from dataclasses import replace
 import unittest
 from unittest.mock import Mock
 
-from tools.smartsvg_controller_mission_transport import StoredSnapshot, sync_mission_snapshot
+from tools.smartsvg_controller_mission_transport import (
+    StoredSnapshot, sync_mission_snapshot, sync_independent_missions, IndependentSync,
+)
 from tools.smartsvg_controller_missions import MissionJournal
 from tools.smartsvg_controller_objectives import Objective, Profile
 
@@ -82,3 +84,60 @@ class PrivateMissionTransportTests(unittest.TestCase):
         self.assertEqual(result, "SNAPSHOT_INVALID")
         read.assert_not_called()
         write.assert_not_called()
+
+
+class IndependentMissionTransportTests(unittest.TestCase):
+    def test_conflict_isolated_and_independent_history_saved(self):
+        current = StoredSnapshot(12, snapshot(A, advance="REPAIR"))
+        expected = snapshot(A, B, advance="REPAIR")
+        read = Mock(side_effect=(current, StoredSnapshot(13, expected)))
+        write = Mock(return_value=True)
+        result = sync_independent_missions(
+            PROFILE, snapshot(A, B, advance="VERIFY"), read=read, replace=write)
+        self.assertEqual(result, IndependentSync("WRITE_VERIFIED", (A.key,)))
+        write.assert_called_once_with(12, expected)
+
+    def test_only_conflict_never_writes_or_claims_resolution(self):
+        read = Mock(return_value=StoredSnapshot(12, snapshot(A, advance="REPAIR")))
+        write = Mock()
+        result = sync_independent_missions(
+            PROFILE, snapshot(A, advance="VERIFY"), read=read, replace=write)
+        self.assertEqual(result, IndependentSync("ALREADY_CURRENT", (A.key,)))
+        write.assert_not_called()
+
+    def test_version_conflict_preserves_conflict_report_without_retry(self):
+        read = Mock(return_value=StoredSnapshot(12, snapshot(A, advance="REPAIR")))
+        write = Mock(return_value=False)
+        result = sync_independent_missions(
+            PROFILE, snapshot(A, B, advance="VERIFY"), read=read, replace=write)
+        self.assertEqual(result, IndependentSync("VERSION_CONFLICT", (A.key,)))
+        write.assert_called_once()
+        read.assert_called_once()
+
+    def test_invalid_remote_is_not_partially_salvaged(self):
+        read = Mock(return_value=StoredSnapshot(12, b"{}"))
+        write = Mock()
+        result = sync_independent_missions(
+            PROFILE, snapshot(B), read=read, replace=write)
+        self.assertEqual(result, IndependentSync("HISTORY_REJECTED"))
+        write.assert_not_called()
+
+    def test_wrong_profile_refused_before_store_access(self):
+        read = Mock()
+        write = Mock()
+        result = sync_independent_missions(
+            replace(PROFILE, project="other"), snapshot(B), read=read, replace=write)
+        self.assertEqual(result, IndependentSync("SNAPSHOT_INVALID"))
+        read.assert_not_called()
+        write.assert_not_called()
+
+    def test_uncertain_ack_reconciled_once_with_conflict_report(self):
+        current = StoredSnapshot(12, snapshot(A, advance="REPAIR"))
+        expected = snapshot(A, B, advance="REPAIR")
+        read = Mock(side_effect=(current, StoredSnapshot(13, expected)))
+        write = Mock(side_effect=OSError("lost acknowledgement"))
+        result = sync_independent_missions(
+            PROFILE, snapshot(A, B, advance="VERIFY"), read=read, replace=write)
+        self.assertEqual(result, IndependentSync("WRITE_VERIFIED", (A.key,)))
+        write.assert_called_once_with(12, expected)
+        self.assertEqual(read.call_count, 2)
