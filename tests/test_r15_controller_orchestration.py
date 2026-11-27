@@ -66,6 +66,42 @@ class OrchestrationTests(unittest.TestCase):
         self.assertNotEqual(c.context_key, a.context_key)
         self.assertEqual(c.checkpoint, "")
 
+    def test_pending_ci_yields_to_independent_inspection_but_remains_available(self):
+        from dataclasses import replace
+        from tools.smartsvg_controller_evidence import SPECS, StepReceipt, Status
+
+        original = self.plan()
+        steps = tuple(StepReceipt(name, Status.PENDING if name == "g0" else Status.PASS,
+                                  run_id=1, attempt=1) for name in SPECS)
+        waiting = replace(original.proposals[0], action="CI_INSPECT", steps=steps)
+        independent = replace(original.proposals[1], action="INSPECT")
+        plan = replace(original, proposals=(waiting, independent), code_wip=3)
+        first = reserve_next(plan, "A", self.j, now=NOW, roadmap_ranks={waiting.number: 1})
+        second = reserve_next(plan, "B", self.j, now=NOW)
+        self.assertEqual((first.number, first.action), (independent.number, "INSPECT"))
+        self.assertEqual((second.number, second.action), (waiting.number, "CI_INSPECT"))
+
+    def test_mixed_or_incomplete_ci_remains_a_diagnostic_priority(self):
+        from dataclasses import replace
+        from tools.smartsvg_controller_evidence import SPECS, StepReceipt, Status
+
+        original = self.plan()
+        pending = tuple(StepReceipt(name, Status.PENDING, run_id=1, attempt=1)
+                        for name in SPECS)
+        cases = [pending[:-1], (*pending[:-1], pending[0]),
+                 (replace(pending[0], run_id=None), *pending[1:]),
+                 (replace(pending[0], attempt=0), *pending[1:])]
+        for status in (Status.UNKNOWN, Status.SKIP, Status.FAIL):
+            cases.append((replace(pending[0], status=status), *pending[1:]))
+        for steps in cases:
+            with self.subTest(steps=steps):
+                diagnostic = replace(original.proposals[0], action="CI_INSPECT", steps=steps)
+                other = replace(original.proposals[1], action="INSPECT")
+                plan = replace(original, proposals=(diagnostic, other))
+                choice = reserve_next(plan, "A", self.j, now=NOW)
+                self.assertEqual((choice.number, choice.action), (diagnostic.number, "CI_INSPECT"))
+                self.j.release("pr:" + str(choice.number), choice.context_key, "A", choice.fence)
+
     def test_contention_falls_through(self):
         d = snapshot()
         d["candidates"].append(row(194, K))

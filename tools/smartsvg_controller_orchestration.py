@@ -10,7 +10,7 @@ import json
 import re
 
 from .smartsvg_controller_decision import Candidate, Check, Context, Status, decide
-from .smartsvg_controller_evidence import Work, dispatch, step_receipts
+from .smartsvg_controller_evidence import Work, dispatch, only_waiting_on_ci, step_receipts
 
 REPO = "frenndak/SmartSVG-Studio"
 SHA = re.compile(r"[0-9a-f]{40}")
@@ -157,7 +157,8 @@ def reserve_next(plan, role, journal, *, now=None, ttl=300, roadmap_ranks=None):
     _fresh(plan.finished, _now(now))
     candidates = {p.number: p for p in plan.proposals}
     ranks = roadmap_ranks or {}
-    work = [Work(p.number, p.writer, p.action, roadmap_rank=ranks.get(p.number))
+    work = [Work(p.number, p.writer, p.action, roadmap_rank=ranks.get(p.number),
+                 only_waiting_on_ci=p.action == "CI_INSPECT" and only_waiting_on_ci(p.steps))
             for p in plan.proposals]
     while work:
         number, action = dispatch(role, work, plan.code_wip, queue_complete=False)
