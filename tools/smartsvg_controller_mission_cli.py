@@ -4,7 +4,7 @@ import json
 import os
 from sqlite3 import Error as SQLiteError
 
-from .smartsvg_controller_missions import MissionJournal
+from .smartsvg_controller_missions import MAX_SNAPSHOT_BYTES, MissionError, MissionJournal
 from .smartsvg_controller_objectives import Profile, ROLES, SHA, _matches
 from .smartsvg_controller_observation import github_get
 from .smartsvg_controller_smartsvg_objectives import (
@@ -19,7 +19,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--main", required=True, help="expected exact SmartSVG main SHA")
     parser.add_argument("--role", required=True, choices=ROLES)
-    parser.add_argument("--journal", required=True, help="existing local mission SQLite file")
+    state = parser.add_mutually_exclusive_group(required=True)
+    state.add_argument("--journal", help="existing local mission SQLite file")
+    state.add_argument("--snapshot", help="private mission snapshot; restored to memory only")
     parser.add_argument("--revisions", required=True,
                         help="caller-observed objective-to-revision JSON map")
     args = parser.parse_args(argv)
@@ -45,7 +47,8 @@ def main(argv=None):
         return 2
 
     try:
-        journal = MissionJournal(args.journal, read_only=True)
+        journal = MissionJournal(":memory:") if args.snapshot else MissionJournal(
+            args.journal, read_only=True)
     except (OSError, RuntimeError, SQLiteError, ValueError):
         report["status"] = "LOCAL_JOURNAL_UNAVAILABLE"
         print(json.dumps(report, sort_keys=True))
@@ -54,6 +57,14 @@ def main(argv=None):
         token = os.environ.get("SMARTSVG_GITHUB_READ_TOKEN")
         profile = Profile("smartsvg", REPOSITORY, "main", POLICY_PIN,
                           dict(SOURCE_PINS)[BACKLOG_PATH])
+        if args.snapshot:
+            try:
+                with open(args.snapshot, "rb") as source:
+                    journal.import_snapshot(profile, source.read(MAX_SNAPSHOT_BYTES + 1))
+            except (OSError, SQLiteError, MissionError):
+                report["status"] = "MISSION_SNAPSHOT_UNAVAILABLE"
+                print(json.dumps(report, sort_keys=True))
+                return 2
         observed = observe_smartsvg_mission_resumption(
             lambda path: github_get(path, token=token), journal, profile,
             args.main, revisions, role=args.role)

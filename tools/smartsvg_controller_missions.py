@@ -19,6 +19,7 @@ from .smartsvg_controller_objectives import (
 MAX_EVENTS = 256
 MAX_MISSIONS = 128
 MAX_RECORD = 8192
+MAX_SNAPSHOT_BYTES = 512 * 1024
 STATES = ("PLANNED", "ACTIVE", "WAITING", "BLOCKED_LOCAL", "REVIEW", "CANCELLED")
 TRANSITIONS = {
     "PLANNED": ("ACTIVE", "WAITING", "BLOCKED_LOCAL", "CANCELLED"),
@@ -101,8 +102,47 @@ def _decode(raw, digest):
         if _record(_material(*args)) != (raw, digest):
             raise MissionError("noncanonical checkpoint")
         return Checkpoint(*args, digest)
-    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+    except (KeyError, TypeError, ValueError, AttributeError, RecursionError) as exc:
         raise MissionError("invalid checkpoint") from exc
+
+
+def _validate_history(profile, key, rows):
+    if len(rows) > MAX_EVENTS:
+        raise MissionError("mission history exceeds bound")
+    result = []
+    seen_evidence = set()
+    for expected, (generation, digest, raw) in enumerate(rows, 1):
+        c = _decode(raw, digest)
+        if (generation != expected or c.generation != expected
+                or c.profile != profile or c.objective.key != key
+                or c.predecessor != (result[-1].digest if result else "")):
+            raise MissionError("mission history mismatch")
+        if not result:
+            if c.state != "PLANNED" or c.evidence:
+                raise MissionError("invalid mission genesis")
+        else:
+            prev = result[-1]
+            if prev.state == "CANCELLED":
+                raise MissionError("mission already cancelled")
+            # Mission identity and writer are not transferable by context drift.
+            if (prev.objective.role != c.objective.role
+                    or prev.objective.criteria != c.objective.criteria
+                    or prev.objective.dependencies != c.objective.dependencies
+                    or prev.objective.preparation_allowed != c.objective.preparation_allowed):
+                raise MissionError("mission contract changed")
+            drift = prev.main != c.main or prev.objective.revision != c.objective.revision
+            if drift:
+                if c.state != "PLANNED" or c.evidence:
+                    raise MissionError("stale evidence in new context")
+            elif (c.objective != prev.objective
+                  or c.state not in TRANSITIONS[prev.state] or not c.evidence):
+                raise MissionError("invalid mission transition")
+        if c.evidence:
+            if c.evidence in seen_evidence:
+                raise MissionError("duplicate mission evidence in history")
+            seen_evidence.add(c.evidence)
+        result.append(c)
+    return tuple(result)
 
 
 class MissionJournal:
@@ -125,8 +165,8 @@ class MissionJournal:
         self.db.close()
 
     @contextmanager
-    def _transaction(self):
-        self.db.execute("BEGIN IMMEDIATE")
+    def _transaction(self, *, write=True):
+        self.db.execute("BEGIN IMMEDIATE" if write else "BEGIN")
         try:
             yield
             self.db.execute("COMMIT")
@@ -134,7 +174,7 @@ class MissionJournal:
             self.db.execute("ROLLBACK")
             raise
 
-    def _history(self, profile, key):
+    def _stored_rows(self, profile, key):
         scope = _scope(profile)
         if not _matches(TOKEN, key):
             raise MissionError("invalid mission key")
@@ -142,42 +182,10 @@ class MissionJournal:
             "SELECT generation,digest,raw FROM mission_checkpoint_v1 "
             "WHERE scope=? AND mission=? ORDER BY generation LIMIT ?",
             (scope, key, MAX_EVENTS + 1)).fetchall()
-        if len(rows) > MAX_EVENTS:
-            raise MissionError("mission history exceeds bound")
-        result = []
-        seen_evidence = set()
-        for expected, (generation, digest, raw) in enumerate(rows, 1):
-            c = _decode(raw, digest)
-            if (generation != expected or c.generation != expected
-                    or c.profile != profile or c.objective.key != key
-                    or c.predecessor != (result[-1].digest if result else "")):
-                raise MissionError("mission history mismatch")
-            if not result:
-                if c.state != "PLANNED" or c.evidence:
-                    raise MissionError("invalid mission genesis")
-            else:
-                prev = result[-1]
-                if prev.state == "CANCELLED":
-                    raise MissionError("mission already cancelled")
-                # Mission identity and writer are not transferable by context drift.
-                if (prev.objective.role != c.objective.role
-                        or prev.objective.criteria != c.objective.criteria
-                        or prev.objective.dependencies != c.objective.dependencies
-                        or prev.objective.preparation_allowed != c.objective.preparation_allowed):
-                    raise MissionError("mission contract changed")
-                drift = prev.main != c.main or prev.objective.revision != c.objective.revision
-                if drift:
-                    if c.state != "PLANNED" or c.evidence:
-                        raise MissionError("stale evidence in new context")
-                elif (c.objective != prev.objective
-                      or c.state not in TRANSITIONS[prev.state] or not c.evidence):
-                    raise MissionError("invalid mission transition")
-            if c.evidence:
-                if c.evidence in seen_evidence:
-                    raise MissionError("duplicate mission evidence in history")
-                seen_evidence.add(c.evidence)
-            result.append(c)
-        return tuple(result)
+        return rows
+
+    def _history(self, profile, key):
+        return _validate_history(profile, key, self._stored_rows(profile, key))
 
     def history(self, profile, key):
         """Immutable local record history, not an execution receipt."""
@@ -186,6 +194,89 @@ class MissionJournal:
     def latest(self, profile, key):
         history = self._history(profile, key)
         return history[-1] if history else None
+
+    def _mission_keys(self, scope):
+        rows = self.db.execute(
+            "SELECT DISTINCT mission FROM mission_checkpoint_v1 "
+            "WHERE scope=? ORDER BY mission LIMIT ?", (scope, MAX_MISSIONS + 1))
+        keys = {key for (key,) in rows}
+        if len(keys) > MAX_MISSIONS:
+            raise MissionError("mission inventory exceeds bound")
+        return keys
+
+    def export_snapshot(self, profile):
+        """Export a consistent, bounded snapshot of one exact profile."""
+        scope = _scope(profile)
+        missions = []
+        size = 0
+        with self._transaction(write=False):
+            for key in sorted(self._mission_keys(scope)):
+                stored = self._stored_rows(profile, key)
+                _validate_history(profile, key, stored)
+                size += sum(len(raw) for _, _, raw in stored)
+                if size > MAX_SNAPSHOT_BYTES:
+                    raise MissionError("mission snapshot exceeds bound")
+                missions.append([key, [[digest, raw.decode("utf-8")]
+                                       for _, digest, raw in stored]])
+        payload = _canonical({"version": 1, "profile": asdict(profile), "missions": missions})
+        if len(payload) > MAX_SNAPSHOT_BYTES:
+            raise MissionError("mission snapshot exceeds bound")
+        return payload
+
+    def import_snapshot(self, profile, payload):
+        """Restore local history without replacing conflicting or newer records.
+
+        A snapshot preserves checkpoint integrity, never scheduler provenance
+        or authority. Its transport is chosen and verified by the caller.
+        """
+        scope = _scope(profile)
+        if type(payload) is not bytes or len(payload) > MAX_SNAPSHOT_BYTES:
+            raise MissionError("invalid mission snapshot size")
+        try:
+            snapshot = json.loads(payload)
+            if (type(snapshot) is not dict
+                    or set(snapshot) != {"version", "profile", "missions"}
+                    or type(snapshot["version"]) is not int or snapshot["version"] != 1
+                    or snapshot["profile"] != asdict(profile)
+                    or _canonical(snapshot) != payload):
+                raise MissionError("invalid mission snapshot context")
+        except (ValueError, RecursionError) as exc:
+            raise MissionError("invalid mission snapshot") from exc
+        missions = snapshot["missions"]
+        if type(missions) is not list or len(missions) > MAX_MISSIONS:
+            raise MissionError("invalid mission snapshot inventory")
+        incoming = {}
+        for entry in missions:
+            if type(entry) is not list or len(entry) != 2:
+                raise MissionError("invalid mission snapshot entry")
+            key, events = entry
+            if (not _matches(TOKEN, key) or key in incoming or type(events) is not list
+                    or not 1 <= len(events) <= MAX_EVENTS):
+                raise MissionError("invalid mission snapshot history")
+            rows = []
+            for generation, event in enumerate(events, 1):
+                if (type(event) is not list or len(event) != 2
+                        or not _matches(DIGEST, event[0]) or type(event[1]) is not str
+                        or not event[1].isascii()):
+                    raise MissionError("invalid mission snapshot event")
+                rows.append((generation, event[0], event[1].encode("ascii")))
+            _validate_history(profile, key, rows)
+            incoming[key] = rows
+        count = 0
+        with self._transaction():
+            if len(self._mission_keys(scope) | incoming.keys()) > MAX_MISSIONS:
+                raise MissionError("mission inventory full")
+            for key, rows in incoming.items():
+                stored = self._stored_rows(profile, key)
+                _validate_history(profile, key, stored)
+                shared = min(len(stored), len(rows))
+                if stored[:shared] != rows[:shared]:
+                    raise MissionError("conflicting mission snapshot history")
+                missing = rows[len(stored):]
+                self.db.executemany("INSERT INTO mission_checkpoint_v1 VALUES(?,?,?,?,?)",
+                                    ((scope, key, *row) for row in missing))
+                count += len(missing)
+        return count
 
     def _append(self, profile, objective, main, generation, state, next_action,
                 evidence, predecessor):

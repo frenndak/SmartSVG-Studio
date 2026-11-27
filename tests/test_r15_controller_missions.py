@@ -243,3 +243,57 @@ class MissionJournalTests(unittest.TestCase):
         self.assertEqual(result.missions[0].checkpoint_status, "ACTIVE")
         self.assertEqual(result.missions[0].objective.action, "CRITERIA_OBSERVED")
         self.assertIsNone(result.selected)
+
+
+    def test_snapshot_restores_history_to_fresh_database_and_replay_is_no_op(self):
+        active = self.advance(self.first)
+        reader = MissionJournal(self.path, read_only=True)
+        try:
+            payload = reader.export_snapshot(PROFILE)
+        finally:
+            reader.close()
+        target = MissionJournal(self.path.with_name("second.sqlite"))
+        self.addCleanup(target.close)
+        self.assertEqual(target.import_snapshot(PROFILE, payload), 2)
+        self.assertEqual(target.latest(PROFILE, OBJECTIVE.key), active)
+        self.assertEqual(target.export_snapshot(PROFILE), payload)
+        self.assertEqual(target.import_snapshot(PROFILE, payload), 0)
+        self.assertEqual(target.latest(PROFILE, OBJECTIVE.key), active)
+
+    def test_snapshot_does_not_erase_newer_local_history(self):
+        old_snapshot = self.j.export_snapshot(PROFILE)
+        active = self.advance(self.first)
+        self.assertEqual(self.j.import_snapshot(PROFILE, old_snapshot), 0)
+        self.assertEqual(self.j.latest(PROFILE, OBJECTIVE.key), active)
+
+    def test_snapshot_rejects_conflicts_atomically_across_missions(self):
+        extra = replace(OBJECTIVE, key="before")
+        self.j.create(PROFILE, extra, M)
+        self.advance(self.first)
+        target = MissionJournal(self.path.with_name("other.sqlite"))
+        self.addCleanup(target.close)
+        first = target.create(PROFILE, OBJECTIVE, M)
+        active = target.advance(
+            PROFILE, OBJECTIVE.key, expected_generation=first.generation,
+            expected_digest=first.digest, main=M, revision=H, role="A",
+            state="ACTIVE", next_action="VERIFY_CRITERION",
+            evidence="b"*64)
+        with self.assertRaisesRegex(MissionError, "conflicting"):
+            target.import_snapshot(PROFILE, self.j.export_snapshot(PROFILE))
+        self.assertIsNone(target.latest(PROFILE, extra.key))
+        self.assertEqual(target.latest(PROFILE, OBJECTIVE.key), active)
+
+    def test_snapshot_rejects_wrong_profile_and_forged_checkpoint(self):
+        from tools.smartsvg_controller_missions import _canonical
+        import json
+
+        payload = self.j.export_snapshot(PROFILE)
+        different = replace(PROFILE, policy_blob=J)
+        with self.assertRaises(MissionError):
+            self.j.import_snapshot(different, payload)
+        snapshot = json.loads(payload)
+        event = snapshot["missions"][0][1][0]
+        event[1] = event[1].replace("PLANNED", "CANCELLED")
+        with self.assertRaises(MissionError):
+            self.j.import_snapshot(PROFILE, _canonical(snapshot))
+        self.assertEqual(self.j.latest(PROFILE, OBJECTIVE.key), self.first)
