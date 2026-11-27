@@ -12,6 +12,8 @@ import re
 from .smartsvg_controller_decision import Candidate, Check, Context, Status, decide
 from .smartsvg_controller_evidence import Work, dispatch, step_receipts
 
+from .smartsvg_controller_recovery import incident_key
+
 REPO = "frenndak/SmartSVG-Studio"
 SHA = re.compile(r"[0-9a-f]{40}")
 MAX_AGE = timedelta(minutes=5)
@@ -147,6 +149,13 @@ def _context(plan, p):
     return sha256(raw).hexdigest()
 
 
+def routing_incident(plan, proposal):
+    """Stable local history for this PR, writer and kind of work under one policy."""
+    return incident_key("smartsvg", REPO.lower(), plan.policy_blob,
+                        proposal.writer.lower() + ":" + proposal.action.lower(),
+                        "pr:" + str(proposal.number))
+
+
 def reserve_next(plan, role, journal, *, now=None, ttl=300, roadmap_ranks=None):
     """Reserve a local advisory PR unit, falling through on lease contention.
 
@@ -159,17 +168,34 @@ def reserve_next(plan, role, journal, *, now=None, ttl=300, roadmap_ranks=None):
     ranks = roadmap_ranks or {}
     work = [Work(p.number, p.writer, p.action, roadmap_rank=ranks.get(p.number))
             for p in plan.proposals]
+    deferred = []
     while work:
         number, action = dispatch(role, work, plan.code_wip, queue_complete=False)
         if number is None:
             break
+        work = [w for w in work if w.number != number]
         p = candidates[number]
         key = _context(plan, p)
         item = "pr:" + str(number)
+        advice = journal.advise(item, key, role)
+        if advice == "RESUME_CHECKPOINT":
+            stable = journal.advise_incident(item, routing_incident(plan, p), role)
+            # Waits attached to an older HEAD do not imply this HEAD is waiting.
+            if stable in ("CHANGE_STRATEGY", "PROPOSE_HANDOFF_REVIEW"):
+                advice = stable
+        candidate = (number, action, p.head, key, item, advice)
+        if advice != "RESUME_CHECKPOINT":
+            deferred.append(candidate)
+            continue
         fence = journal.claim(item, key, role, ttl)
         if fence is not None:
             return Reservation(number, action, p.head, key, role, fence,
-                               journal.checkpoint(item, key) or "",
-                               journal.advise(item, key, role))
-        work = [w for w in work if w.number != number]
+                               journal.checkpoint(item, key) or "", advice)
+    # An incident changes preference only. If alternatives are unavailable,
+    # preserve the original priority and return the actionable recovery advice.
+    for number, action, head, key, item, advice in deferred:
+        fence = journal.claim(item, key, role, ttl)
+        if fence is not None:
+            return Reservation(number, action, head, key, role, fence,
+                               journal.checkpoint(item, key) or "", advice)
     return None
