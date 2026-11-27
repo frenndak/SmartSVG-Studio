@@ -8,6 +8,7 @@ import json
 from copy import deepcopy
 from dataclasses import replace
 from hashlib import sha256
+from http.client import HTTPException
 from .smartsvg_controller_review import (
     TASKS, PREFIX, MAX_BODY, ReviewContext, correlate_review, _canonical, _time)
 from .smartsvg_controller_scheduler import inspect_scheduler, MAX_RESULT_AGE
@@ -148,7 +149,7 @@ def normalize_handoff(task, role, captured, plan, snapshot, get):
         normalized=deepcopy(task)
         normalized["run_details"]["latest_result"]["content_text"]=prefix+_canonical(receipt)
         return normalized
-    except (KeyError,TypeError,ValueError,AttributeError,OverflowError,OSError,ObservationError,StopIteration):
+    except (KeyError,TypeError,ValueError,AttributeError,OverflowError,OSError,HTTPException,ObservationError,StopIteration):
         return task
 
 
@@ -236,7 +237,7 @@ def derive_review_packets(plan,snapshot,scheduler_snapshot,get,*,now,journal=Non
                     p.number,p.head,plan.main,plan.policy_blob,"AUTHOR_CYCLE",
                     "scheduler-import:"+p.writer,live_author))
             report["reason"]="REVIEW_RECEIPT_UNAVAILABLE"
-        except (KeyError,TypeError,ValueError,AttributeError,OverflowError,OSError,ObservationError):
+        except (KeyError,TypeError,ValueError,AttributeError,OverflowError,OSError,HTTPException,ObservationError):
             live_author=None
         if p.action!="REVIEW":
             continue
@@ -291,7 +292,7 @@ def derive_review_packets(plan,snapshot,scheduler_snapshot,get,*,now,journal=Non
             report.update(status=verdict.status,reason="SEMANTIC_REVIEW_STILL_REQUIRED",
                           author_run=author_run,review_run=rr["id"],comment_id=comment["id"],
                           author_comment_id=live_author["receipt"]["comment_id"])
-        except (KeyError,TypeError,ValueError,AttributeError,OverflowError,OSError,ObservationError):
+        except (KeyError,TypeError,ValueError,AttributeError,OverflowError,OSError,HTTPException,ObservationError):
             continue
     if get("/branches/main")["commit"]["sha"]!=plan.main:
         raise ObservationError("main changed during scheduler correlation")
@@ -324,7 +325,7 @@ def recheck_exchange(plan,snapshot,get,reports):
                        ("id","body","user","issue_url","created_at","updated_at")):
                     raise ValueError("comment changed")
             stable=True
-        except (KeyError,TypeError,ValueError,AttributeError,OSError,ObservationError):
+        except (KeyError,TypeError,ValueError,AttributeError,OSError,HTTPException,ObservationError):
             pass
         if not stable:
             report.update(status="UNKNOWN",reason="FINAL_REVIEW_CONTEXT_CHANGED")
