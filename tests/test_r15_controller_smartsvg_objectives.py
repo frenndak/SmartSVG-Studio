@@ -207,9 +207,11 @@ class SmartSVGMissionCommandTests(unittest.TestCase):
         self.revisions = {key: M for key in ("W01-V1-CORE", "W05-SD0-A")}
         self.revision_path.write_text(json.dumps(self.revisions), encoding="utf-8")
 
-    def call(self, get=source):
+    def call(self, get=source, *, snapshot=None):
         result = StringIO()
-        args = ["--main", M, "--role", "B", "--journal", str(self.path),
+        state_args = ["--journal", str(self.path)] if snapshot is None else [
+            "--snapshot", str(snapshot)]
+        args = ["--main", M, "--role", "B", *state_args,
                 "--revisions", str(self.revision_path)]
         with patch("tools.smartsvg_controller_mission_cli.github_get",
                    side_effect=lambda path, token: get(path)), redirect_stdout(result):
@@ -276,3 +278,34 @@ class SmartSVGMissionCommandTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertEqual(report["status"], "CONTEXT_CHANGED")
         self.assertIsNone(report["selection"])
+
+
+    def test_command_reopens_snapshot_without_creating_a_local_database(self):
+        journal = MissionJournal(":memory:")
+        try:
+            graph = observe_smartsvg_objectives(source, P, M, self.revisions)
+            core = rows(graph)["W01-V1-CORE"]
+            first = journal.create(P, core, M)
+            journal.advance(P, core.key, expected_generation=first.generation,
+                            expected_digest=first.digest, main=M, revision=M, role="B",
+                            state="WAITING", next_action="VERIFY_CRITERION",
+                            evidence="b"*64)
+            snapshot = self.path.with_name("private-snapshot.json")
+            snapshot.write_bytes(journal.export_snapshot(P))
+        finally:
+            journal.close()
+        code, report = self.call(snapshot=snapshot)
+        self.assertEqual(code, 0)
+        self.assertEqual(report["selection"]["objective"], "W05-SD0-A")
+        self.assertFalse(self.path.exists())
+        self.assertNotIn("b"*64, repr(report))
+
+    def test_command_refuses_invalid_snapshot_before_network_access(self):
+        snapshot = self.path.with_name("invalid.json")
+        snapshot.write_bytes(b'{"private":"do not print"}')
+        get = Mock(side_effect=source)
+        code, report = self.call(get, snapshot=snapshot)
+        self.assertEqual(code, 2)
+        self.assertEqual(report["status"], "MISSION_SNAPSHOT_UNAVAILABLE")
+        self.assertNotIn("do not print", repr(report))
+        get.assert_not_called()

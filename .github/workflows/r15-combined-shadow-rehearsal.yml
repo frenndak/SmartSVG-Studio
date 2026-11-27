@@ -93,7 +93,7 @@ jobs:
               reduced, sort_keys=True, separators=(",", ":"), allow_nan=False))
           PY
 
-      - name: Reopen a local mission journal against live SmartSVG sources
+      - name: Restore a private mission snapshot against live SmartSVG sources
         env:
           EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
           SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
@@ -138,17 +138,21 @@ jobs:
                       expected_digest=first.digest, main=main, revision=main, role="B",
                       state="WAITING", next_action="VERIFY_CRITERION", evidence="c"*64)
                   assert waiting is not None
+                  snapshot = Path(directory) / "private-missions.json"
+                  snapshot.write_bytes(journal.export_snapshot(profile))
               finally:
                   journal.close()
-              before = path.read_bytes()
+              path.unlink()
+              before = snapshot.read_bytes()
               process = subprocess.run(
                   [sys.executable, "-m", "tools.smartsvg_controller_mission_cli",
-                   "--main", main, "--role", "B", "--journal", str(path),
+                   "--main", main, "--role", "B", "--snapshot", str(snapshot),
                    "--revisions", str(inventory)],
                   capture_output=True, text=True, timeout=120)
               report = json.loads(process.stdout)
               assert process.returncode == 0, report["status"]
-              assert path.read_bytes() == before
+              assert not path.exists()
+              assert snapshot.read_bytes() == before
           assert report["main"] == main
           assert report["selection"] == {
               "objective": "W05-SD0-A",
