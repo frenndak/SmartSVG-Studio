@@ -8,10 +8,11 @@ a test, transfer ownership, authorize a merge or reserve a live worker.
 from dataclasses import replace
 from datetime import datetime
 from hashlib import sha256
+from http.client import HTTPException
 import json
 
 from .smartsvg_controller_decision import Status
-from .smartsvg_controller_observation import ObservationError, branch_observation
+from .smartsvg_controller_observation import ObservationError, branch_observation, pages
 
 PREFIX = "R15_CHECKPOINT_V1 "
 MAX_BODY = 32768
@@ -46,18 +47,21 @@ def _marked(comment):
         line.startswith(PREFIX) for line in body.splitlines())
 
 
-def _checkpoint(plan, p, entry, get):
-    # Select the newest marker before validating it: a malformed/edited newer
-    # marker must not silently resurrect an older favorable recommendation.
-    rows = [c for c in entry["comments"] if _marked(c)
+def _latest_marker(comments):
+    rows = [c for c in comments if _marked(c)
             and (c.get("user") or {}).get("login") == "frenndak"]
-    if not rows:
-        return None
-    if any(type(c.get("id")) is not int or c["id"] < 1 for c in rows):
+    if not rows or any(type(c.get("id")) is not int or c["id"] < 1 for c in rows):
         return None
     if len({c["id"] for c in rows}) != len(rows):
         return None
-    c = max(rows, key=lambda row: row["id"])
+    return max(rows, key=lambda row: row["id"])
+
+
+def _checkpoint(plan, p, entry, get):
+    # Select before validating, so an invalid newer marker suppresses older advice.
+    c = _latest_marker(entry["comments"])
+    if c is None:
+        return None
     body = c["body"]
     if len(body) > MAX_BODY:
         return None
@@ -91,6 +95,11 @@ def _checkpoint(plan, p, entry, get):
             or pr.get("head",{}).get("sha") != p.head
             or branch_observation(get, pr)["status"] != "MATCH"):
         raise CheckpointContextChanged("PR changed during checkpoint readback")
+    # An unchanged comment can have been superseded since the queue snapshot.
+    # Recheck the marker inventory before carrying this hint into another cycle.
+    latest = _latest_marker(pages(get, f"/issues/{p.number}/comments"))
+    if latest is None or any(latest.get(k) != c.get(k) for k in keys):
+        return None
     return {"number":p.number,"head":p.head,"comment_id":c["id"],
             "role":v["role"],"verdict":v["verdict"],
             "comment_digest":sha256(body.encode()).hexdigest(),
@@ -116,7 +125,7 @@ def route_checkpoints(plan, snapshot, get):
                 invalid.add(p.number)
                 continue
             except (KeyError, TypeError, ValueError, AttributeError, OSError,
-                    OverflowError, ObservationError):
+                    OverflowError, HTTPException, ObservationError):
                 pass
         if hint is not None:
             reports.append(hint)

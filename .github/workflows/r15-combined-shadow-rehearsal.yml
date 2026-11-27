@@ -1,0 +1,165 @@
+name: SmartSVG R15.2 - Combined read-only shadow rehearsal
+
+# Owner-session qualification-only draft #208. Never promote this workflow
+# as a product or integration gate. No schedules, secrets, mutations or
+# production R15_ROUTE_V1 / R15B_PILOT_V1 output.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - ".github/workflows/r15-combined-shadow-rehearsal.yml"
+      - "tools/smartsvg_controller_*.py"
+      - "tests/test_r15_controller_*.py"
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  issues: read
+
+concurrency:
+  group: r15-combined-shadow-rehearsal-208
+  cancel-in-progress: false
+
+jobs:
+  combined-shadow:
+    if: ${{ github.repository == 'frenndak/SmartSVG-Studio' && github.event.pull_request.number == 208 && github.event.pull_request.draft == true && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'owner/r15-2-core-combined-rehearsal-20261127' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Observe live queue with combined candidate (advisory only)
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          python - <<'PY'
+          import json
+          import os
+          import tempfile
+          from pathlib import Path
+          from tools.smartsvg_controller_observation import github_get
+          from tools.smartsvg_controller_runtime import route
+          from tools.smartsvg_controller_pilot import packet
+
+          get = lambda path: github_get(path, token=os.environ["SMARTSVG_GITHUB_READ_TOKEN"])
+          head = os.environ["EXPECTED_HEAD"]
+          with tempfile.TemporaryDirectory(prefix="r15-combined-shadow-") as directory:
+              report = route(get, Path(directory) / "shadow.sqlite",
+                             run_id=int(os.environ["GITHUB_RUN_ID"]),
+                             attempt=int(os.environ["GITHUB_RUN_ATTEMPT"]),
+                             controller_head=head, require_main=False)
+          assert report["controller_head"] == head
+          assert report["qualification"] == "ADVISORY_ONLY"
+          assert report["merge_authorized"] is False
+          assert report["agent_work_executed"] is False
+          advice = packet(get, report)
+          assert advice["merge_authorized"] is False
+          assert advice["retry_authorized"] is False
+          # Keep this output distinct from production route/pilot receipts.
+          # A successful run proves an actual read-only observation, not
+          # independent B review, scheduler execution or integration.
+          reduced = {
+              "version": 1,
+              "controller_head": head,
+              "main": report["main"],
+              "policy_blob": report["policy_blob"],
+              "queue_complete": report["queue_complete"],
+              "code_wip": report["code_wip"],
+              "unknown": report["unknown"],
+              "assignments": {
+                  role: None if row is None else {
+                      "number": row["number"], "head": row["head"],
+                      "action": row["action"]}
+                  for role, row in report["assignments"].items()
+              },
+              "candidate_failures": report.get("candidate_failures", []),
+              "pilot_observation_status": advice["status"],
+              "journal_state": advice.get("journal_state"),
+              "qualification": "COMBINED_SHADOW_ONLY",
+              "merge_authorized": False,
+              "agent_work_executed": False,
+          }
+          print("R15_COMBINED_SHADOW_V1 " + json.dumps(
+              reduced, sort_keys=True, separators=(",", ":"), allow_nan=False))
+          PY
+
+      - name: Restore a private mission snapshot against live SmartSVG sources
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          import tempfile
+          from pathlib import Path
+          from tools.smartsvg_controller_missions import MissionJournal
+          from tools.smartsvg_controller_objectives import Profile
+          from tools.smartsvg_controller_observation import github_get
+          from tools.smartsvg_controller_smartsvg_objectives import (
+              BACKLOG_PATH, POLICY_PIN, REPOSITORY, SOURCE_PINS,
+              observe_smartsvg_objectives,
+          )
+
+          token = os.environ["SMARTSVG_GITHUB_READ_TOKEN"]
+          get = lambda path: github_get(path, token=token)
+          main = get("/branches/main")["commit"]["sha"]
+          profile = Profile("smartsvg", REPOSITORY, "main", POLICY_PIN,
+                            dict(SOURCE_PINS)[BACKLOG_PATH])
+          # These revisions identify a local rehearsal fixture, not product proof.
+          revisions = {"W01-V1-CORE": main, "W05-SD0-A": main}
+          graph = observe_smartsvg_objectives(get, profile, main, revisions)
+          assert graph.status == "OBSERVED_PARTIAL_GRAPH", graph.status
+          core = next(obj for obj in graph.objectives if obj.key == "W01-V1-CORE")
+          with tempfile.TemporaryDirectory(prefix="r15-mission-shadow-") as directory:
+              path = Path(directory) / "missions.sqlite"
+              inventory = Path(directory) / "revisions.json"
+              inventory.write_text(json.dumps(revisions), encoding="utf-8")
+              journal = MissionJournal(path)
+              try:
+                  first = journal.create(profile, core, main)
+                  waiting = journal.advance(
+                      profile, core.key, expected_generation=first.generation,
+                      expected_digest=first.digest, main=main, revision=main, role="B",
+                      state="WAITING", next_action="VERIFY_CRITERION", evidence="c"*64)
+                  assert waiting is not None
+                  snapshot = Path(directory) / "private-missions.json"
+                  snapshot.write_bytes(journal.export_snapshot(profile))
+              finally:
+                  journal.close()
+              path.unlink()
+              before = snapshot.read_bytes()
+              process = subprocess.run(
+                  [sys.executable, "-m", "tools.smartsvg_controller_mission_cli",
+                   "--main", main, "--role", "B", "--snapshot", str(snapshot),
+                   "--revisions", str(inventory)],
+                  capture_output=True, text=True, timeout=120)
+              report = json.loads(process.stdout)
+              assert process.returncode == 0, report["status"]
+              assert not path.exists()
+              assert snapshot.read_bytes() == before
+          assert report["main"] == main
+          assert report["selection"] == {
+              "objective": "W05-SD0-A",
+              "action": "VERIFY_CRITERION",
+              "checkpoint_status": "NEW",
+          }
+          assert report["merge_authorized"] is False
+          assert report["agent_work_executed"] is False
+          print("R15_MISSION_SHADOW_V1 " + json.dumps(report, sort_keys=True))
+          PY

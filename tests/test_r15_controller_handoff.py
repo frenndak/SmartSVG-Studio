@@ -27,6 +27,8 @@ class DurableHandoffTests(unittest.TestCase):
     def get(self,path):
         if path=="/git/commits/"+H:
             return {"sha":H,"committer":{"date":"2026-11-26T14:00:00Z"}}
+        if path == "/issues/195/comments?per_page=100&page=1":
+            return getattr(self, "live_comments", [self.comment])
         if path=="/issues/comments/123":
             return dict(self.comment,body="edited") if self.drift else self.comment
         if path=="/pulls/195":
@@ -55,6 +57,39 @@ class DurableHandoffTests(unittest.TestCase):
         self.plan=replace(self.plan,proposals=(replace(self.plan.proposals[0],
             steps=(StepReceipt("g0",Status.SKIP),)),))
         self.assertEqual(self.run_hint()[0].proposals[0].action,"CI_INSPECT")
+
+    def test_truncated_checkpoint_keeps_review_and_independent_work(self):
+        from http.client import IncompleteRead
+        from unittest.mock import patch
+
+        other = replace(self.plan.proposals[0], number=196, action="FIX_REQUIRED")
+        self.plan = replace(self.plan, proposals=(*self.plan.proposals, other), code_wip=2)
+        original_get = self.get
+
+        for endpoint in ("/git/commits/" + H, "/issues/comments/123", "/pulls/195"):
+            with self.subTest(endpoint=endpoint):
+                def get(path):
+                    if path == endpoint:
+                        raise IncompleteRead(b"private partial body")
+                    return original_get(path)
+
+                with patch.object(self, "get", get):
+                    plan, reports = self.run_hint()
+                self.assertEqual(plan, self.plan)
+                self.assertEqual(reports, [])
+
+    def test_truncated_required_main_read_still_aborts_checkpoint_routing(self):
+        from http.client import IncompleteRead
+        from unittest.mock import patch
+
+        original_get = self.get
+        def get(path):
+            if path == "/branches/main":
+                raise IncompleteRead(b"")
+            return original_get(path)
+
+        with patch.object(self, "get", get), self.assertRaises(IncompleteRead):
+            self.run_hint()
 
     def test_partial_does_not_fake_review_completion(self):
         self.value["verdict"]="PARTIAL"
@@ -119,3 +154,16 @@ class DurableHandoffTests(unittest.TestCase):
         self.assertEqual(plan.code_wip,2)
         self.assertEqual(plan.unknown,(195,))
         self.assertEqual(reports,[])
+
+    def test_checkpoint_superseded_during_collection_is_discarded(self):
+        self.value["verdict"] = "FAVORABLE"
+        for body in (PREFIX + "{", PREFIX + json.dumps(dict(self.value, verdict="ADVERSE"))):
+            with self.subTest(body=body):
+                self.live_comments = [self.comment, dict(self.comment, id=124, body=body)]
+                self.assertEqual(self.run_hint(), (self.plan, []))
+
+    def test_missing_marker_and_unrelated_new_comment(self):
+        self.live_comments = []
+        self.assertEqual(self.run_hint(), (self.plan, []))
+        self.live_comments = [self.comment, dict(self.comment, id=124, body="ordinary comment")]
+        self.assertEqual(self.run_hint()[0].proposals[0].action, "VERIFY_FINDING")

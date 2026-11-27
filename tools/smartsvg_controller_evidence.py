@@ -34,6 +34,10 @@ class StepReceipt:
     qualification: str = "STEP_ONLY"
 
 
+def _positive_int(value):
+    return type(value) is int and value > 0
+
+
 def _status(obj):
     if obj.get("status") in ("queued", "in_progress", "waiting", "requested", "pending"):
         return Status.PENDING
@@ -59,7 +63,7 @@ def step_receipts(head, runs, *, event="pull_request"):
         entry = matches[0]
         run = entry["run"]
         rid, attempt = run.get("id"), run.get("run_attempt")
-        if type(rid) is not int or type(attempt) is not int or attempt < 1:
+        if not _positive_int(rid) or not _positive_int(attempt):
             out.append(missing("INVALID_RUN_IDENTITY"))
             continue
         if _status(run) is not Status.PASS:
@@ -72,8 +76,9 @@ def step_receipts(head, runs, *, event="pull_request"):
             continue
         job = jobs[0]
         jid = job.get("id")
-        if (type(jid) is not int or job.get("head_sha") != head
-                or job.get("run_id") != rid or job.get("run_attempt") != attempt):
+        if (not _positive_int(jid) or job.get("head_sha") != head
+                or not _positive_int(job.get("run_id")) or job["run_id"] != rid
+                or not _positive_int(job.get("run_attempt")) or job["run_attempt"] != attempt):
             out.append(missing("JOB_PROVENANCE_MISMATCH"))
             continue
         if _status(job) is not Status.PASS:
@@ -81,13 +86,23 @@ def step_receipts(head, runs, *, event="pull_request"):
                                    reason="JOB_NOT_SUCCESS"))
             continue
         steps = [s for s in job.get("steps", ()) if s.get("name") == step_name]
-        if len(steps) != 1 or type(steps[0].get("number")) is not int:
+        if len(steps) != 1 or not _positive_int(steps[0].get("number")):
             out.append(missing("MISSING_OR_MULTIPLE_STEPS"))
             continue
         step = steps[0]
         out.append(StepReceipt(name, _status(step), rid, attempt, jid,
                                step["number"], "EXACT_STEP"))
     return tuple(out)
+
+
+def only_waiting_on_ci(steps):
+    """Recognize a complete inventory where every outstanding check is pending."""
+    if len(steps) != len(SPECS) or {step.name for step in steps} != SPECS.keys():
+        return False
+    return (any(step.status is Status.PENDING for step in steps)
+            and all(step.status in (Status.PASS, Status.PENDING)
+                    and _positive_int(step.run_id) and _positive_int(step.attempt)
+                    for step in steps))
 
 
 @dataclass(frozen=True)
@@ -98,6 +113,7 @@ class Work:
     # False for work currently reserved by a different live worker.
     available: bool = True
     roadmap_rank: int | None = None
+    only_waiting_on_ci: bool = False
 
 
 def dispatch(role, work, code_wip, *, queue_complete=False):
@@ -118,8 +134,11 @@ def dispatch(role, work, code_wip, *, queue_complete=False):
             rank = 1
         elif w.action in ("SHADOW_QUALIFIED", "QUALIFY_ONLY") and role == "B":
             rank = 2
-        elif w.action == "CI_INSPECT" and (not other or role == "B"):
-            rank = 3
+        elif w.action == "CI_INSPECT":
+            # CI inspection is read-only and does not qualify a review or merge.
+            # A can inspect B-owned work instead of idling when B is unavailable.
+            # Mutating repairs and B-only qualification retain their own gates.
+            rank = 5 if w.only_waiting_on_ci else 3
         elif w.action == "INSPECT":
             rank = 4
         if rank is not None:

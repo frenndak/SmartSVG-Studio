@@ -10,7 +10,9 @@ import json
 import re
 
 from .smartsvg_controller_decision import Candidate, Check, Context, Status, decide
-from .smartsvg_controller_evidence import Work, dispatch, step_receipts
+from .smartsvg_controller_evidence import Work, dispatch, only_waiting_on_ci, step_receipts
+
+from .smartsvg_controller_recovery import incident_key
 
 REPO = "frenndak/SmartSVG-Studio"
 SHA = re.compile(r"[0-9a-f]{40}")
@@ -103,13 +105,19 @@ def build_plan(snapshot, scopes, *, now=None):
     ctx = Context(main, policy, False, False, False, False, Status.UNKNOWN, "", True)
     for entry in snapshot["candidates"]:
         pr = entry["pr"]
-        n, head = pr["number"], _sha(pr["head"]["sha"])
+        n = pr["number"]
         if type(n) is not int or n < 1 or n in seen or pr.get("state") != "open":
             raise ValueError("invalid or duplicate open PR")
         seen.add(n)
+        if "collection_error" in entry:
+            unknown.append(n)
+            wip += 1
+            continue
+        head = _sha(pr["head"]["sha"])
         scope = scope_by_number.get(n)
         branch = entry.get("branch") or {}
-        if (scope is None or scope.head != head or branch.get("status") != "MATCH"
+        if (scope is None or scope.head != head
+                or branch.get("status") != "MATCH"
                 or branch.get("sha") != head):
             unknown.append(n)
             wip += 1  # unknown scope cannot free a slot
@@ -147,6 +155,13 @@ def _context(plan, p):
     return sha256(raw).hexdigest()
 
 
+def routing_incident(plan, proposal):
+    """Stable local history for this PR, writer and kind of work under one policy."""
+    return incident_key("smartsvg", REPO.lower(), plan.policy_blob,
+                        proposal.writer.lower() + ":" + proposal.action.lower(),
+                        "pr:" + str(proposal.number))
+
+
 def reserve_next(plan, role, journal, *, now=None, ttl=300, roadmap_ranks=None):
     """Reserve a local advisory PR unit, falling through on lease contention.
 
@@ -157,19 +172,32 @@ def reserve_next(plan, role, journal, *, now=None, ttl=300, roadmap_ranks=None):
     _fresh(plan.finished, _now(now))
     candidates = {p.number: p for p in plan.proposals}
     ranks = roadmap_ranks or {}
-    work = [Work(p.number, p.writer, p.action, roadmap_rank=ranks.get(p.number))
+    work = [Work(p.number, p.writer, p.action, roadmap_rank=ranks.get(p.number),
+                 only_waiting_on_ci=p.action == "CI_INSPECT" and only_waiting_on_ci(p.steps))
             for p in plan.proposals]
+    deferred = []
     while work:
         number, action = dispatch(role, work, plan.code_wip, queue_complete=False)
         if number is None:
             break
+        work = [w for w in work if w.number != number]
         p = candidates[number]
         key = _context(plan, p)
         item = "pr:" + str(number)
+        advice = journal.advise(item, key, role, incident=routing_incident(plan, p))
+        candidate = (number, action, p.head, key, item, advice)
+        if advice != "RESUME_CHECKPOINT":
+            deferred.append(candidate)
+            continue
         fence = journal.claim(item, key, role, ttl)
         if fence is not None:
             return Reservation(number, action, p.head, key, role, fence,
-                               journal.checkpoint(item, key) or "",
-                               journal.advise(item, key, role))
-        work = [w for w in work if w.number != number]
+                               journal.checkpoint(item, key) or "", advice)
+    # An incident changes preference only. If alternatives are unavailable,
+    # preserve the original priority and return the actionable recovery advice.
+    for number, action, head, key, item, advice in deferred:
+        fence = journal.claim(item, key, role, ttl)
+        if fence is not None:
+            return Reservation(number, action, head, key, role, fence,
+                               journal.checkpoint(item, key) or "", advice)
     return None
