@@ -26,7 +26,7 @@ def incident_key(project, repository, policy, kind, resource):
                              separators=(",", ":")).encode()).hexdigest()
 
 
-def _advice(rows):
+def _advice(rows, *, respect_terminal_blocker=True):
     seen = set()
     streak = 0
     last = None
@@ -38,9 +38,9 @@ def _advice(rows):
         elif outcome in ("PROGRESS", "NO_PROGRESS"):
             streak += 1
         # A genuine wait neither increments nor resets an existing streak.
-    if last in ("WAIT_CI", "WAIT_REVIEW"):
+    if respect_terminal_blocker and last in ("WAIT_CI", "WAIT_REVIEW"):
         return "OTHER_ACTIONABLE_WORK"
-    if last == "EXTERNAL":
+    if respect_terminal_blocker and last == "EXTERNAL":
         return "ISOLATE_EXTERNAL_BLOCKER"
     if streak >= 3:
         return "PROPOSE_HANDOFF_REVIEW"
@@ -117,13 +117,26 @@ class RecoveryJournal(Journal):
         rows = self.db.execute(
             "SELECT outcome,receipt FROM cycle WHERE item=? AND head=? AND owner=? ORDER BY ordinal",
             (item, head, owner)).fetchall()
-        if not rows and incident is not None:
-            stable = self.advise_incident(item, incident, owner)
-            # Waits expire with their context. Verified exact-context progress
-            # also supersedes older stagnation for this reservation.
-            if stable in ("CHANGE_STRATEGY", "PROPOSE_HANDOFF_REVIEW"):
-                return stable
-        return _advice(rows)
+        exact = _advice(rows)
+        if incident is None:
+            return exact
+        # A current-context wait/external blocker takes precedence, as does
+        # genuinely new exact-context progress. Mere NO_PROGRESS cannot erase
+        # a previous incident streak. Never add the two histories: they may
+        # describe the same cycles.
+        if exact in ("OTHER_ACTIONABLE_WORK", "ISOLATE_EXTERNAL_BLOCKER"):
+            return exact
+        if any(outcome == "PROGRESS" for outcome, _ in rows):
+            return exact
+        stable_rows = self._incident_rows(item, incident, owner)
+        stable = _advice([(outcome, receipt) for _, outcome, receipt in stable_rows],
+                         respect_terminal_blocker=bool(stable_rows and
+                                                       stable_rows[-1][0] == head))
+        if stable in ("OTHER_ACTIONABLE_WORK", "ISOLATE_EXTERNAL_BLOCKER"):
+            return stable
+        rank = {"RESUME_CHECKPOINT": 0, "CHANGE_STRATEGY": 1,
+                "PROPOSE_HANDOFF_REVIEW": 2}
+        return max((exact, stable), key=rank.__getitem__)
 
     def record_incident_cycle(self, item, context, owner, fence, *, incident,
                               run, ordinal, outcome, receipt=""):
@@ -170,13 +183,16 @@ class RecoveryJournal(Journal):
                             (*key, context, run, ordinal, outcome, receipt))
             return True
 
-    def advise_incident(self, item, incident, owner):
-        """Continuity advice only; does not expose prior exact-context evidence."""
+    def _incident_rows(self, item, incident, owner):
         if (not isinstance(incident, str) or DIGEST.fullmatch(incident) is None
                 or owner not in ("A", "B")):
             raise ValueError("invalid incident identity")
-        rows = self.db.execute(
-            "SELECT outcome,receipt FROM incident_cycle_v1 "
+        return self.db.execute(
+            "SELECT context,outcome,receipt FROM incident_cycle_v1 "
             "WHERE item=? AND incident=? AND owner=? ORDER BY ordinal",
             (item, incident, owner)).fetchall()
-        return _advice(rows)
+
+    def advise_incident(self, item, incident, owner):
+        """Continuity advice only; does not expose prior exact-context evidence."""
+        return _advice([(outcome, receipt) for _, outcome, receipt in
+                        self._incident_rows(item, incident, owner)])
