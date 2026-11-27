@@ -249,3 +249,18 @@ class StableIncidentTests(unittest.TestCase):
         self.assertTrue(self.j.record_cycle(*args, self.fence, run="wait",
                                             ordinal=1, outcome="WAIT_REVIEW"))
         self.assertEqual(self.j.advise(*args, incident=self.scope), "OTHER_ACTIONABLE_WORK")
+
+    def test_exact_repeat_of_old_progress_cannot_reset_incident(self):
+        self.record(1, "PROGRESS", "e"*64)
+        self.record(2, "NO_PROGRESS")
+        self.record(3, "NO_PROGRESS")
+        self.rotate("c"*64)
+        args = (self.item, self.context, "B")
+        self.assertTrue(self.j.record_cycle(*args, self.fence, run="duplicate",
+                                            ordinal=1, outcome="PROGRESS",
+                                            receipt="e"*64))
+        self.assertEqual(self.j.advise(*args, incident=self.scope), "CHANGE_STRATEGY")
+        self.assertTrue(self.j.record_cycle(*args, self.fence, run="new",
+                                            ordinal=2, outcome="PROGRESS",
+                                            receipt="f"*64))
+        self.assertEqual(self.j.advise(*args, incident=self.scope), "RESUME_CHECKPOINT")
