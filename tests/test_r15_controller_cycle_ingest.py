@@ -30,7 +30,8 @@ class CycleIngestionTests(unittest.TestCase):
         self.r=reserve_next(self.plan,"A",self.j,now=NOW)
 
     def obs(self,n,outcome="NO_PROGRESS",material=""):
-        return CycleObservation(dig("run"+str(n)),n,outcome,dig("source"+str(n)),material)
+        return CycleObservation(self.r.context_key,routing_incident(self.plan,self.p),"A",
+                                dig("run"+str(n)),n,outcome,dig("source"+str(n)),material)
 
     def ingest(self,o,plan=None,p=None,r=None):
         return ingest_cycle(self.j,plan or self.plan,p or self.p,r or self.r,o)
@@ -133,6 +134,7 @@ class CycleIngestionTests(unittest.TestCase):
             self.ingest(self.obs(1))
         self.assertEqual(self.j.db.execute("SELECT COUNT(*) FROM cycle").fetchone()[0],0)
         self.assertEqual(self.j.db.execute("SELECT COUNT(*) FROM incident_cycle_v1").fetchone()[0],0)
+        self.assertEqual(self.j.db.execute("SELECT COUNT(*) FROM cycle_import_v1").fetchone()[0],0)
         self.assertEqual(self.evidence(),())
 
     def test_reopen_retains_imported_evidence_and_advice(self):
@@ -146,3 +148,31 @@ class CycleIngestionTests(unittest.TestCase):
             self.assertEqual(len(other.evidence_for(195,H,M,P,"CYCLE_OUTCOME")),2)
         finally:
             other.close()
+
+    def test_observation_is_bound_to_its_exact_context_incident_and_role(self):
+        o=self.obs(1)
+        self.rotate(J)
+        self.assertIsNone(self.ingest(o))
+        fresh=self.obs(2)
+        self.assertIsNone(self.ingest(replace(fresh,incident_key=dig("other"))))
+        self.assertIsNone(self.ingest(replace(fresh,role="B")))
+        self.assertEqual(self.evidence(),())
+        self.assertIsNotNone(self.ingest(fresh))
+
+    def test_source_receipt_cannot_count_as_second_actual_cycle(self):
+        first=self.obs(1)
+        self.assertIsNotNone(self.ingest(first))
+        self.rotate(J)
+        second=self.obs(2)
+        self.assertIsNone(self.ingest(replace(second,source_digest=first.source_digest)))
+        self.assertEqual(self.evidence(),())
+        self.assertIsNotNone(self.ingest(second))
+        self.assertEqual(self.j.advise("pr:195",self.r.context_key,"A",
+                                      incident=routing_incident(self.plan,self.p)),
+                         "CHANGE_STRATEGY")
+
+    def test_overflowing_ordinal_and_fence_are_rejected_without_write(self):
+        with self.assertRaises(ValueError):
+            self.ingest(replace(self.obs(1),ordinal=2**63))
+        self.assertIsNone(self.ingest(self.obs(1),r=replace(self.r,fence=2**63)))
+        self.assertEqual(self.evidence(),())
