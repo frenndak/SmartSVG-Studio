@@ -114,3 +114,16 @@ class SolutionMemoryTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.m.store(replace(SOLUTION,validation_digest="f"*64))
             self.assertEqual(self.hints()[0].solution_digest,digest)
+
+    def test_failed_optional_revalidation_does_not_hide_other_solution(self):
+        from http.client import IncompleteRead
+        self.m.store(SOLUTION)
+        self.m.store(replace(SOLUTION,strategy="INSPECT_INDEPENDENT",
+                             validation_digest="f"*64))
+        def verify(s):
+            if s.strategy=="RETRY_READ_ALTERNATE":
+                raise IncompleteRead(b"private partial response")
+            return True
+        result=self.hints(verify=verify)
+        self.assertEqual([h.strategy for h in result],["INSPECT_INDEPENDENT"])
+        self.assertNotIn("private partial response",str(result))
