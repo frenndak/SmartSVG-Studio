@@ -365,7 +365,8 @@ class MissionResumePlan:
     qualification: str = "LOCAL_ADVISORY_ONLY"
 
 
-def plan_mission_resumption(journal, profile, main, objectives, *, role, receipts=()):
+def plan_mission_resumption(journal, profile, main, objectives, *, role, receipts=(),
+                            quarantined=()):
     """Choose a useful objective from fresh evidence and exact local checkpoints.
 
     The checkpoint is context for resuming work. Only freshly evaluated
@@ -375,6 +376,10 @@ def plan_mission_resumption(journal, profile, main, objectives, *, role, receipt
     """
     if role not in ROLES:
         raise MissionError("invalid mission role")
+    if (type(quarantined) is not tuple or len(quarantined) > MAX_MISSIONS
+            or not all(_matches(TOKEN, key) for key in quarantined)
+            or len(set(quarantined)) != len(quarantined)):
+        raise MissionError("invalid mission quarantine")
     plan = plan_objectives(profile, main, objectives, receipts)
     by_key = {objective.key: objective for objective in objectives}
     missions = []
@@ -382,6 +387,9 @@ def plan_mission_resumption(journal, profile, main, objectives, *, role, receipt
         if advice.role != role:
             continue
         objective = by_key[advice.objective]
+        if objective.key in quarantined:
+            missions.append(MissionAdvice(advice, "HISTORY_CONFLICT"))
+            continue
         try:
             checkpoint = journal.latest(profile, objective.key)
         except MissionError:

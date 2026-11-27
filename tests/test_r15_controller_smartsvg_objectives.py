@@ -207,12 +207,14 @@ class SmartSVGMissionCommandTests(unittest.TestCase):
         self.revisions = {key: M for key in ("W01-V1-CORE", "W05-SD0-A")}
         self.revision_path.write_text(json.dumps(self.revisions), encoding="utf-8")
 
-    def call(self, get=source, *, snapshot=None):
+    def call(self, get=source, *, snapshot=None, peer=None):
         result = StringIO()
         state_args = ["--journal", str(self.path)] if snapshot is None else [
             "--snapshot", str(snapshot)]
         args = ["--main", M, "--role", "B", *state_args,
                 "--revisions", str(self.revision_path)]
+        if peer is not None:
+            args.extend(("--peer-snapshot", str(peer)))
         with patch("tools.smartsvg_controller_mission_cli.github_get",
                    side_effect=lambda path, token: get(path)), redirect_stdout(result):
             code = mission_cli(args)
@@ -309,3 +311,56 @@ class SmartSVGMissionCommandTests(unittest.TestCase):
         self.assertEqual(report["status"], "MISSION_SNAPSHOT_UNAVAILABLE")
         self.assertNotIn("do not print", repr(report))
         get.assert_not_called()
+
+
+    def test_pair_quarantines_conflict_and_selects_independent_mission(self):
+        graph = observe_smartsvg_objectives(source, P, M, self.revisions)
+        core = rows(graph)["W01-V1-CORE"]
+        snapshots = []
+        for label, action, evidence in (("local", "REPAIR", "b"*64),
+                                        ("peer", "VERIFY", "c"*64)):
+            journal = MissionJournal(":memory:")
+            try:
+                first = journal.create(P, core, M)
+                journal.advance(P, core.key, expected_generation=first.generation,
+                                expected_digest=first.digest, main=M, revision=M,
+                                role="B", state="ACTIVE", next_action=action,
+                                evidence=evidence)
+                path = self.path.with_name(label + ".json")
+                path.write_bytes(journal.export_snapshot(P))
+                snapshots.append(path)
+            finally:
+                journal.close()
+        before = [p.read_bytes() for p in snapshots]
+        code, report = self.call(snapshot=snapshots[0], peer=snapshots[1])
+        self.assertEqual(code, 0)
+        self.assertEqual(report["quarantined_missions"], [core.key])
+        self.assertEqual(report["selection"]["objective"], "W05-SD0-A")
+        self.assertEqual([p.read_bytes() for p in snapshots], before)
+        self.assertNotIn("b"*64, repr(report))
+        self.assertNotIn("c"*64, repr(report))
+        self.assertFalse(self.path.exists())
+
+    def test_pair_invalid_peer_refuses_all_advice_before_network(self):
+        journal = MissionJournal(":memory:")
+        try:
+            snapshot = self.path.with_name("local.json")
+            snapshot.write_bytes(journal.export_snapshot(P))
+        finally:
+            journal.close()
+        peer = self.path.with_name("peer.json")
+        peer.write_bytes(b"{}")
+        get = Mock(side_effect=source)
+        code, report = self.call(get, snapshot=snapshot, peer=peer)
+        self.assertEqual(code, 2)
+        self.assertEqual(report["status"], "MISSION_SNAPSHOT_UNAVAILABLE")
+        self.assertIsNone(report["selection"])
+        get.assert_not_called()
+
+    def test_pair_requires_local_snapshot_instead_of_database(self):
+        get = Mock(side_effect=source)
+        code, report = self.call(get, peer=self.path.with_name("peer.json"))
+        self.assertEqual(code, 2)
+        self.assertEqual(report["status"], "SNAPSHOT_PAIR_REQUIRED")
+        get.assert_not_called()
+        self.assertFalse(self.path.exists())
