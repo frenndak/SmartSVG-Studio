@@ -1,0 +1,94 @@
+name: SmartSVG R15.2 - Combined read-only shadow rehearsal
+
+# Owner-session qualification-only draft #208. Never promote this workflow
+# as a product or integration gate. No schedules, secrets, mutations or
+# production R15_ROUTE_V1 / R15B_PILOT_V1 output.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - ".github/workflows/r15-combined-shadow-rehearsal.yml"
+      - "tools/smartsvg_controller_*.py"
+      - "tests/test_r15_controller_*.py"
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  issues: read
+
+concurrency:
+  group: r15-combined-shadow-rehearsal-208
+  cancel-in-progress: false
+
+jobs:
+  combined-shadow:
+    if: ${{ github.repository == 'frenndak/SmartSVG-Studio' && github.event.pull_request.number == 208 && github.event.pull_request.draft == true && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'owner/r15-2-core-combined-rehearsal-20261127' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Observe live queue with combined candidate (advisory only)
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          python - <<'PY'
+          import json
+          import os
+          import tempfile
+          from pathlib import Path
+          from tools.smartsvg_controller_observation import github_get
+          from tools.smartsvg_controller_runtime import route
+          from tools.smartsvg_controller_pilot import packet
+
+          get = lambda path: github_get(path, token=os.environ["SMARTSVG_GITHUB_READ_TOKEN"])
+          head = os.environ["EXPECTED_HEAD"]
+          with tempfile.TemporaryDirectory(prefix="r15-combined-shadow-") as directory:
+              report = route(get, Path(directory) / "shadow.sqlite",
+                             run_id=int(os.environ["GITHUB_RUN_ID"]),
+                             attempt=int(os.environ["GITHUB_RUN_ATTEMPT"]),
+                             controller_head=head, require_main=False)
+          assert report["controller_head"] == head
+          assert report["qualification"] == "ADVISORY_ONLY"
+          assert report["merge_authorized"] is False
+          assert report["agent_work_executed"] is False
+          advice = packet(get, report)
+          assert advice["merge_authorized"] is False
+          assert advice["retry_authorized"] is False
+          # Keep this output distinct from production route/pilot receipts.
+          # A successful run proves an actual read-only observation, not
+          # independent B review, scheduler execution or integration.
+          reduced = {
+              "version": 1,
+              "controller_head": head,
+              "main": report["main"],
+              "policy_blob": report["policy_blob"],
+              "queue_complete": report["queue_complete"],
+              "code_wip": report["code_wip"],
+              "unknown": report["unknown"],
+              "assignments": {
+                  role: None if row is None else {
+                      "number": row["number"], "head": row["head"],
+                      "action": row["action"]}
+                  for role, row in report["assignments"].items()
+              },
+              "candidate_failures": report.get("candidate_failures", []),
+              "pilot_observation_status": advice["status"],
+              "journal_state": advice.get("journal_state"),
+              "qualification": "COMBINED_SHADOW_ONLY",
+              "merge_authorized": False,
+              "agent_work_executed": False,
+          }
+          print("R15_COMBINED_SHADOW_V1 " + json.dumps(
+              reduced, sort_keys=True, separators=(",", ":"), allow_nan=False))
+          PY
