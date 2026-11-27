@@ -245,3 +245,63 @@ class ExchangeTests(unittest.TestCase):
         self.assertEqual(recheck_exchange(routed,self.snapshot,self.get,reports),routed)
         self.assertEqual(next(r for r in reports if r["number"]==195)["status"],
                          "CORRELATED_FAVORABLE")
+
+    def test_truncated_optional_author_or_review_read_keeps_other_work(self):
+        from http.client import IncompleteRead
+        for path in ("/git/commits/"+self.p.head, "/issues/comments/701",
+                     "/issues/comments/702", "/pulls/195",
+                     "/git/ref/heads/"+self.pr["pr"]["head"]["ref"]):
+            with self.subTest(path=path):
+                def get(request):
+                    if request == path:
+                        raise IncompleteRead(b"private partial response")
+                    return self.get(request)
+                packets, reports = self.derive(get)
+                self.assertEqual(packets, ())
+                self.assertEqual(next(r for r in reports if r["number"]==195)["status"],
+                                 "UNKNOWN")
+                self.assertNotIn("private partial response", str(reports))
+                self.assertEqual(route_review_hints(self.plan,self.snapshot,packets), self.plan)
+
+    def test_truncated_minimal_handoff_is_optional(self):
+        from http.client import IncompleteRead
+        self.minimal_handoffs()
+        original=deepcopy(self.scheduler)
+        def get(path):
+            if path=="/issues/comments/701":
+                raise IncompleteRead(b"private partial response")
+            return self.get(path)
+        packets,reports=self.derive(get)
+        self.assertEqual(packets,())
+        self.assertEqual(self.scheduler,original)
+        self.assertNotIn("private partial response",str(reports))
+
+    def test_final_truncated_review_read_revokes_only_affected_hint(self):
+        from http.client import IncompleteRead
+        from tools.smartsvg_controller_exchange import recheck_exchange
+        packets,reports=self.derive()
+        routed=route_review_hints(self.plan,self.snapshot,packets)
+        def get(path):
+            if path=="/issues/comments/702":
+                raise IncompleteRead(b"private partial response")
+            return self.get(path)
+        final=recheck_exchange(routed,self.snapshot,get,reports)
+        self.assertEqual(next(p for p in final.proposals if p.number==195).action,"REVIEW")
+        self.assertEqual([p for p in final.proposals if p.number!=195],
+                         [p for p in routed.proposals if p.number!=195])
+        self.assertEqual(next(r for r in reports if r["number"]==195)["status"],"UNKNOWN")
+        self.assertNotIn("private partial response",str(reports))
+
+    def test_truncated_required_main_read_not_treated_as_optional(self):
+        from http.client import IncompleteRead
+        from tools.smartsvg_controller_exchange import recheck_exchange
+        packets,reports=self.derive()
+        def get(path):
+            if path=="/branches/main":
+                raise IncompleteRead(b"")
+            return self.get(path)
+        with self.assertRaises(IncompleteRead):
+            self.derive(get)
+        with self.assertRaises(IncompleteRead):
+            recheck_exchange(route_review_hints(self.plan,self.snapshot,packets),
+                             self.snapshot,get,reports)
