@@ -6,6 +6,7 @@ past validation and current compatibility. No network or GitHub writes.
 """
 from dataclasses import asdict, dataclass
 from hashlib import sha256
+from http.client import HTTPException
 import json
 import sqlite3
 
@@ -189,7 +190,7 @@ class SolutionMemory:
                 continue
             try:
                 applicable = verify(solution)
-            except (OSError, ValueError, RuntimeError, LookupError, TypeError):
+            except (OSError, HTTPException, ValueError, RuntimeError, LookupError, TypeError):
                 # Optional knowledge is not allowed to suppress independent work.
                 continue
             if applicable is True:
