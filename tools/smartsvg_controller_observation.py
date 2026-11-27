@@ -128,13 +128,15 @@ def _unavailable_candidate(pr, reason):
             "runs": [], "reviews": [], "comments": [], "collection_error": reason}
 
 
-def observe(get=github_get):
+def observe(get=github_get, *, isolate_head_churn=False):
     """Collect raw exact-head runs/jobs and review receipts; reject snapshot drift.
 
     A successful observation is NOT a verified policy, actual step PASS,
     independent A/B review, resolved-thread proof, or scheduler readback.
     Those remain separate gates. Global errors propagate. Candidate-local
     read errors are explicitly quarantined; no partial receipts retained.
+    A caller retrying the snapshot may isolate changed heads while still
+    requiring stable queue membership and main.
     """
     started = datetime.now(timezone.utc).isoformat()
     main = get("/branches/main")
@@ -191,8 +193,13 @@ def observe(get=github_get):
         except candidate_errors as exc:
             candidates.append(_unavailable_candidate(listed, type(exc).__name__))
             continue
-        if p.get("number") != number or p.get("state") != "open" or detail_head != head:
+        if p.get("number") != number or p.get("state") != "open":
             raise QueueChanged("PR changed during collection")
+        if detail_head != head:
+            if not isolate_head_churn:
+                raise QueueChanged("PR head changed during detail read")
+            candidates.append(_unavailable_candidate(listed, "CandidateHeadChanged"))
+            continue
         branch = branch_observation(get, p)
         if branch["status"] != "MATCH":
             candidates.append({"pr": p, "branch": branch, "runs": [],
@@ -230,7 +237,10 @@ def observe(get=github_get):
             candidates[index] = _unavailable_candidate(initial[number][0], "ObservationError")
             continue
         if before != after:
-            raise QueueChanged("PR head changed during collection")
+            if not isolate_head_churn:
+                raise QueueChanged("PR head changed during collection")
+            candidates[index] = _unavailable_candidate(final[number][0], "CandidateHeadChanged")
+            continue
         if entry["branch"]["status"] == "MATCH":
             latest = branch_observation(get, entry["pr"])
             if latest["status"] != "MATCH":
