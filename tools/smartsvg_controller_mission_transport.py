@@ -110,25 +110,45 @@ def sync_independent_missions(profile, outgoing, *, read, replace):
                 remote.import_snapshot(profile, current.payload)
             except MissionError:
                 return IndependentSync("HISTORY_REJECTED")
-            remote_doc = json.loads(remote.export_snapshot(profile))
-            remote_rows = dict(remote_doc["missions"])
-            conflicts = []
-            compatible = []
-            for key, rows in sorted(local_rows.items()):
-                stored = remote_rows.get(key, [])
-                shared = min(len(stored), len(rows))
-                if stored[:shared] != rows[:shared]:
-                    conflicts.append(key)
-                else:
-                    compatible.append([key, rows])
-            # Reuse the bounded append-only import, including inventory checks.
-            # This deliberately never replaces a conflicting remote history.
-            remote.import_snapshot(profile, _canonical({
-                "version": 1, "profile": remote_doc["profile"],
-                "missions": compatible,
-            }))
-            proposed = remote.export_snapshot(profile)
+            proposed, conflicts = _merge_validated(remote, profile, local_rows)
     except (MissionError, SQLiteError, ValueError):
         return IndependentSync("SNAPSHOT_INVALID")
     status = _publish(current, proposed, read=read, replace=replace)
     return IndependentSync(status, tuple(conflicts))
+
+
+def _merge_validated(remote, profile, local_rows):
+    remote_doc = json.loads(remote.export_snapshot(profile))
+    remote_rows = dict(remote_doc["missions"])
+    conflicts = []
+    compatible = []
+    for key, rows in sorted(local_rows.items()):
+        stored = remote_rows.get(key, [])
+        shared = min(len(stored), len(rows))
+        if stored[:shared] != rows[:shared]:
+            conflicts.append(key)
+        else:
+            compatible.append([key, rows])
+    # Reuse the bounded append-only import, including inventory checks.
+    # This deliberately never replaces a conflicting remote history.
+    remote.import_snapshot(profile, _canonical({
+        "version": 1, "profile": remote_doc["profile"],
+        "missions": compatible,
+    }))
+    proposed = remote.export_snapshot(profile)
+    return proposed, tuple(conflicts)
+
+
+def reconcile_mission_snapshots(profile, local_payload, peer_payload):
+    """Return merged advisory bytes and quarantined keys without touching either source.
+
+    Both sources remain necessary until conflicts are independently resolved.
+    The merged bytes retain the peer history for conflicting missions, but
+    callers must exclude those keys from mission resumption.
+    """
+    with closing(MissionJournal(":memory:")) as local:
+        local.import_snapshot(profile, local_payload)
+        local_rows = dict(json.loads(local.export_snapshot(profile))["missions"])
+    with closing(MissionJournal(":memory:")) as remote:
+        remote.import_snapshot(profile, peer_payload)
+        return _merge_validated(remote, profile, local_rows)

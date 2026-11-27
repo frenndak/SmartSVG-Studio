@@ -6,6 +6,7 @@ from sqlite3 import Error as SQLiteError
 
 from .smartsvg_controller_missions import MAX_SNAPSHOT_BYTES, MissionError, MissionJournal
 from .smartsvg_controller_objectives import Profile, ROLES, SHA, _matches
+from .smartsvg_controller_mission_transport import reconcile_mission_snapshots
 from .smartsvg_controller_observation import github_get
 from .smartsvg_controller_smartsvg_objectives import (
     BACKLOG_PATH, POLICY_PIN, REPOSITORY, SOURCE_PINS,
@@ -22,6 +23,7 @@ def main(argv=None):
     state = parser.add_mutually_exclusive_group(required=True)
     state.add_argument("--journal", help="existing local mission SQLite file")
     state.add_argument("--snapshot", help="private mission snapshot; restored to memory only")
+    parser.add_argument("--peer-snapshot", help="second private snapshot; conflicts quarantined in memory")
     parser.add_argument("--revisions", required=True,
                         help="caller-observed objective-to-revision JSON map")
     args = parser.parse_args(argv)
@@ -34,6 +36,10 @@ def main(argv=None):
         print(json.dumps(report, sort_keys=True))
         return 2
     report["main"] = args.main
+    if args.peer_snapshot and not args.snapshot:
+        report["status"] = "SNAPSHOT_PAIR_REQUIRED"
+        print(json.dumps(report, sort_keys=True))
+        return 2
 
     try:
         with open(args.revisions, "rb") as source:
@@ -57,21 +63,29 @@ def main(argv=None):
         token = os.environ.get("SMARTSVG_GITHUB_READ_TOKEN")
         profile = Profile("smartsvg", REPOSITORY, "main", POLICY_PIN,
                           dict(SOURCE_PINS)[BACKLOG_PATH])
+        quarantined = ()
         if args.snapshot:
             try:
                 with open(args.snapshot, "rb") as source:
-                    journal.import_snapshot(profile, source.read(MAX_SNAPSHOT_BYTES + 1))
+                    payload = source.read(MAX_SNAPSHOT_BYTES + 1)
+                if args.peer_snapshot:
+                    with open(args.peer_snapshot, "rb") as source:
+                        peer = source.read(MAX_SNAPSHOT_BYTES + 1)
+                    payload, quarantined = reconcile_mission_snapshots(profile, payload, peer)
+                journal.import_snapshot(profile, payload)
             except (OSError, SQLiteError, MissionError):
                 report["status"] = "MISSION_SNAPSHOT_UNAVAILABLE"
                 print(json.dumps(report, sort_keys=True))
                 return 2
         observed = observe_smartsvg_mission_resumption(
             lambda path: github_get(path, token=token), journal, profile,
-            args.main, revisions, role=args.role)
+            args.main, revisions, role=args.role, quarantined=quarantined)
     finally:
         journal.close()
 
     report["status"] = observed.status
+    if args.peer_snapshot:
+        report["quarantined_missions"] = list(quarantined)
     if observed.mission_plan is not None:
         selected = observed.mission_plan.selected
         if selected is not None:

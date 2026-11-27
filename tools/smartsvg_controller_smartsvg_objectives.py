@@ -131,14 +131,14 @@ def observe_smartsvg_objectives(get, profile, main, revisions):
 
 
 def observe_smartsvg_mission_resumption(get, journal, profile, main, revisions, *,
-                                        role, receipts=()):
+                                        role, receipts=(), quarantined=()):
     """Revalidate the reviewed graph before offering local checkpoint advice."""
     graph = observe_smartsvg_objectives(get, profile, main, revisions)
     if graph.status != "OBSERVED_PARTIAL_GRAPH":
         return graph
     try:
         plan = plan_mission_resumption(journal, profile, main, graph.objectives,
-                                       role=role, receipts=receipts)
+                                       role=role, receipts=receipts, quarantined=quarantined)
     except SQLiteError:
         return AdapterResult("LOCAL_JOURNAL_UNAVAILABLE", main)
     try:
