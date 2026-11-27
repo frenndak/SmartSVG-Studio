@@ -11,8 +11,8 @@ import sqlite3
 from contextlib import contextmanager
 
 from .smartsvg_controller_objectives import (
-    Profile, Objective, _validate_profile, _validate_objective,
-    _matches, TOKEN, SHA, DIGEST,
+    Advice, Profile, Objective, _validate_profile, _validate_objective,
+    _matches, plan_objectives, ROLES, TOKEN, SHA, DIGEST,
 )
 
 MAX_EVENTS = 256
@@ -252,3 +252,60 @@ class MissionJournal:
                 raise MissionError("context unchanged")
             return self._append(profile, objective, main, prev.generation + 1,
                                 "PLANNED", next_action, "", prev.digest)
+
+
+@dataclass(frozen=True)
+class MissionAdvice:
+    objective: Advice
+    checkpoint_status: str
+    checkpoint: Checkpoint | None = None
+
+
+@dataclass(frozen=True)
+class MissionResumePlan:
+    missions: tuple
+    selected: MissionAdvice | None
+    ignored_receipts: int
+    qualification: str = "LOCAL_ADVISORY_ONLY"
+
+
+def plan_mission_resumption(journal, profile, main, objectives, *, role, receipts=()):
+    """Choose a useful objective from fresh evidence and exact local checkpoints.
+
+    The checkpoint is context for resuming work. Only freshly evaluated
+    objective advice can be selected. Resuming a held or stale mission
+    requires a separately observed outcome and an explicit journal update.
+    This read does not claim a mission or transfer a writer.
+    """
+    if role not in ROLES:
+        raise MissionError("invalid mission role")
+    plan = plan_objectives(profile, main, objectives, receipts)
+    by_key = {objective.key: objective for objective in objectives}
+    missions = []
+    for advice in plan.objectives:
+        if advice.role != role:
+            continue
+        objective = by_key[advice.objective]
+        try:
+            checkpoint = journal.latest(profile, objective.key)
+        except MissionError:
+            missions.append(MissionAdvice(advice, "UNREADABLE"))
+            continue
+        if checkpoint is None:
+            missions.append(MissionAdvice(advice, "NEW"))
+            continue
+        saved = checkpoint.objective
+        if (checkpoint.main != main or saved.revision != objective.revision
+                or saved.role != objective.role or saved.criteria != objective.criteria
+                or saved.dependencies != objective.dependencies
+                or saved.preparation_allowed != objective.preparation_allowed):
+            missions.append(MissionAdvice(advice, "STALE_CONTEXT"))
+            continue
+        missions.append(MissionAdvice(advice, checkpoint.state, checkpoint))
+
+    selected = next((mission for mission in missions
+                     if mission.checkpoint_status in ("NEW", "PLANNED", "ACTIVE")
+                     and mission.objective.action in ("REPAIR_CRITERION",
+                                                      "VERIFY_CRITERION",
+                                                      "PREPARE_INDEPENDENT")), None)
+    return MissionResumePlan(tuple(missions), selected, plan.ignored_receipts)
