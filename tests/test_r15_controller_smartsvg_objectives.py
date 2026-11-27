@@ -1,10 +1,15 @@
 import unittest
+from pathlib import Path
+from sqlite3 import OperationalError
+from tempfile import TemporaryDirectory
+from unittest.mock import Mock
 from dataclasses import replace
 from hashlib import sha256
+from tools.smartsvg_controller_missions import MissionJournal
 from tools.smartsvg_controller_objectives import Profile, Receipt, plan_objectives
 from tools.smartsvg_controller_smartsvg_objectives import (
     REPOSITORY, POLICY_PATH, POLICY_PIN, BACKLOG_PATH, SOURCE_PINS, SLICES,
-    observe_smartsvg_objectives,
+    observe_smartsvg_mission_resumption, observe_smartsvg_objectives,
 )
 
 M = "a"*40
@@ -115,3 +120,75 @@ class SmartSVGObjectiveAdapterTests(unittest.TestCase):
                          "REVISION_INPUT_INVALID")
         self.assertEqual(self.observe({"W01-V1-CORE":"not-sha"}).status,
                          "REVISION_INPUT_INVALID")
+
+
+    def test_resumption_uses_reviewed_graph_and_continues_independent_work(self):
+        revisions = {key: M for key in ("W01-V1-CORE", "W05-SD0-A",
+                                         "W03-BASIC-CUT-BACKEND")}
+        objectives = rows(self.observe(revisions))
+        core = objectives["W01-V1-CORE"]
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "missions.sqlite"
+            journal = MissionJournal(path)
+            try:
+                checkpoint = journal.create(P, core, M)
+                waiting = journal.advance(
+                    P, core.key, expected_generation=checkpoint.generation,
+                    expected_digest=checkpoint.digest, main=M, revision=M, role="B",
+                    state="WAITING", next_action="VERIFY_CRITERION", evidence="b"*64)
+            finally:
+                journal.close()
+            reopened = MissionJournal(path)
+            try:
+                result = observe_smartsvg_mission_resumption(
+                    source, reopened, P, M, revisions, role="B")
+                self.assertEqual(reopened.latest(P, core.key), waiting)
+            finally:
+                reopened.close()
+        self.assertEqual(result.status, "OBSERVED_PARTIAL_GRAPH")
+        self.assertFalse(result.merge_authorized)
+        self.assertFalse(result.agent_work_executed)
+        missions = {m.objective.objective: m for m in result.mission_plan.missions}
+        self.assertEqual(missions[core.key].checkpoint_status, "WAITING")
+        self.assertEqual(missions["W03-BASIC-CUT-BACKEND"].objective.action,
+                         "WAIT_DEPENDENCY")
+        self.assertEqual(result.mission_plan.selected.objective.objective, "W05-SD0-A")
+
+    def test_resumption_drops_advice_when_main_moves_during_checkpoint_read(self):
+        journal = Mock()
+        journal.latest.return_value = None
+        main_reads = 0
+
+        def get(path):
+            nonlocal main_reads
+            if path == "/branches/main":
+                main_reads += 1
+                if main_reads == 3:
+                    return {"commit": {"sha": "b"*40}}
+            return source(path)
+
+        result = observe_smartsvg_mission_resumption(
+            get, journal, P, M, {"W01-V1-CORE": M}, role="B")
+        journal.latest.assert_called_once_with(P, "W01-V1-CORE")
+        self.assertEqual(result.status, "CONTEXT_CHANGED")
+        self.assertIsNone(result.mission_plan)
+        self.assertEqual(result.objectives, ())
+
+    def test_resumption_never_reads_checkpoints_from_an_unreviewed_graph(self):
+        journal = Mock()
+        result = observe_smartsvg_mission_resumption(
+            source, journal, replace(P, policy_blob="b"*40), M,
+            {"W01-V1-CORE": M}, role="B")
+        journal.latest.assert_not_called()
+        self.assertEqual(result.status, "SOURCE_REVIEW_REQUIRED")
+        self.assertIsNone(result.mission_plan)
+
+
+    def test_unavailable_local_journal_returns_no_resumption_advice(self):
+        journal = Mock()
+        journal.latest.side_effect = OperationalError("private database path")
+        result = observe_smartsvg_mission_resumption(
+            source, journal, P, M, {"W01-V1-CORE": M}, role="B")
+        self.assertEqual(result.status, "LOCAL_JOURNAL_UNAVAILABLE")
+        self.assertIsNone(result.mission_plan)
+        self.assertNotIn("private database path", repr(result))
