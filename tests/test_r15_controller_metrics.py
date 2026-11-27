@@ -158,3 +158,32 @@ class MetricsTests(unittest.TestCase):
         c=replace(delivery(CURRENT,3),merge=a.merge)
         result=compare(BASE,CURRENT,baseline_deliveries=(a,b),current_deliveries=(c,))
         self.assertEqual((result.baseline.delivered,result.current.delivered),(0,0))
+
+    def test_quarantined_artifact_cannot_be_recycled_in_same_period(self):
+        first = cycle(BASE, 0)
+        conflict = replace(first, outcome="NO_PROGRESS", artifact_digest="")
+        later = replace(cycle(BASE, 1), artifact_digest=first.artifact_digest)
+        for rows in ((first, conflict, later), (later, conflict, first)):
+            s = summarize(BASE, rows)
+            self.assertEqual((s.productive, s.unknown, s.duplicate_artifacts),
+                             (0, 2, 1))
+
+    def test_quarantined_artifact_cannot_be_recycled_across_periods(self):
+        first = cycle(BASE, 0)
+        conflict = replace(cycle(BASE, 1), run_digest=first.run_digest)
+        for artifact in (first.artifact_digest, conflict.artifact_digest):
+            later = replace(cycle(CURRENT, 0), artifact_digest=artifact)
+            result = compare(BASE, CURRENT, baseline_cycles=(first, conflict),
+                             current_cycles=(later,))
+            self.assertEqual((result.baseline.productive, result.baseline.unknown),
+                             (0, 2))
+            self.assertEqual((result.current.productive, result.current.unknown,
+                              result.current.duplicate_artifacts), (0, 1, 1))
+
+    def test_invalid_artifact_claim_does_not_poison_valid_later_slot(self):
+        first = cycle(BASE, 0)
+        invalid = replace(first, receipt_digest="")
+        later = replace(cycle(BASE, 1), artifact_digest=first.artifact_digest)
+        s = summarize(BASE, (invalid, later))
+        self.assertEqual((s.productive, s.rejected, s.duplicate_artifacts),
+                         (1, 1, 0))

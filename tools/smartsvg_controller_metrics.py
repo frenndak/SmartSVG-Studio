@@ -234,6 +234,12 @@ def _summarize(period, cycles, deliveries, *, previous_artifacts=(), previous_de
     for key in sorted(by_slot):
         rows = by_slot[key]
         if key in conflicted or len(rows) != 1:
+            # A quarantined but structurally valid claim cannot be recycled
+            # as new material progress in a later slot or comparison period.
+            # Keep prior accepted slots unchanged; only subsequent claims
+            # lose credit for these ambiguous artifact identities.
+            artifacts.update(c.artifact_digest for c in rows
+                             if c.outcome == "PRODUCTIVE")
             counts["UNKNOWN"] += 1
             continue
         c = next(iter(rows))
