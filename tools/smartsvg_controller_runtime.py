@@ -35,11 +35,24 @@ def envelope(report,run_id,attempt,controller_head):
     checkpoint["development_advice"] = development_advice(report)
     if "roadmap_advice" in report:
         checkpoint["roadmap_advice"] = report["roadmap_advice"]
+    # Keep the version-1 assignment shape intact. Recovery is a separate
+    # bounded hint, not a new review, dispatch or integration authority.
+    allowed = ("CHANGE_STRATEGY", "PROPOSE_HANDOFF_REVIEW",
+               "OTHER_ACTIONABLE_WORK", "ISOLATE_EXTERNAL_BLOCKER")
+    hints = {}
+    for role in ("A", "B"):
+        row = report["assignments"][role]
+        if row is not None and row.get("recovery_advice") in allowed:
+            hints[role] = {"number": rows[role]["number"], "head": rows[role]["head"],
+                           "action": rows[role]["action"],
+                           "advice": row["recovery_advice"],
+                           "qualification": "LOCAL_ADVISORY_ONLY"}
     return dict(checkpoint,controller_head=controller_head,observed_at=report["observed_at"],
                 queue_complete=report["queue_complete"],code_wip=report["code_wip"],
                 unknown=list(report["unknown"]),qualification="ADVISORY_ONLY",
                 merge_authorized=False,agent_work_executed=False,
-                checkpoint_hints=report.get("checkpoint_reports", []))
+                checkpoint_hints=report.get("checkpoint_reports", []),
+                recovery_hints=hints)
 
 
 def route(get,journal_path,*,run_id,attempt,controller_head,require_main=False):
@@ -64,6 +77,28 @@ def route(get,journal_path,*,run_id,attempt,controller_head,require_main=False):
         raise ObservationError("routing main drift")
     result=envelope(report,run_id,attempt,controller_head)
     result["observation_restarted"]=restarted
+    # Public routing reports identify quarantined candidates and coarse
+    # failure classes only. Never leak raw response/error details, or treat
+    # the diagnostic as authority to release a WIP slot.
+    unknown=set(result["unknown"])
+    failures=[]
+    classes={
+        "PermissionError":"READ_UNAVAILABLE", "HTTPError":"READ_UNAVAILABLE",
+        "URLError":"READ_UNAVAILABLE", "OSError":"READ_UNAVAILABLE",
+        "TimeoutError":"TRANSPORT_FAILURE", "ConnectionResetError":"TRANSPORT_FAILURE",
+        "RemoteDisconnected":"TRANSPORT_FAILURE", "IncompleteRead":"TRANSPORT_FAILURE",
+        "ObservationError":"OBSERVATION_INVALID", "KeyError":"PAYLOAD_INVALID",
+        "TypeError":"PAYLOAD_INVALID", "ValueError":"PAYLOAD_INVALID",
+        "AttributeError":"PAYLOAD_INVALID", "OverflowError":"PAYLOAD_INVALID",
+        "JSONDecodeError":"PAYLOAD_INVALID",
+    }
+    for row in snapshot["candidates"]:
+        n=row["pr"]["number"]
+        if n in unknown and "collection_error" in row:
+            error=row["collection_error"]
+            failures.append({"number":n,"reason":classes.get(error,"UNCLASSIFIED")
+                             if isinstance(error,str) else "UNCLASSIFIED"})
+    result["candidate_failures"]=sorted(failures,key=lambda row:row["number"])
     return result
 
 
@@ -89,6 +124,23 @@ def main():
     except Exception as exc:
         print(json.dumps({"mode":"R15_ROUTING","error":type(exc).__name__,
                           "merge_authorized":False}))
+        # Recovery of a preexisting intent is independent of the open PR
+        # queue. A failed routing job remains FAILED; this reduced diagnostic
+        # never becomes an admissible route or integration qualification.
+        if os.environ.get("R15_REQUIRE_MAIN")=="1":
+            try:
+                from .smartsvg_controller_pilot import recovery_only_packet
+                recovery=recovery_only_packet(
+                    lambda path:github_get(path,token=os.environ.get("SMARTSVG_GITHUB_READ_TOKEN")),
+                    run_id=int(os.environ["GITHUB_RUN_ID"]),
+                    attempt=int(os.environ["GITHUB_RUN_ATTEMPT"]),
+                    controller_head=os.environ["EXPECTED_HEAD"])
+                if recovery is not None:
+                    print("R15B_RECOVERY_DIAGNOSTIC_V1 "+json.dumps(
+                        recovery,sort_keys=True,separators=(",",":"),allow_nan=False))
+            except Exception:
+                # Do not print raw errors, private values or credentials.
+                print("R15B_RECOVERY_DIAGNOSTIC_UNAVAILABLE")
         return 2
 
 

@@ -280,6 +280,45 @@ class FinalReadbackTests(unittest.TestCase):
         self.assertEqual(old["qualification"],"INVALIDATED")
         self.assertNotIn("receipt_digest",old)
 
+    def test_malformed_final_head_is_quarantined_without_global_failure(self):
+        for head in (None, [], "invalid", {}, {"sha": None}):
+            with self.subTest(head=head):
+                s,m=inputs()
+                source=scope_source(s)
+                def get(path):
+                    result=source(path)
+                    if path.startswith("/pulls?state=open"):
+                        result=json.loads(json.dumps(result))
+                        result[0]["head"]=head
+                    return result
+                r=simulate(s,m,now=NOW,scope_get=get)
+                self.assertEqual(r["unknown"],(192,))
+                self.assertEqual(r["code_wip"],2)
+                self.assertFalse(r["queue_complete"])
+                self.assertIsNone(r["assignments"]["A"])
+                self.assertEqual(r["assignments"]["B"]["number"],195)
+                self.assertFalse(r["merge_authorized"])
+                old=next(x for x in r["scope_reports"] if x["number"]==192)
+                self.assertEqual(old["qualification"],"INVALIDATED")
+                self.assertNotIn("receipt_digest",old)
+
+    def test_malformed_final_owner_head_consumes_conservative_wip(self):
+        s,m=inputs()
+        source=scope_source(s)
+        def get(path):
+            result=source(path)
+            if path.startswith("/pulls?state=open"):
+                result=json.loads(json.dumps(result))
+                result[2]["head"]=None
+            return result
+        r=simulate(s,m,now=NOW,scope_get=get)
+        self.assertEqual(r["unknown"],(196,))
+        self.assertEqual(r["code_wip"],3)
+        self.assertFalse(r["queue_complete"])
+        self.assertEqual(r["assignments"]["A"]["number"],192)
+        self.assertEqual(r["assignments"]["B"]["number"],195)
+        self.assertFalse(r["merge_authorized"])
+
     def test_new_and_closed_pr_do_not_release_capacity(self):
         s,m=inputs()
         source=scope_source(s)
