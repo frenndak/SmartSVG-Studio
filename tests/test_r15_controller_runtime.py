@@ -123,3 +123,24 @@ class RuntimeRoutingTests(unittest.TestCase):
                     route(object(),"fixture",run_id=10,attempt=1,controller_head=H)
                 self.assertEqual(observe.call_count,count)
                 simulate.assert_not_called()
+
+    def test_recovery_hint_survives_public_envelope_without_authority(self):
+        for advice in ("CHANGE_STRATEGY", "PROPOSE_HANDOFF_REVIEW",
+                       "OTHER_ACTIONABLE_WORK", "ISOLATE_EXTERNAL_BLOCKER"):
+            report=self.report()
+            report["assignments"]["A"]["recovery_advice"]=advice
+            result=envelope(report,10,1,C)
+            self.assertEqual(result["recovery_hints"], {"A":{
+                "number":197,"head":H,"action":"REVIEW","advice":advice,
+                "qualification":"LOCAL_ADVISORY_ONLY"}})
+            self.assertNotIn("recovery_advice",result["assignments"]["A"])
+            self.assertFalse(result["merge_authorized"])
+            self.assertFalse(result["agent_work_executed"])
+
+    def test_recovery_hint_omits_unknown_or_normal_values(self):
+        for value in (None, "RESUME_CHECKPOINT", "raw error or secret", [], 42):
+            report=self.report()
+            report["assignments"]["A"]["recovery_advice"]=value
+            result=envelope(report,10,1,C)
+            self.assertEqual(result["recovery_hints"],{})
+            self.assertNotIn("recovery_advice",result["assignments"]["A"])
