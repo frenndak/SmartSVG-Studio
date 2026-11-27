@@ -375,3 +375,53 @@ class CandidateIsolationTests(unittest.TestCase):
 
         with self.assertRaises(QueueChanged):
             observe(get)
+
+    def test_repeated_head_churn_preserves_other_assignment(self):
+        from tempfile import TemporaryDirectory
+        from pathlib import Path
+        from tools.smartsvg_controller_runtime import route
+
+        old = self.prs[0]
+        updated = dict(old, head=dict(old["head"], sha=P))
+        for phase in ("detail", "final_queue"):
+            with self.subTest(phase=phase), TemporaryDirectory() as tmp:
+                queue_reads = 0
+
+                def get(path):
+                    nonlocal queue_reads
+                    if path.startswith("/pulls?state=open"):
+                        queue_reads += 1
+                        if phase == "final_queue" and queue_reads in (2, 4):
+                            return [updated, self.prs[1]]
+                    if path in ("/pulls/195", "/pulls/196"):
+                        pr = updated if path == "/pulls/195" and phase == "detail" else self.get(path)
+                        return dict(pr, base=dict(pr["base"], sha=M), changed_files=1)
+                    if "/files?" in path:
+                        self.assertNotIn("/pulls/195/", path)
+                        return [{"filename": "tests/test_example.py",
+                                 "status": "modified", "sha": P}]
+                    return self.get(path)
+
+                result = route(get, Path(tmp) / "routing.db", run_id=1, attempt=1,
+                               controller_head=M, require_main=True)
+                self.assertTrue(result["observation_restarted"])
+                self.assertEqual(result["unknown"], [195])
+                self.assertEqual(result["candidate_failures"],
+                                 [{"number": 195, "reason": "HEAD_CHANGED_DURING_READ"}])
+                self.assertEqual(result["code_wip"], 2)
+                self.assertFalse(result["queue_complete"])
+                self.assertEqual(result["development_advice"]["available_slots"], 0)
+                self.assertEqual(result["assignments"]["A"]["number"], 196)
+                self.assertIsNone(result["assignments"]["B"])
+                self.assertFalse(result["merge_authorized"])
+
+    def test_retry_still_refuses_queue_membership_change(self):
+        from tools.smartsvg_controller_observation import QueueChanged
+
+        def get(path):
+            if path == "/pulls/195":
+                return dict(self.prs[0], state="closed")
+            return self.get(path)
+
+        with self.assertRaises(QueueChanged):
+            observe(get, isolate_head_churn=True)
