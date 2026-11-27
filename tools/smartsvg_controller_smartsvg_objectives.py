@@ -4,9 +4,11 @@ Sources are pinned, not parsed as commands. These micro-slices are advisory
 proof labels, not new tickets, normative acceptance criteria, or full W-lot
 completion. Missing source or revision evidence never blocks ordinary R13.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from http.client import HTTPException
+from sqlite3 import Error as SQLiteError
 
+from .smartsvg_controller_missions import MissionResumePlan, plan_mission_resumption
 from .smartsvg_controller_objectives import (
     Objective, Profile, SHA, _matches, _validate_profile,
 )
@@ -87,6 +89,7 @@ class AdapterResult:
     qualification: str = "PARTIAL_ADVISORY_GRAPH"
     merge_authorized: bool = False
     agent_work_executed: bool = False
+    mission_plan: MissionResumePlan | None = None
 
 
 def observe_smartsvg_objectives(get, profile, main, revisions):
@@ -125,3 +128,24 @@ def observe_smartsvg_objectives(get, profile, main, revisions):
     except (KeyError, TypeError, ValueError, AttributeError, OSError,
             RuntimeError, HTTPException):
         return AdapterResult("UNAVAILABLE", main)
+
+
+def observe_smartsvg_mission_resumption(get, journal, profile, main, revisions, *,
+                                        role, receipts=()):
+    """Revalidate the reviewed graph before offering local checkpoint advice."""
+    graph = observe_smartsvg_objectives(get, profile, main, revisions)
+    if graph.status != "OBSERVED_PARTIAL_GRAPH":
+        return graph
+    try:
+        plan = plan_mission_resumption(journal, profile, main, graph.objectives,
+                                       role=role, receipts=receipts)
+    except SQLiteError:
+        return AdapterResult("LOCAL_JOURNAL_UNAVAILABLE", main)
+    try:
+        current_main = get("/branches/main")["commit"]["sha"]
+    except (KeyError, TypeError, ValueError, AttributeError, OSError,
+            RuntimeError, HTTPException):
+        return AdapterResult("UNAVAILABLE", main)
+    if current_main != main:
+        return AdapterResult("CONTEXT_CHANGED", main)
+    return replace(graph, mission_plan=plan)
