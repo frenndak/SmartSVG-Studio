@@ -27,6 +27,8 @@ class DurableHandoffTests(unittest.TestCase):
     def get(self,path):
         if path=="/git/commits/"+H:
             return {"sha":H,"committer":{"date":"2026-11-26T14:00:00Z"}}
+        if path == "/issues/195/comments?per_page=100&page=1":
+            return getattr(self, "live_comments", [self.comment])
         if path=="/issues/comments/123":
             return dict(self.comment,body="edited") if self.drift else self.comment
         if path=="/pulls/195":
@@ -119,3 +121,16 @@ class DurableHandoffTests(unittest.TestCase):
         self.assertEqual(plan.code_wip,2)
         self.assertEqual(plan.unknown,(195,))
         self.assertEqual(reports,[])
+
+    def test_checkpoint_superseded_during_collection_is_discarded(self):
+        self.value["verdict"] = "FAVORABLE"
+        for body in (PREFIX + "{", PREFIX + json.dumps(dict(self.value, verdict="ADVERSE"))):
+            with self.subTest(body=body):
+                self.live_comments = [self.comment, dict(self.comment, id=124, body=body)]
+                self.assertEqual(self.run_hint(), (self.plan, []))
+
+    def test_missing_marker_and_unrelated_new_comment(self):
+        self.live_comments = []
+        self.assertEqual(self.run_hint(), (self.plan, []))
+        self.live_comments = [self.comment, dict(self.comment, id=124, body="ordinary comment")]
+        self.assertEqual(self.run_hint()[0].proposals[0].action, "VERIFY_FINDING")

@@ -35,11 +35,24 @@ def envelope(report,run_id,attempt,controller_head):
     checkpoint["development_advice"] = development_advice(report)
     if "roadmap_advice" in report:
         checkpoint["roadmap_advice"] = report["roadmap_advice"]
+    # Keep the version-1 assignment shape intact. Recovery is a separate
+    # bounded hint, not a new review, dispatch or integration authority.
+    allowed = ("CHANGE_STRATEGY", "PROPOSE_HANDOFF_REVIEW",
+               "OTHER_ACTIONABLE_WORK", "ISOLATE_EXTERNAL_BLOCKER")
+    hints = {}
+    for role in ("A", "B"):
+        row = report["assignments"][role]
+        if row is not None and row.get("recovery_advice") in allowed:
+            hints[role] = {"number": rows[role]["number"], "head": rows[role]["head"],
+                           "action": rows[role]["action"],
+                           "advice": row["recovery_advice"],
+                           "qualification": "LOCAL_ADVISORY_ONLY"}
     return dict(checkpoint,controller_head=controller_head,observed_at=report["observed_at"],
                 queue_complete=report["queue_complete"],code_wip=report["code_wip"],
                 unknown=list(report["unknown"]),qualification="ADVISORY_ONLY",
                 merge_authorized=False,agent_work_executed=False,
-                checkpoint_hints=report.get("checkpoint_reports", []))
+                checkpoint_hints=report.get("checkpoint_reports", []),
+                recovery_hints=hints)
 
 
 def route(get,journal_path,*,run_id,attempt,controller_head,require_main=False):

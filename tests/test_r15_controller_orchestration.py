@@ -116,3 +116,49 @@ class OrchestrationTests(unittest.TestCase):
         self.assertIsNone(reserve_next(p, "A", self.j, now=NOW))
         b = reserve_next(p, "B", self.j, now=NOW)
         self.assertEqual(b.number, 195)
+
+    def test_stagnation_routes_independent_work_after_head_change(self):
+        from dataclasses import replace
+        from tools.smartsvg_controller_orchestration import routing_incident
+
+        plan = self.plan()
+        first = reserve_next(plan, "A", self.j, now=NOW)
+        proposal = plan.proposals[0]
+        for n in (1, 2):
+            self.assertTrue(self.j.record_incident_cycle(
+                "pr:192", first.context_key, "A", first.fence,
+                incident=routing_incident(plan, proposal), run=str(n),
+                ordinal=n, outcome="NO_PROGRESS"))
+        self.j.release("pr:192", first.context_key, "A", first.fence)
+        changed = replace(proposal, head=K)
+        other = replace(proposal, number=194)
+        plan = replace(plan, proposals=(changed, other))
+        alternative = reserve_next(plan, "A", self.j, now=NOW)
+        self.assertEqual(alternative.number, 194)
+        # With that alternative reserved, the original PR remains actionable.
+        fallback = reserve_next(plan, "A", self.j, now=NOW)
+        self.assertEqual((fallback.number, fallback.recovery_advice), (192, "CHANGE_STRATEGY"))
+        self.assertNotEqual(first.context_key, fallback.context_key)
+        self.assertEqual(fallback.checkpoint, "")
+        self.j.release("pr:192", fallback.context_key, "A", fallback.fence)
+        fresh = reserve_next(replace(plan, policy_blob=H), "A", self.j, now=NOW)
+        self.assertEqual((fresh.number, fresh.recovery_advice), (192, "RESUME_CHECKPOINT"))
+
+    def test_wait_is_local_to_current_context_and_never_transfers_writer(self):
+        from dataclasses import replace
+        plan = self.plan()
+        first = reserve_next(plan, "A", self.j, now=NOW)
+        args = ("pr:192", first.context_key, "A", first.fence)
+        self.j.record_cycle(*args, run="wait", ordinal=1, outcome="WAIT_CI")
+        self.j.release(*args)
+        own_review = replace(plan.proposals[0], number=198, writer="A")
+        other = replace(plan.proposals[0], number=194)
+        plan = replace(plan, proposals=(plan.proposals[0], own_review, other))
+        alternative = reserve_next(plan, "A", self.j, now=NOW)
+        self.assertEqual(alternative.number, 194)
+        waiting = reserve_next(plan, "A", self.j, now=NOW)
+        self.assertEqual((waiting.number, waiting.recovery_advice), (192, "OTHER_ACTIONABLE_WORK"))
+        self.j.release("pr:192", waiting.context_key, "A", waiting.fence)
+        changed = replace(plan.proposals[0], head=K)
+        resumed = reserve_next(replace(plan, proposals=(changed, own_review)), "A", self.j, now=NOW)
+        self.assertEqual((resumed.number, resumed.recovery_advice), (192, "RESUME_CHECKPOINT"))
