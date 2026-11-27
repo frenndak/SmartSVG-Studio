@@ -62,9 +62,13 @@ class ObjectivePlannerTests(unittest.TestCase):
     def test_preparation_explicit_and_not_qualification(self):
         a = objective("a", role="B")
         b = objective("b", ("a",), preparation_allowed=True)
-        p = self.plan(a, b, receipts=(receipt(b),))
+        p = self.plan(a, b)
         self.assertEqual(next_objective(p, "A").action, "PREPARE_INDEPENDENT")
+        self.assertEqual(next_objective(p, "A").criteria, ("proof",))
         self.assertEqual(next_objective(p, "B").objective, "a")
+        p = self.plan(a, b, receipts=(receipt(b),))
+        self.assertIsNone(next_objective(p, "A"))
+        self.assertEqual(self.by_key(p)["b"].action, "WAIT_DEPENDENCY")
         p = self.plan(a, b, receipts=(receipt(a, digest="a"*64), receipt(b)))
         self.assertEqual(self.by_key(p)["b"].action, "CRITERIA_OBSERVED")
 
@@ -134,3 +138,23 @@ class ObjectivePlannerTests(unittest.TestCase):
         self.assertEqual(next_objective(p,"A").action,"VERIFY_CRITERION")
         p = self.plan(a, profile=second, receipts=(receipt(a,profile=second),))
         self.assertEqual(p.objectives[0].action,"CRITERIA_OBSERVED")
+
+    def test_overlapping_cycles_all_members_detected_without_blocking_healthy(self):
+        a = objective("a", ("b","c"))
+        b = objective("b", ("a",))
+        c = objective("c", ("b",))
+        d = objective("descendant", ("c",))
+        healthy = objective("healthy")
+        p = self.plan(a,b,c,d,healthy)
+        rows = self.by_key(p)
+        for key in ("a","b","c"):
+            self.assertEqual(rows[key].blockers, ("DEPENDENCY_CYCLE",))
+        self.assertEqual(rows["descendant"].blockers, ("BLOCKED:c",))
+        self.assertEqual(next_objective(p,"A").objective,"healthy")
+
+    def test_pending_preparation_waits_for_its_own_evidence(self):
+        a = objective("a", role="B")
+        b = objective("b", ("a",), preparation_allowed=True)
+        p = self.plan(a,b,receipts=(receipt(b,status="WAIT",executed=False),))
+        self.assertIsNone(next_objective(p,"A"))
+        self.assertEqual(self.by_key(p)["b"].action,"WAIT_DEPENDENCY")
