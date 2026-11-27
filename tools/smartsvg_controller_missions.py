@@ -140,6 +140,7 @@ class MissionJournal:
         if len(rows) > MAX_EVENTS:
             raise MissionError("mission history exceeds bound")
         result = []
+        seen_evidence = set()
         for expected, (generation, digest, raw) in enumerate(rows, 1):
             c = _decode(raw, digest)
             if (generation != expected or c.generation != expected
@@ -163,8 +164,13 @@ class MissionJournal:
                 if drift:
                     if c.state != "PLANNED" or c.evidence:
                         raise MissionError("stale evidence in new context")
-                elif c.state not in TRANSITIONS[prev.state] or not c.evidence:
+                elif (c.objective != prev.objective
+                      or c.state not in TRANSITIONS[prev.state] or not c.evidence):
                     raise MissionError("invalid mission transition")
+            if c.evidence:
+                if c.evidence in seen_evidence:
+                    raise MissionError("duplicate mission evidence in history")
+                seen_evidence.add(c.evidence)
             result.append(c)
         return tuple(result)
 
@@ -207,7 +213,8 @@ class MissionJournal:
         writable until their live acceptance adapter is qualified.
         """
         with self._transaction():
-            prev = self.latest(profile, key)
+            history = self._history(profile, key)
+            prev = history[-1] if history else None
             if (prev is None or type(expected_generation) is not int
                     or prev.generation != expected_generation
                     or prev.digest != expected_digest):
@@ -219,7 +226,7 @@ class MissionJournal:
                 raise MissionError("unsupported mission transition")
             # Retrying a transport operation with the same previous CAS fails.
             # Reusing an earlier evidence digest also cannot manufacture progress.
-            if any(c.evidence == evidence for c in self._history(profile, key)):
+            if any(c.evidence == evidence for c in history):
                 raise MissionError("duplicate mission evidence")
             return self._append(profile, prev.objective, main, prev.generation + 1,
                                 state, next_action, evidence, prev.digest)
