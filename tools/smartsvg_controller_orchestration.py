@@ -103,13 +103,19 @@ def build_plan(snapshot, scopes, *, now=None):
     ctx = Context(main, policy, False, False, False, False, Status.UNKNOWN, "", True)
     for entry in snapshot["candidates"]:
         pr = entry["pr"]
-        n, head = pr["number"], _sha(pr["head"]["sha"])
+        n = pr["number"]
         if type(n) is not int or n < 1 or n in seen or pr.get("state") != "open":
             raise ValueError("invalid or duplicate open PR")
         seen.add(n)
+        if "collection_error" in entry:
+            unknown.append(n)
+            wip += 1
+            continue
+        head = _sha(pr["head"]["sha"])
         scope = scope_by_number.get(n)
         branch = entry.get("branch") or {}
-        if (scope is None or scope.head != head or branch.get("status") != "MATCH"
+        if (scope is None or scope.head != head
+                or branch.get("status") != "MATCH"
                 or branch.get("sha") != head):
             unknown.append(n)
             wip += 1  # unknown scope cannot free a slot

@@ -44,13 +44,14 @@ def envelope(report,run_id,attempt,controller_head):
 
 def route(get,journal_path,*,run_id,attempt,controller_head,require_main=False):
     # One bounded restart of a read-only observation on known PR churn.
-    # Never reuse partial evidence; main drift and other errors still fail.
+    # If a candidate head moves again, isolate it on the fresh read.
+    # Main drift and changes in queue membership still invalidate the snapshot.
     restarted=False
     try:
         snapshot=observe(get)
     except QueueChanged:
         restarted=True
-        snapshot=observe(get)
+        snapshot=observe(get, isolate_head_churn=True)
     if require_main and snapshot["main"]["commit"]["sha"]!=controller_head:
         raise ObservationError("controller checkout is no longer main")
     scopes,_=manifests(snapshot)
@@ -64,6 +65,29 @@ def route(get,journal_path,*,run_id,attempt,controller_head,require_main=False):
         raise ObservationError("routing main drift")
     result=envelope(report,run_id,attempt,controller_head)
     result["observation_restarted"]=restarted
+    # Public routing reports identify quarantined candidates and coarse
+    # failure classes only. Never leak raw response/error details, or treat
+    # the diagnostic as authority to release a WIP slot.
+    unknown=set(result["unknown"])
+    failures=[]
+    classes={
+        "CandidateHeadChanged":"HEAD_CHANGED_DURING_READ",
+        "PermissionError":"READ_UNAVAILABLE", "HTTPError":"READ_UNAVAILABLE",
+        "URLError":"READ_UNAVAILABLE", "OSError":"READ_UNAVAILABLE",
+        "TimeoutError":"TRANSPORT_FAILURE", "ConnectionResetError":"TRANSPORT_FAILURE",
+        "RemoteDisconnected":"TRANSPORT_FAILURE", "IncompleteRead":"TRANSPORT_FAILURE",
+        "ObservationError":"OBSERVATION_INVALID", "KeyError":"PAYLOAD_INVALID",
+        "TypeError":"PAYLOAD_INVALID", "ValueError":"PAYLOAD_INVALID",
+        "AttributeError":"PAYLOAD_INVALID", "OverflowError":"PAYLOAD_INVALID",
+        "JSONDecodeError":"PAYLOAD_INVALID",
+    }
+    for row in snapshot["candidates"]:
+        n=row["pr"]["number"]
+        if n in unknown and "collection_error" in row:
+            error=row["collection_error"]
+            failures.append({"number":n,"reason":classes.get(error,"UNCLASSIFIED")
+                             if isinstance(error,str) else "UNCLASSIFIED"})
+    result["candidate_failures"]=sorted(failures,key=lambda row:row["number"])
     return result
 
 
