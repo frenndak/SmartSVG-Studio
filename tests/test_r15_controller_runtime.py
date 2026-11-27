@@ -36,6 +36,27 @@ class RuntimeRoutingTests(unittest.TestCase):
             self.assertNotIn("ci_manifest",simulate.call_args.kwargs)
             self.assertEqual(simulate.call_args.args[1]["scopes"],[])
 
+    def test_recovery_hint_survives_public_envelope_without_authority(self):
+        for advice in ("CHANGE_STRATEGY", "PROPOSE_HANDOFF_REVIEW",
+                       "OTHER_ACTIONABLE_WORK", "ISOLATE_EXTERNAL_BLOCKER"):
+            report=self.report()
+            report["assignments"]["A"]["recovery_advice"]=advice
+            result=envelope(report,10,1,C)
+            self.assertEqual(result["recovery_hints"], {"A":{
+                "number":197,"head":H,"action":"REVIEW","advice":advice,
+                "qualification":"LOCAL_ADVISORY_ONLY"}})
+            self.assertNotIn("recovery_advice",result["assignments"]["A"])
+            self.assertFalse(result["merge_authorized"])
+            self.assertFalse(result["agent_work_executed"])
+
+    def test_recovery_hint_omits_unknown_or_normal_values(self):
+        for value in (None, "RESUME_CHECKPOINT", "raw error or secret", [], 42):
+            report=self.report()
+            report["assignments"]["A"]["recovery_advice"]=value
+            result=envelope(report,10,1,C)
+            self.assertEqual(result["recovery_hints"],{})
+            self.assertNotIn("recovery_advice",result["assignments"]["A"])
+
     def test_nonlive_or_mutation_authority_refused(self):
         for key,value in (("merge_authorized",True),("agent_work_executed",True),
                           ("final_queue_readback","NOT_REQUESTED")):

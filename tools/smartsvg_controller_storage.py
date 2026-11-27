@@ -8,7 +8,8 @@ from .smartsvg_controller_recovery import RecoveryJournal
 
 SHA = re.compile(r"[0-9a-f]{40}")
 KEY = re.compile(r"[0-9a-f]{64}")
-KINDS = frozenset(("STEP_ONLY", "LOG_ONLY", "REVIEW_CORRELATION", "SCOPE_OBSERVATION", "AUTHOR_CYCLE"))
+KINDS = frozenset(("STEP_ONLY", "LOG_ONLY", "REVIEW_CORRELATION", "SCOPE_OBSERVATION",
+                   "AUTHOR_CYCLE", "CYCLE_OUTCOME"))
 MAX_PAYLOAD = 65536
 
 
@@ -69,6 +70,12 @@ class OperationalJournal(RecoveryJournal):
             kind TEXT NOT NULL, raw BLOB NOT NULL)""")
         self.db.execute("""CREATE INDEX IF NOT EXISTS evidence_context
             ON evidence(number,head,main,policy,kind)""")
+        self.db.execute("""CREATE TABLE IF NOT EXISTS cycle_import_v1(
+            item TEXT NOT NULL, incident TEXT NOT NULL, owner TEXT NOT NULL,
+            run TEXT NOT NULL, context TEXT NOT NULL, source TEXT NOT NULL,
+            evidence_digest TEXT NOT NULL,
+            PRIMARY KEY(item,incident,owner,run),
+            UNIQUE(item,incident,owner,source))""")
 
     def claim(self, item, head, owner, ttl=300):
         if (owner not in ("A", "B") or not isinstance(item, str) or not item
