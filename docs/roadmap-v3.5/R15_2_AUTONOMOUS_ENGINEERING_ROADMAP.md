@@ -227,3 +227,25 @@ with TemporaryDirectory() as root:
 ```
 
 </details>
+
+## 14. Reprise multi-cycle — 27 novembre 2026, session propriétaire
+
+**Contexte.** Main observé `dccd7a4fcdfdd49857b26e3e6014e3c1e769014b`, journal pilote IDLE/génération 0. Les deux tâches existantes restent actives H:55 A / H:25 B, avec instruction multi-cycle relue après mise à jour : poursuivre les micro-lots admissibles tant que le budget réel le permet, ne pas s'arrêter après un premier artefact et reprendre le dernier examen substantiel sans rejouer un diff inchangé comme seule action. Les préfixes R13, périmètres, WIP, B seul, une fusion/cycle, revue indépendante, §7, retour R13 et G0 restent inchangés. Aucune nouvelle tâche, autorité ou intégration de main. L'effet de ces nouvelles instructions doit être observé sur les cycles suivants, non présumé.
+
+**Qualification par révision exacte.**
+
+| Candidat | HEAD de la recette | Preuve exécutée | Limite |
+|---|---|---|---|
+| #206 | `9d2cff59a52cdb00f8091134a1af2480f8116da3` | G0 45981232604 ; stabilité 45981232603 ; préflight 45981232522 success. 8 nouveaux tests explicitement ok dans le job 140445350707. | Ingestion réelle et persistance entre runners non qualifiées. |
+| #207 | `976da8542625b9c540c7287b63d0e76cfcf900ff` | G0 45983081289, job 140451663542 : 14 tests d'objectifs ok ; stabilité 45983081351 et préflight 45983081374 success. | Planification consultative, pas exécution ni preuve de clôture. |
+| #208 (assemblage de recette, DO NOT MERGE) | `1e405f1ff76c1f4d79293d8f12d0b7e04b03aafd` | G0 45983485175, job 140453023584 : 333 tests du contrôleur ok ; 1475 comptabilisés dont 186 SKIP. Stabilité 45983485250 et préflight 45983485204 success. | Réunit les 25 fichiers de #202/#203/#205/#206/#207 aux HEAD exacts du corps de PR. Ne remplace aucune PR ni revue. |
+| #209 (draft empilée sur #207) | `51b3b7002d6e1ae15123ab383ba777dc6fa4203d` | G0 45984354617, job 140456032027 : 15 tests journal de missions et 7 tests adaptateur SmartSVG ok ; préflight 45984353941 success. | Stabilité en cours à l'observation ; journal local, transport réel et critères finaux non qualifiés. |
+| #210 (draft indépendante) | `e1557446c4441d4c29fef4a522fb7e99f3757156` | G0 45984163706, job 140455376630 : 15 tests de mesures ok ; préflight 45984163632 success. | Stabilité en cours à l'observation ; aucune baseline réelle suffisante. |
+
+**T1/T2.** #207 ajoute un profil versionné, une planification par critères observés, dépendances explicites, cycles isolés et priorité tenant compte de l'âge et de la profondeur. #209 conserve les missions locales par CAS génération/digest et historique borné, invalide les preuves au changement de contexte, refuse de déclarer VERIFIED/INTEGRATED/DONE sans adaptateur d'acceptation qualifié. Son graphe SmartSVG est volontairement partiel, lié à BACKLOG_AND_DEPENDENCIES, MASTER_PRIORISE, DELIVERY_EXECUTION_PLAN et SMART_DELIVERY_EXECUTION_CONTRACT par leurs blobs vérifiés. SD0-A ne dépend pas d'un export, SD1-A exige une preuve explicite d'un seul export typé et SD0-A/B, W08 requiert PTC ; CAL-CUT/PTC, release, CP0–6, autres contrats et fonctionnalités avancées restent à qualifier séparément. Aucune priorité normative modifiée, aucun nouveau ticket produit.
+
+**T3/T4.** #210 calcule les résultats descriptifs sur fenêtres UTC comparables, distingue cycles inconnus/manquants, attente légitime et absence de progrès vérifiée, empêche le recyclage d'un run/receipt/artefact entre fenêtres, exclut la gouvernance des livraisons produit. Défauts de données explicites ; seuils provisoires 7 jours, 80 % couverture et 20 cycles éligibles minimum par fenêtre. Ce sont des paramètres d'étude à relire, pas une autorité. Gains actuels INSUFFICIENT_DATA ; aucune extension du WIP ou du nombre de fusions.
+
+**Observation réelle.** Le run R15-A 45963955945 (job 140388077122) sur le main exact a produit à 08:13:36 UTC un conseil A/#194 et B/#195, WIP3, queue complète, et à 08:14:17 UTC un paquet #195/IDLE avec cinq receipts de steps PASS. Ce paquet historique n'est pas une autorisation ni une preuve B et ne doit pas être réutilisé hors fenêtre de fraîcheur. Les deux seuls runs schedule exact-main listés à l'observation ont été créés le 26/11 à 23:45:52 et le 27/11 à 08:12:59 UTC malgré le cron horaire ; cause non établie. Le fallback R13 reste indispensable, jamais un nouveau gel. Le dernier cycle B a relu le diff sans nouvelle preuve ni fusion ; A n'a pas réalisé de lecture technique. L'effet des prompts multi-cycle n'a pas encore été observé.
+
+**Recette live candidate.** #208 a ensuite reçu un workflow de lecture seule strictement limité à cette PR draft, HEAD `70b721a4466df1f8841198805a18f869946e9e44` / run 45984564884. Ce workflow de recette est exclu de toute promotion ; il n'émet ni R15_ROUTE_V1 ni R15B_PILOT_V1 utilisables. Nouveau HEAD à qualifier. L'intégration réelle B, la mémoire alimentée par les cycles, la rotation, la recette de reprise réelle et la généralisation restent ouvertes. Ne pas confondre les tests de simulation réussis avec des preuves d'exploitation.
