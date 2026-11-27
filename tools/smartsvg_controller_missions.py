@@ -7,6 +7,7 @@ The live adapter and operational transport remain separate work.
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 import json
+from pathlib import Path
 import sqlite3
 from contextlib import contextmanager
 
@@ -107,7 +108,11 @@ def _decode(raw, digest):
 class MissionJournal:
     """Local SQLite only, distinct from the live integration intent journal."""
 
-    def __init__(self, path):
+    def __init__(self, path, *, read_only=False):
+        if read_only:
+            uri = Path(path).resolve().as_uri() + "?mode=ro"
+            self.db = sqlite3.connect(uri, uri=True, isolation_level=None, timeout=5)
+            return
         self.db = sqlite3.connect(path, isolation_level=None, timeout=5)
         self.db.execute("PRAGMA busy_timeout=5000")
         self.db.execute("""CREATE TABLE IF NOT EXISTS mission_checkpoint_v1(

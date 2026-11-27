@@ -1,0 +1,77 @@
+"""Read-only SmartSVG R15.2 mission advice for an existing local checkpoint."""
+import argparse
+import json
+import os
+from sqlite3 import Error as SQLiteError
+
+from .smartsvg_controller_missions import MissionJournal
+from .smartsvg_controller_objectives import Profile, ROLES, SHA, _matches
+from .smartsvg_controller_observation import github_get
+from .smartsvg_controller_smartsvg_objectives import (
+    BACKLOG_PATH, POLICY_PIN, REPOSITORY, SOURCE_PINS,
+    observe_smartsvg_mission_resumption,
+)
+
+MAX_REVISION_BYTES = 32 * 1024
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--main", required=True, help="expected exact SmartSVG main SHA")
+    parser.add_argument("--role", required=True, choices=ROLES)
+    parser.add_argument("--journal", required=True, help="existing local mission SQLite file")
+    parser.add_argument("--revisions", required=True,
+                        help="caller-observed objective-to-revision JSON map")
+    args = parser.parse_args(argv)
+
+    report = {"version": 1, "qualification": "LOCAL_ADVISORY_ONLY",
+              "merge_authorized": False, "agent_work_executed": False,
+              "role": args.role, "selection": None}
+    if not _matches(SHA, args.main):
+        report["status"] = "CONTEXT_INPUT_INVALID"
+        print(json.dumps(report, sort_keys=True))
+        return 2
+    report["main"] = args.main
+
+    try:
+        with open(args.revisions, "rb") as source:
+            raw = source.read(MAX_REVISION_BYTES + 1)
+        if len(raw) > MAX_REVISION_BYTES:
+            raise ValueError("revision inventory too large")
+        revisions = json.loads(raw)
+    except (OSError, RecursionError, ValueError):
+        report["status"] = "REVISION_INPUT_INVALID"
+        print(json.dumps(report, sort_keys=True))
+        return 2
+
+    try:
+        journal = MissionJournal(args.journal, read_only=True)
+    except (OSError, RuntimeError, SQLiteError, ValueError):
+        report["status"] = "LOCAL_JOURNAL_UNAVAILABLE"
+        print(json.dumps(report, sort_keys=True))
+        return 2
+    try:
+        token = os.environ.get("SMARTSVG_GITHUB_READ_TOKEN")
+        profile = Profile("smartsvg", REPOSITORY, "main", POLICY_PIN,
+                          dict(SOURCE_PINS)[BACKLOG_PATH])
+        observed = observe_smartsvg_mission_resumption(
+            lambda path: github_get(path, token=token), journal, profile,
+            args.main, revisions, role=args.role)
+    finally:
+        journal.close()
+
+    report["status"] = observed.status
+    if observed.mission_plan is not None:
+        selected = observed.mission_plan.selected
+        if selected is not None:
+            report["selection"] = {
+                "objective": selected.objective.objective,
+                "action": selected.objective.action,
+                "checkpoint_status": selected.checkpoint_status,
+            }
+    print(json.dumps(report, sort_keys=True))
+    return 0 if observed.mission_plan is not None else 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

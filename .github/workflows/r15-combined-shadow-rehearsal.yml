@@ -92,3 +92,70 @@ jobs:
           print("R15_COMBINED_SHADOW_V1 " + json.dumps(
               reduced, sort_keys=True, separators=(",", ":"), allow_nan=False))
           PY
+
+      - name: Reopen a local mission journal against live SmartSVG sources
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          SMARTSVG_GITHUB_READ_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          import tempfile
+          from pathlib import Path
+          from tools.smartsvg_controller_missions import MissionJournal
+          from tools.smartsvg_controller_objectives import Profile
+          from tools.smartsvg_controller_observation import github_get
+          from tools.smartsvg_controller_smartsvg_objectives import (
+              BACKLOG_PATH, POLICY_PIN, REPOSITORY, SOURCE_PINS,
+              observe_smartsvg_objectives,
+          )
+
+          token = os.environ["SMARTSVG_GITHUB_READ_TOKEN"]
+          get = lambda path: github_get(path, token=token)
+          main = get("/branches/main")["commit"]["sha"]
+          profile = Profile("smartsvg", REPOSITORY, "main", POLICY_PIN,
+                            dict(SOURCE_PINS)[BACKLOG_PATH])
+          # These revisions identify a local rehearsal fixture, not product proof.
+          revisions = {"W01-V1-CORE": main, "W05-SD0-A": main}
+          graph = observe_smartsvg_objectives(get, profile, main, revisions)
+          assert graph.status == "OBSERVED_PARTIAL_GRAPH", graph.status
+          core = next(obj for obj in graph.objectives if obj.key == "W01-V1-CORE")
+          with tempfile.TemporaryDirectory(prefix="r15-mission-shadow-") as directory:
+              path = Path(directory) / "missions.sqlite"
+              inventory = Path(directory) / "revisions.json"
+              inventory.write_text(json.dumps(revisions), encoding="utf-8")
+              journal = MissionJournal(path)
+              try:
+                  first = journal.create(profile, core, main)
+                  waiting = journal.advance(
+                      profile, core.key, expected_generation=first.generation,
+                      expected_digest=first.digest, main=main, revision=main, role="B",
+                      state="WAITING", next_action="VERIFY_CRITERION", evidence="c"*64)
+                  assert waiting is not None
+              finally:
+                  journal.close()
+              before = path.read_bytes()
+              process = subprocess.run(
+                  [sys.executable, "-m", "tools.smartsvg_controller_mission_cli",
+                   "--main", main, "--role", "B", "--journal", str(path),
+                   "--revisions", str(inventory)],
+                  capture_output=True, text=True, timeout=120)
+              report = json.loads(process.stdout)
+              assert process.returncode == 0, report["status"]
+              assert path.read_bytes() == before
+          assert report["main"] == main
+          assert report["selection"] == {
+              "objective": "W05-SD0-A",
+              "action": "VERIFY_CRITERION",
+              "checkpoint_status": "NEW",
+          }
+          assert report["merge_authorized"] is False
+          assert report["agent_work_executed"] is False
+          print("R15_MISSION_SHADOW_V1 " + json.dumps(report, sort_keys=True))
+          PY

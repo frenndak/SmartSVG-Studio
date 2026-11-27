@@ -1,10 +1,14 @@
+from contextlib import redirect_stdout
+from io import StringIO
+import json
 import unittest
 from pathlib import Path
 from sqlite3 import OperationalError
 from tempfile import TemporaryDirectory
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from dataclasses import replace
 from hashlib import sha256
+from tools.smartsvg_controller_mission_cli import MAX_REVISION_BYTES, main as mission_cli
 from tools.smartsvg_controller_missions import MissionJournal
 from tools.smartsvg_controller_objectives import Profile, Receipt, plan_objectives
 from tools.smartsvg_controller_smartsvg_objectives import (
@@ -192,3 +196,83 @@ class SmartSVGObjectiveAdapterTests(unittest.TestCase):
         self.assertEqual(result.status, "LOCAL_JOURNAL_UNAVAILABLE")
         self.assertIsNone(result.mission_plan)
         self.assertNotIn("private database path", repr(result))
+
+
+class SmartSVGMissionCommandTests(unittest.TestCase):
+    def setUp(self):
+        directory = TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.path = Path(directory.name) / "missions #.sqlite"
+        self.revision_path = Path(directory.name) / "revisions.json"
+        self.revisions = {key: M for key in ("W01-V1-CORE", "W05-SD0-A")}
+        self.revision_path.write_text(json.dumps(self.revisions), encoding="utf-8")
+
+    def call(self, get=source):
+        result = StringIO()
+        args = ["--main", M, "--role", "B", "--journal", str(self.path),
+                "--revisions", str(self.revision_path)]
+        with patch("tools.smartsvg_controller_mission_cli.github_get",
+                   side_effect=lambda path, token: get(path)), redirect_stdout(result):
+            code = mission_cli(args)
+        return code, json.loads(result.getvalue())
+
+    def test_command_reopens_read_only_and_suggests_independent_work(self):
+        graph = observe_smartsvg_objectives(source, P, M, self.revisions)
+        core = rows(graph)["W01-V1-CORE"]
+        journal = MissionJournal(self.path)
+        try:
+            first = journal.create(P, core, M)
+            journal.advance(P, core.key, expected_generation=first.generation,
+                            expected_digest=first.digest, main=M, revision=M, role="B",
+                            state="WAITING", next_action="VERIFY_CRITERION",
+                            evidence="b"*64)
+        finally:
+            journal.close()
+        before = self.path.read_bytes()
+        code, report = self.call()
+        self.assertEqual(code, 0)
+        self.assertEqual(self.path.read_bytes(), before)
+        self.assertEqual(report["selection"], {
+            "objective": "W05-SD0-A",
+            "action": "VERIFY_CRITERION",
+            "checkpoint_status": "NEW",
+        })
+        self.assertFalse(report["merge_authorized"])
+        self.assertFalse(report["agent_work_executed"])
+        self.assertNotIn(str(self.path), repr(report))
+        self.assertNotIn("b"*64, repr(report))
+
+    def test_command_never_creates_a_missing_database(self):
+        get = Mock(side_effect=source)
+        code, report = self.call(get)
+        self.assertEqual(code, 2)
+        self.assertEqual(report["status"], "LOCAL_JOURNAL_UNAVAILABLE")
+        self.assertIsNone(report["selection"])
+        self.assertFalse(self.path.exists())
+        get.assert_not_called()
+
+    def test_command_bounds_revision_input_before_network_access(self):
+        self.revision_path.write_bytes(b" " * (MAX_REVISION_BYTES + 1))
+        get = Mock(side_effect=source)
+        code, report = self.call(get)
+        self.assertEqual(code, 2)
+        self.assertEqual(report["status"], "REVISION_INPUT_INVALID")
+        get.assert_not_called()
+
+    def test_command_drops_selection_when_main_moves(self):
+        journal = MissionJournal(self.path)
+        journal.close()
+        main_reads = 0
+
+        def drift(path):
+            nonlocal main_reads
+            if path == "/branches/main":
+                main_reads += 1
+                if main_reads == 3:
+                    return {"commit": {"sha": "b"*40}}
+            return source(path)
+
+        code, report = self.call(drift)
+        self.assertEqual(code, 2)
+        self.assertEqual(report["status"], "CONTEXT_CHANGED")
+        self.assertIsNone(report["selection"])
