@@ -137,3 +137,24 @@ class MetricsTests(unittest.TestCase):
             summarize(replace(BASE,start=BASE.start.replace(tzinfo=None)))
         with self.assertRaises(ValueError):
             summarize(replace(BASE,cadence=(("A",True),)))
+
+    def test_cross_window_run_and_receipt_replay_is_unknown(self):
+        a,b=cycle(BASE,0),cycle(CURRENT,0)
+        for c in (replace(b,run_digest=a.run_digest),replace(b,receipt_digest=a.receipt_digest)):
+            result=compare(BASE,CURRENT,baseline_cycles=(a,),current_cycles=(c,))
+            self.assertEqual(result.baseline.productive,1)
+            self.assertEqual((result.current.productive,result.current.unknown),(0,1))
+
+    def test_cross_window_reused_merge_or_acceptance_is_rejected(self):
+        a,b=delivery(BASE,1),delivery(CURRENT,2)
+        for d in (replace(b,merge=a.merge),replace(b,acceptance_digest=a.acceptance_digest)):
+            result=compare(BASE,CURRENT,baseline_deliveries=(a,),current_deliveries=(d,))
+            self.assertEqual((result.baseline.delivered,result.current.delivered,
+                              result.current.delivery_rejected),(1,0,1))
+
+    def test_previously_conflicting_delivery_identity_not_recycled(self):
+        a=delivery(BASE,1)
+        b=replace(delivery(BASE,2),merge=a.merge)
+        c=replace(delivery(CURRENT,3),merge=a.merge)
+        result=compare(BASE,CURRENT,baseline_deliveries=(a,b),current_deliveries=(c,))
+        self.assertEqual((result.baseline.delivered,result.current.delivered),(0,0))
