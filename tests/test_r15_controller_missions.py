@@ -140,3 +140,39 @@ class MissionJournalTests(unittest.TestCase):
         with self.assertRaises(MissionError):
             self.j.recontextualize(PROFILE,OBJECTIVE,M,expected_generation=1,
                                    expected_digest=self.first.digest)
+
+    def test_readback_rejects_semantically_invalid_duplicate_evidence(self):
+        from tools.smartsvg_controller_missions import _material, _record, _scope
+        a = self.advance(self.first)
+        material = _material(PROFILE, OBJECTIVE, M, 3, "ACTIVE",
+                             "IMPLEMENT", E, a.digest)
+        raw, digest = _record(material)
+        self.j.db.execute("INSERT INTO mission_checkpoint_v1 VALUES(?,?,?,?,?)",
+                          (_scope(PROFILE), OBJECTIVE.key, 3, digest, raw))
+        with self.assertRaises(MissionError):
+            self.j.latest(PROFILE, OBJECTIVE.key)
+
+    def test_readback_rejects_changed_objective_without_context_change(self):
+        from tools.smartsvg_controller_missions import _material, _record, _scope
+        a = self.advance(self.first)
+        changed = replace(OBJECTIVE, priority=10)
+        raw, digest = _record(_material(PROFILE, changed, M, 3, "ACTIVE",
+                                       "IMPLEMENT", "b"*64, a.digest))
+        self.j.db.execute("INSERT INTO mission_checkpoint_v1 VALUES(?,?,?,?,?)",
+                          (_scope(PROFILE), OBJECTIVE.key, 3, digest, raw))
+        with self.assertRaises(MissionError):
+            self.j.latest(PROFILE, OBJECTIVE.key)
+
+    def test_bounded_history_and_inventory_do_not_prevent_other_scope(self):
+        from unittest.mock import patch
+        from tools import smartsvg_controller_missions as module
+        with patch.object(module, "MAX_EVENTS", 2):
+            a = self.advance(self.first)
+            with self.assertRaises(MissionError):
+                self.advance(a, evidence="b"*64)
+            self.assertEqual(self.j.latest(PROFILE, OBJECTIVE.key), a)
+        with patch.object(module, "MAX_MISSIONS", 1):
+            with self.assertRaises(MissionError):
+                self.j.create(PROFILE, replace(OBJECTIVE,key="second"), M)
+            other = replace(PROFILE, project="other")
+            self.assertEqual(self.j.create(other, OBJECTIVE, M).state,"PLANNED")
