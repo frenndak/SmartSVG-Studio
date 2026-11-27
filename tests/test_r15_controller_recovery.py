@@ -203,3 +203,49 @@ class StableIncidentTests(unittest.TestCase):
         self.assertTrue(self.j.record_cycle(*args, self.fence, run="fresh", ordinal=1,
                                             outcome="PROGRESS", receipt="e"*64))
         self.assertEqual(self.j.advise(*args, incident=self.scope), "RESUME_CHECKPOINT")
+
+    def test_exact_no_progress_cannot_hide_stable_stagnation(self):
+        self.record(1, "NO_PROGRESS")
+        self.record(2, "NO_PROGRESS")
+        self.rotate("c"*64)
+        args = (self.item, self.context, "B")
+        self.assertTrue(self.j.record_cycle(*args, self.fence, run="new",
+                                            ordinal=1, outcome="NO_PROGRESS"))
+        self.assertEqual(self.j.advise(*args, incident=self.scope), "CHANGE_STRATEGY")
+
+    def test_old_wait_expires_but_does_not_erase_stagnation(self):
+        self.record(1, "NO_PROGRESS")
+        self.record(2, "NO_PROGRESS")
+        self.record(3, "WAIT_CI")
+        args = (self.item, self.context, "B")
+        self.assertEqual(self.j.advise(*args, incident=self.scope), "OTHER_ACTIONABLE_WORK")
+        self.rotate("c"*64)
+        self.assertEqual(self.j.advise(self.item, self.context, "B", incident=self.scope),
+                         "CHANGE_STRATEGY")
+
+    def test_old_external_blocker_expires_without_erasing_streak(self):
+        self.record(1, "NO_PROGRESS")
+        self.record(2, "NO_PROGRESS")
+        self.record(3, "NO_PROGRESS")
+        self.record(4, "EXTERNAL", "e"*64)
+        self.assertEqual(self.j.advise(self.item, self.context, "B", incident=self.scope),
+                         "ISOLATE_EXTERNAL_BLOCKER")
+        self.rotate("c"*64)
+        self.assertEqual(self.j.advise(self.item, self.context, "B", incident=self.scope),
+                         "PROPOSE_HANDOFF_REVIEW")
+
+    def test_overlapping_histories_are_not_summed(self):
+        self.record(1, "NO_PROGRESS")
+        args = (self.item, self.context, "B")
+        self.assertTrue(self.j.record_cycle(*args, self.fence, run="1",
+                                            ordinal=1, outcome="NO_PROGRESS"))
+        self.assertEqual(self.j.advise(*args, incident=self.scope), "RESUME_CHECKPOINT")
+
+    def test_current_wait_has_priority_over_old_stagnation(self):
+        self.record(1, "NO_PROGRESS")
+        self.record(2, "NO_PROGRESS")
+        self.rotate("c"*64)
+        args = (self.item, self.context, "B")
+        self.assertTrue(self.j.record_cycle(*args, self.fence, run="wait",
+                                            ordinal=1, outcome="WAIT_REVIEW"))
+        self.assertEqual(self.j.advise(*args, incident=self.scope), "OTHER_ACTIONABLE_WORK")
