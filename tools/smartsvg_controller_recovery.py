@@ -117,9 +117,20 @@ class RecoveryJournal(Journal):
         rows = self.db.execute(
             "SELECT outcome,receipt FROM cycle WHERE item=? AND head=? AND owner=? ORDER BY ordinal",
             (item, head, owner)).fetchall()
-        exact = _advice(rows)
         if incident is None:
-            return exact
+            return _advice(rows)
+        stable_rows = self._incident_rows(item, incident, owner)
+        # An old receipt repeated in the exact context is not fresh progress.
+        # A receipt first observed in this context may appear in both ledgers;
+        # do not mistake that legitimate overlap for a duplicate.
+        first_context = {}
+        for context, outcome, receipt in stable_rows:
+            if outcome == "PROGRESS":
+                first_context.setdefault(receipt, context)
+        rows = [("NO_PROGRESS" if outcome == "PROGRESS" and
+                 first_context.get(receipt, head) != head else outcome, receipt)
+                for outcome, receipt in rows]
+        exact = _advice(rows)
         # A current-context wait/external blocker takes precedence, as does
         # genuinely new exact-context progress. Mere NO_PROGRESS cannot erase
         # a previous incident streak. Never add the two histories: they may
@@ -128,7 +139,6 @@ class RecoveryJournal(Journal):
             return exact
         if any(outcome == "PROGRESS" for outcome, _ in rows):
             return exact
-        stable_rows = self._incident_rows(item, incident, owner)
         stable = _advice([(outcome, receipt) for _, outcome, receipt in stable_rows],
                          respect_terminal_blocker=bool(stable_rows and
                                                        stable_rows[-1][0] == head))
