@@ -180,7 +180,8 @@ def _deliveries(deliveries, start, end, prior):
         d = next(iter(rows))
         if not d.product:
             continue
-        if n in prior:
+        if any(identity in prior for identity in
+               (("pr", n), ("merge", d.merge), ("receipt", d.acceptance_digest))):
             rejected += 1
             continue
         valid.append(d)
@@ -192,10 +193,16 @@ def _deliveries(deliveries, start, end, prior):
     kept = [d for d in valid if d.number not in conflicted]
     rejected += len(conflicted)
     durations = [(_utc(d.merged)-_utc(d.opened)).total_seconds()/3600 for d in kept]
-    return len(kept), median(durations) if durations else None, rejected, {d.number for d in kept}
+    # Retain even conflicting previously observed identities so they cannot
+    # be recycled as apparently new deliveries in a later comparison window.
+    seen = {(kind, value) for rows in by_pr.values() for d in rows if d.product
+            for kind, value in (("pr", d.number), ("merge", d.merge),
+                                ("receipt", d.acceptance_digest))}
+    return len(kept), median(durations) if durations else None, rejected, seen
 
 
-def _summarize(period, cycles, deliveries, *, previous_artifacts=(), previous_deliveries=()):
+def _summarize(period, cycles, deliveries, *, previous_artifacts=(), previous_deliveries=(),
+               previous_runs=(), previous_receipts=()):
     start, end, _, slots = _period(period)
     if type(cycles) is not tuple or len(cycles) > len(slots)*4:
         raise ValueError("invalid cycle inventory")
@@ -215,6 +222,12 @@ def _summarize(period, cycles, deliveries, *, previous_artifacts=(), previous_de
             receipt_slots.setdefault(c.receipt_digest,set()).add(key)
     conflicted = {k for rows in (*run_slots.values(),*receipt_slots.values())
                   if len(rows)>1 for k in rows}
+    # A run or receipt belongs to exactly one scheduled cycle, including
+    # across periods. Keep the earlier historical observation conservative.
+    for identity in previous_runs:
+        conflicted.update(run_slots.get(identity, ()))
+    for identity in previous_receipts:
+        conflicted.update(receipt_slots.get(identity, ()))
     artifacts = set(previous_artifacts)
     counts = {k:0 for k in OUTCOMES}
     duplicates = 0
@@ -238,7 +251,7 @@ def _summarize(period, cycles, deliveries, *, previous_artifacts=(), previous_de
     return (Summary(len(slots),counts["PRODUCTIVE"],counts["NO_PROGRESS"],
                     counts["WAIT_ONLY"],counts["EXTERNAL_BLOCKED"],counts["UNKNOWN"],
                     len(slots)-len(by_slot),rejected,duplicates,delivered,lead,delivery_rejected),
-            artifacts,seen_deliveries)
+            artifacts,seen_deliveries,set(run_slots),set(receipt_slots))
 
 
 def summarize(period, cycles=(), deliveries=()):
@@ -255,9 +268,11 @@ def compare(baseline, current, *, baseline_cycles=(), current_cycles=(),
             or baseline.phase!="R13" or current.phase!="R15"
             or bc!=cc or be>cs or be-bs!=ce-cs):
         raise ValueError("noncomparable periods")
-    a,artifacts,deliveries = _summarize(baseline,baseline_cycles,baseline_deliveries)
-    b,_,_ = _summarize(current,current_cycles,current_deliveries,
-                         previous_artifacts=artifacts,previous_deliveries=deliveries)
+    a,artifacts,deliveries,runs,receipts = _summarize(
+        baseline,baseline_cycles,baseline_deliveries)
+    b,_,_,_,_ = _summarize(current,current_cycles,current_deliveries,
+                           previous_artifacts=artifacts,previous_deliveries=deliveries,
+                           previous_runs=runs,previous_receipts=receipts)
     reasons = []
     if be-bs < MIN_WINDOW:
         reasons.append("WINDOW_TOO_SHORT")
